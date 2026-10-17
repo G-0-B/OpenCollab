@@ -32,7 +32,6 @@ OpenCollab 遵循**严谨而克制的软件工程理念**。在 [0.9.3 版本](h
 
 ## 动态
 
-- **2026-10-17** — [OpenCollab 0.9.4](https://github.com/RISE-X-Lab/OpenCollab/releases/tag/v0.9.4) 新增 Weave 与可控工作流会话，改进上下文处理，并纳入候选交付、会话恢复、模型适配与工具等方面的 98 项已审修复。详见[变更记录](CHANGELOG.md#094---2026-10-17)。
 - 🏆 **2026-10-11** — 使用 OpenCollab 获得 OAIC Agentic Software Factory Hackathon **[第一名](https://create.gosim.org/factory26/)**！🏆
 - 🎉 **2026-10-08** — [OpenCollab 0.9.3 (v1.0.0 PreRelease)](https://github.com/RISE-X-Lab/OpenCollab/releases/tag/v0.9.3)
   内置最新版 Duo V8，并完整提供论文中介绍的面向科研实验的统计功能。
