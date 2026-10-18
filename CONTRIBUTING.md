@@ -43,9 +43,76 @@ uv run deptry .       # dependency hygiene
 uv run pytest -q      # Python test suite
 ```
 
-New behavior needs tests, and the suite must stay green.
-The [testing guide](docs/testing.md) covers focused runs and temporary reports.
-The [test directory guide](tests/README.md) maps runtime behavior to test topics.
+New behavior needs tests, and the suite must stay green. Provider credentials
+are needed for live runs, not for the regular test suite.
+
+### Find and run the relevant tests
+
+Tests are grouped by behavior. Topic filenames and function names identify
+individual regressions; example-specific tests stay beside their example.
+
+| Directory | Behavior |
+| --- | --- |
+| `tests/agents/` | Profiles, single-agent sessions, turns and completion |
+| `tests/workflows/` | Teams, topology, messaging, scheduling and workflows |
+| `tests/tools/` | Tools, files, shell commands, Git and executable evidence |
+| `tests/runtime/` | Providers, environments, cancellation, context, storage and tracing |
+| `tests/interfaces/` | CLI, TUI and public SDK entry points |
+| `tests/packaging/` | Architecture, repository ownership, metadata and distributions |
+| `tests/support/` | Reusable doubles, preparation and test path resolution |
+
+Use a directory, topic file, or pytest node ID for a focused run.
+
+```bash
+uv run pytest -q tests/agents
+uv run pytest -q tests/workflows/test_duo_runtime.py
+uv run pytest -q tests/tools/test_safe_files.py::test_read_rejects_fifo_without_blocking
+```
+
+The default suite also includes Mini Edict, ARC-Bench r6, and IO2Code tests, as
+listed in `pyproject.toml`. Workspaces use pytest's system temporary directory.
+Keep logs and reports outside the repository, for example:
+
+```bash
+uv run pytest -q -p no:cacheprovider --junitxml=/tmp/opencollab-tests.xml
+```
+
+Import shared preparation explicitly from `tests.support`. Keep a helper beside
+its topic until another topic needs it. `tests.support.paths.REPO_ROOT` anchors
+to the test tree in a checkout or source archive; `PACKAGE_ROOT` identifies the
+imported package for subprocess tests. Session envelopes and recording doubles
+live in `session_runtime_test_support`; tool builders live in
+`tool_execution_test_support`. Construct each scenario with explicit inputs.
+Fixtures own resources whose setup and cleanup follow the test lifetime.
+
+### DOM and browser checks
+
+With Node 20 or newer and the Python environment prepared:
+
+```bash
+npm ci --prefix tests/workflows/blueprint_dom --no-audit --no-fund
+npm test --prefix tests/workflows/blueprint_dom
+```
+
+The DOM tests use `.venv/bin/python` by default. Set `OPENCOLLAB_TEST_PYTHON` to
+an absolute interpreter path for another environment. ARC-Bench r6's opt-in
+browser tests are skipped by the regular Python run. Its separate job uses
+Node 22.12 or newer, locked npm dependencies, and Chromium; follow the
+[example checker guide](examples/arcbench-evolution-r6/CHECKS.md) to run it.
+
+### Test an unpacked source archive
+
+The source distribution includes the tests and repository-check inputs.
+Initialize local Git metadata for checks that enumerate source files, then use
+the same development commands. A checkout already has this metadata.
+
+```bash
+git init --quiet
+uv sync --locked --extra dev
+uv run pytest -q
+```
+
+See [RELEASING.md](RELEASING.md) for clean builds and installed-artifact probes.
 
 ### CI and local hooks
 
@@ -53,8 +120,8 @@ CI runs the commands above on Python 3.10 through 3.14. The Python 3.12 job also
 runs the team blueprint DOM regressions with Node 20 or newer. Distribution and
 macOS jobs exercise installed artifacts and platform-specific integrity
 behavior. A separate ARC-Bench r6 job runs the example's browser checks with
-Node and Chromium. The [testing guide](docs/testing.md) links both browser
-test setups.
+Node and Chromium. The local setups are described
+[above](#dom-and-browser-checks).
 
 The title workflow checks Conventional Commit syntax and rejects Chinese prose
 in PR titles and non-merge commits pushed to `main`. It accepts a merge commit after the PR-title
@@ -87,6 +154,33 @@ exceptions. Run it locally with `uv run lint-imports`.
 - Need an outer capability inside? Add a **port** in `application/ports.py`, then
   wire the concrete implementation in `bootstrap/`.
 - When splitting a module, keep its public names re-exported so import paths stay stable.
+
+## Extend a tool or workflow
+
+For application-specific tools, implement the public structural
+[`Tool` protocol](opencollab/tools.py) and pass instances through
+`OpenCollab.agent(tools=[...])` or each workflow role's `tools=` argument.
+`Tool` describes the interface; it is not a base class supplying an
+implementation. Provide `name`, `description`, the JSON Schema `parameters`,
+`default_timeout`, `disable_outer_timeout`, `to_openai_schema()`, and async
+`execute_with_runtime(params, runtime)`. Return a string result. Keep execution
+state scoped to the call and use the supplied runtime for environment access.
+The [SDK tool example](opencollab/README.md#custom-tools) shows the complete contract.
+
+For a framework-owned tool, implement it under `opencollab/adapters/tools/`
+using the existing adapter base, and register its factory in
+`opencollab/bootstrap/tool_registry.py`. Expose it in `opencollab/tools.py` only
+if it belongs in the public built-in set. Give roles explicit tool lists rather
+than expanding everyone's permissions. Add a regression in `tests/tools/`
+covering the tool's actual result and relevant permission or failure boundary.
+
+For authored workflows, follow the executable
+[workflow example](opencollab/README.md#workflow-authoring). Put reusable
+framework behavior behind the public API; keep benchmark scoring and remote
+execution in [OpenCollab-Eval](https://github.com/RISE-X-Lab/OpenCollab-Eval).
+When diagnosing a run, distinguish execution status from application correctness
+and use [run identity, usage and cleanup evidence](docs/evaluation-runtime.md)
+before attributing a failure to a model or a workflow.
 
 ## Commits & pull requests
 

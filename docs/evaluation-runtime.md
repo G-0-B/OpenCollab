@@ -17,7 +17,7 @@ for Single2. A public `workflow()` call using the default
 limits to `None`, including when `budget` or `max_steps` is passed.
 `limit_mode="explicit"` retains the supplied workflow and per-call limits,
 including inside candidate child workflows. See
-[controlled workflow agent calls](controlled-workflow-agents.md) for an example.
+[controlled workflow agent calls](#controlled-workflow-agent-calls) for an example.
 SDK `team()` continues to use its shared or declared per-role token allowances
 and its `max_steps` setting. Finite settings use normal budget reservations.
 
@@ -134,3 +134,68 @@ Unbounded workflow roles retain the caller's configured request, first-event,
 stream-idle, and connection timeouts. Caller cancellation, provider retry settings,
 and owned cleanup remain configured. Terminal traces record null token and step
 limits without losing the final usage or stop reason.
+
+## Controlled workflow agent calls
+
+`RunControl` and `WorkflowContext.agent_run` are available in OpenCollab 0.9.4
+and newer. See the [package installation guide](../opencollab/README.md#install).
+
+`WorkflowContext.agent_run` runs a fresh session and returns its execution
+result, including its stop reason, tokens, steps, session identity and cleanup
+state. Existing `ctx.agent` calls keep their text or structured-output result.
+
+```python
+from opencollab import OpenCollab, RunControl, workflow
+from opencollab.tools import builtin_tools
+
+@workflow(name="incremental-edit")
+async def incremental_edit(ctx, inputs):
+    tools = builtin_tools("bash", "file_read", "apply_patch", "git_diff", headless=False)
+    first = await ctx.agent_run(
+        inputs["first_task"], label="first", budget=100_000,
+        tools=tools,
+        max_steps=40, system_prompt="Implement the assigned change and verify it.",
+        run_control=RunControl(initial_soft_budget_tokens=80_000),
+    )
+    if not first.workspace_ready:
+        return {"status": "cleanup_failed", "first": first.status}
+    second = await ctx.agent_run(inputs["second_task"], label="second", budget=100_000, tools=tools)
+    return {"first": first.status, "second": second.status}
+
+result = await OpenCollab("/path/to/application").workflow(
+    incremental_edit, {"first_task": "...", "second_task": "..."},
+    agent_profile="single2", budget=200_000, concurrency=1, limit_mode="explicit",
+)
+```
+
+Each call has a new conversation. Calls using `isolation=False` continue over
+the same application files. Pass explicit tools to each role as with
+`ctx.agent`. A per-call system prompt replaces the default profile/role prompt
+exactly; the selected profile still supplies tool configuration, shaping and
+safety. Omitting the prompt retains the existing profile composition.
+
+The workflow reserves a hard budget before the session starts. The actual
+grant can be lower than the requested budget because other calls hold shares
+of the pool. `RunControl` receives this actual grant and can expand the soft
+allowance within it. Unused reservations become available after call cleanup.
+Budget refusal and waiting for a concurrency slot remain distinct operations.
+
+Native clients returned by `OpenCollab.create_model_client()` receive a fresh
+provider retry time allowance for each SDK agent or workflow run. Sessions,
+summaries, and candidates within one workflow share that allowance, including
+when other SDK runs use the same connection concurrently. Direct
+`model.complete(...)` calls retain the model's existing retry allowance.
+OC-created agent and auxiliary summary transports share the agent's allowance
+as well.
+
+A timed-out call may have provider or tool work still settling. `agent_run`
+waits up to `cleanup_timeout` for the call's owned tasks. With incomplete
+cleanup it returns a failed result and prevents further work in the shared
+context. The workflow still owns the pending tasks and their budget until
+they settle. `cleanup_complete` distinguishes a stable result from a usage
+snapshot. External task cancellation propagates to the caller.
+
+Execution completion is separate from application correctness. Workflows
+should return their executable verification result alongside these session
+records. `ctx.run_id` identifies the current workflow run; child contexts
+retain the parent run identity while sessions have separate identities.

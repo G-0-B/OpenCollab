@@ -13,8 +13,7 @@ when extending a runtime or reproducing a result.
 | Compare and adopt two isolated candidates | [Duo](duo.md) · [Chinese translation](duo/README.zh-CN.md) |
 | Run ordered work with checks, repair, and continuation | [Weave](weave.md) |
 | Reconstruct a hidden program through active exploration | [Reconstruct](reconstruct.md) |
-| Control workflow agent limits, results, and cleanup | [Controlled workflow calls](controlled-workflow-agents.md) |
-| Integrate evaluation execution, usage, and cancellation | [Evaluation runtime](evaluation-runtime.md) |
+| Control workflow calls; integrate evaluation usage, cancellation and cleanup | [Evaluation runtime](evaluation-runtime.md) |
 | Inspect model capabilities and effective profiles offline | [Model inspection](model-inspection.md) |
 | Record native test observations and parse Git patches | [Test evidence](test-evidence.md) |
 | Add on-demand instructions | [Skills](../skills/README.md) |
@@ -25,7 +24,7 @@ when extending a runtime or reproducing a result.
 | Task | Guide |
 | --- | --- |
 | Prepare a contribution and follow collaboration rules | [Contributing](../CONTRIBUTING.md) |
-| Run Python, DOM, and browser checks | [Testing](testing.md) · [Test directory map](../tests/README.md) |
+| Find tests; run Python, DOM, and browser checks | [Contributor checks and test map](../CONTRIBUTING.md#checks-must-pass-before-a-pr) |
 | Use launchers, diagnostics, and experiment-card generation | [Scripts](../scripts/README.md) |
 | Measure tool-loop processing and progress recovery | [Tool-loop measurements](development/tool-loop-progress.md) |
 | Publish a tagged GitHub release | [Releasing](../RELEASING.md) |
@@ -54,6 +53,5 @@ Migration guides describe the named release, not current signatures or defaults.
 | --- | --- |
 | 0.7.x → 0.8.0 | [Base profile and Single2 defaults](migrations/0.8.0.md) |
 | 0.6.x → 0.7.0 | [Duo, evaluation runtime, and native Bash testing](migrations/0.7.0.md) |
-| Removed `run_tests` integration | [Tool lists, timeouts, shell permissions, and verification](migrations/remove-run-tests.md) |
 | 0.5.x → 0.6.0 | [Public API, teams, workflows, and lifecycle](migrations/0.6.0.md) |
 | Earlier versions → 0.5.0 | [Runtime failures, isolation, configuration, and budgeting](migrations/0.5.0.md) |

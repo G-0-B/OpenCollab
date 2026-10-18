@@ -125,7 +125,7 @@ the remaining allowance; these are graceful execution limits, not a real-time
 billing cap. `STOPPED` retains a reason and available partial results rather than
 being treated as successful task verification. Workflow and profile handling of
 unbounded limits is documented in
-[evaluation runtime](evaluation-runtime.md) and [controlled calls](controlled-workflow-agents.md).
+[evaluation runtime](evaluation-runtime.md) and [controlled calls](evaluation-runtime.md#controlled-workflow-agent-calls).
 
 ## Steering and structured completion
 
@@ -182,6 +182,6 @@ that those additions improve outcomes.
 | Steering and structured submission | `tests/agents/test_session_run_loop_steering.py`, `tests/workflows/test_workflow_structured_output.py` |
 | Resume and late-usage accounting | `tests/runtime/` persistence, provider, and usage topics |
 
-Use the [test directory map](../tests/README.md) to locate related regressions
-and the [testing guide](testing.md) for commands. These tests establish runtime
+Use the [test directory map](../CONTRIBUTING.md#find-and-run-the-relevant-tests) to locate related regressions
+and the [testing guide](../CONTRIBUTING.md#checks-must-pass-before-a-pr) for commands. These tests establish runtime
 behavior; model-effect claims require separately recorded experiments.
