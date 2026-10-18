@@ -1,12 +1,4 @@
-"""Role -> Agent assembly: ``SpawnConfig`` + ``ContextBuilder``.
-
-``ContextBuilder`` owns the single role -> ``Agent`` assembly used for both the
-lead and spawned agents. ``build_plan`` is the editorial step: it emits an
-ordered set of ``ContextSource`` objects, each tagged with its layer /
-load-timing / structural position; ``build_agent`` resolves the role's tool
-*names* to concrete Tools and folds the plan's SYSTEM sources into the agent's
-system prompt.
-"""
+"""Build role Agents and provenance-tagged context plans for team sessions."""
 
 from __future__ import annotations
 
@@ -61,15 +53,12 @@ class SpawnConfig:
     permission_policy: PermissionPort | None
     ask_policy: AskUserPort | None = None
     safety_policy_factory: SafetyPolicyFactory | None = None
-    # Global sampling-temperature default; a role may override it (see
-    # ``ContextBuilder.build_agent``). Defaulted so the field stays optional for
-    # the many call sites that construct a ``SpawnConfig`` by keyword.
+    # Role-specific sampling settings override these inherited defaults.
     temperature: float = DEFAULT_TEMPERATURE
     top_p: float | None = DEFAULT_TOP_P
     max_output_tokens: int = DEFAULT_MAX_TOKENS_PER_STEP
     context_window: int | None = None
-    # Global thinking passthrough; a role may override it (resolved in
-    # ``ContextBuilder.build_agent``). Defaulted (OFF) so the field stays optional.
+    # Roles may override the inherited thinking policy.
     thinking: bool = DEFAULT_THINKING
     thinking_params: dict | None = None
     wire_protocol: str = "chat_completions"
@@ -89,16 +78,10 @@ class SpawnConfig:
 
 
 class ContextBuilder:
-    """Turns a role name into a ready-to-run ``Agent`` + its context plan.
+    """Assemble role context and resolve tool names for entry and spawned agents.
 
-    Owns the single role -> ``Agent`` assembly used for both the lead and
-    spawned agents. ``build_plan`` is the editorial step: it emits an ordered
-    set of ``ContextSource`` objects, each tagged with its layer and structural
-    position. Identity, team and (when present) the project repo map land in the
-    system prompt; the task lands as a user-context message. ``build_agent``
-    resolves the role's tool *names* to concrete Tools and folds the plan's
-    SYSTEM sources into ``Agent.system_prompt``. Tool schemas are NOT injected
-    as prose — they already reach the LLM as function-calling schemas.
+    System sources supply identity/team/skills/project text; a delegated task is
+    user context. Tool schemas are passed separately rather than copied as prose.
     """
 
     def __init__(
@@ -111,12 +94,9 @@ class ContextBuilder:
     ):
         self._team = team_cfg
         self._cfg = cfg
-        # The skill store is a construction dep: a role's catalog is injected at
-        # plan time and the dispatcher tool is bound to this store. Defaults to
-        # an empty store so call sites that do not wire skills behave as before.
+        # Catalog and dispatcher must share the same store; absence means no skills.
         self._skill_store: SkillStorePort = skill_store or NullSkillStore()
-        # Startup content for the PROJECT layer (e.g. a repo map built by the
-        # composition root). Empty string means "none".
+        # Empty project content contributes no startup source.
         self._project_context = project_context or None
 
     def build_plan(
@@ -126,21 +106,14 @@ class ContextBuilder:
         task: str | None = None,
         context: str = "",
     ) -> ContextPlan:
-        """Emit the ordered context sources for ``role_name``.
+        """Emit non-empty system sources and an optional delegated user task.
 
-        Identity, the team section, the skill catalog and (when present) the
-        project repo map carry content and assemble into the system prompt; the
-        task, when given, becomes the sole user-context message. A source is
-        emitted only when it has content — reserved long-term layers (memory,
-        RAG) are an honest gap, not registered-but-empty placeholders.
+        Do not register empty memory/RAG placeholders without a content producer.
         """
         role = self._team.role_for(role_name)
         sources: list[ContextSource] = []
-        # A profiled seat is that profile's agent first and this team's role
-        # second: the profile's own system prompt leads, and the role card is
-        # appended to it rather than replacing it. Same order the workflow
-        # runtime uses (``_workflow_runtime_session._profile_prompt``), so a
-        # seat and a workflow agent of the same profile read the same base.
+        # Match workflow composition: profile first, role second. Replacing the
+        # profile prompt with a card would change the agent being compared.
         profile = self._profile_for(role)
         if profile is not None:
             sources.append(
@@ -169,9 +142,7 @@ class ContextBuilder:
                     content=team_section,
                 )
             )
-        # Skill catalog — injected only when the role may invoke ``use_skill``
-        # (no invoke permission → no catalog), and only when at least one skill
-        # exists. SYSTEM position folds it into the cache-stable system prefix.
+        # Expose the catalog only to roles allowed to invoke it.
         if "use_skill" in role.tools:
             catalog = _render_skill_catalog(self._skill_store.list_manifests())
             if catalog:
@@ -183,10 +154,7 @@ class ContextBuilder:
                         content=catalog,
                     )
                 )
-        # Project layer: a repo map from the composition root, when present,
-        # ships at startup in the system prompt — SYSTEM so both the lead and
-        # spawn paths pick it up (only spawns seed user-context messages). With
-        # no repo map the layer simply does not appear.
+        # SYSTEM position reaches both entry and spawned sessions.
         if self._project_context:
             sources.append(
                 ContextSource(
@@ -218,13 +186,9 @@ class ContextBuilder:
         allow_unisolated_shell: bool = False,
         plan: ContextPlan | None = None,
     ) -> Agent:
-        """Assemble the ``Agent`` for ``role_name``.
+        """Build an Agent; human availability and host-shell permission are independent.
 
-        ``ask_user_available`` (is there a human to ask?) and
-        ``allow_unisolated_shell`` (may this agent run commands the OS does not
-        sandbox?) are two separate inputs on purpose — see
-        ``build_tools_for_role`` for why they were once a single ``interactive``
-        flag and what a prebuilt team does to that conflation.
+        See ``build_tools_for_role`` for permission resolution.
         """
         role = self._team.role_for(role_name)
         if plan is None:
@@ -293,13 +257,9 @@ class ContextBuilder:
         return resolve_agent_profile(role.profile) if role.profile is not None else None
 
     def _tool_limits_for(self, role: RoleConfig) -> dict[str, dict[str, int]]:
-        """The team file's output caps over the profile's own defaults.
+        """Overlay explicit team limits on the profile's evaluated output caps.
 
-        A profile ships the caps its agent was evaluated with -- Single2's
-        10,000-character `bash` result among them -- and a seat that took the
-        profile's prompt while keeping OpenCollab's default caps would not be
-        that agent. The team file still wins where it states a cap, matching
-        how an explicit limit beats a profile default on the SDK path.
+        Taking a profile prompt without its tool caps would change that profile.
         """
         profile = self._profile_for(role)
         declared = self._team.tool_limits or {}
@@ -333,12 +293,7 @@ class ContextBuilder:
 
 
 def _render_skill_catalog(manifests: tuple[SkillManifest, ...]) -> str:
-    """Render the model-facing skill catalog, or ``""`` when there are none.
-
-    A short header instructs the model to call ``use_skill(name)``, followed by
-    one ``- {name}: {description}`` line per available skill. Returning an empty
-    string when the store is empty lets ``build_plan`` skip the source entirely.
-    """
+    """Return the skill invocation catalog, or an empty string so assembly omits it."""
     if not manifests:
         return ""
     lines = [

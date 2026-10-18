@@ -42,33 +42,11 @@ TERMINAL_PHASES = frozenset(
 )
 
 
-# The run-loop FSM topology — the single source of truth for which phase
-# transitions the loop may make. ``transition_to`` validates against this.
-# ``set_phase`` is the unchecked primitive reserved for process birth/enqueue
-# by the Scheduler, snapshot/restore, and tests. Two named escapes may fire
-# from any phase: ``fail`` -> ERROR and ``cancel`` -> STOPPED. ERROR is only
-# ever reached that way (it has no inbound edge below); STOPPED also has a
-# validated in-loop edge from PRECHECK, so the scheduler's out-of-band
-# ``cancel`` covers the case where an agent task is killed mid-loop.
-#
-# Three terminals: DONE (the turn produced a final answer), ERROR (an unhandled
-# fault, reached only via ``fail``), and STOPPED — one graceful-stop terminal
-# covering every controlled halt. The *why* of a STOPPED lives in
-# ``terminal_reason`` (a human-readable string), not in a parallel set of enum
-# members: a spent token budget, a reached step limit, a repeated-tool-call loop
-# block, a user cancel, and a context-window overflow all resolve to
-# STOPPED(reason=...). STOPPED is reached from PRECHECK (budget / step / loop /
-# cancel gates) and from CALLING_LLM (context overflow: the provider rejected the
-# prompt as too large even after a forced maximal compaction pass + one retry —
-# e.g. the pinned identity/team/task seed alone exceeds the window). Every STOPPED
-# is a controlled stop that delivers an explicit failed result to the parent,
-# allowing it to recover without treating unfinished work as successful.
-#
-# AWAITING_EVENTS is a non-terminal *suspend* state: the loop stops there (the
-# task returns) when a step deferred work (e.g. a spawned child) and the
-# scheduler re-activates the session, resuming at PRECHECK, once every pending
-# row is filled. EXECUTING_TOOLS branches to AUTOSAVING (all tools immediate) or
-# AWAITING_EVENTS (any deferred tool present).
+# Validated run-loop edges. set_phase is reserved for scheduler birth/enqueue,
+# restore, and tests; fail/cancel may escape from any phase to ERROR/STOPPED.
+# STOPPED retains the reason and incomplete outcome for parent recovery.
+# AWAITING_EVENTS suspends the driver until the whole pending batch is filled,
+# then resumes through AUTOSAVING before the next PRECHECK.
 PHASE_TRANSITIONS: dict[SessionPhase, frozenset[SessionPhase]] = {
     SessionPhase.IDLE: frozenset({SessionPhase.PRECHECK}),
     SessionPhase.PRECHECK: frozenset(
@@ -114,21 +92,11 @@ class InvalidPhaseTransition(Exception):
 
 @dataclass
 class TurnEnforcementState:
-    """The per-turn enforcement window — the brake panel's per-turn half.
+    """Per-turn signals checkpointed, restored, and reset together.
 
-    These nine fields are the unit that ``checkpoint_user_turn`` /
-    ``restore_user_turn`` snapshot and roll back as a whole, and that
-    ``reset_for_user_turn`` clears on a fresh user turn. They live in their own
-    record — rather than smeared flat on ``SessionState`` — precisely because
-    one mechanism (the user-turn boundary) saves, restores, and resets them
-    together, the same reason a kernel PCB carves its saved-register set into a
-    dedicated ``struct``. The durable wind-down latches stay flat on
-    ``SessionState`` because they also survive persistence and rollback within
-    the current turn; a fresh user turn resets them alongside this record.
-
-    All eight are maintained ALWAYS (cheap, observational); only the precheck
-    brakes that READ them are gated behind ``enforcement_strength``, so a
-    self-regulating run is byte-for-byte unchanged.
+    Signals are maintained even when enforcement is disabled; only their consuming
+    brakes are gated. Durable wind-down latches stay on SessionState and survive
+    persistence within a turn.
     """
 
     # Loop-detection window: path-normalized (tool, args) hashes of recent tool
@@ -138,28 +106,18 @@ class TurnEnforcementState:
     # Unknown write outcomes avoid steering that assumes a known unchanged workspace.
     write_effect_unknown: bool = False
     last_progress_unknown: bool = False
-    # Closed-loop steering signal: read-only tool calls (file_read/grep) since
-    # the last successful edit. Drives the reads-without-write nudge/escalation;
-    # reset to 0 on a successful write.
+    # file_read/grep calls since a successful edit; drives write escalation.
     reads_since_last_edit: int = 0
-    # Obligation state for agents that can both edit files and submit structured
-    # output. Once an edit lands, the hard steering gate switches from requiring
-    # another write to requiring the structured submission. Reset with the rest
-    # of the per-turn window.
+    # A landed edit switches the hard gate from writing to structured submission.
     has_landed_write: bool = False
-    # Information-gain sensor (STEP 1): consecutive low-yield results since the
-    # last informative one (reset to 0 on any informative result). A result is
-    # "informative" when NOVEL (unseen content OR unseen path-normalized call
-    # hash) AND not an empty/"No matches"-class result; else "low-yield".
+    # Consecutive low-yield results; see record_evidence_signal for novelty rules.
     low_yield_since_progress: int = 0
     # Informative results tallied in the current turn.
     distinct_evidence_count: int = 0
     # Novelty memory for the sensor: holds both content and (tool, args) call
     # hashes, so a re-read at a shifted range still scores zero gain.
     seen_result_hashes: set[str] = field(default_factory=set)
-    # Evidence ledger (STEP 2): one compact ``{tool, target, outcome, snippet}``
-    # card per executed tool result, read by the harvest backstop / dead-scout
-    # synthesizer to salvage a chopped scout.
+    # Compact result cards retained for final synthesis after interrupted exploration.
     scout_ledger: list[dict[str, Any]] = field(default_factory=list)
     # Progress watchdog (STEP 3): consecutive no-progress tool STEPS (batches),
     # where progress is a landed write OR a novel informative ("hit") result.
@@ -195,29 +153,14 @@ class SessionState:
     # Real size (provider ``input_tokens``) of the current context as of the
     # last LLM call. 0 means "no real measurement yet — fall back to estimate".
     context_tokens: int = 0
-    # Cumulative across the whole session lifetime, NOT per user turn. Compared
-    # against ``max_steps`` in PRECHECK; deliberately not reset by
-    # ``reset_for_user_turn`` (see that method), so ``max_steps`` is a
-    # lifetime cap mirroring the ``used_tokens`` budget.
+    # Lifetime count: a new user turn must not renew the max_steps allowance.
     step_count: int = 0
-    # Lifetime count of LLM calls whose kimi tool-call markup was recovered from
-    # literal text (P6). Observability only; like ``used_tokens`` it is a
-    # session-lifetime tally and is NOT reset by ``reset_for_user_turn``.
+    # Lifetime count of calls with recovered tool markup; observability only.
     markup_recovered: int = 0
-    # The per-turn enforcement window (loop hashes, reads/low-yield/watchdog
-    # counters, novelty memory, evidence ledger) — see ``TurnEnforcementState``.
-    # It is snapshotted/rolled-back by checkpoint/restore and cleared by
-    # ``reset_for_user_turn`` as one unit, which is why it lives in its own record
-    # rather than smeared flat here.
+    # Checkpoint, restore, and reset the turn window as one unit.
     turn: TurnEnforcementState = field(default_factory=TurnEnforcementState)
-    # === enforcement: durable current-turn latches ===
-    # ``wind_down_done`` flips True the first time the enforcement precheck forces
-    # a scout into its single protected submit turn — the latch that grants
-    # EXACTLY ONE more CALLING_LLM and then routes to a terminal.
-    # ``wind_down_token_mark`` records ``used_tokens`` at the trip so the
-    # commitment-terminus metric can report ``submit_turn_cost``. Both are inert
-    # unless ``enforcement_strength`` is on, so a self-regulating run never touches
-    # them. They survive persistence within a turn but reset for a new user turn.
+    # Persist the current turn's protected-submit latch and starting token mark;
+    # the latter measures submit_turn_cost. Reset only for a new user turn.
     wind_down_done: bool = False
     # Counts protected provider calls allocated by the wind-down gate. It is
     # durable so a restore cannot re-grant the one compatibility retry.
@@ -468,15 +411,10 @@ class SessionState:
         self.wind_down_token_mark = checkpoint.wind_down_token_mark
 
     def reset_for_user_turn(self) -> None:
-        """Prepare an existing session to accept a new user turn.
+        """Reset turn-local phase, enforcement signals, and wind-down latches.
 
-        Resets only *per-turn* state: the terminal phase (back to IDLE) and the
-        whole per-turn enforcement window. ``step_count`` and ``used_tokens`` are
-        intentionally preserved — both ``max_steps`` and ``max_budget_tokens``
-        are session-lifetime caps, so a long-lived interactive/messaged session
-        keeps accumulating across turns rather than getting a fresh allowance.
-        Durable wind-down latches are current-turn state and reset here. The
-        session-lifetime budget-reserve latch is intentionally preserved.
+        Preserve used_tokens, step_count, and the lifetime budget-reserve latch:
+        a new user turn must not renew the session's resource allowance.
         """
         self.resume_to_idle()
         self.turn = TurnEnforcementState()
@@ -494,26 +432,13 @@ class SessionState:
         *,
         card: dict[str, Any] | None = None,
     ) -> None:
-        """Fold one executed tool result into the information-gain counters (STEP 1)
-        and, when ``card`` is given, the evidence ledger (STEP 2).
+        """Update novelty counters and, when supplied, append an evidence card.
 
-        ``intrinsic_low_yield`` flags an empty read or a "No matches"-class result
-        (low-yield regardless of novelty). A result is INFORMATIVE only when it is
-        not intrinsically low-yield AND both its result content and its
-        (tool, normalized-args) call key are unseen. An
-        informative result resets ``low_yield_since_progress`` and increments
-        ``distinct_evidence_count``; a low-yield result increments
-        ``low_yield_since_progress``. Both hashes are remembered, so a later exact
-        re-issue of a known read range or result content scores zero gain.
-        A different read range can contribute new evidence. Observational only: STEP 1
-        wires no behavior to these counters.
-
-        STEP 2: the SAME novelty + intrinsic decision determines the ledger
-        ``outcome`` (``hit`` | ``NO-MATCH`` | ``duplicate``) — no second
-        classification. When ``card`` (carrying ``tool`` / ``target`` / ``snippet``
-        from the tool-result envelope) is supplied, a completed card is appended to
-        ``scout_ledger``. ``card=None`` keeps the pre-STEP-2 path (counters only),
-        so callers that do not produce cards are byte-for-byte unchanged.
+        A result is informative only if it is not intrinsically low-yield and both
+        content and normalized-call hashes are unseen. Informative results reset the
+        low-yield streak; all others extend it. Both hashes are remembered.
+        Cards use the same decision for hit, NO-MATCH, or duplicate; omitting a card
+        updates counters only. Brakes consuming these observations are configured elsewhere.
         """
         already_seen = (
             content_hash in self.turn.seen_result_hashes
@@ -526,8 +451,7 @@ class SessionState:
             self.turn.distinct_evidence_count += 1
             outcome = "hit"
         else:
-            # Same control flow as STEP 1 (low-yield bumps the counter); only the
-            # ledger label distinguishes an intrinsic no-result from a re-seen dup.
+            # Retain the distinction between no result and a duplicate result.
             self.turn.low_yield_since_progress += 1
             outcome = "NO-MATCH" if intrinsic_low_yield else "duplicate"
         if card is not None:

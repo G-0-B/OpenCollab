@@ -79,8 +79,9 @@ when a Python module crosses 800 lines. CI uses an empty-tree base with
 names. Its current command returns a nonzero result for modules above its
 configured width limit. It is separate from the Hygiene workflow.
 
-`scripts/check_conventional_title.py` validates a supplied title or the subject
-of a Git commit. `scripts/check_secret_history.py` implements the existing
+`scripts/check_conventional_title.py` checks Conventional Commit syntax and
+rejects Chinese prose in a supplied title or a non-merge commit subject. English
+wording, commit bodies, and PR descriptions remain author/reviewer responsibilities. `scripts/check_secret_history.py` implements the existing
 trusted-baseline history scan used by the Security workflow. Contribution and
 baseline-update procedures are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 

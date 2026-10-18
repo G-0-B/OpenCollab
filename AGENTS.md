@@ -43,10 +43,10 @@ width — see the module rule below.
 
 Commit authorship and `Co-authored-by` trailers are reserved for human contributors.
 
-- **Conventional Commits**, with Chinese descriptions and an English type: `feat` `fix` `refactor` `docs` `test`
-  `chore` `perf` `ci` `build` `style` `revert`. e.g. `feat: <Chinese description>`, `fix(tui): <Chinese description>`.
+- **Conventional Commits in English**, including the body: `feat` `fix` `refactor` `docs` `test`
+  `chore` `perf` `ci` `build` `style` `revert`. e.g. `feat: add a workflow`, `fix(tui): restore terminal state`.
 - **The PR title and merge commit subject must be valid Conventional Commits**,
-  with Chinese descriptions and an English type.
+  in English. Write PR descriptions in English too.
 - **One focused change per PR.** Don't bundle unrelated work.
 - `refactor:` must be behavior-preserving.
 - Merge pull requests with a merge commit so the feature-branch history and human
@@ -64,7 +64,8 @@ terminal regressions. A separate ARC-Bench r6 job runs the example's opt-in
 browser checks with Node and Chromium. See [docs/testing.md](docs/testing.md)
 for the corresponding local commands.
 
-The Conventional Title workflow validates PR titles and direct-push subjects.
+The Conventional Title workflow validates PR titles and direct-push subjects,
+including rejection of Chinese prose. Authors remain responsible for English wording.
 Its commit mode accepts merge commits because the PR title was checked before
 merge. The contribution convention above also applies to the merge subject.
 
@@ -95,7 +96,14 @@ or measurement.
 
 ## Conventions that keep the repo clean
 
-- **English code and canonical documentation** — code, comments, and docs use English; commit and PR descriptions use Chinese while retaining a Conventional Commit type.
+- **English collaboration** — code, comments, canonical docs, commit messages,
+  and PR titles and descriptions use English. Translations retain their declared language.
+- **Maintain one source for each instruction.** Link to existing setup, usage, and
+  testing guidance instead of copying it. Preserve runtime prompt files and generated
+  experiment cards; edit their source templates and run their existing checks.
+- **Explain constraints, not syntax.** Comments and docstrings should retain caller
+  contracts, reasons, edge cases, and tradeoffs. Avoid narrating the code or copying
+  background from a guide. Check runtime and tooling consumers before editing strings.
 - **No hardcoded infrastructure.** Never bake a hostname, NFS path, username, private
   model name, or personal env-file path in as a default. Read them from env/CLI and
   fail fast if unset. (These leak topology and are useless to an external clone.)

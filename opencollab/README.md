@@ -357,8 +357,9 @@ structured cite-or-abstain draft before exploration. OpenCollab owns this
 generic capture primitive. OpenCollab-Eval owns benchmark prompts, policies,
 datasets, and runners.
 
-For a visual architecture walkthrough, open the
-[SDK 0.4 research architecture](../docs/sdk-0.4-explainer.html).
+For current internals, see [runtime design](../docs/runtime-design.md). The
+[SDK 0.4 walkthrough](../docs/sdk-0.4-explainer.html) is a historical visual guide,
+not a current API reference.
 
 OpenCollab owns built-in collaboration protocols such as Duo. OpenCollab-Eval
 contains evaluation runners and benchmark-specific workflows. Topology
@@ -399,10 +400,11 @@ context overflow.
 ### Cooperative teams
 
 A team stores active agents in a session table and schedules them cooperatively.
-The `spawn` operation creates child sessions. Budget is reserved before the
-first `await`, so a concurrent child batch cannot overspend the shared pool.
-A team file may instead give each role its own allowance; each agent is then
-held to that allowance alone, and the team's total is their sum.
+The `spawn` operation creates child sessions. Dynamic child grants are reserved
+before the first `await`; prebuilt teams instead apply a cumulative cap per seat
+within the shared pool. A team file may give each role its own allowance.
+[Runtime allocation rules](../docs/runtime-design.md#token-accounting-and-allocation)
+explain these modes and their in-flight overshoot boundary.
 Each child can work in an isolated git worktree and return its diff with the
 result.
 The built-in Analyst adopts a completed direct Coder's complete changes with
@@ -452,10 +454,8 @@ uv run pytest -q
 ```
 
 See [`../CONTRIBUTING.md`](../CONTRIBUTING.md) for contributor guidance and
-[`../CLAUDE.md`](../CLAUDE.md) for repository-specific architecture notes. The
-archived module map under [`../docs/archive/repomap/`](../docs/archive/repomap/)
-records an earlier revision. Use the current source and tests for the current
-module layout.
+[runtime design](../docs/runtime-design.md) for context, allocation, and steering
+invariants. The current source and tests define the module layout.
 
 ## License
 

@@ -1,18 +1,7 @@
-"""Scheduler — passive process tracker for multi-agent execution.
+"""Cooperative team scheduler over shared Session primitives.
 
-Tracks every Session as a SessionControlBlock in a SessionTable:
-- spawn() is non-blocking (returns aid immediately)
-- Agents run in parallel via asyncio.create_task
-- Results are delivered to parents via message injection into parent state
-
-The class is assembled from cohesive application-layer mixins:
-- focused local mixins cover persistence/budgets, team views, the public run
-  loop, bounded cleanup, and review waits
-- ``LifecycleMixin`` (``scheduler_lifecycle``) — register/spawn/drive/wake/deliver
-- ``MessagingMixin`` (``scheduler_messaging``) — teammate-message inbox
-- ``InflightDedupMixin`` (``scheduler_dedup``) — single-flight spawn dedup
-
-This module keeps construction and the public import surface.
+Mixins own lifecycle, messaging, budgets, persistence, team views, cleanup,
+and review waits. This module owns construction and the public import surface.
 """
 
 from __future__ import annotations
@@ -66,40 +55,12 @@ class Scheduler(
     MessagingMixin,
     InflightDedupMixin,
 ):
-    """Passive scheduler that tracks SCBs and runs agents in parallel.
+    """Track sessions, spawn children, and deliver results through deferred joins.
 
-    Design:
-    - SessionTable holds all SCBs (pure data, no I/O)
-    - spawn() creates a new SCB and schedules it for execution
-    - run_turn() addresses one agent and waits for all agents to complete
-    - Results are injected into parent sessions as system messages
-
-    One of two Strategies driving ``session.run_loop()``: this event-driven,
-    LLM-supervised scheduler and the code-driven ``WorkflowContext`` are
-    interchangeable regimes over the identical Session process primitive.
-
-    OS process model — the metaphor this subsystem operationalizes:
-      Session (its run_loop)       -> a process
-      SessionControlBlock (SCB)    -> the process control block (PCB)
-      SessionTable                 -> the process table
-      aid / parent_aid             -> pid / ppid
-      spawn()                      -> fork(): transactional — a failure rolls
-                                      back the budget lease, worktree, and maps
-                                      so a half-forked child never leaks
-      budget lease                 -> a CPU/memory quota, reserved at grant
-      Topology                     -> the IPC permission matrix (who may
-                                      message / spawn whom)
-      pending_events               -> the ready/wait queue + wakeup: an
-        (AWAITING_EVENTS)             AWAITING_EVENTS parent blocks on its
-                                      children and is woken when the whole
-                                      batch has answered
-      IDLE / run-ring /            -> process states: ready / running /
-        DONE|STOPPED|ERROR            blocked / exit(0) | killed | crash
-
-    ``prebuild_team`` (off by default) switches the roster from an outcome of
-    the run to an input to it: every role the team config declares is seated
-    before the first model call and ``spawn`` is refused thereafter. See
-    ``SchedulerTeamMixin.ensure_team_prebuilt``.
+    Spawn failures roll back budget leases, environments, and registration.
+    An AWAITING_EVENTS parent resumes when its whole result batch is ready.
+    ``prebuild_team`` seats the declared roster before any model call and then
+    refuses spawning; otherwise the model determines the roster during the run.
     """
 
     def __init__(

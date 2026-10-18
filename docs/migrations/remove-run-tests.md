@@ -84,5 +84,6 @@ shell exit code, help output, or zero collected tests alone does not prove that
 the requested tests passed.
 
 This removal does not change benchmark scoring, external evaluation runners,
-OC's scheduler, or the Docker artifact-preservation fix. Historical design
-records under `docs/archive/` describe the original implementation.
+OC's scheduler, or the Docker artifact-preservation fix. The
+[historical architecture survey](../archive/2026-06-10-architecture-survey.md)
+describes the original implementation.

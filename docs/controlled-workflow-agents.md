@@ -1,9 +1,7 @@
 # Controlled workflow agent calls
 
-`RunControl` and `WorkflowContext.agent_run` are available in the current
-`main` source checkout, following the `v0.9.3` release. Install that checkout
-with `uv sync --locked` or `python -m pip install -e .` from the repository root
-before using the examples below. See the [package installation guide](../opencollab/README.md#install).
+`RunControl` and `WorkflowContext.agent_run` are available in OpenCollab 0.9.4
+and newer. See the [package installation guide](../opencollab/README.md#install).
 
 `WorkflowContext.agent_run` runs a fresh session and returns its execution
 result, including its stop reason, tokens, steps, session identity and cleanup

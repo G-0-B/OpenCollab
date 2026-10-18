@@ -27,6 +27,8 @@ def validate_title(title: str) -> str | None:
         for char in summary
     ):
         return "title summary must contain readable text"
+    if any("CJK" in unicodedata.name(char, "") and char.isalpha() for char in summary):
+        return "title summary must use English"
     return None
 
 

@@ -10,29 +10,19 @@ from typing import Any, Iterator
 from opencollab.application.ports import ShaperPort, TokenEstimatorPort
 from opencollab.domain.token_estimation import estimate_request_message_tokens
 
-# History-compaction thresholds (token estimates over the whole view). The
-# trigger/target gap is deliberate: a layer compacts down to ``TARGET`` (well
-# below ``TRIGGER``) so the next turn does not immediately re-trigger — this is
-# the anti-thrash headroom (cf. Liu et al. 2026 §4.4 reactive-compact).
+# Fallback thresholds leave headroom so compaction does not fire again next turn.
 DEFAULT_HISTORY_TRIGGER_TOKENS = 120_000
 DEFAULT_HISTORY_TARGET_TOKENS = 90_000
 # Most-recent groups always kept verbatim (never snipped or summarized).
 DEFAULT_HISTORY_KEEP_RECENT_GROUPS = 4
 
-# Context-source priority at/above which a message is *pinned*: never cleared,
-# snipped, or summarized. Sources are tagged with their resolved layer priority
-# (``domain.context.LAYER_PRIORITY``) via the ``_ctx`` key; identity/team/task
-# sit above this floor, project/memory below it. Untagged messages (tool work,
-# turns) have no ``_ctx`` and are governed by the recency-based layers instead.
+# Tagged sources at this priority are protected from history compaction.
+# Untagged turns/tool work use recency rules instead; see domain.context.
 PIN_FLOOR = 70
 
-# Reported by ``ShaperPipeline.shape_with_report`` when a whole pass left the
-# view untouched. Emitting it (rather than nothing) is what lets a reader tell
-# "no rung fired this turn" apart from "this turn was never recorded".
+# Distinguish an unchanged pass from a missing trace record.
 _NO_RUNG_FIRED = "none"
-# A shaper wired into the chain without a ``rung`` label. Unreachable with the
-# five real rungs (each declares its own); kept so an unlabeled shaper is
-# reported as an obvious wiring bug instead of silently masquerading as "none".
+# An unlabeled shaper must not masquerade as an unchanged pass.
 _UNLABELED_RUNG = "unknown"
 
 # Window-derived trigger math. The effective input budget reserves room for the

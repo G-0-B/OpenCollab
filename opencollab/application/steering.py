@@ -1,12 +1,6 @@
-"""Closed-loop steering — the per-turn reads-without-write nudge.
+"""Build budget/progress and action nudges from caller-supplied counters.
 
-Pure functions with no dependency on the runner or ``session_run``, so the run
-loop reads top-to-bottom: it gathers the live counters, asks steering for the
-block + any ``tool_choice`` force, then folds/persists (see
-``SessionRunUseCase.run_llm_call`` for the integration point). Keeping the tool
-vocabulary out (``has_write`` / ``has_structured_output`` / ``structured_override``
-are computed by the caller) makes this module import-free and unit-testable on
-plain values.
+The runner owns tool vocabulary and persistence; this module returns values.
 """
 
 from __future__ import annotations
@@ -19,26 +13,16 @@ from typing import Any
 READS_NUDGE_SOFT = 8
 READS_NUDGE_HARD = 16
 
-# Whether the reads-without-write family of nudges is emitted at all. ``on`` is
-# the default and is byte-for-byte today's behaviour; ``off`` emits none of the
-# three rungs (soft write advice, hard write demand, hard structured-output
-# demand) and sets no ``tool_choice`` override, leaving the ``[Budget: ...]``
-# status line untouched. ``off`` exists because the nudge is an instruction the
-# harness inserts into the outcome we measure: it tells an agent that is reading
-# in order to describe the work to STOP and act itself, which is exactly the
-# moment a delegation decision would be taken. All three rungs are switched
-# together because they are one instrument — the structured-output rung is the
-# one that dominates in an arm whose reading seat holds no write tool.
+# Treat edit and structured-submit pressure as one experimental intervention.
+# Turning it off permits measuring delegation without that action demand;
+# budget status remains independently controlled.
 WRITE_NUDGE_ON = "on"
 WRITE_NUDGE_OFF = "off"
 WRITE_NUDGE_MODES = (WRITE_NUDGE_ON, WRITE_NUDGE_OFF)
 WRITE_NUDGE_ENV_VAR = "OPENCOLLAB_WRITE_NUDGE_MODE"
 
-# Cadence of the budget status line. ``every-step`` repeats it on every turn;
-# ``thresholds`` emits it only on the turn that crosses one of
-# ``BUDGET_NUDGE_THRESHOLDS_FRACTIONS`` (once per band, since spend is
-# monotone); ``off`` never emits it. The reads-without-write rungs are
-# unaffected by all three.
+# Status cadence is independent of action nudges. Thresholds fire only on
+# crossing, once per band under monotone spend.
 BUDGET_NUDGE_EVERY_STEP = "every-step"
 BUDGET_NUDGE_THRESHOLDS = "thresholds"
 BUDGET_NUDGE_OFF = "off"
@@ -52,23 +36,14 @@ BUDGET_NUDGE_THRESHOLDS_FRACTIONS = (0.2, 0.4, 0.6, 0.8)
 
 
 def resolve_budget_nudge_mode(env: Any = None) -> str:
-    """Return the configured cadence, defaulting to ``every-step``.
-
-    Unset, blank, or unrecognised values fall back to ``every-step`` so that a
-    run with no environment override behaves exactly as before this knob existed.
-    """
+    """Return the configured cadence; unset, blank, or invalid values use every-step."""
     source = os.environ if env is None else env
     raw = str(source.get(BUDGET_NUDGE_ENV_VAR, "") or "").strip().lower()
     return raw if raw in BUDGET_NUDGE_MODES else BUDGET_NUDGE_EVERY_STEP
 
 
 def resolve_write_nudge_mode(env: Any = None) -> str:
-    """Return the configured write-nudge mode, defaulting to ``on``.
-
-    Unset, blank, or unrecognised values fall back to ``on`` so that a run with
-    no environment override behaves exactly as before this knob existed — the
-    already-recorded runs stay comparable.
-    """
+    """Return the write-nudge mode; unset, blank, or invalid values preserve on."""
     source = os.environ if env is None else env
     raw = str(source.get(WRITE_NUDGE_ENV_VAR, "") or "").strip().lower()
     return raw if raw in WRITE_NUDGE_MODES else WRITE_NUDGE_ON
@@ -77,11 +52,7 @@ def resolve_write_nudge_mode(env: Any = None) -> str:
 def _crosses_budget_threshold(
     used_tokens: int, prev_used_tokens: int, max_budget_tokens: int
 ) -> bool:
-    """Return whether spend moved from below to at-or-above a threshold band.
-
-    Crossing, not exceeding: with ``prev`` the spend at the previous turn, a
-    band fires on the single turn that steps over its fraction and never again.
-    """
+    """Fire once when spend crosses a threshold, not on every later step."""
     if max_budget_tokens <= 0:
         return False
     previous = min(max(prev_used_tokens, 0), used_tokens)
@@ -107,32 +78,14 @@ def build_steering_block(
     write_nudge_mode: str = WRITE_NUDGE_ON,
     prev_used_tokens: int = 0,
 ) -> tuple[dict[str, Any] | None, Any | None, str | None]:
-    """Build the per-turn steering message + any ``tool_choice`` force.
+    """Return ``(message, tool_choice_override, level)`` for this step.
 
-    Returns ``(message, tool_choice_override_or_None, level)`` where ``level`` is
-    ``'hard'`` / ``'soft'`` / ``None`` — the trace seam reads it to log upward
-    crossings. The message is a lean ``role:"user"`` block carrying budget
-    self-awareness plus, when the session can edit and has read without writing, a
-    write nudge (soft) or a hard demand (``tool_choice="required"``). Under the
-    default cadence the message is always built; on a fresh post-user turn
-    ``reads`` is ~0 so only the status line is returned, which is correct.
-
-    ``structured_override`` is the ``tool_choice`` value that forces the
-    structured-output tool — the caller owns the tool vocabulary; steering only
-    decides *when* to force it.
-
-    ``budget_nudge_mode`` sets the cadence of the status line only (see
-    ``BUDGET_NUDGE_MODES``); the write nudges are unchanged by it. Under
-    ``thresholds`` the line rides along only on the turn whose spend crosses a
-    band, which needs ``prev_used_tokens`` — the spend at the previous turn.
-    When the mode suppresses the line and there is no nudge to carry, the
-    message is ``None`` and the caller adds nothing to the turn.
-
-    ``write_nudge_mode`` gates the reads-without-write family only (see
-    ``WRITE_NUDGE_MODES``); the status line is unchanged by it. Under ``off``
-    no rung fires, so the returned ``tool_choice`` override and ``level`` are
-    both ``None`` and the caller neither forces a tool nor traces a
-    ``steering_nudge``.
+    ``level`` is hard, soft, or None for tracing. ``structured_override`` is a
+    caller-supplied choice for the submission tool. Budget cadence controls only
+    the status line; thresholds need ``prev_used_tokens`` and a finite budget.
+    Write-nudge mode controls edit and structured-submit escalation together.
+    Suppressing both status and action produces ``message=None``.
+    A landed write permits submission; unknown write effects are resolved by the caller.
     """
     if max_budget_tokens is None:
         token_status = f"~{used_tokens // 1000}k tokens used"
@@ -152,10 +105,7 @@ def build_steering_block(
             f"[Budget: ~{remaining_k}k/{total_k}k tokens left, "
             f"{step_status}.]"
         )
-    # Cadence gates the line AFTER it is built, so a bounded run's wording is
-    # byte-for-byte what it was before either side of this merge touched it.
-    # ``thresholds`` needs a denominator: an unbounded run has no bands to
-    # cross, and ``_crosses_budget_threshold`` answers False for 0.
+    # Unbounded runs have no denominator for threshold crossings.
     if budget_nudge_mode == BUDGET_NUDGE_OFF:
         status = ""
     elif budget_nudge_mode == BUDGET_NUDGE_THRESHOLDS and not _crosses_budget_threshold(
@@ -202,9 +152,9 @@ def build_steering_block(
 
 
 def fold_steering(last_user_msg: dict[str, Any], steering_text: str) -> dict[str, Any]:
-    """Return a copy of a trailing ``user`` message with the steering line folded
-    into its content (string concat, or content-part append for the provider list
-    form). The original dict is not mutated.
+    """Copy a user message, appending steering to text or content parts.
+
+    Do not mutate the original dict.
     """
     content = last_user_msg.get("content")
     if isinstance(content, str):

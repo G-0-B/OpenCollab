@@ -63,14 +63,28 @@ def _run(repository: Path, *args: str) -> subprocess.CompletedProcess[str]:
 def test_title_accepts_repository_convention():
     assert validate_title(_CLEAN_SNAPSHOT) is None
     assert validate_title("fix(runtime)!: preserve the session terminal state") is None
+    assert validate_title("docs: clarify the caf\u00e9 example\u2019s setup") is None
 
 
 def test_title_rejects_invalid_type_unreadable_summary_and_multiple_lines():
     assert validate_title("change: update runtime") == "title must follow Conventional Commits"
-    assert validate_title("fix: \u4fee\u590d\u8fd0\u884c\u65f6") is None
-    assert validate_title("fix: repair \u8fd0\u884c\u65f6") is None
     assert validate_title("fix: 123") == "title summary must contain readable text"
     assert validate_title("fix: repair runtime\nsecond line") == "title must be a single line"
+
+
+def test_title_rejects_chinese_and_mixed_language_descriptions():
+    assert validate_title("fix: \u4fee\u590d\u8fd0\u884c\u65f6") == "title summary must use English"
+    assert validate_title("fix: repair \u8fd0\u884c\u65f6") == "title summary must use English"
+    assert validate_title("docs: explain \U00020000") == "title summary must use English"
+
+
+def test_commit_mode_rejects_chinese_description(tmp_path):
+    repository = _repository(tmp_path, "fix: \u4fee\u590d\u8fd0\u884c\u65f6")
+
+    result = _run(repository, "--commit", "HEAD")
+
+    assert result.returncode == 1
+    assert "title summary must use English" in result.stdout
 
 
 def test_commit_mode_reads_the_subject_from_git(tmp_path):
