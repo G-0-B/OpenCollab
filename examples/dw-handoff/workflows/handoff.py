@@ -1,40 +1,13 @@
-"""The handoff experiment with the exchange scripted instead of chosen.
+"""Script the exchanges of the handoff experiment's three-role team.
 
-This is the code-sequenced twin of ``configs/team.handoff.experiment.yaml``.
-Both run the same three roles over the same repository, give them the same
-tools, put each one in a git worktree of its own, and make a commit sha the
-whole payload of a handoff. Exactly one thing differs, and it is the thing
-under study: there, an agent decides whether and when to hand work over; here,
-this script decides, and the agents have no say.
+The roles, worktrees, tools and commit-based handoffs match
+``configs/team.handoff.experiment.yaml``. The script chooses when to hand
+off, while the team configuration leaves that decision to the agents.
 
-The team config says of itself that "scripting the exchange would mean
-measuring the script". That is precisely what this file does, on purpose, so
-that the two arms differ in who sequences the work and in nothing else. A
-difference between the arms that comes from unequal tools, unequal isolation,
-or unequal handoff mechanics would be a fact about the two configurations
-rather than about the models, so all three are held equal here.
-
-**Why every agent is isolated, including the two that mostly read.** Linked
-worktrees share ``.git/objects``, so a sha committed in one is reachable from
-the others the moment it exists. Isolation is therefore not a restriction on
-what an agent may receive; it is what makes receiving observable. A tester that
-shares the coder's directory has the coder's edits whether or not it was told
-about them, and "the tester worked from the coder's output" is then not a
-question the run can answer. With separate trees the tester holds the coder's
-work only if it checked out the sha, which the run records.
-
-**Why the analyst carries the working tools.** The team config gives its
-analyst the tools to finish the task alone so that delegation is a choice the
-model did not have to make, and so that the arm cannot be weaker than the
-single agent it is compared against for a reason readable off the tool bundle.
-Neither reason survives being dropped here just because this analyst is
-sequenced: the second one is about comparability across arms, so the bundle
-matches.
-
-The coordination tools the team roles carry (``message_agent``, ``team_status``,
-``ask_user``, ``use_skill``) are scheduler-owned and have no meaning in a
-workflow: the script is the only channel between these agents. That absence is
-the arm's definition, not a gap in the mirror.
+Worktrees share Git objects, so peers receive changes by checking out a
+communicated commit. Separate trees make adoption observable. The analyst
+retains the solo agent's working tools for comparison. Scheduler coordination
+tools are absent because this workflow passes messages through the script.
 """
 
 from __future__ import annotations

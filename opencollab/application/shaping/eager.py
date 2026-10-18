@@ -1,32 +1,13 @@
-"""Eager, always-on tool-output clearing (cache-ready front rung).
+"""Optional age-based tool-output clearing before each model call.
 
-Unlike the reactive history layers (``reactive``) which no-op until an estimated
-context size crosses a trigger, this layer runs *unconditionally* on every model
-call. It is the cheapest, first/always-on rung at the FRONT of the shaping chain:
-it bounds file_read / tool-result accumulation BEFORE the 120k-gated reactive
-pipeline ever fires.
+Keep the K most recent compactable results and replace older content with
+deterministic, message-derived stubs. Pinned sources, other messages and
+assistant/tool pairing remain intact. Full history and transcripts are kept.
 
-It is a read-time projection over a *copy* of the message history: ``state.messages``
-and the persisted transcript stay untouched. It keeps the ``K`` most-recent
-compactable tool results verbatim and replaces every OLDER compactable result's
-content with a deterministic, message-derived stub. Pinned sources (identity /
-team / task, ``priority >= PIN_FLOOR``) and non-compactable messages are never
-touched, and the assistant ``tool_call`` <-> ``tool``-result pairing skeleton is
-preserved (the message and its ``tool_call_id`` survive — only the content shrinks).
-
-CACHE-READY PROPERTIES (unit-tested in ``tests/runtime/test_eager_tool_clear_shaper.py``):
-
-* **Deterministic** — ``shape(x)`` is byte-identical across repeated calls and
-  does NOT read any running token estimate / context-size measurement.
-* **Monotonic** — as the conversation grows by one tool exchange, a result
-  transitions full -> stub exactly once (when it ages past ``K``) and never back;
-  every already-stubbed message stays byte-identical, so the deep prefix stays
-  cacheable.
-* **Idempotent** — ``shape(shape(x)) == shape(x)``.
-
-OUT OF SCOPE: actual ``cache_control`` breakpoint wiring / enabling prompt
-caching. This layer only produces the deterministic/monotonic projection that
-makes such caching possible.
+The projection is deterministic and idempotent. As history grows, results
+move from full content to stable stubs once, preserving the deep prefix for
+caching. It uses age rather than token-pressure thresholds and does not
+configure provider cache breakpoints.
 """
 
 from __future__ import annotations

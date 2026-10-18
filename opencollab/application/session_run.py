@@ -348,30 +348,11 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
         return self.state.phase.is_terminal()
 
     def _trace_session_terminal(self) -> None:
-        """Record how this session ended, and what it had left when it did.
+        """Record session disposition beside token and step usage and limits.
 
-        Two resources can stop a session: the tokens it was given and the steps
-        it was allowed. They cannot both be equalized across differently
-        organized runs — a solo agent carries one long history and pays more per
-        step than a teammate carrying a short one — so a comparison holds one of
-        them equal and lets the other vary. This repository holds tokens equal.
-
-        That makes the step ceiling a runaway guard rather than an allowance,
-        and a guard is only honest if it never actually fires. Nothing recorded
-        that. A session stopped at its step ceiling with tokens still unspent
-        looked exactly like a session that finished: the phase collapsed to
-        STOPPED, the reason string lived only in memory, and the trajectory —
-        the file the run is read from afterwards — said nothing at all. The
-        claim "steps were counted, never enforced" was unfalsifiable.
-
-        So each session writes one row naming its disposition beside both
-        counters and both ceilings. ``step_ceiling_reached`` is derivable from
-        the two step fields and is written anyway: it is the exact question this
-        record exists to answer, and a reader should not have to re-derive the
-        rule to ask it.
-
-        Observation only, and guarded: a record that cannot be built must not
-        change how the session ended.
+        ``step_ceiling_reached`` distinguishes a step-limited stop from completion
+        or token exhaustion. Trace construction failures leave the terminal state
+        unchanged.
         """
         if getattr(self, "_run_control", None) is not None:
             self._record_run_terminal()

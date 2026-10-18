@@ -444,32 +444,16 @@ def build_spawn_session(
     )
 
 class DefaultSessionFactory:
-    """Default ``SessionFactoryPort`` implementation used by the scheduler.
+    """Build scheduler sessions from shared configuration and role definitions.
 
-    Holds the shared ``SpawnConfig`` (LLM config inherited by every session),
-    the resolved ``TeamConfig`` (role prompts/tools + topology), and the
-    agent-0 composition bits (``lead_workspace`` for the local environment and
-    ``interactive`` for the ask-user tool). All role -> Agent assembly is
-    delegated to a single ``ContextBuilder``.
+    ``ContextBuilder`` assembles agents from SpawnConfig and TeamConfig.
+    ``lead_environment`` supplies agent 0's environment, otherwise it uses the
+    host ``lead_workspace``. ``interactive`` controls the entry ask-user tool.
 
-    ``prebuilt_roster`` says whether this run's roster is an input to the run
-    (every agent declared in the team file and seated before the first model
-    call) or an outcome of it (children the model spawns mid-run). It is the
-    only thing that separates a teammate from an ad-hoc child here, and it is
-    read exclusively by ``_unisolated_shell_allowed``.
-
-    ``allow_unisolated_child_shell`` separately authorizes host commands for
-    dynamically spawned children. It defaults to False and does not alter
-    command confirmation or the entry agent's permissions.
-
-    ``allow_unisolated_shell`` answers the shell question directly instead of
-    letting ``interactive`` answer it by implication. ``None`` keeps the old
-    coupling (a human at the run is what licensed an unsandboxed shell), so a
-    caller that does not pass it gets exactly the previous behaviour.
-
-    ``lead_environment`` is where agent 0 works. Unset, it is the lead workspace
-    on this host; set, it is whatever the caller handed in, which is how a run
-    reaches a repository that exists only inside a container.
+    ``allow_unisolated_shell`` authorizes unsandboxed commands for initial seats, with
+    None inheriting interactive. ``prebuilt_roster`` distinguishes those seats
+    from dynamic children. ``allow_unisolated_child_shell`` separately authorizes
+    child unsandboxed commands, defaults to False and preserves command confirmation.
     """
 
     def __init__(
@@ -562,28 +546,12 @@ class DefaultSessionFactory:
                 )
 
     def _unisolated_shell_allowed(self, *, seated_at_start: bool) -> bool:
-        """May this agent run commands the OS does not sandbox?
+        """Resolve unsandboxed-command permission independently of human interaction.
 
-        The one source every session in this run reads, so agent 0 and its
-        teammates cannot end up on different answers. ``ask_user`` is decided
-        separately (``interactive`` plus the entry-role rule) — the two used to
-        be the same boolean, which is how teammates came to be seated without a
-        working shell while agent 0 had one.
-
-        ``seated_at_start`` is what distinguishes an agent the run was given
-        from one the run invented. Agent 0 is seated at the start by
-        definition, and so is every teammate of a prebuilt roster: both are
-        nodes a human declared in the team file, running where agent 0 runs, so
-        both get agent 0's answer. A child a model spawned mid-run is not
-        declared anywhere, and keeps the hardened default — it must be handed an
-        OS-sandboxed environment before it can run a command, unless the caller
-        explicitly opts into ``allow_unisolated_child_shell``.
-
-        The left half is ``allow_unisolated_shell``, which defaults to
-        ``interactive`` and so reproduces the old rule unless a caller states
-        otherwise. An unattended run that states it — a batch experiment whose
-        agents must be able to run ``git`` — gets the shell without also
-        acquiring a human it could put a question to.
+        Agent 0 and prebuilt teammates use ``allow_unisolated_shell``, with None
+        inheriting interactive. Dynamic children require a sandboxed environment
+        unless ``allow_unisolated_child_shell`` explicitly permits unsandboxed commands.
+        ``ask_user`` follows the separate interactive entry-role rule.
         """
         if not seated_at_start:
             return self._allow_unisolated_child_shell

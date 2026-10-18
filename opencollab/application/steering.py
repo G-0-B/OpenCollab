@@ -93,32 +93,16 @@ def build_steering_block(
     write_nudge_mode: str = WRITE_NUDGE_ON,
     prev_used_tokens: int = 0,
 ) -> tuple[dict[str, Any] | None, Any | None, str | None]:
-    """Build the per-turn steering message + any ``tool_choice`` force.
+    """Return ``(message, tool_choice_override, level)`` for this turn.
 
-    Returns ``(message, tool_choice_override_or_None, level)`` where ``level`` is
-    ``'hard'`` / ``'soft'`` / ``None`` — the trace seam reads it to log upward
-    crossings. The message is a lean ``role:"user"`` block carrying budget
-    self-awareness plus, when the session can edit and has read without writing, a
-    write nudge (soft) or a hard demand (``tool_choice="required"``). Under the
-    default cadence the message is always built; on a fresh post-user turn
-    ``reads`` is ~0 so only the status line is returned, which is correct.
+    ``level`` is ``hard``, ``soft`` or ``None`` and supports upward-crossing
+    traces. Read-without-write nudges can demand a tool call. The caller supplies
+    ``structured_override`` for the structured-output tool.
 
-    ``structured_override`` is the ``tool_choice`` value that forces the
-    structured-output tool — the caller owns the tool vocabulary; steering only
-    decides *when* to force it.
-
-    ``budget_nudge_mode`` sets the cadence of the status line only (see
-    ``BUDGET_NUDGE_MODES``); the write nudges are unchanged by it. Under
-    ``thresholds`` the line rides along only on the turn whose spend crosses a
-    band, which needs ``prev_used_tokens`` — the spend at the previous turn.
-    When the mode suppresses the line and there is no nudge to carry, the
-    message is ``None`` and the caller adds nothing to the turn.
-
-    ``write_nudge_mode`` gates the reads-without-write family only (see
-    ``WRITE_NUDGE_MODES``); the status line is unchanged by it. Under ``off``
-    no rung fires, so the returned ``tool_choice`` override and ``level`` are
-    both ``None`` and the caller neither forces a tool nor traces a
-    ``steering_nudge``.
+    ``budget_nudge_mode`` controls only the status line. Threshold cadence uses
+    ``prev_used_tokens`` to emit each newly crossed band. ``write_nudge_mode``
+    independently controls write nudges. With those disabled, the tool override
+    and level are ``None``. If neither status nor nudge applies, message is None.
     """
     if max_budget_tokens is None:
         token_status = f"~{used_tokens // 1000}k tokens used"

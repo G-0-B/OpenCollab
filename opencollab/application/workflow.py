@@ -505,49 +505,26 @@ class WorkflowContext(
         commit_reserve: int | None = None,
         harvest_fallback: str | None = None,
     ) -> str | dict | None:
-        """Run one one-shot session and return its final assistant text.
+        """Run one session, returning text, a validated payload, or None on session failure.
 
-        ``budget`` caps THIS call's session at a per-call token allocation
-        (``max_budget_tokens``), clamped to the live global remaining so it can
-        never overshoot the shared pool. ``None`` keeps the prior behaviour
-        (the session may use the entire remaining pool). A per-call cap is what
-        stops a single runaway session — e.g. a non-converging scout that
-        snowballs its context to 700k+ — from starving every later phase.
+        ``budget`` requests a per-call allowance from the remaining shared pool.
+        None shares the available pool. An exhausted pool raises WorkflowBudgetExceeded
+        before session creation unless ``over_budget_ok`` permits the call.
 
-        Returns ``None`` if the session errors — one dead agent never kills the
-        fleet. Raises ``WorkflowBudgetExceeded`` only when the shared budget is
-        already exhausted before the call starts, UNLESS ``over_budget_ok=True``
-        is passed: the budget floor's single forced final write must be allowed to
-        run even at/below zero (it is bounded instead by ``thinking=False`` plus a
-        wall-clock ``timeout``), so skipping the pre-call raise is what GUARANTEES
-        a patch lands rather than the call self-aborting on an exhausted meter.
-        When ``schema=`` is given the
-        agent must finish by calling ``structured_output``; the validated dict
-        is returned (with one corrective retry on the same session before
-        giving up and returning ``None``).
+        ``schema`` requires structured_output and returns its validated dictionary.
+        An unsatisfied capture gets one corrective retry carrying gathered history.
+        ``tool_choice`` applies to free-text sessions. Schema sessions instead explore
+        with the endpoint default and then request the capture tool on retry, with
+        fallback to auto if the endpoint rejects forced choice.
 
-        ``tool_choice`` (e.g. ``"required"``) forces the model to emit a tool
-        call on the non-structured path — used by a forced-write step that MUST
-        land an edit. On the structured path it is unused: that path runs free
-        exploration on the first pass (``tool_choice`` left at the endpoint
-        default), then forces a ``structured_output`` commit on the corrective
-        turn by restricting the toolset to the capture tool and pinning a
-        named-function ``tool_choice`` (best-effort; an endpoint may reject it
-        and degrade to ``auto``).
+        ``thinking`` overrides reasoning only on the free-text path, with None
+        inheriting the factory default. ``timeout`` bounds the session run loop.
+        Passing ctx.seconds_left() allows a deadline-sensitive call to stop within
+        the workflow while retaining its on-disk edits.
 
-        ``thinking`` (free-text path only) overrides the run-wide reasoning
-        default for this one session: ``None`` keeps the factory default, ``False``
-        forces reasoning off so a deadline-sensitive step (the forced final write)
-        generates fast and cannot blow the deadline margin. ``timeout`` bounds the
-        whole session's run loop with ``asyncio.wait_for`` — pass
-        ``ctx.seconds_left()`` so a near-deadline forced write is cancelled in a
-        controlled way inside the workflow (its on-disk edits survive) rather than
-        being truncated by the outer wall.
-
-        ``commit_reserve=None`` uses the default 25,000-token enforcement
-        reserve. If the approved session budget is smaller, the default becomes
-        one quarter of that budget, with a minimum of one token. An explicit
-        reserve is validated against the approved session budget unchanged.
+        ``commit_reserve=None`` uses 25,000 tokens for enforcement. A smaller approved
+        budget scales this default to one quarter of the allowance, with a minimum
+        of one token. Explicit reserves are validated against the approved budget.
         """
         self._raise_if_environment_revoked()
         supplied_tool_names = [

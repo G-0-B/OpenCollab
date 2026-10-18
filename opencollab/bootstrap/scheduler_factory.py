@@ -118,78 +118,30 @@ def build_scheduler(
     record_delivery_tree: bool = False,
     run_id: str | None = None,
 ) -> Scheduler:
-    """Build the Scheduler and let it create agent 0 (the init process).
+    """Build the Scheduler and create agent 0 from the resolved team configuration.
 
-    Loads an explicitly selected team config (or the built-in Self-Collaboration team),
-    wires dependencies, and hands the scheduler a ``LaunchSpec``;
-    ``scheduler.create_init_process`` builds agent 0 (aid=0) through the factory
-    and applies the launch spec. ``session_file`` resumes agent 0's history;
-    ``auto_save`` writes a structured-JSON transcript per agent
-    (``agent_<aid>_<role>.json``) plus a ``team.json`` manifest under a
-    timestamped run folder in ``<workspace>/.opencollab/sessions``.
+    ``session_file`` restores its history. ``auto_save`` writes per-agent JSON
+    transcripts and a team manifest under the run directory. ``enable_hooks``
+    connects configured lifecycle hooks to the event bus.
 
-    When ``enable_hooks`` and the team config declares ``hooks``, a
-    ``HookEventSubscriber`` is attached to the team event bus so configured
-    shell commands fire on lifecycle events. Disable (e.g. under eval) to keep
-    runs free of hook side effects.
+    ``prebuild_team`` seats all declared roles before the first model call and
+    refuses later spawns. ``environment`` supplies agent 0's workspace and, with
+    worktrees, isolated teammate views. Otherwise agents use the host workspace.
 
-    ``prebuild_team`` switches the run to a static topology: every role the team
-    config declares is seated before the first model call and ``spawn_agent`` is
-    refused thereafter, so the roster is an input to the run rather than
-    something the model decides mid-run. Off by default; the scheduler behaves
-    exactly as before while it is off.
+    ``interactive`` enables human questions for the entry role.
+    ``allow_unisolated_shell`` separately authorizes commands outside an OS
+    sandbox for the entry agent and prebuilt roster. None inherits interactive.
+    ``allow_unisolated_child_shell`` separately opts dynamically spawned children
+    into unsandboxed commands and defaults to False. Command confirmation continues to
+    use the run's permission policy.
 
-    ``environment`` is where this run works. Left unset every agent works on
-    the host workspace; supplied, agent 0 works in it and each teammate gets an
-    isolated view of the same place -- which is how a team reaches a repository
-    that exists only inside a container.
+    ``max_steps`` gives every seat the same step ceiling. ``serialize_turns``
+    runs one seat at a time while preserving the declared communication edges.
+    Both roster prebuilding and turn serialization default to False.
 
-    ``serialize_turns`` holds the team to one turn at a time: a teammate a
-    message wakes waits for the running turn to finish instead of running beside
-    it. It changes *when* an agent runs, never whether it may — the topology
-    keeps every declared edge and ``message_agent`` stays voluntary, so whether
-    the agents hand work to each other is still theirs to decide. Off by
-    default, which is the concurrent behaviour.
-
-    ``interactive`` and ``allow_unisolated_shell`` are two different facts about
-    a run, and only one of them is about a human:
-
-    * ``interactive`` — is there a person at this run to put a question to? It
-      is what gives the entry role ``ask_user``, and nothing else here.
-    * ``allow_unisolated_shell`` — may an agent seated at the start execute
-      commands the OS does not sandbox? A worktree is not a sandbox, so this is
-      what decides whether a seated agent's ``bash`` runs a command or refuses
-      it.
-
-    They coincided while the only run with a shell was a run with a human
-    watching it, which is why one boolean used to answer both. An unattended
-    batch run pulls them apart: its agents must be able to run ``git`` in their
-    worktrees, and there is nobody for them to ask anything. Passing
-    ``max_steps`` is the step ceiling every seat is built with — the entry agent
-    and each teammate alike. It is a runaway guard rather than an allowance:
-    tokens are the resource a run is held to, and steps are counted and
-    reported. Before this parameter existed the ceiling could not be set at all
-    on this path, and the two hard-coded defaults gave the entry agent twice
-    what a teammate got.
-
-    ``allow_unisolated_shell=True`` with ``interactive=False`` is exactly that
-    run, and it is not expressible with one flag.
-
-    ``record_delivery_tree`` wires a read-only probe over the tree this run is
-    graded on -- agent 0's workspace, which is the environment when one is
-    given -- and the scheduler then records that tree's diff at each seat
-    boundary (``SchedulerDeliveryTreeMixin``). Off by default because it costs a
-    ``git diff`` per boundary and answers a question only an experiment asks:
-    which seat was working when a delivered line arrived. Off, no probe is
-    built and no git command runs.
-
-    ``allow_unisolated_child_shell`` explicitly authorizes host shell commands
-    for dynamically spawned children. It defaults to False, independently of
-    the entry agent and prebuilt roster permissions. Command confirmation
-    continues to use the run's permission policy.
-
-    ``None`` — the default — means "whatever ``interactive`` says", so every
-    existing call site keeps its current behaviour without being touched.
+    ``record_delivery_tree`` optionally probes agent 0's tree at seat boundaries
+    and accepted messages for attribution. It defaults to False and costs a Git
+    diff per boundary when enabled.
     """
     if session_file is not None and not SessionStore().has_snapshot(session_file):
         raise ValueError(f"session file does not exist: {session_file}")

@@ -340,23 +340,13 @@ class SchedulerPersistenceMixin:
         used: int,
         pool_remaining: int,
     ) -> None:
-        """Record a turn the per-agent cap refused while the pool still had money.
+        """Record refusal by an agent's cap while shared tokens remain available.
 
-        Fires only when the cap is what said no: this agent has spent its whole
-        allowance and the team has not spent the pool. Without the record the two
-        ways an agent can stop contributing look identical afterwards — "the
-        model never used this role" and "the model used this role until its
-        allowance ran out" both end as an agent that takes no further turns, and
-        they are opposite findings about the same run.
+        ``requested`` is the capacity the pool would have lent. ``remaining`` is
+        the agent's unclamped allowance, including any negative overspend, and
+        ``would_exceed_by`` measures the request against it.
 
-        ``requested`` is what the shared pool alone would have lent this turn,
-        which is the amount the cap withheld. ``remaining`` is the agent's own
-        allowance left, unclamped, so an agent that overshot its cap inside a
-        single turn reads as the negative it is, and ``would_exceed_by`` is
-        measured against it.
-
-        Observational: a record that cannot be built must not overturn the
-        allocation it describes.
+        Trace failures leave the allocation decision unchanged.
         """
         tracer = self._tracer
         if tracer is None:

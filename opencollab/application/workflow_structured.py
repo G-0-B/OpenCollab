@@ -83,33 +83,16 @@ class WorkflowStructuredMixin:
         timeout: float | None = None,
         budget: int | None = None,
     ) -> dict | None:
-        """Run a schema-bound session, returning the validated payload or None.
+        """Run a schema-bound session and return a validated payload or None.
 
-        First pass — free exploration: the full toolset
-        ``[capture_tool, *tools]`` is offered with ``tool_choice`` left at the
-        endpoint default so the agent can grep/read before committing, and it is
-        instructed to finish by calling ``structured_output``.
+        The first pass offers the capture tool and exploration tools with the
+        endpoint's default tool choice. An unsatisfied capture triggers one retry
+        carrying the first conversation, restricted to the named capture tool.
+        A parsed markup tool call that already satisfied the schema needs no retry.
 
-        Corrective pass — forced commit: the trigger is a genuinely-empty
-        capture (``_schema_satisfied(captured)`` is False after the first pass),
-        NOT a free-text stop reason — so a markup-leaked tool call that the
-        parser already resolved into ``captured`` does NOT spuriously fire it.
-        When it fires, a second session restricted to ONLY the capture tool with
-        a named-function ``tool_choice`` (``_named_tool_choice``) is built,
-        seeded with the first pass's conversation (its exploration is copied
-        over) and an explicit 'you MUST call structured_output, do not answer in
-        prose' instruction, so it commits from what was actually gathered rather
-        than the bare prompt. This raises the odds of a commit but does NOT
-        guarantee one: some OpenAI-compatible endpoints (observed: DashScope)
-        400-reject a forced ``tool_choice`` and ``session_run`` degrades it once
-        to ``auto``, after which the model may still answer in prose — a
-        still-missing capture yields ``None``.
-
-        A successful capture sets a cancel event that the session's precheck
-        observes before each LLM call, halting the loop immediately. Without
-        it, a model that keeps re-calling structured_output after acceptance
-        burns the whole session budget (observed live: one valid capture
-        followed by 28 wasted calls until budget death).
+        Endpoints may reject forced tool choice and fall back to auto. A missing
+        capture after the retry returns None. Successful capture sets a cancellation
+        event checked before each model call to prevent repeated submissions.
         """
         deadline = self._timeout_deadline(timeout)
         capture_done = asyncio.Event()
