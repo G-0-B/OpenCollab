@@ -1,32 +1,10 @@
-"""Eager, always-on tool-output clearing (cache-ready front rung).
+"""Optional age-based tool-output clearing over a copy of history.
 
-Unlike the reactive history layers (``reactive``) which no-op until an estimated
-context size crosses a trigger, this layer runs *unconditionally* on every model
-call. It is the cheapest, first/always-on rung at the FRONT of the shaping chain:
-it bounds file_read / tool-result accumulation BEFORE the 120k-gated reactive
-pipeline ever fires.
-
-It is a read-time projection over a *copy* of the message history: ``state.messages``
-and the persisted transcript stay untouched. It keeps the ``K`` most-recent
-compactable tool results verbatim and replaces every OLDER compactable result's
-content with a deterministic, message-derived stub. Pinned sources (identity /
-team / task, ``priority >= PIN_FLOOR``) and non-compactable messages are never
-touched, and the assistant ``tool_call`` <-> ``tool``-result pairing skeleton is
-preserved (the message and its ``tool_call_id`` survive — only the content shrinks).
-
-CACHE-READY PROPERTIES (unit-tested in ``tests/runtime/test_eager_tool_clear_shaper.py``):
-
-* **Deterministic** — ``shape(x)`` is byte-identical across repeated calls and
-  does NOT read any running token estimate / context-size measurement.
-* **Monotonic** — as the conversation grows by one tool exchange, a result
-  transitions full -> stub exactly once (when it ages past ``K``) and never back;
-  every already-stubbed message stays byte-identical, so the deep prefix stays
-  cacheable.
-* **Idempotent** — ``shape(shape(x)) == shape(x)``.
-
-OUT OF SCOPE: actual ``cache_control`` breakpoint wiring / enabling prompt
-caching. This layer only produces the deterministic/monotonic projection that
-makes such caching possible.
+Keep the newest K compactable results and replace older content with stable
+message-derived stubs. Pinned sources and call/result pairing survive.
+The projection is deterministic and idempotent; a given result's full-to-stub
+transition still changes the sent prefix. Bootstrap therefore omits this
+always-on layer from the default pressure-triggered pipeline.
 """
 
 from __future__ import annotations
@@ -57,15 +35,9 @@ EAGER_STUB_PREFIX = "[Old tool result cleared"
 
 
 def _stub_for_call(tool_name: str, target: str | None) -> str:
-    """Deterministic, byte-stable stub naming the tool, its target and (for reads)
-    the exact slice already seen.
+    """Name the tool and already-read target with a stable, message-derived stub.
 
-    A pure function of ``(tool_name, target)`` — no token counts, no message
-    index, no randomness — so the same old message yields an identical stub on
-    every turn (the monotonic / cacheable property). The wording tells the model
-    it ALREADY ran this call and the output is in the transcript, so it does not
-    re-issue the call merely to re-confirm what it read — the failure mode that
-    burns a whole step budget on identical re-reads.
+    Exclude counters and randomness so unchanged old calls retain identical text.
     """
     where = f" {target}" if target else ""
     return (
@@ -105,13 +77,9 @@ def _range_label(arguments: dict[str, Any]) -> str:
 
 
 def _call_target(tool_name: str | None, arguments: Any) -> str | None:
-    """Best-effort target label lifted from a tool call's arguments.
+    """Extract a deterministic target label, returning safely on malformed arguments.
 
-    For ``file_read`` the label carries the exact line range already seen
-    (``foo.py lines 1-100``) so each page of a multi-page read gets a DISTINCT
-    stub — otherwise every page of one file collapses to the same stub and the
-    model cannot tell which slice it already holds. Other tools keep their plain
-    path/pattern/command label. Deterministic; never raises.
+    Include file-read line ranges so separate pages do not collapse to one stub.
     """
     parsed = _as_dict(arguments)
     if parsed is None:
@@ -129,13 +97,9 @@ def _call_target(tool_name: str | None, arguments: Any) -> str | None:
 
 
 class EagerToolOutputClearShaper:
-    """Always-on, age-based, deterministic tool-output clearing.
+    """Clear old compactable content on every call, without a pressure trigger.
 
-    Keeps the ``keep_recent`` most-recent compactable tool results verbatim and
-    replaces every older compactable result's content with a deterministic,
-    message-derived stub. Pinned sources and non-compactable messages are never
-    touched; the ``tool_call`` <-> result pairing skeleton is preserved. Runs on
-    every call with no estimate / trigger dependency.
+    Keep recent results, pinned sources, and call/result pairing intact.
     """
 
     #: Frozen trajectory label for this rung (see ``ShaperPipeline``).
@@ -175,14 +139,10 @@ class EagerToolOutputClearShaper:
     def _stubs_for_old_results(
         self, messages: list[dict[str, Any]]
     ) -> dict[int, str]:
-        """Map exact result index -> stub for every compactable result
-        older than the last ``keep_recent``.
+        """Map old compactable result indices to stubs, excluding pinned issuing turns.
 
-        Compactable calls are scanned in issue order from the assistant
-        ``tool_calls`` (the tool *name* lives on the call, not the ``role:"tool"``
-        answer), so age is positional and independent of any token estimate.
-        Pinned issuing turns are skipped. The last ``keep_recent`` ids are
-        excluded so they stay verbatim.
+        Age follows assistant-call order; tool answers do not carry the tool name.
+        The newest ``keep_recent`` results remain verbatim.
         """
         # Collect raw (id, name, arguments) for every compactable call first, then
         # parse arguments + build stubs ONLY for the older calls that get cleared —

@@ -105,13 +105,9 @@ class SchedulerPersistenceMixin:
 
     @property
     def budget_exhausted(self) -> bool:
-        """True once the team's *aggregate* spend has reached the global cap.
+        """Whether aggregate team spend reached the shared cap.
 
-        Defense-in-depth companion to the per-session budget check: even though
-        reserve-at-allocation keeps the sum of grants under the ceiling, a
-        session may overshoot its own cap (a single LLM turn returns more tokens
-        than budgeted). This catches the team total regardless of how the spend
-        is distributed across sessions.
+        This also catches in-flight overshoot of individual grants.
         """
         if self._role_budgets:
             # Independent allowances: the team is out of tokens only when every
@@ -141,58 +137,34 @@ class SchedulerPersistenceMixin:
         return max(1, len(self._roles))
 
     def _per_agent_cap(self) -> int | None:
-        """The most any one agent may spend, or ``None`` on a dynamic roster.
+        """Return the declared roster's cumulative seat cap, else None.
 
-        A number only when the roster is an input to the run: the team config
-        declares the roles and the scheduler was built to seat them
-        (``prebuild_team``), so N is known before the first model call and the
-        rule ``c * total / N`` has a divisor. See ``PER_AGENT_BUDGET_SHARE``.
-
-        ``None`` otherwise. Without a declared roster the team is whatever the
-        model spawns, N is not known while the run is still deciding it, and
-        there is nothing to divide by; that path reserves ``dynamic_roster_share``
-        per agent at creation instead.
+        Prebuilt rosters use ``c * total / N``; dynamic rosters have no fixed N
+        and reserve ``dynamic_roster_share`` at creation instead.
         """
         if not self._prebuild_team:
             return None
         return per_agent_cap(self._max_budget_tokens, self._declared_team_size())
 
     def _entry_agent_takes_the_pool(self, aid: int) -> bool:
-        """True where agent 0's turn is leased the whole remaining pool.
+        """Whether dynamic agent 0 may lease the unallocated remainder.
 
-        The dynamic-roster path only, and the budget privilege the declared path
-        removes. With no N there is no per-agent cap to hold agent 0 to, so its
-        turn takes the entire unallocated remainder while every other agent is
-        held to one ``dynamic_roster_share``. Under a declared roster agent 0 is
-        leased through ``per_agent_cap`` like every teammate.
+        Declared seats, including agent 0, instead obey the same per-agent cap.
         """
         return aid == 0 and self._per_agent_cap() is None
 
     def _entry_start_budget(self) -> int:
-        """The budget agent 0's session is built with — what it may truly spend.
+        """Return agent 0's actual spend ceiling, also shown in its budget prompt.
 
-        Under a declared roster that is its ``per_agent_cap``, the same figure
-        every seated teammate gets. It has to be the figure it can actually
-        spend: the session injects ``[Budget: ~Xk/Yk tokens left, ...]`` into the
-        model's context from exactly this value on every turn, so passing the
-        team total would overstate agent 0's allowance by ``N / c`` once per
-        turn, for the whole run.
+        Passing the whole pool for a declared seat would overstate its allowance.
         """
         cap = self._agent_cap(0)
         return self._max_budget_tokens if cap is None else cap
 
     def _seed_entry_lease(self) -> None:
-        """Book agent 0's own share of the pool when it registers (idempotent).
+        """Idempotently reserve agent 0's dynamic share before children can book.
 
-        Reserve-at-allocation divides the pool as agents appear, so agent 0 has
-        to book its share before any child books one — otherwise the children
-        would divide a pool nobody had left room in. It books exactly what a
-        child books, ``dynamic_roster_share(total)``, and into the same lease
-        table: agent 0 has no account of its own.
-
-        Nothing to seed under a declared roster: the pool is shared, each agent
-        is bounded by ``per_agent_cap`` instead of by a booking, and an idle
-        agent 0 must hold no tokens.
+        Declared rosters reserve nothing at seating; an idle seat holds no tokens.
         """
         if self._per_agent_cap() is not None:
             return
@@ -219,16 +191,10 @@ class SchedulerPersistenceMixin:
         )
 
     def _budget_committed(self) -> int:
-        """Tokens the team can no longer spend on something else.
+        """Return spent tokens plus outstanding dynamic reservations.
 
-        Under a declared roster that is exactly what has been spent. The pool is
-        shared, and a lease there sets a ceiling rather than taking tokens out of
-        it, so an agent that was seated and never used commits nothing and the
-        agents that are working can still reach the whole remainder.
-
-        Under a dynamic roster a live lease still commits its unspent remainder,
-        because that reservation is the only thing stopping the next spawn from
-        oversubscribing the pool.
+        Declared seat caps reserve nothing; a dynamic live lease still owns its
+        unspent remainder to prevent a subsequent spawn from oversubscribing.
         """
         committed = max(0, self.used_tokens)
         if self._per_agent_cap() is not None:
@@ -240,13 +206,10 @@ class SchedulerPersistenceMixin:
         return committed
 
     def _defer_budget_lease_for_provider_cleanup(self, aid: int) -> bool:
-        """Keep a dynamic-roster grant booked until late provider usage settles.
+        """Hold a dynamic grant until late provider usage settles.
 
-        The runner's late-result callback is registered on each provider task
-        before this scheduler callback, so a successful late response updates
-        the session's token ledger before the reservation is removed. Grouping
-        the tasks under one reservation avoids counting a grant once per cleanup
-        task when a runner exposes more than one owner.
+        The provider callback updates usage before this scheduler callback releases
+        the grant. Group tasks under one reservation to avoid duplicate booking.
         """
         if self._per_agent_cap() is not None:
             return False
@@ -289,16 +252,10 @@ class SchedulerPersistenceMixin:
         self._pending_provider_budget_leases.pop(reservation, None)
 
     def _reserve_child_budget(self, aid: int, role: str | None = None) -> int:
-        """The budget a newly created agent's session is built with.
+        """Return a declared seat cap or synchronously reserve a dynamic child grant.
 
-        Declared roster: its ``per_agent_cap``, and nothing is booked. Seating an
-        agent takes no tokens out of the shared pool, so a team of any declared
-        size can be seated and a teammate that is never used holds nothing.
-
-        Dynamic roster: one ``dynamic_roster_share`` out of the unallocated
-        remainder, booked here. Synchronous (no await): a duplicate / batched
-        spawn that runs before the first child's await already sees the updated
-        allocation and cannot oversubscribe the pool.
+        Declared seating books nothing. Dynamic booking happens before any await
+        so batched spawns see updated allocations.
         """
         cap = self._agent_cap(aid, role)
         if cap is not None:
@@ -309,14 +266,9 @@ class SchedulerPersistenceMixin:
         return grant
 
     def _grant_under_cap(self, aid: int, cap: int, used: int) -> int:
-        """What the shared pool may lend ``aid`` this turn, under ``aid``'s cap.
+        """Grant the smaller of unspent team tokens and the agent's remaining allowance.
 
-        Two limits, and the smaller one wins: what the team has not spent, and
-        what this agent has left of its own allowance. Nothing was set aside for
-        anyone at creation, so the first number is simply ``total - spent`` — an
-        agent whose teammates stayed idle can draw far past an equal share. The
-        second is measured against *cumulative* spend, so the cap bounds the run,
-        not the turn.
+        The agent cap applies to cumulative spend, not just this turn.
         """
         agent_remaining = cap - used
         pool_remaining = self._max_budget_tokens - self.used_tokens
@@ -341,23 +293,11 @@ class SchedulerPersistenceMixin:
         used: int,
         pool_remaining: int,
     ) -> None:
-        """Record a turn the per-agent cap refused while the pool still had money.
+        """Record a seat stopped by its cap while the shared pool still has tokens.
 
-        Fires only when the cap is what said no: this agent has spent its whole
-        allowance and the team has not spent the pool. Without the record the two
-        ways an agent can stop contributing look identical afterwards — "the
-        model never used this role" and "the model used this role until its
-        allowance ran out" both end as an agent that takes no further turns, and
-        they are opposite findings about the same run.
-
-        ``requested`` is what the shared pool alone would have lent this turn,
-        which is the amount the cap withheld. ``remaining`` is the agent's own
-        allowance left, unclamped, so an agent that overshot its cap inside a
-        single turn reads as the negative it is, and ``would_exceed_by`` is
-        measured against it.
-
-        Observational: a record that cannot be built must not overturn the
-        allocation it describes.
+        This distinguishes unused roles from exhausted allowances. ``requested`` is
+        the pool-only grant; ``remaining`` retains negative overshoot, and
+        ``would_exceed_by`` is measured against it. Tracing cannot change allocation.
         """
         tracer = self._tracer
         if tracer is None:
@@ -385,11 +325,8 @@ class SchedulerPersistenceMixin:
             logger.error("agent budget cap trace failed: %s", exc)
 
     def _reserve_turn_lease(self, aid: int) -> int:
-        """Lease this turn's tokens to a resuming session.
-
-        Declared roster: the pool's unspent remainder, bounded by the agent's
-        own ``per_agent_cap``. Dynamic roster: every token not already reserved
-        by someone else's live lease.
+        """Lease the remaining pool within a declared seat's cap, or the dynamic
+        remainder not reserved by another live lease.
         """
         self._release_turn_lease(aid)
         baseline = self._session_used_tokens(aid)

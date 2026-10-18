@@ -1,14 +1,7 @@
-"""Structured-output forcing for :class:`WorkflowContext`.
+"""Explore for a structured payload, then retry a missing capture once.
 
-The "make the agent commit a schema-valid payload" concern peeled out of
-``workflow.py``: a first free-exploration pass, then — only when the capture is
-genuinely empty — one corrective pass restricted to the capture tool with a
-named-function ``tool_choice``. ``WorkflowStructuredMixin`` is mixed into
-``WorkflowContext`` (it reaches the engine — ``_factory`` / ``_run_session_turn``
-/ ``_capped_session_budget`` / ``log`` — via ``self``); ``_named_tool_choice``
-also serves the evidence-preserving workflow mixin, which imports it from here.
-
-Pure application layer: domain + stdlib imports only.
+The corrective session retains prior exploration but exposes only the capture
+tool. ``_named_tool_choice`` is also used by findings capture.
 """
 
 from __future__ import annotations
@@ -43,28 +36,19 @@ _STRUCTURED_RETRY = (
 )
 
 def _named_tool_choice(tool_name: str) -> dict[str, Any]:
-    """OpenAI-style named-function ``tool_choice`` forcing exactly ``tool_name``.
+    """Force one named function rather than any available tool.
 
-    More precise than the bare ``"required"`` (force *some* tool) string: it
-    names the single tool the corrective turn must call. Stricter
-    OpenAI-compatible endpoints (observed: DashScope 400-rejects a bare
-    ``"required"`` for several repos and silently degrades to ``auto``) are more
-    likely to honour this explicit dict. It rides through the LLM stack
-    unchanged (the OpenAI SDK accepts a dict ``tool_choice``); if an endpoint
-    still rejects it, ``SessionRunUseCase._complete`` degrades it ONCE to
-    ``"auto"`` on a 400 exactly as it does for ``"required"`` today.
+    Some endpoints reject forced choice; the runner can fall back once to auto,
+    so this is not a guarantee of submission.
     """
     return {"type": "function", "function": {"name": tool_name}}
 
 
 def _schema_satisfied(captured: Any, schema: dict[str, Any]) -> bool:
-    """Minimal acceptance check for a captured structured payload.
+    """Accept a validated capture with all required top-level keys.
 
-    The ``StructuredOutputTool`` already validated the payload against the full
-    schema before storing it, so this is light hardening, not a re-validation:
-    it rejects a missing capture and a dict that omits any of the schema's
-    required top-level keys (e.g. an empty ``{}`` that slipped through), which
-    are treated like a miss so the forced corrective turn runs.
+    Full schema validation belongs to StructuredOutputTool; a missing capture
+    or missing required keys triggers correction.
     """
     if not isinstance(captured, dict):
         return False
@@ -94,33 +78,13 @@ class WorkflowStructuredMixin:
         timeout: float | None = None,
         budget: int | None = None,
     ) -> dict | None:
-        """Run a schema-bound session, returning the validated payload or None.
+        """Return a schema-valid payload, or None after unsuccessful correction.
 
-        First pass — free exploration: the full toolset
-        ``[capture_tool, *tools]`` is offered with ``tool_choice`` left at the
-        endpoint default so the agent can grep/read before committing, and it is
-        instructed to finish by calling ``structured_output``.
-
-        Corrective pass — forced commit: the trigger is a genuinely-empty
-        capture (``_schema_satisfied(captured)`` is False after the first pass),
-        NOT a free-text stop reason — so a markup-leaked tool call that the
-        parser already resolved into ``captured`` does NOT spuriously fire it.
-        When it fires, a second session restricted to ONLY the capture tool with
-        a named-function ``tool_choice`` (``_named_tool_choice``) is built,
-        seeded with the first pass's conversation (its exploration is copied
-        over) and an explicit 'you MUST call structured_output, do not answer in
-        prose' instruction, so it commits from what was actually gathered rather
-        than the bare prompt. This raises the odds of a commit but does NOT
-        guarantee one: some OpenAI-compatible endpoints (observed: DashScope)
-        400-reject a forced ``tool_choice`` and ``session_run`` degrades it once
-        to ``auto``, after which the model may still answer in prose — a
-        still-missing capture yields ``None``.
-
-        A successful capture sets a cancel event that the session's precheck
-        observes before each LLM call, halting the loop immediately. Without
-        it, a model that keeps re-calling structured_output after acceptance
-        burns the whole session budget (observed live: one valid capture
-        followed by 28 wasted calls until budget death).
+        Explore with the full toolset first. Retry only a missing valid capture,
+        not a prose stop if markup recovery already captured a result. Correction
+        uses the capture tool alone and carries prior exploration into its session.
+        A valid capture cancels further model calls to prevent repeated submissions.
+        Forced tool choice may degrade to auto on an endpoint that rejects it.
         """
         deadline = self._timeout_deadline(timeout)
         capture_done = asyncio.Event()
@@ -217,21 +181,10 @@ class WorkflowStructuredMixin:
         timeout: float | None,
         budget: int | None,
     ) -> dict | None:
-        """Build a single-tool, forced-``tool_choice`` corrective session.
+        """Build a capture-only corrective session carrying the earlier exploration.
 
-        The session is pinned to a named-function ``tool_choice`` (force exactly
-        ``structured_output``) and seeded with an explicit 'you MUST call the
-        tool, do not answer in prose' instruction. This strongly pushes — but,
-        on endpoints that 400-reject a forced choice and degrade to ``auto``,
-        does not guarantee — a structured commit.
-
-        The first pass's conversation (its grep/file_read tool results and the
-        understanding the model built) is copied from ``prior_session`` into the
-        corrective session before the retry message is added, so the forced
-        commit fills the schema from real exploration rather than from the bare
-        prompt — without this carry-over the ``_STRUCTURED_RETRY`` instruction to
-        commit "based on what you have already gathered" would address a blank
-        session that gathered nothing.
+        Named tool choice can degrade to auto; a submission is still not guaranteed.
+        Without copied exploration the retry would ask for evidence it never received.
         """
         deadline = self._timeout_deadline(timeout)
         retry_prompt = prompt + "\n\n" + _STRUCTURED_RETRY
@@ -282,19 +235,11 @@ class WorkflowStructuredMixin:
 
     @staticmethod
     def _carry_exploration(prior_session: Any, session: Any) -> bool:
-        """Copy the first pass's conversation into the corrective session.
+        """Append prior exploration after the corrective session's own system messages.
 
-        The corrective session is built fresh (seeded only with the system
-        prompt), so without this it would have none of the first pass's
-        exploration. The fresh session's system messages govern its current
-        role and tool permissions. Keep those messages and append a shallow
-        copy of the prior conversation. The new list is independent while the
-        message dicts are shared, because neither side mutates them in place.
-
-        The workflow-session port promises ``state.messages``. A top-level
-        ``messages`` property remains a compatibility fallback for older custom
-        factories. Failure is reported to the caller so it can emit a visible
-        recovery-degradation event without aborting the corrective turn.
+        Copy the list, sharing message dicts that neither side mutates in place.
+        Read ``state.messages`` with a legacy top-level ``messages`` fallback.
+        Report copy failure so the caller can trace degradation and still try correction.
         """
         prior_state = getattr(prior_session, "state", None)
         prior = getattr(prior_state, "messages", None)

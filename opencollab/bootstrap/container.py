@@ -285,13 +285,7 @@ def _history_compaction_settings(
     resolved_llm: LLMPort, history_trigger_tokens: int | None = None,
     *, max_output_tokens: int = DEFAULT_MAX_TOKENS_PER_STEP,
 ) -> dict[str, Any]:
-    """The history-compaction thresholds a session will actually run under.
-
-    One resolution point for two consumers: the shaper wiring below, which hands
-    the numbers to the reactive layers, and the trajectory record, which writes
-    them down. Deriving them twice would let the recorded value drift from the
-    enforced one, which is the whole failure this record exists to close.
-    """
+    """Resolve effective thresholds once for both shaper wiring and trace records."""
     context_window = getattr(resolved_llm, "context_window", lambda: None)()
     allowances: dict[str, int] = {}
     if context_window and context_window > 0:
@@ -398,46 +392,15 @@ def _build_default_shaper(
     history_trigger_tokens: int | None = None,
     max_output_tokens: int = DEFAULT_MAX_TOKENS_PER_STEP,
 ) -> ShaperPort:
-    """Assemble the default lazy-degradation shaper pipeline.
+    """Cap each tool result, then compact eligible history under token pressure.
 
-    ``history_compaction=False`` keeps only the per-tool-result budget, and
-    ``tool_result_budget`` sets that budget; both are how a team file's
-    context policy reaches this wiring (see ``bootstrap.context_policy``).
-
-    Cheapest/lowest-loss first: per-tool-result budget bounds any one result;
-    the reactive history layers then bound the *total* view once it crosses the
-    trigger — clear old tool *content* in place (lowest loss) → snip whole old
-    tool turns → auto-compact (summarize the remaining old span via the
-    Claude Code-derived compaction prompt). All read-time over a copy; transcript stays full for lossless
-    resume.
-
-    Every layer here is pressure-triggered: each no-ops until an estimated
-    context size crosses its trigger. ``EagerToolOutputClearShaper`` is
-    deliberately not among them, although it was. It ran unconditionally on
-    every call, and the two costs it carries are both paid at low context,
-    where there is no pressure to relieve:
-
-    * It rewrites history. Each call stubs the one result that has just aged
-      past its keep-recent window, so the message at that depth differs from
-      the message sent last call — the provider's prompt prefix stops matching
-      there and the whole tail after it is re-read at full input price, every
-      call. Append-only history matches to the end. The layers below rewrite
-      too, but only once pressure is real, and against a window that is
-      genuinely too large to send.
-    * The model re-reads what was cleared. Runs on this repository's own tasks
-      showed the same file re-read eight and nine times while the context peak
-      sat at about two percent of the window, so the tokens the clearing saved
-      were spent again on fetching the same bytes back.
-
-    Turning it off hands its job to the layers below, which do the same work on
-    the same messages when the context is actually large. It is not deleted:
-    ``opencollab.application.shaping`` still exports it, and a caller that
-    wants an always-on front rung can compose one.
+    Clear output before snipping groups, then summarize the remaining old span.
+    All layers shape a copy; ``history_compaction=False`` keeps only the result cap.
+    ``tool_result_budget`` sets that cap. The optional eager clearer is omitted:
+    its low-pressure prefix changes and repeated file fetches can outweigh savings.
+    Callers can still compose it explicitly.
     """
-    # Trigger/target scale to the active model's real context window, degrading
-    # to fixed defaults when the model is unrecognised. Resolved through
-    # ``_history_compaction_settings`` so the trajectory record and the wiring
-    # read the SAME two numbers rather than each deriving its own.
+    # Wiring and traces share one threshold resolver to prevent drift.
     per_result = PerToolResultBudgetShaper(
         tool_result_budget,
         preserve_tail=preserve_tool_result_tail,

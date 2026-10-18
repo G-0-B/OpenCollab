@@ -56,8 +56,8 @@ behavior. A separate ARC-Bench r6 job runs the example's browser checks with
 Node and Chromium. The [testing guide](docs/testing.md) links both browser
 test setups.
 
-The title workflow checks Conventional Commit syntax on PR titles and on
-non-merge commits pushed to `main`. It accepts a merge commit after the PR-title
+The title workflow checks Conventional Commit syntax and rejects Chinese prose
+in PR titles and non-merge commits pushed to `main`. It accepts a merge commit after the PR-title
 check. Use a merge commit to retain the reviewed feature-branch history.
 
 File hygiene rejects a newly added file larger than 512,000 bytes or a change
@@ -104,16 +104,37 @@ python3 scripts/check_doc_translations.py origin/main HEAD
 ```
 
 Use [Conventional Commits](https://www.conventionalcommits.org/) format with an
-English type prefix and Chinese description for commits, PR titles, and merge
-subjects. Supported types include `feat`, `fix`, `refactor`, `docs`, `test`,
-`chore`, `perf`, `ci`, `build`, `style`, and `revert`. A `refactor` commit
+English type prefix and English descriptions for commits, PR titles, and merge
+subjects. Commit bodies and PR descriptions also use English. Supported types
+include `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`, `build`,
+`style`, and `revert`. A `refactor` commit
 preserves behavior.
 
 Keep each PR focused and describe its changed behavior and verification in
-Chinese. Code, comments, and canonical tracked documentation use English.
+English. Code, comments, and canonical tracked documentation use English;
+translations retain their declared language. The title check detects Chinese
+prose, not English grammar; authors and reviewers own the wording.
 Commit authorship and `Co-authored-by` trailers are reserved for human
 contributors. Merge with a merge commit to preserve feature-branch history and
 human authorship.
+
+## Documentation and comments
+
+Keep setup, usage, and testing instructions at their existing entry points and
+link to them. Remove superseded plans after moving still-useful decisions and
+constraints into the maintained guide. Preserve release migrations and research
+evidence that have an independent reader or reproducibility purpose.
+
+Markdown under `configs/`, packaged prompts, and skill directories can be runtime
+input. Generated experiment cards must be changed through their source templates
+and checked with the existing generator and configuration tests (see the
+[scripts guide](scripts/README.md)). Their exact text is an experiment condition.
+
+Comments explain reasons, assumptions, edge cases, and tradeoffs. Docstrings
+retain the inputs, outputs, failures, and ownership rules callers need. Before
+shortening one, check for CLI help, workflow discovery, documentation, or static
+analysis consumers. Comment cleanup must preserve executable behavior and lint
+directives.
 
 ## Contribution license
 

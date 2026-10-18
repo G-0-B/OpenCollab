@@ -1,13 +1,7 @@
-"""The context policy a team file names for every session it seats.
+"""Resolve team history-shaping policy.
 
-A policy decides which shaper layers reshape a session's history before each
-model call. ``default`` is the lazy-degradation pipeline every session ran
-before the policy could be named, so a team file that omits ``context`` runs
-exactly what it ran before. ``no_history_compaction`` keeps the per-result
-budget, which bounds any one tool result, and turns off the three
-pressure-triggered history layers (clear old tool output, snip old turns,
-summarize), so the model sees its whole history until the provider's window
-refuses it.
+``default`` uses pressure-triggered history compaction.
+``no_history_compaction`` retains only the per-result cap.
 """
 
 from __future__ import annotations

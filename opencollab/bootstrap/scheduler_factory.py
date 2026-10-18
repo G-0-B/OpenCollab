@@ -1,10 +1,4 @@
-"""Scheduler factory for the high-level CLI and SDK entry points.
-
-``build_scheduler`` loads the team config, wires every concrete dependency,
-hands the ``Scheduler`` a ``LaunchSpec`` + ``Topology``, and lets it create
-agent 0 (the init process). This is the one place that knows the full
-collaborator graph for a multi-agent run.
-"""
+"""Compose CLI/SDK team dependencies and initialize agent 0."""
 
 from __future__ import annotations
 
@@ -45,34 +39,16 @@ from opencollab.bootstrap.team_config import (
 )
 from opencollab.domain.agent import DEFAULT_MAX_TOKENS_PER_STEP
 
-# The one tool that carries a message from one live agent to another
-# (``adapters.tools.message.MessageAgentTool``). Named here rather than
-# imported from the registry so the composition root states the dependency it
-# actually has: a topology edge is walkable only if the source role holds this.
+# Prebuilt peers need this tool to use their declared communication edges.
 _MESSAGING_TOOL_NAME = "message_agent"
 
 
 def _reject_unwalkable_edges(team: TeamConfig) -> None:
-    """Refuse a prebuilt team whose declared edges no agent can walk.
+    """Reject prebuilt topology edges whose source lacks ``message_agent``.
 
-    Only under ``prebuild_team``. There, ``spawn_agent`` is refused for the
-    whole run (``SchedulerTeamMixin._refuse_spawn_when_prebuilt``), so
-    ``message_agent`` is the only channel left between two seated agents. A role
-    that is given an outgoing edge but not that tool is seated mute: the
-    topology says it may address a teammate and nothing it can call will do so.
-    The run still starts, still records that edge as ``assigned.topology_edges``,
-    and produces a transcript in which the edge was simply never used — which
-    reads as a finding about the model rather than about the config.
-
-    Under the product default (``prebuild_team=False``) the same shape is
-    legitimate and must not be touched: the built-in Analyst has two outgoing
-    edges and no ``message_agent``, because it walks them with ``spawn_agent``
-    and receives results back through the join path. That is why this is called
-    from behind the switch and nowhere else.
-
-    Raised before anything is wired, so the failure lands before agent 0 exists
-    and before a single token is spent — the same bargain
-    ``ensure_team_prebuilt`` already makes for a seat it cannot fill.
+    Prebuilt teams refuse spawning, so these edges cannot be used. Fail before
+    creating agent 0; otherwise a wiring error could look like a model declining
+    to collaborate. Dynamic teams may legitimately use spawn/join without messaging.
     """
     offenders: list[tuple[str, list[str], list[str]]] = []
     for source in sorted(team.topology.edges):
@@ -124,78 +100,26 @@ def build_scheduler(
     record_delivery_tree: bool = False,
     run_id: str | None = None,
 ) -> Scheduler:
-    """Build the Scheduler and let it create agent 0 (the init process).
+    """Compose a team and initialize agent 0 with the selected configuration.
 
-    Loads an explicitly selected team config (or the built-in Self-Collaboration team),
-    wires dependencies, and hands the scheduler a ``LaunchSpec``;
-    ``scheduler.create_init_process`` builds agent 0 (aid=0) through the factory
-    and applies the launch spec. ``session_file`` resumes agent 0's history;
-    ``auto_save`` writes a structured-JSON transcript per agent
-    (``agent_<aid>_<role>.json``) plus a ``team.json`` manifest under a
-    timestamped run folder in ``<workspace>/.opencollab/sessions``.
+    ``session_file`` resumes entry history. ``auto_save`` writes per-agent JSON
+    and a team manifest under ``save_dir`` or a timestamped workspace session
+    folder. ``enable_hooks`` permits configured lifecycle shell commands.
 
-    When ``enable_hooks`` and the team config declares ``hooks``, a
-    ``HookEventSubscriber`` is attached to the team event bus so configured
-    shell commands fire on lifecycle events. Disable (e.g. under eval) to keep
-    runs free of hook side effects.
+    ``prebuild_team`` seats the complete roster before execution and refuses
+    later spawning. ``serialize_turns`` prevents concurrent turns without changing
+    topology permissions or requiring agents to communicate. ``max_steps`` bounds
+    each seat. A supplied ``environment`` hosts agent 0 and provides the source
+    for isolated teammates; otherwise the source is the host workspace.
 
-    ``prebuild_team`` switches the run to a static topology: every role the team
-    config declares is seated before the first model call and ``spawn_agent`` is
-    refused thereafter, so the roster is an input to the run rather than
-    something the model decides mid-run. Off by default; the scheduler behaves
-    exactly as before while it is off.
+    ``interactive`` controls access to a human. ``allow_unisolated_shell`` controls
+    host commands for entry/prebuilt seats; None inherits ``interactive``.
+    ``allow_unisolated_child_shell`` separately authorizes dynamically spawned
+    children and defaults to False. A worktree is not a process sandbox;
+    command confirmation still uses the permission policy.
 
-    ``environment`` is where this run works. Left unset every agent works on
-    the host workspace; supplied, agent 0 works in it and each teammate gets an
-    isolated view of the same place -- which is how a team reaches a repository
-    that exists only inside a container.
-
-    ``serialize_turns`` holds the team to one turn at a time: a teammate a
-    message wakes waits for the running turn to finish instead of running beside
-    it. It changes *when* an agent runs, never whether it may — the topology
-    keeps every declared edge and ``message_agent`` stays voluntary, so whether
-    the agents hand work to each other is still theirs to decide. Off by
-    default, which is the concurrent behaviour.
-
-    ``interactive`` and ``allow_unisolated_shell`` are two different facts about
-    a run, and only one of them is about a human:
-
-    * ``interactive`` — is there a person at this run to put a question to? It
-      is what gives the entry role ``ask_user``, and nothing else here.
-    * ``allow_unisolated_shell`` — may an agent seated at the start execute
-      commands the OS does not sandbox? A worktree is not a sandbox, so this is
-      what decides whether a seated agent's ``bash`` runs a command or refuses
-      it.
-
-    They coincided while the only run with a shell was a run with a human
-    watching it, which is why one boolean used to answer both. An unattended
-    batch run pulls them apart: its agents must be able to run ``git`` in their
-    worktrees, and there is nobody for them to ask anything. Passing
-    ``max_steps`` is the step ceiling every seat is built with — the entry agent
-    and each teammate alike. It is a runaway guard rather than an allowance:
-    tokens are the resource a run is held to, and steps are counted and
-    reported. Before this parameter existed the ceiling could not be set at all
-    on this path, and the two hard-coded defaults gave the entry agent twice
-    what a teammate got.
-
-    ``allow_unisolated_shell=True`` with ``interactive=False`` is exactly that
-    run, and it is not expressible with one flag.
-
-    ``record_delivery_tree`` wires a read-only probe over the tree this run is
-    graded on -- agent 0's workspace, which is the environment when one is
-    given -- and the scheduler then records that tree's diff at each seat
-    boundary (``SchedulerDeliveryTreeMixin``). Off by default because it costs a
-    ``git diff`` per boundary and answers a question only an experiment asks:
-    which seat was working when a delivered line arrived. Off, no probe is
-    built and no git command runs.
-
-    ``allow_unisolated_child_shell`` explicitly authorizes host shell commands
-    for dynamically spawned children. It defaults to False, independently of
-    the entry agent and prebuilt roster permissions. Command confirmation
-    continues to use the run's permission policy.
-
-    ``None`` — the default — means "whatever ``interactive`` says", so every
-    existing call site keeps its current behaviour without being touched.
+    ``record_delivery_tree`` observes agent 0's delivered workspace at seat
+    boundaries. It is off by default to avoid otherwise unnecessary diff probes.
     """
     if session_file is not None and not SessionStore().has_snapshot(session_file):
         raise ValueError(f"session file does not exist: {session_file}")

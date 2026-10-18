@@ -19,8 +19,8 @@ GitHub release.
 
 ## Finalize the release
 
-Use a focused pull request with a Conventional Commit title using an English
-type and Chinese description. Move the intended entries from `Unreleased` into
+Use a focused pull request with an English Conventional Commit title and English
+description. Move the intended entries from `Unreleased` into
 a dated version section in `CHANGELOG.md` and update its comparison links.
 Align the version in `pyproject.toml`, `uv.lock`, `opencollab/__init__.py`, and
 any exact-version tests. Regenerate the lock file when project metadata changes
@@ -127,7 +127,7 @@ test "$remote_sha" = "$release_sha"
 Prepare curated notes from the matching changelog section. The maintainer
 chooses whether the GitHub entry is a regular release or a prerelease. The
 following command publishes a regular GitHub release. Write `release-notes.md`
-in Chinese before running it.
+in English before running it.
 
 ```bash
 gh release create "v${release_version}" \
