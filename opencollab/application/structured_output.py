@@ -25,7 +25,6 @@ from opencollab.application.tool_execution import ToolRuntime
 
 TOOL_NAME = "structured_output"
 
-
 class StructuredOutputTool:
     """Captures a schema-validated payload; implements ``ToolPort`` structurally.
 
@@ -92,6 +91,5 @@ class StructuredOutputTool:
         if self._on_capture is not None:
             self._on_capture()
         return "Recorded. Structured output accepted. Your task is complete."
-
 
 __all__ = ["StructuredOutputTool", "TOOL_NAME"]

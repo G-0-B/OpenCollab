@@ -55,7 +55,6 @@ from opencollab.domain.tools import ToolProcessingResult, tool_name_collision_ke
 
 logger = logging.getLogger(__name__)
 
-
 def _selector_names_tool_choice(selector: Any) -> bool:
     """Return whether a structured error selector targets ``tool_choice``."""
     values = selector if isinstance(selector, (list, tuple)) else [selector]
@@ -68,12 +67,10 @@ def _selector_names_tool_choice(selector: Any) -> bool:
             return True
     return False
 
-
 def _selector_has_named_segment(selector: Any) -> bool:
     """Return whether a structured selector contains an authoritative name."""
     values = selector if isinstance(selector, (list, tuple)) else [selector]
     return any(isinstance(value, str) and bool(value.strip()) for value in values)
-
 
 def _is_tool_choice_rejection(exc: Exception) -> bool:
     """Return whether a provider validation error specifically rejects choice."""
@@ -114,7 +111,6 @@ def _is_tool_choice_rejection(exc: Exception) -> bool:
             rf"\s+(?:the\s+)?{choice}\b",
         )
     )
-
 
 class _SessionRunCompletionMixin(_SessionRunTraceMixin):
     """Implementation details composed into ``SessionRunUseCase``."""
@@ -525,15 +521,8 @@ class _SessionRunCompletionMixin(_SessionRunTraceMixin):
         tools: list[dict] | None,
         tool_choice_override: Any | None = None,
     ) -> CompletionResponse:
-        # ``tool_choice`` is read defensively (getattr) so duck-typed agent stubs
-        # without the field keep working; ``None`` (the default) keeps the
-        # provider's "auto", so the surface is unchanged for ordinary agents.
-        # When an agent requests "required" (the forced-write coder) but the
-        # provider rejects it (some OpenAI-compatible endpoints don't support
-        # it), fall back ONCE to "auto" — the explicit forced prompt and the
-        # diff-gate still push the model to write.
-        # ``tool_choice_override`` (the steering hard-rung) wins when set, so a
-        # read-without-write escalation can force a tool call this turn.
+        # Duck-typed agents may omit tool_choice. A steering override takes precedence,
+        # and unsupported forced choices get one retry with "auto".
         tool_choice = tool_choice_override or getattr(self.agent, "tool_choice", None)
         try:
             return await self._complete_with_choice(messages, tools, tool_choice)
@@ -544,12 +533,8 @@ class _SessionRunCompletionMixin(_SessionRunTraceMixin):
             )
             if not forced_choice or self._is_context_overflow(exc):
                 raise
-            # Only degrade to "auto" when the provider plainly REJECTED the
-            # parameter — a 4xx request-validation error, or a message naming
-            # tool_choice. A transient/auth/server error would fail "auto"
-            # identically, so re-raise it instead of masking a real fault behind
-            # a second call. Duck-typed so the application layer needs no
-            # provider-specific exception imports.
+            # Retry only an explicit tool_choice rejection. Transient, auth, and server
+            # failures also fail with "auto". Duck typing keeps provider imports out of this layer.
             if not _is_tool_choice_rejection(exc):
                 raise
             logger.warning(
@@ -571,25 +556,14 @@ class _SessionRunCompletionMixin(_SessionRunTraceMixin):
     async def _complete_with_choice(
         self, messages: list[dict], tools: list[dict] | None, tool_choice: Any | None
     ) -> CompletionResponse:
-        # Record-only capture of what this request offers, read back by
-        # ``record_llm_trace`` after the response returns. This is the single
-        # place a request is issued, so it sees the list AFTER the steering hard
-        # rung narrows it and the choice AFTER an override or a degrade to
-        # "auto". Provider-specific conversions happen after this observation;
-        # the trace identifies its application stage.
+        # Capture the application-stage request after steering and fallback, before
+        # provider conversion, for record_llm_trace. These fields only serve tracing.
         self._last_request_tool_names = _request_tool_names(tools)
         self._last_request_tool_choice = tool_choice
-        # ``tool_choice`` is included ONLY when set: an ordinary agent
-        # (tool_choice=None) calls ``complete`` with exactly the prior kwargs, so
-        # duck-typed LLM stubs that never added the param keep working; only a
-        # forcing agent passes it through.
+        # Omit unset optional kwargs for compatibility with duck-typed LLM clients.
         extra: dict[str, Any] = {}
         if tool_choice is not None:
             extra["tool_choice"] = tool_choice
-        # ``top_p`` is read defensively and included ONLY when set, mirroring
-        # ``tool_choice``: an agent without it (or with top_p=None) calls
-        # ``complete`` with exactly the prior kwargs, so duck-typed LLM stubs that
-        # never added the param keep working and the request is unchanged.
         top_p = getattr(self.agent, "top_p", None)
         if top_p is not None:
             extra["top_p"] = top_p
@@ -945,5 +919,4 @@ class _SessionRunCompletionMixin(_SessionRunTraceMixin):
         self.state.append_message(assistant_msg)
 
     async def finish_step(self, latency: float) -> None:
-        # AutoSaveSubscriber listens for step_end on the bus.
         await self.event_publisher.emit(self.event_factory.step_end(self.state.step_count, latency))

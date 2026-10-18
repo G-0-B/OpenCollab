@@ -10,34 +10,22 @@ from typing import Any, Iterator
 from opencollab.application.ports import ShaperPort, TokenEstimatorPort
 from opencollab.domain.token_estimation import estimate_request_message_tokens
 
-# History-compaction thresholds (token estimates over the whole view). The
-# trigger/target gap is deliberate: a layer compacts down to ``TARGET`` (well
-# below ``TRIGGER``) so the next turn does not immediately re-trigger — this is
-# the anti-thrash headroom (cf. Liu et al. 2026 §4.4 reactive-compact).
+# Compact well below the trigger so the next turn does not immediately
+# trigger another pass.
 DEFAULT_HISTORY_TRIGGER_TOKENS = 120_000
 DEFAULT_HISTORY_TARGET_TOKENS = 90_000
-# Most-recent groups always kept verbatim (never snipped or summarized).
 DEFAULT_HISTORY_KEEP_RECENT_GROUPS = 4
 
-# Context-source priority at/above which a message is *pinned*: never cleared,
-# snipped, or summarized. Sources are tagged with their resolved layer priority
-# (``domain.context.LAYER_PRIORITY``) via the ``_ctx`` key; identity/team/task
-# sit above this floor, project/memory below it. Untagged messages (tool work,
-# turns) have no ``_ctx`` and are governed by the recency-based layers instead.
+# Pin sources at this resolved layer priority via _ctx. Untagged messages
+# have no layer priority and follow the recency rules instead.
 PIN_FLOOR = 70
 
-# Reported by ``ShaperPipeline.shape_with_report`` when a whole pass left the
-# view untouched. Emitting it (rather than nothing) is what lets a reader tell
-# "no rung fired this turn" apart from "this turn was never recorded".
+# Distinguish an unchanged shaping pass from a turn that was never recorded.
 _NO_RUNG_FIRED = "none"
-# A shaper wired into the chain without a ``rung`` label. Unreachable with the
-# five real rungs (each declares its own); kept so an unlabeled shaper is
-# reported as an obvious wiring bug instead of silently masquerading as "none".
+# Report unlabeled custom shapers explicitly instead of calling their work "none".
 _UNLABELED_RUNG = "unknown"
 
-# Window-derived trigger math. The effective input budget reserves room for the
-# next output; the trigger also keeps a safety buffer. Compaction targets a
-# lower ratio so the next turn does not immediately compact again.
+# Reserve output room and leave headroom between trigger and target.
 DEFAULT_OUTPUT_RESERVE_TOKENS = 20_000  # held back for the summary/answer response
 DEFAULT_COMPACT_BUFFER_TOKENS = 13_000  # safety margin below the effective window
 HISTORY_TARGET_RATIO = 0.75
@@ -48,7 +36,6 @@ HISTORY_TARGET_RATIO = 0.75
 _forced_shaper_ids: ContextVar[frozenset[int]] = ContextVar("forced_shaper_ids", default=frozenset())
 _context_estimator: ContextVar[TokenEstimatorPort | None] = ContextVar("context_estimator", default=None)
 
-
 @contextmanager
 def context_token_estimator(estimator: TokenEstimatorPort) -> Iterator[None]:
     """Scope the default estimator to one session's shaping call."""
@@ -58,18 +45,15 @@ def context_token_estimator(estimator: TokenEstimatorPort) -> Iterator[None]:
     finally:
         _context_estimator.reset(token)
 
-
 def require_nonnegative_int(value: Any, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError(f"{name} must be a non-negative integer")
     return value
 
-
 def require_positive_int(value: Any, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ValueError(f"{name} must be a positive integer")
     return value
-
 
 def history_trigger_target(
     context_window: int | None,
@@ -104,7 +88,6 @@ def history_trigger_target(
     target = max(1, min(trigger - 1, int(trigger * target_ratio)))
     return trigger, target
 
-
 def approx_messages_tokens(messages: list[dict[str, Any]]) -> int:
     """Additive sizing shared by reactive layers and their trace reports.
 
@@ -115,7 +98,6 @@ def approx_messages_tokens(messages: list[dict[str, Any]]) -> int:
     if estimator is not None:
         return estimator(messages)
     return estimate_request_message_tokens(messages)
-
 
 @contextmanager
 def _forced_layers(shaper: ShaperPort) -> Iterator[None]:
@@ -149,7 +131,6 @@ def _forced_layers(shaper: ShaperPort) -> Iterator[None]:
         for node, prior_flag in zip(legacy, saved):
             node._forced = prior_flag
 
-
 def forced_shape(
     shaper: ShaperPort, messages: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -166,12 +147,10 @@ def forced_shape(
     with _forced_layers(shaper):
         return shaper.shape(messages)
 
-
 def _rung_label(shaper: ShaperPort) -> str:
     """The frozen trajectory label a shaper declares for itself."""
     label = getattr(shaper, "rung", None)
     return label if isinstance(label, str) and label else _UNLABELED_RUNG
-
 
 class ShaperPipeline:
     """An ordered chain of shapers applied left-to-right.
@@ -287,7 +266,6 @@ class ShaperPipeline:
             }
         ]
 
-
 def _group_spans(messages: list[dict[str, Any]]) -> list[tuple[int, int]]:
     """Partition messages into ``(start, end)`` spans that are safe to drop or
     replace as a unit.
@@ -308,7 +286,6 @@ def _group_spans(messages: list[dict[str, Any]]) -> list[tuple[int, int]]:
                 i += 1
         spans.append((start, i))
     return spans
-
 
 def matched_tool_result_occurrences(
     messages: list[dict[str, Any]],
@@ -358,7 +335,6 @@ def matched_tool_result_occurrences(
             )
     return matched
 
-
 def is_complete_tool_exchange(
     messages: list[dict[str, Any]], span: tuple[int, int]
 ) -> bool:
@@ -381,7 +357,6 @@ def is_complete_tool_exchange(
         and set(call_ids) == set(result_ids)
     )
 
-
 def span_is_safe_to_compact(
     messages: list[dict[str, Any]], span: tuple[int, int]
 ) -> bool:
@@ -393,7 +368,6 @@ def span_is_safe_to_compact(
     if leader.get("role") == "assistant" and leader.get("tool_calls"):
         return is_complete_tool_exchange(messages, span)
     return True
-
 
 def _droppable_region(
     messages: list[dict[str, Any]], keep_recent_groups: int
@@ -409,18 +383,15 @@ def _droppable_region(
     hi = max(lo, len(spans) - keep_recent_groups)
     return spans, lo, hi
 
-
 def ctx_priority(message: dict[str, Any]) -> int | None:
     """The source priority stamped on a message, or ``None`` if untagged."""
     ctx = message.get("_ctx")
     return ctx.get("priority") if isinstance(ctx, dict) else None
 
-
 def is_pinned(message: dict[str, Any]) -> bool:
     """True if the message is a context source at/above ``PIN_FLOOR``."""
     priority = ctx_priority(message)
     return priority is not None and priority >= PIN_FLOOR
-
 
 def pinned_free_region(
     messages: list[dict[str, Any]],

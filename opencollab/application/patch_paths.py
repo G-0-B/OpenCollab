@@ -14,7 +14,6 @@ _GIT_C_ESCAPES = {
     "\\": 0x5C,
 }
 
-
 def decode_git_c_path(value: str) -> str:
     value = str(value or "")
     quoted = value.startswith('"')
@@ -43,7 +42,6 @@ def decode_git_c_path(value: str) -> str:
         decoded.append(_GIT_C_ESCAPES.get(escaped, ord(escaped)))
         index += 1
     return decoded.decode("utf-8", errors="surrogateescape")
-
 
 def git_header_tokens(header: str) -> list[str]:
     """Read the two Git header paths, including unquoted spaces in filenames."""
@@ -76,7 +74,6 @@ def git_header_tokens(header: str) -> list[str]:
             return [text[:split], text[split + 1:]]
     return [text]
 
-
 def diff_target_path(header: str) -> str:
     paths = git_header_tokens(header)
     if len(paths) >= 2:
@@ -89,7 +86,6 @@ def diff_target_path(header: str) -> str:
             return source[2:]
     return ""
 
-
 def git_diff_endpoint(token: str, side: str) -> str:
     path = decode_git_c_path(token)
     if path == "/dev/null":
@@ -98,7 +94,6 @@ def git_diff_endpoint(token: str, side: str) -> str:
     if path.startswith(prefix):
         path = path[len(prefix) :]
     return path
-
 
 def patch_entries(patch: str) -> list[tuple[str, str]]:
     entries: list[tuple[str, str]] = []
@@ -127,7 +122,6 @@ def patch_entries(patch: str) -> list[tuple[str, str]]:
             entries.append((old_path, new_path))
     return entries
 
-
 def patch_paths(patch: str) -> list[str]:
     paths: dict[str, None] = {}
     for old_path, new_path in patch_entries(patch):
@@ -136,7 +130,6 @@ def patch_paths(patch: str) -> list[str]:
                 paths.setdefault(path, None)
     return list(paths)
 
-
 def patch_block_target_path(block: list[str]) -> str:
     entries = patch_entries("".join(block))
     if len(entries) != 1:
@@ -144,10 +137,8 @@ def patch_block_target_path(block: list[str]) -> str:
     old_path, new_path = entries[0]
     return new_path or old_path
 
-
 def normalize_patch_path(path: str) -> str:
     return str(path or "").strip().replace("\\", "/").lstrip("/")
-
 
 def split_patch_blocks(patch: str) -> list[list[str]]:
     """Split on Git's LF separators while preserving each block's original bytes."""

@@ -44,10 +44,8 @@ from opencollab.domain.tool_loops import LoopState
 if TYPE_CHECKING:
     from opencollab.application.scheduler import LaunchSpec
 
-
 class SessionBusyError(RuntimeError):
     """Raised when a public operation would interleave an active session turn."""
-
 
 @dataclass
 class SessionRuntime:
@@ -69,7 +67,6 @@ class SessionRuntime:
     owns_llm: bool = False
     run_id: str | None = None
     context_summarizer: Any | None = None
-
 
 class Session:
     """Public facade for a stateful agent session.
@@ -110,8 +107,6 @@ class Session:
         # second run with the same mutable FSM.
         self._turn_lock = asyncio.Lock()
 
-        # Adopt the runtime's collaborators as Session attributes so the
-        # public surface stays exactly what it used to be.
         self.state = runtime.state
         self.event_bus = runtime.event_bus
         self._llm = runtime.llm
@@ -143,9 +138,7 @@ class Session:
         self._loop_checkpoint_results: list[dict] = []
         self._loop_checkpoint_prefix: list[dict] = []
         self._loop_checkpoint_step = -1
-        # The env attribute mirrors the runtime's tool_execution env so
-        # downstream readers (snapshot, characterization tests) still see
-        # the same Environment instance.
+        # Keep facade readers on the runtime's Environment instance.
         if env is None:
             self.env = self.tool_execution.environment
 
@@ -337,12 +330,8 @@ class Session:
             try:
                 return await self.runner.run_loop(cancel_event)
             except asyncio.CancelledError as exc:
-                # A public caller may cancel the task directly instead of
-                # setting ``cancel_event``.  The runner intentionally lets that
-                # cancellation propagate, but leaving an in-flight phase in
-                # place would make the facade permanently reject the next user
-                # turn as busy.  Record the same terminal state used by the
-                # scheduler's out-of-band cancellation path before re-raising.
+                # Direct task cancellation must terminalize the FSM before propagating,
+                # otherwise the facade rejects the next user turn as permanently busy.
                 primary_error = exc
                 if not self.state.phase.is_terminal():
                     self.state.cancel()
@@ -1007,14 +996,12 @@ class Session:
         if self._auto_save_path:
             self.save(self._auto_save_path)
 
-
 def _same_snapshot_path(left: str | None, right: str | None) -> bool:
     if left is None or right is None:
         return False
     return os.path.normcase(os.path.abspath(os.fspath(left))) == os.path.normcase(
         os.path.abspath(os.fspath(right))
     )
-
 
 __all__ = [
     "Session",

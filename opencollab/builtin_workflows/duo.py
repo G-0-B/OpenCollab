@@ -25,7 +25,6 @@ def _source_evidence_root(ctx: Any, parent: str | None) -> Path | None:
             return root if parent_path.is_relative_to(root) else None
     return None
 
-
 def _without_owned_evidence(source: str, directory: str) -> str:
     retained = []
     for block in split_patch_blocks(source):
@@ -35,7 +34,6 @@ def _without_owned_evidence(source: str, directory: str) -> str:
             continue
         retained.append(patch)
     return "".join(retained)
-
 
 @workflow(
     name="duo",
@@ -82,6 +80,5 @@ async def duo(ctx: Any, args: dict[str, Any]) -> dict[str, Any]:
     )
     result["prompt_revision"] = _PROMPT_REVISION
     return result
-
 
 __all__ = ["duo"]

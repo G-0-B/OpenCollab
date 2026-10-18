@@ -40,7 +40,6 @@ Treat model-supplied reports as claims and execution records according to their
 verified status. Cite original changed paths and concrete behavior in each entry.
 """
 
-
 async def adjudicate_candidate_files(
     ctx: Any,
     *,

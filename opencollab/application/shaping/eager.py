@@ -40,21 +40,14 @@ from opencollab.application.shaping.pipeline import (
 )
 from opencollab.application.shaping.reactive import DEFAULT_COMPACTABLE_TOOLS
 
-# K most-recent compactable tool results kept verbatim; everything older is
-# stubbed. Set ABOVE the reactive keep-recent (``DEFAULT_TOOL_CLEAR_KEEP_RECENT``)
-# on purpose: this rung runs at LOW context, where the cost of dropping a still-
-# needed read is a re-read loop (a multi-file task whose working set exceeds K
-# can never hold all its files at once and thrashes), so it retains more. The
-# reactive layer stays tighter for genuine 120k pressure. The informative stubs
-# below (which name the exact slice already read) are what make a cleared result
-# safe — the model can see it already read X without re-fetching it.
+# Keep more recent results than reactive clearing at low context pressure.
+# Dropping reads still in the working set causes repeated multi-file reads.
+# Older results retain source slices in stubs so the model can identify prior reads.
 DEFAULT_EAGER_KEEP_RECENT = 12
 
-# Marker prefix on every eager stub. A stub announces itself (no invisible
-# compression) and names the source tool + target so a reader / the model can
-# re-fetch deterministically. The full text lives in the transcript untouched.
+# Visible stubs name the source tool and target for deterministic re-reads.
+# The full text remains in the transcript.
 EAGER_STUB_PREFIX = "[Old tool result cleared"
-
 
 def _stub_for_call(tool_name: str, target: str | None) -> str:
     """Deterministic, byte-stable stub naming the tool, its target and (for reads)
@@ -75,7 +68,6 @@ def _stub_for_call(tool_name: str, target: str | None) -> str:
         " you read it."
     )
 
-
 def _as_dict(arguments: Any) -> dict[str, Any] | None:
     """A tool call's arguments as a dict, or ``None``. Deterministic; never raises."""
     if isinstance(arguments, str):
@@ -86,7 +78,6 @@ def _as_dict(arguments: Any) -> dict[str, Any] | None:
         except (ValueError, TypeError):
             return None
     return arguments if isinstance(arguments, dict) else None
-
 
 def _range_label(arguments: dict[str, Any]) -> str:
     """`` lines A-B`` / `` from line A`` / `` first N lines`` / `` (whole file)``,
@@ -102,7 +93,6 @@ def _range_label(arguments: dict[str, Any]) -> str:
     if lim is not None:
         return f" first {lim} lines"
     return " (whole file)"
-
 
 def _call_target(tool_name: str | None, arguments: Any) -> str | None:
     """Best-effort target label lifted from a tool call's arguments.
@@ -126,7 +116,6 @@ def _call_target(tool_name: str | None, arguments: Any) -> str | None:
         if isinstance(value, str) and value:
             return value
     return None
-
 
 class EagerToolOutputClearShaper:
     """Always-on, age-based, deterministic tool-output clearing.
@@ -184,10 +173,7 @@ class EagerToolOutputClearShaper:
         Pinned issuing turns are skipped. The last ``keep_recent`` ids are
         excluded so they stay verbatim.
         """
-        # Collect raw (id, name, arguments) for every compactable call first, then
-        # parse arguments + build stubs ONLY for the older calls that get cleared —
-        # the last ``keep_recent`` are kept verbatim, so parsing their JSON every
-        # turn would be pure waste on this always-on rung.
+        # Build stubs only for cleared calls to avoid parsing kept results every turn.
         compactable: list[tuple[int, str, Any]] = []
         for result_index, _call_id, name, arguments in matched_tool_result_occurrences(
             messages

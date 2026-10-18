@@ -31,7 +31,6 @@ def _positive_int(value: object, name: str) -> int:
         raise ValueError(f"{name} must be a positive integer")
     return value
 
-
 def _positive_timeout(value: object, name: str) -> float | None:
     if value is None:
         return None
@@ -42,13 +41,11 @@ def _positive_timeout(value: object, name: str) -> float | None:
         raise ValueError(f"{name} must be a positive finite number")
     return parsed
 
-
 def _required_positive_timeout(value: object, name: str) -> float:
     parsed = _positive_timeout(value, name)
     if parsed is None:
         raise ValueError(f"{name} must be a positive finite number")
     return parsed
-
 
 def _unbounded_limits_requested() -> bool:
     value = os.environ.get("OPENCOLLAB_UNBOUNDED_LIMITS", "").strip().lower()
@@ -58,17 +55,14 @@ def _unbounded_limits_requested() -> bool:
         return True
     raise ValueError("OPENCOLLAB_UNBOUNDED_LIMITS must be true or false")
 
-
 def _non_empty(value: object, name: str) -> str:
     if not isinstance(value, str) or not value.strip() or "\x00" in value:
         raise ValueError(f"{name} must be non-empty text")
     return value
 
-
 def _optional_run_id(value: object) -> str | None:
     """A caller-chosen run id, written to every file the run leaves."""
     return None if value is None else _non_empty(value, "run_id")
-
 
 def _path(value: str | os.PathLike[str] | None, name: str) -> Path | None:
     if value is None:
@@ -77,7 +71,6 @@ def _path(value: str | os.PathLike[str] | None, name: str) -> Path | None:
     if not parsed or "\x00" in parsed:
         raise ValueError(f"{name} must be a valid filesystem path")
     return Path(parsed).resolve()
-
 
 def _public_agent_failure(item: dict[str, Any]) -> dict[str, Any]:
     record = {key: item.get(key) for key in (
@@ -97,7 +90,6 @@ def _public_agent_failure(item: dict[str, Any]) -> dict[str, Any]:
             record["exception_chain"] = nodes
     return record
 
-
 def _public_result(result: ProgrammaticResult) -> RunResult[Any]:
     agent_failures = tuple(_public_agent_failure(item) for item in result.agent_failures)
     return RunResult(
@@ -110,7 +102,6 @@ def _public_result(result: ProgrammaticResult) -> RunResult[Any]:
         metrics=dict(result.metrics),
         agent_failures=agent_failures,
     )
-
 
 class OpenCollab:
     """Resolve configuration once, then run agents, teams, or workflows."""
@@ -538,6 +529,5 @@ class OpenCollab:
         except ProgrammaticLifecycleError as exc:
             raise RunError(str(exc)) from exc
         return _public_result(result)
-
 
 __all__ = ["OpenCollab"]

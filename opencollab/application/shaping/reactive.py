@@ -31,27 +31,20 @@ from opencollab.application.shaping.pipeline import (
     span_is_safe_to_compact,
 )
 
-# Tool-output clearing (ToolOutputClearShaper). Old results from these bulky,
-# reconstructible read-only tools have their *content* replaced in place; the
-# last ``KEEP_RECENT`` compactable results stay verbatim. Names are real
-# OpenCollab tool names (see ``bootstrap/container.py``), not a hardcoded set.
+# Clear reconstructible read-only results while retaining the most recent
+# KEEP_RECENT calls verbatim.
 DEFAULT_CLEARED_TOOL_CONTENT = "[Old tool result content cleared]"
 DEFAULT_TOOL_CLEAR_KEEP_RECENT = 5
 DEFAULT_COMPACTABLE_TOOLS = frozenset(
     {"bash", "file_read", "grep", "git_diff"}
 )
 
-# Visible marker prefix for an auto-compacted segment — the summary announces
-# itself as a compressed stand-in rather than masquerading as original history
-# (Liu et al. 2026 §11.3: no invisible compression).
+# Mark summaries visibly so compressed history remains identifiable.
 COMPACTED_MARKER_PREFIX = "[Context auto-compacted"
 DEFAULT_AUTOCOMPACT_CACHE_SIZE = 8
 
-# A synchronous summarizer: given a contiguous message segment, return summary
-# prose. Kept sync because ``ShaperPort.shape`` is sync; ``None`` disables the
-# auto-compact layer (the default-off switch).
+# Keep the summarizer synchronous to match ShaperPort.shape. None disables it.
 SummarizerPort = Callable[[list[dict[str, Any]]], str]
-
 
 class _ReactiveHistoryShaper:
     """Shared trigger/estimate plumbing for the reactive history layers."""
@@ -83,7 +76,6 @@ class _ReactiveHistoryShaper:
         if self._forced or id(self) in _forced_shaper_ids.get():
             return bool(messages)
         return bool(messages) and self._estimate(messages) > self.trigger_tokens
-
 
 class ToolOutputClearShaper(_ReactiveHistoryShaper):
     """Layer A0 — lowest-loss history compaction: clear old tool *content*.
@@ -161,7 +153,6 @@ class ToolOutputClearShaper(_ReactiveHistoryShaper):
             and len(self.cleared_content) < len(messages[result_index]["content"])
         }
 
-
 class OldHistorySnipShaper(_ReactiveHistoryShaper):
     """Layer A — cheapest history compaction: pure deletion of old turns.
 
@@ -192,7 +183,7 @@ class OldHistorySnipShaper(_ReactiveHistoryShaper):
             start, end = spans[gi]
             leader = messages[start]
             if not (leader.get("role") == "assistant" and leader.get("tool_calls")):
-                continue  # preserve user / assistant-text turns
+                continue
             if not is_complete_tool_exchange(messages, spans[gi]):
                 continue
 
@@ -240,7 +231,6 @@ class OldHistorySnipShaper(_ReactiveHistoryShaper):
             for index, message in enumerate(messages)
             if index not in drop
         ]
-
 
 class AutoCompactShaper(_ReactiveHistoryShaper):
     """Layer B — heaviest history compaction: model-generated summary.

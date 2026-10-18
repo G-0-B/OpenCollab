@@ -52,11 +52,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# How much of one boundary's diff text is kept. Line-level attribution needs the
-# text, so it is stored; the cap stops one pathological tree from writing
-# megabytes into every run record. ``truncated`` says when it bit.
+# Cap boundary diff text while retaining line attribution and marking truncation.
 DELIVERY_DIFF_SNAPSHOT_CHARS = 20_000
-
 
 def _delivery_diff_files(text: str) -> list[str]:
     """Every path a working-tree diff touches, in diff order, without repeats."""
@@ -67,7 +64,6 @@ def _delivery_diff_files(text: str) -> list[str]:
             if len(parts) == 2 and parts[1] not in paths:
                 paths.append(parts[1])
     return paths
-
 
 class SchedulerDeliveryTreeMixin:
     """Records the graded tree at seat boundaries, when a probe is wired."""
@@ -109,9 +105,7 @@ class SchedulerDeliveryTreeMixin:
         record["sha256"] = digest
         already = self._delivery_tree_shas.get(digest)
         if already is not None:
-            # The tree is in a state already stored in full. Naming that row is
-            # the whole content of this one; repeating the text would multiply
-            # the same diff by the number of turns that did not change it.
+            # Reference the stored tree row instead of repeating unchanged diff text.
             record["unchanged_since"] = already
             self._delivery_tree_snapshots.append(record)
             return
@@ -120,6 +114,5 @@ class SchedulerDeliveryTreeMixin:
         record["diff"] = text[:DELIVERY_DIFF_SNAPSHOT_CHARS]
         record["truncated"] = len(text) > DELIVERY_DIFF_SNAPSHOT_CHARS
         self._delivery_tree_snapshots.append(record)
-
 
 __all__ = ["DELIVERY_DIFF_SNAPSHOT_CHARS", "SchedulerDeliveryTreeMixin"]

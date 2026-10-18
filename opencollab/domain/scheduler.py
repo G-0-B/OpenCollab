@@ -71,7 +71,6 @@ never spend them, which makes an idle agent and an exhausted one
 indistinguishable in the accounts.
 """
 
-
 def per_agent_cap(
     total: int,
     team_size: int,
@@ -93,7 +92,6 @@ def per_agent_cap(
         return max(0, total)
     return max(0, min(total, int(total * share / team_size)))
 
-
 def dynamic_roster_share(total: int) -> int:
     """One agent's share of the pool when the roster is discovered at runtime.
 
@@ -107,7 +105,6 @@ def dynamic_roster_share(total: int) -> int:
     first model call and ``per_agent_cap`` divides by it instead.
     """
     return min(total, max(10_000, total // 4))
-
 
 def split_budget(total: int, allocated: int) -> int:
     """How many tokens a spawned agent gets, given the budget already handed out.
@@ -128,7 +125,6 @@ def split_budget(total: int, allocated: int) -> int:
     remaining = max(0, total - allocated)
     return min(dynamic_roster_share(total), remaining)
 
-
 @dataclass(frozen=True)
 class DelegationTask:
     """A task the Lead hands to a spawned agent, with optional preamble context."""
@@ -141,7 +137,6 @@ class DelegationTask:
         if self.context:
             return f"Context:\n{self.context}\n\nTask:\n{self.task}"
         return self.task
-
 
 @dataclass(frozen=True)
 class ReviewVerdict:
@@ -166,7 +161,6 @@ class ReviewVerdict:
         )
         return cls(passed=passed, raw_text=review_text)
 
-
 @dataclass
 class SessionControlBlock:
     """A process control block for an agent session.
@@ -180,7 +174,6 @@ class SessionControlBlock:
     agent: Agent
     state: SessionState
     result: str = ""
-
 
 @dataclass
 class SessionTable:
@@ -203,7 +196,6 @@ class SessionTable:
     @property
     def total_used_tokens(self) -> int:
         return sum(scb.state.used_tokens for scb in self.entries.values())
-
 
 __all__ = [
     "PER_AGENT_BUDGET_SHARE",

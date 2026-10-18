@@ -17,7 +17,6 @@ from opencollab.domain.scheduler import (
 
 logger = logging.getLogger(__name__)
 
-
 class SchedulerPersistenceMixin:
     def _track_review_parent_lease_release(self, parent_aid: int, delta: int) -> None:
         tracker = self._review_parent_lease_tracker.get()

@@ -80,14 +80,12 @@ Structure your output as:
 </summary>
 """
 
-
 def get_compact_prompt(custom_instructions: str | None = None) -> str:
     """The full instruction text handed to the summarizing model."""
     prompt = NO_TOOLS_PREAMBLE + BASE_COMPACT_PROMPT
     if custom_instructions and custom_instructions.strip():
         prompt += f"\n\nAdditional Instructions:\n{custom_instructions}"
     return prompt + NO_TOOLS_TRAILER
-
 
 def format_compact_summary(raw: str) -> str:
     """Unwrap ``<summary>`` and accept legacy ``<analysis>`` prefixes.
@@ -108,7 +106,6 @@ def format_compact_summary(raw: str) -> str:
     out = re.sub(r"\n\n+", "\n\n", out)
     return out.strip()
 
-
 def transcript_recovery_note(transcript_path: str) -> str:
     """Point to the archived evidence for details omitted from the handoff."""
     return (
@@ -116,7 +113,6 @@ def transcript_recovery_note(transcript_path: str) -> str:
         "fragment, error, or earlier response is needed to complete the task. "
         f"Transcript location: {transcript_path}"
     )
-
 
 def build_continuation_message(
     summary: str,
@@ -146,7 +142,6 @@ def build_continuation_message(
         )
     return {"role": "user", "content": body}
 
-
 def build_summary_request(
     segment: list[dict[str, Any]],
     *,
@@ -159,7 +154,6 @@ def build_summary_request(
     its result, producing a valid provider request.
     """
     return [*segment, {"role": "user", "content": get_compact_prompt(custom_instructions)}]
-
 
 __all__ = [
     "CLAUDE_CODE_REPOSITORY_URL",

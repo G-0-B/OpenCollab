@@ -19,7 +19,6 @@ from opencollab.domain.pending import PendingRowError, RowStatus
 
 logger = logging.getLogger(__name__)
 
-
 def _unique_task_owners(*groups: Any) -> list[tuple[int, asyncio.Task[Any]]]:
     owners: list[tuple[int, asyncio.Task[Any]]] = []
     seen: set[asyncio.Task[Any]] = set()
@@ -29,7 +28,6 @@ def _unique_task_owners(*groups: Any) -> list[tuple[int, asyncio.Task[Any]]]:
                 seen.add(task)
                 owners.append((aid, task))
     return owners
-
 
 class SchedulerCleanupMixin:
     async def cleanup(

@@ -13,10 +13,8 @@ _MAX_OPERATIONS = 200
 _ANONYMOUS_CALL = "<anonymous>"
 _EXIT_KINDS = frozenset({"unknown", "completed", "failed", "timeout"})
 
-
 def _nonnegative_int(value: Any, default: int = 0) -> int:
     return value if type(value) is int and value >= 0 else default
-
 
 def _positive_timeout(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -27,7 +25,6 @@ def _positive_timeout(value: Any) -> float | None:
         return None
     return result if math.isfinite(result) and result > 0 else None
 
-
 @dataclass(frozen=True)
 class _OperationState:
     last_executed_edit_seq: int = 0
@@ -37,7 +34,6 @@ class _OperationState:
     timeout_recovery_used: bool = False
     last_result_key: str | None = None
     inflight_tool_call_id: str | None = None
-
 
 @dataclass
 class LoopState:
@@ -265,6 +261,5 @@ class LoopState:
                     inflight_tool_call_id=inflight if isinstance(inflight, str) else None,
                 )
         return state
-
 
 __all__ = ["LoopState"]

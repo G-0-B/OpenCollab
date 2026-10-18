@@ -129,21 +129,11 @@ class Scheduler(
         self._max_budget_tokens = max_budget_tokens
         self._permission_policy = permission_policy
         self._topology = topology
-        # Static-topology mode. Off by default, and every behavioural difference
-        # is gated on it: the team is materialized from the config before the
-        # first turn (``ensure_team_prebuilt``), ``spawn`` then refuses, and the
-        # assigned topology is recorded. Left off, nothing below fires and the
-        # scheduler behaves exactly as it did.
+        # Seat the declared roster before the first model call and refuse later spawns.
         self._prebuild_team = bool(prebuild_team)
         self._team_prebuilt = False
-        # One turn at a time across the whole team. Off by default, which is the
-        # concurrent behaviour above. On, ``_turn_gate`` holds a single lock
-        # while a driver executes its model/tool work. A synchronous review
-        # yields that driver's execution right while waiting for its children,
-        # then reacquires before the parent continues. A teammate woken by a
-        # message waits for the lock. What the agents may say
-        # to each other is untouched: the topology keeps every declared edge and
-        # ``message_agent`` stays voluntary — only the timing changes.
+        # Serialize model/tool work across the team. A synchronous review releases
+        # the lock while children run, then reacquires it before its parent continues.
         self._serialize_turns = bool(serialize_turns)
         self._delivery_tree_probe = delivery_tree_probe
         self._delivery_tree_snapshots: list[dict[str, Any]] = []
@@ -156,10 +146,8 @@ class Scheduler(
         self._serialized_turn: contextvars.ContextVar[_SerializedTurn | None] = (
             contextvars.ContextVar("serialized_turn", default=None)
         )
-        # Drivers waiting to enter the existing serialized turn lock.
         self._turn_waiters: set[int] = set()
-        # Configured role names (from the team config), in declaration order.
-        # Used by ``team_roster`` to surface the team before anything spawns.
+        # Preserve declaration order so team_roster can show roles before they spawn.
         normalized_roles: list[str] = []
         role_keys: set[str] = set()
         for raw_role in roles:
@@ -172,9 +160,7 @@ class Scheduler(
             role_keys.add(collision_key)
             normalized_roles.append(role)
         self._roles = tuple(normalized_roles)
-        # Independent per-role allowances from the team file, or ``{}`` for the
-        # shared-pool rule. Each agent is held to its own role's allowance and
-        # to nothing else; see ``_agent_cap``.
+        # Per-role allowances replace the shared-pool rule, see _agent_cap.
         self._role_budgets: dict[str, int] = dict(role_budgets or {})
         self._entry_role = entry_role
         if self._role_budgets:
@@ -213,9 +199,8 @@ class Scheduler(
         # cancelling a child turn must never terminalize the Lead by default.
         self._active_run_tasks: dict[asyncio.Task[Any], int] = {}
         self._lead_session: Any | None = None
-        # child aid -> (parent aid, tool_call_id) for deferred spawns: lets a
-        # child's completion fill the exact pending row that suspended its
-        # parent. Absent for legacy fire-and-forget spawns (tool_call_id=None).
+        # Deferred child completion fills its exact parent tool-call row.
+        # Fire-and-forget spawns have no entry.
         self._spawn_origin: dict[int, tuple[int, str]] = {}
         # Children whose result row was atomically filled before teardown began.
         # Cleanup may cancel their task while it is only emitting an observational
@@ -263,9 +248,7 @@ class Scheduler(
         # The outer delivery task remains owned while ``add_user_message`` runs.
         # The durable inbox entry is removed only after that call succeeds.
         self._message_delivery_tasks: dict[int, asyncio.Task[Any]] = {}
-        # Optional bootstrap-injected callback that persists a team.json manifest
-        # from the current roster. Kept as a callback so the application layer
-        # stays free of filesystem I/O.
+        # Bootstrap injects manifest persistence to keep filesystem I/O out of this layer.
         self._manifest_writer: Callable[[], None] | None = None
         self._manifest_subscriber: AutoSaveSubscriber | None = None
         self._shutting_down = False
@@ -292,7 +275,6 @@ class Scheduler(
     ) -> None:
         """Make an externally owned resource part of final cleanup evidence."""
         self._lifecycle_resources.append((description, resource))
-
 
 __all__ = [
     "DuplicateSpawnError",

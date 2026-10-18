@@ -9,7 +9,6 @@ from opencollab.domain.session import SessionState
 
 _THINKING_TYPES = frozenset({"thinking", "redacted_thinking"})
 
-
 def _strip_anthropic_thinking(messages: list[dict[str, Any]], start: int = 0) -> list[dict[str, Any]]:
     """Remove a suffix of native thinking while retaining text and tool blocks."""
     result = list(messages)
@@ -24,7 +23,6 @@ def _strip_anthropic_thinking(messages: list[dict[str, Any]], start: int = 0) ->
             result[index] = {**message, "provider_state": {**state, "anthropic_content": kept}}
     return result
 
-
 def _edited_anthropic_history(before: list[dict], after: list[dict]) -> list[dict]:
     """Drop thinking bound to a changed prefix, keeping the valid older run."""
     if [message for message in before if message.get("role") == "system" and not message.get("compacted")] != [
@@ -36,14 +34,12 @@ def _edited_anthropic_history(before: list[dict], after: list[dict]) -> list[dic
             return _strip_anthropic_thinking(after, index)
     return after
 
-
 def _anthropic_history_input(state: SessionState) -> list[dict]:
     """Append fresh transcript messages to the last native provider view."""
     history = state.anthropic_history
     if history is None:
         return state.messages
     return copy.deepcopy([*history["messages"], *state.messages[history["source_count"]:]])
-
 
 def _remember_anthropic_history(state: SessionState, messages: list[dict], tools: list[dict] | None) -> list[dict]:
     """Persist edits so removed blocks and compacted content stay removed."""
@@ -57,7 +53,6 @@ def _remember_anthropic_history(state: SessionState, messages: list[dict], tools
         "messages": messages, "source_count": len(state.messages), "tools": tools,
     })
     return messages
-
 
 def _recover_anthropic_history(
     state: SessionState, messages: list[dict], tools: list[dict] | None, error: Exception,

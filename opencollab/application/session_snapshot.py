@@ -9,15 +9,11 @@ from typing import Any
 from opencollab.domain.pending import PendingRow, RowKind, RowStatus
 from opencollab.domain.session import SessionPhase
 
-# Legacy phase strings from snapshots written before the Lane S1 terminal
-# collapse: the four graceful terminals folded into STOPPED and the pure-
-# transitional SCHEDULED was removed. Migrating them here keeps a pre-collapse
-# snapshot's disposition instead of silently degrading it to IDLE via the
-# unknown-value fallback.
+# Translate legacy terminals and the removed enqueue phase so old snapshots
+# retain their disposition instead of falling back to IDLE.
 _LEGACY_TERMINAL_PHASES = frozenset(
     {"cancelled", "budget_exceeded", "step_limit_exceeded", "context_overflow"}
 )
-
 
 def _restore_anthropic_history(value: object, messages: list[dict]) -> dict | None:
     if not isinstance(value, dict):
@@ -33,7 +29,6 @@ def _restore_anthropic_history(value: object, messages: list[dict]) -> dict | No
         return None
     return copy.deepcopy({"messages": view, "source_count": count, "tools": tools})
 
-
 def _restore_phase(raw: object) -> SessionPhase:
     value = str(raw)
     if value in _LEGACY_TERMINAL_PHASES:
@@ -44,7 +39,6 @@ def _restore_phase(raw: object) -> SessionPhase:
         return SessionPhase(value)
     except ValueError:
         return SessionPhase.IDLE
-
 
 def _restore_queued_external_user_turn(
     value: object, messages: list[dict[str, Any]]
@@ -76,7 +70,6 @@ def _restore_queued_external_user_turn(
         "message_index": index,
     }
 
-
 def _restore_active_turn_start(
     value: object, messages: list[dict[str, Any]]
 ) -> int | None:
@@ -85,13 +78,11 @@ def _restore_active_turn_start(
         return None
     return value if 0 <= value <= len(messages) else None
 
-
 def _snapshot_nonnegative_int(value: object) -> int:
     try:
         return max(0, int(value))
     except (TypeError, ValueError, OverflowError):
         return 0
-
 
 def _snapshot_nonnegative_float(value: object) -> float | None:
     if value is None or isinstance(value, bool):
@@ -102,13 +93,11 @@ def _snapshot_nonnegative_float(value: object) -> float | None:
         return None
     return parsed if math.isfinite(parsed) and parsed >= 0 else None
 
-
 def _snapshot_int(value: object, *, default: int) -> int:
     try:
         return int(value)
     except (TypeError, ValueError, OverflowError):
         return default
-
 
 def _serialize_pending_row(row: PendingRow) -> dict[str, object]:
     return {
@@ -122,7 +111,6 @@ def _serialize_pending_row(row: PendingRow) -> dict[str, object]:
         "started_at": row.started_at,
         "finished_at": row.finished_at,
     }
-
 
 def _restore_pending_row(value: object) -> PendingRow | None:
     if not isinstance(value, dict):

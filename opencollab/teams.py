@@ -26,7 +26,6 @@ __all__ = [
     "declared_role_tools",
 ]
 
-
 def declared_role_names(path: str) -> tuple[str, ...]:
     """The role names a team file declares, the entry role first.
 
@@ -36,7 +35,6 @@ def declared_role_names(path: str) -> tuple[str, ...]:
     """
     config = load_team_config(path=path)
     return (config.entry, *(name for name in config.roles if name != config.entry))
-
 
 def declared_role_tools(path: str) -> dict[str, tuple[str, ...]]:
     """The tool names each declared role is seated with, role name to bundle.
@@ -55,7 +53,6 @@ def declared_role_tools(path: str) -> dict[str, tuple[str, ...]]:
     """
     config = load_team_config(path=path)
     return {name: tuple(role.tools) for name, role in config.roles.items()}
-
 
 def declared_role_prompt_digests(path: str) -> dict[str, str]:
     """Each declared role's system prompt as a sha256, role name to digest.
@@ -79,7 +76,6 @@ def declared_role_prompt_digests(path: str) -> dict[str, str]:
         for name, role in config.roles.items()
     }
 
-
 def declared_role_profiles(path: str) -> dict[str, str | None]:
     """Each declared role's agent profile, role name to profile name or ``None``.
 
@@ -97,7 +93,6 @@ def declared_role_profiles(path: str) -> dict[str, str | None]:
     config = load_team_config(path=path)
     return {name: role.profile for name, role in config.roles.items()}
 
-
 def declared_role_budgets(path: str) -> dict[str, int]:
     """Each declared role's token allowance, role name to tokens, or ``{}``.
 
@@ -111,7 +106,6 @@ def declared_role_budgets(path: str) -> dict[str, int]:
     config = load_team_config(path=path)
     budgets = config.role_budgets
     return {name: budgets[name] for name in config.roles if name in budgets}
-
 
 def declared_context_policy(path: str) -> dict[str, object]:
     """The context policy every seat runs, in the team file's own shape.

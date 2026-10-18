@@ -10,10 +10,8 @@ from opencollab.application.ports import CompletionResponse
 
 DEFAULT_DEFERRABLE_TOOLS = frozenset({"spawn_agent"})
 
-
 class GenerationTimeoutError(asyncio.TimeoutError):
     """A single provider generation exceeded its per-call ceiling."""
-
 
 class _ContextOverflowStop(Exception):
     """Internal control-flow signal: the prompt still overflows the model window
@@ -23,10 +21,8 @@ class _ContextOverflowStop(Exception):
     use case.
     """
 
-
 class _TeamBudgetStop(Exception):
     """Internal signal that shared team allowance ran out before a request."""
-
 
 class _TokenBudgetStop(Exception):
     """Internal signal that a request has insufficient legal output headroom."""
@@ -40,7 +36,6 @@ class _TokenBudgetStop(Exception):
             f"{reserved_input_tokens} of {remaining_budget} remaining tokens"
         )
 
-
 @dataclass
 class PendingStep:
     """The LLM response carried across HANDLING_RESPONSE → EXECUTING_TOOLS →
@@ -52,29 +47,21 @@ class PendingStep:
     latency: float
     started_at: float | None = None
 
-
-# Re-prompt used when a turn returns neither text nor a tool call (an
-# "empty-stop"). Without this the session would silently transition to DONE,
-# recording a clean completion that produced no answer and took no action.
+# Retry an empty stop before treating a turn with no answer or action as complete.
 _EMPTY_STOP_NUDGE = (
     "Your previous response was empty — no message and no tool call. "
     "If the task is finished, say so briefly. Otherwise continue now by "
     "calling the appropriate tool or giving your answer."
 )
 
-# Stand-in for the empty assistant turn, inserted before the nudge so the retry
-# request never sends two consecutive user messages (Anthropic rejects that).
-# Filtered out of ``run_loop``'s answer scan so it is never mistaken for output.
+# Separate consecutive user messages for Anthropic. The answer scan excludes
+# this placeholder so it cannot become the returned answer.
 _EMPTY_STOP_PLACEHOLDER = "[no output produced this turn]"
 
-# Closed-loop steering (the reads-without-write nudge) lives in
-# ``application/steering.py``; the tool vocabulary it keys on stays here because
-# wind-down shares it. ``READS_NUDGE_SOFT`` is imported above for the trace seam's
-# re-arm check.
+# Wind-down and steering share this tool vocabulary.
 _READ_TOOLS = frozenset({"file_read", "grep"})
 _WRITE_TOOLS = frozenset({"file_write", "apply_patch"})
 _STRUCTURED_OUTPUT_TOOL = "structured_output"
-
 
 def _request_tool_names(tools: list[dict] | None) -> list[str]:
     """Sorted names of the tool schemas one request carries.
@@ -91,47 +78,25 @@ def _request_tool_names(tools: list[dict] | None) -> list[str]:
         and (name := spec.get("function", {}).get("name")) is not None
     )
 
-# Enforcement strength (STEP 0). ``off`` is the self-regulating default: every
-# wind-down branch below is gated on enforcement being on, so with ``off`` the
-# FSM is byte-for-byte identical to the pre-enforcement code. ``needs-enforcement``
-# turns on the structural commit brake for budget-myopic models.
+# Enable the protected submit turn for models that need budget enforcement.
 ENFORCEMENT_OFF = "off"
 ENFORCEMENT_ON = "needs-enforcement"
 
-# Default name of the structured submit tool the wind-down narrows the toolset to
-# (overridable per session). Kept as a string so this application module need not
-# import the tool itself.
+# Keep the submit tool name as data to avoid importing the tool into this layer.
 SUBMIT_TOOL_NAME = "submit_findings"
 
-# Reserve (carved FROM the cap, never additive) held back so the single protected
-# submit turn fits: ``explore_threshold = max_budget_tokens - DEFAULT_COMMIT_RESERVE``.
+# Carved from the token cap so the protected submit turn stays within budget.
 DEFAULT_COMMIT_RESERVE = 25_000
 
-# Progress watchdog + low-yield brake (STEP 3). Two ADDITIONAL triggers into the
-# SAME forced-commit actuator (``_enter_wind_down``) — the budget-threshold
-# wind-down is the first. Both catch a scout spinning while budget is still
-# plentiful (the real pathology) and route it to the non-degradable tool-removal
-# commit. They key STRICTLY on the STEP-1 information-gain sensor (consecutive
-# no-progress steps / low-yield results), never on ``has_write`` — which is
-# overloaded as "agent mutates the repo" and would leak into verify/diff/integrity
-# accounting if reused as the brake key.
-#
-# WATCHDOG_K: ``steps_since_progress`` (no-progress tool STEPS) reaching this trips
-# the brake. LOW_YIELD_M: ``low_yield_since_progress`` (consecutive low-yield tool
-# RESULTS) reaching this trips it. Both default conservative so a normal
-# distill-as-you-read scout is never braked mid-stride.
+# No-progress steps and low-yield results also trigger _enter_wind_down.
+# Use information gain rather than has_write, which represents repository mutation
+# and is shared with verification and diff accounting.
 DEFAULT_WATCHDOG_K = 4
 DEFAULT_LOW_YIELD_M = 3
 DEFAULT_LOOP_BLOCKED_LIMIT = 3
 
-# Injected as a system message the instant a scout crosses the explore threshold.
-# Its next action must be the structured submit; cite-or-abstain, never fabricate.
-# STEP 2A (Phase 2): the toolset is narrowed to submit-only AT this same trip, so
-# the notice states it UP FRONT — without it a DeepSeek-class model reflexively
-# re-issues its prior exploration tool (grep/file_read/bash, now unknown) and burns
-# a whole turn on the "unknown tool" error before the provider-compat retry
-# (``_WIND_DOWN_RETRY``) recovers it. Telling the model here pre-empts that dead
-# turn; the retry backstop stays as the second line of defense.
+# Announce tool removal immediately so the model submits instead of spending
+# its protected turn retrying an exploration tool that is now unavailable.
 _WIND_DOWN_NUDGE = (
     "Exploration budget spent — all exploration tools (grep/file_read/bash) have now "
     "been removed; ONLY submit_findings is available. Your NEXT action MUST be "
@@ -141,17 +106,13 @@ _WIND_DOWN_NUDGE = (
     "insufficient_evidence — do NOT fabricate."
 )
 
-# Provider-compat backstop (re-injected for the SINGLE wind-down retry). A model
-# that ignored the forced tool_choice and reflexively re-issued its prior tool
-# (grep/bash/file_read — now unknown, since the toolset is submit-only) gets one
-# more turn with this explicit instruction before the loop goes terminal.
+# One explicit retry for models that still call a removed exploration tool.
 _WIND_DOWN_RETRY = (
     "Only submit_findings is available. Call submit_findings now with the evidence you "
     "have; do not call any other tool. Cite file:line / exact matched strings; mark each "
     "finding verified|unverified; set insufficient_evidence if you lack evidence — do NOT "
     "fabricate."
 )
-
 
 def _submit_tool_choice(name: str) -> dict[str, Any]:
     """OpenAI-style named-function ``tool_choice`` forcing exactly ``name``.

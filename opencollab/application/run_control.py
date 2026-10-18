@@ -13,7 +13,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass(frozen=True, slots=True)
 class BudgetSnapshot:
     run_id: str | None
@@ -27,12 +26,10 @@ class BudgetSnapshot:
     minimum_output_tokens: int
     reason: str
 
-
 @dataclass(frozen=True, slots=True)
 class BudgetDecision:
     soft_budget_tokens: int | None
     final_prompt: str | None = None
-
 
 @dataclass(frozen=True, slots=True)
 class RunEvent:
@@ -43,7 +40,6 @@ class RunEvent:
     used_tokens: int
     steps: int
     data: Mapping[str, Any] = field(default_factory=dict)
-
 
 @dataclass(frozen=True, slots=True)
 class RunControl:
@@ -76,14 +72,11 @@ class RunControl:
             if value is not None and not callable(value):
                 raise TypeError(f"{name} must be callable or None")
 
-
 class _RunCancelled(Exception):
     """The current turn's explicit cancellation signal was set."""
 
-
 class _RunControlPolicyError(ValueError):
     """A host budget policy failed or returned an invalid decision."""
-
 
 class _SessionRunControlMixin:
     def _raise_if_run_cancelled(self) -> None:

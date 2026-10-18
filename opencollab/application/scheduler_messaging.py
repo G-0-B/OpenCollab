@@ -51,12 +51,9 @@ from opencollab.domain.session import SessionPhase
 
 logger = logging.getLogger(__name__)
 
-# A whole lowercase-hex word of git object-id length. Git accepts an
-# abbreviation from seven characters up, and a full object id is forty, so this
-# is every shape a sha can be written in and nothing longer — a sha256 content
-# digest is sixty-four and does not match.
+# Match whole lowercase-hex Git object ids and 7-40 character abbreviations.
+# A 64-character SHA-256 content digest stays outside this pattern.
 _COMMIT_REF_RE = re.compile(r"(?<![0-9A-Za-z])[0-9a-f]{7,40}(?![0-9A-Za-z])")
-
 
 def _commit_refs(*parts: str) -> list[str]:
     """Every distinct git-object-shaped token in a message, in order.
@@ -80,7 +77,6 @@ def _commit_refs(*parts: str) -> list[str]:
         for match in _COMMIT_REF_RE.finditer(part or ""):
             seen.setdefault(match.group(0), None)
     return list(seen)
-
 
 class MessagingMixin:
     """Queue, format, and drain teammate messages between agents."""
@@ -169,9 +165,7 @@ class MessagingMixin:
                     **observed,
                 )
             inbox = self._message_inbox.get(to_aid, [])
-            # Read once, before the append, so an accepted send and a refused
-            # one describe the same thing: the queue the decision was taken
-            # against.
+            # Accepted and refused sends describe the same queue state before appending.
             observed["inbox_messages"] = len(inbox)
             observed["inbox_bytes"] = self._inbox_size(inbox)
             if observed["inbox_messages"] >= MAX_TEAMMATE_INBOX_MESSAGES:
@@ -615,11 +609,8 @@ class MessagingMixin:
             waiting = self._unanswered.get(aid, {})
             if waiting.get(message.from_aid) == message.message_id:
                 waiting.pop(message.from_aid, None)
-            # The scheduler event alone was invisible: it goes to events.jsonl,
-            # which a run writes only when OPENCOLLAB_EVENTS_FILE is set, so a
-            # default run dropped the message and recorded nothing a reader
-            # would ever see. This row lands in the trajectory every run, in the
-            # same shape as a send-time refusal, so the two can be added up.
+            # The trajectory records refusals even when OPENCOLLAB_EVENTS_FILE is unset.
+            # Its row matches send-time refusals so both can be counted together.
             self._trace_message_decision(
                 "message_refused",
                 reason=reason,

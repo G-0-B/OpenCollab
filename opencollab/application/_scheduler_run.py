@@ -11,7 +11,6 @@ from opencollab.domain.session import SessionPhase
 
 logger = logging.getLogger(__name__)
 
-
 class SchedulerRunMixin:
     async def run(
         self,

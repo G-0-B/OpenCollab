@@ -68,7 +68,6 @@ __all__ = [
     "_WIND_DOWN_RETRY",
 ]
 
-
 class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
     """Application use case for the session run loop.
 
@@ -122,27 +121,14 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
         self.max_steps = max_steps
         self.deferrable_tool_names = deferrable_tool_names
         self.shaper = shaper
-        # Defense-in-depth aggregate ceiling. An injected zero-arg predicate that
-        # reports whether the *team total* spend has reached the global cap.
-        # Passed as a plain callable (resolved in bootstrap/the factory) so the
-        # application layer never imports the concrete Scheduler — same pattern as
-        # ``max_budget_tokens`` being injected rather than read from the scheduler.
-        # ``None`` for standalone (non-team) sessions: only the per-session cap
-        # applies, preserving existing behavior.
+        # Inject the aggregate team ceiling without coupling this layer to Scheduler.
+        # Standalone sessions use only their own cap.
         self._team_budget_exhausted = team_budget_exhausted
-        # Adapter-supplied predicate classifying a provider exception as a
-        # context-window overflow (prompt too large even after reactive
-        # compaction). Injected as a plain callable (resolved in the factory) so
-        # the application layer never imports ``adapters.llm`` — same boundary
-        # pattern as ``team_budget_exhausted``. ``None`` (tests/standalone)
-        # means "never an overflow", preserving the prior propagate-as-ERROR
-        # behaviour for callers that don't wire it.
+        # The adapter classifies provider context overflow without provider imports
+        # in this layer. An unwired classifier leaves exceptions on the ERROR path.
         self._is_context_overflow = is_context_overflow or (lambda _exc: False)
-        # Hard ceiling (seconds) on a SINGLE model generation. The provider's own
-        # httpx ``request_timeout`` does not bound a slow streaming/thinking
-        # generation cooperatively; this wraps the call in ``asyncio.wait_for`` so
-        # one ~595s generation cannot consume the whole run wall (P7). ``None``
-        # disables it, preserving prior behavior for callers that don't wire it.
+        # Bound each generation because an HTTP timeout may not bound a slow
+        # streaming or thinking response within the run's wall-clock budget.
         if per_call_timeout is None:
             self._per_call_timeout = None
         else:
@@ -170,25 +156,17 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
         # can be re-entered on an already-finished session as a read-only query
         # for its answer, and that must not add a second disposition.
         self._session_terminal_traced = False
-        # Enforcement wind-down (STEP 0). Off by default: when ``off`` the precheck
-        # wind-down branch is never taken, so the FSM is byte-for-byte identical to
-        # the pre-enforcement code. ``commit_reserve`` is carved FROM the cap (not
-        # additive), so the single protected submit turn fits inside the budget.
+        # The protected submit reserve is carved from the token cap.
+        # Wind-down runs only when enforcement is enabled.
         self._enforcement_strength = enforcement_strength
         self._commit_reserve = commit_reserve
         self._submit_tool_name = submit_tool_name
-        # Progress watchdog + low-yield brake knobs (STEP 3). Inert unless
-        # ``enforcement_strength`` is on (the brake gate); they then route a
-        # spinning scout into the SAME ``_enter_wind_down`` actuator the budget
-        # threshold uses.
+        # No-progress and low-yield limits share the budget wind-down actuator.
         self._watchdog_k = watchdog_k
         self._low_yield_m = low_yield_m
         self._pending_tool_allowlist: frozenset[str] | None = None
         self._pending_tool_gate_label: str | None = None
-        # What the application offered before provider request adaptation. Written by
-        # ``_complete_with_choice`` (the one place a request is issued) and read
-        # by ``record_llm_trace``; recording only, never consulted by control
-        # flow.
+        # Record the offered tools before provider adaptation for record_llm_trace.
         self._last_request_tool_names: list[str] = []
         self._last_request_tool_choice: Any = None
         self._required_tool_retried = False
@@ -697,10 +675,8 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
             await self._stop_precheck(reason)
             return
 
-        # Aggregate ceiling (defense-in-depth): even when this session is under
-        # its own cap, stop if the *team total* has reached the global cap. A
-        # single overshooting turn or fan-out could otherwise spend past the
-        # global pool that reserve-at-allocation is meant to protect.
+        # Stop at the aggregate team ceiling even if this session has allowance left,
+        # since an overshooting generation can consume the shared pool.
         if self._team_budget_exhausted is not None and self._team_budget_exhausted():
             reason = "team budget exceeded: aggregate spend reached the global cap"
             await self._stop_precheck(reason)
@@ -871,18 +847,12 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
             )
             return
 
-        # Empty-stop: a natural completion that produced neither text nor a tool
-        # call. Falling straight through to DONE would silently record a clean
-        # completion that answered nothing. Retry once with a nudge before giving
-        # up; the once-per-turn flag (plus the budget/step limits) bounds it. The
-        # AUTOSAVING handler finishes the step and loops back to PRECHECK.
-        # Chat ``stop`` and native ``end_turn`` share this recovery. Other stop
-        # reasons retain their existing handling.
+        # Retry an empty stop once per turn before declaring an answerless completion.
+        # Both Chat stop and native end_turn use this route through AUTOSAVING.
+        # Budget and step limits still bound the retry.
         empty_stop = not has_content and not response.tool_calls
         if empty_stop and response.finish_reason in (None, "stop", "end_turn") and not self._empty_stop_retried:
             self._empty_stop_retried = True
-            # Record the retry to the trajectory so empty-stops are measurable
-            # (the injected nudge/placeholder messages are never persisted).
             if self.tracer:
                 self.tracer.log_step(
                     step_type="empty_stop_retry",
@@ -892,10 +862,8 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
                     },
                     latency=pending.latency,
                 )
-            # The empty assistant turn was not appended, so the history may end
-            # with a user/tool message. Insert a short assistant placeholder
-            # before the nudge so the retry request never sends two consecutive
-            # user messages (which Anthropic rejects).
+            # The empty turn was omitted. Insert an assistant placeholder before the
+            # nudge to avoid consecutive user messages, which Anthropic rejects.
             if self.state.messages and self.state.messages[-1]["role"] in ("user", "tool"):
                 self.state.append_message({"role": "assistant", "content": _EMPTY_STOP_PLACEHOLDER})
             self.state.append_message({"role": "user", "content": _EMPTY_STOP_NUDGE})

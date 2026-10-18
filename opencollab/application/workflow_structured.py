@@ -21,21 +21,13 @@ from opencollab.application._anthropic_history import _strip_anthropic_thinking
 from opencollab.application.async_timeout import CallerTimeoutError
 from opencollab.application.structured_output import StructuredOutputTool
 
-# Appended to a schema= prompt: the agent must finish by emitting structured
-# output via the injected tool rather than free-text.
 _STRUCTURED_INSTRUCTION = (
     "\n\nFinish by calling the `structured_output` tool — do not answer in "
     "free text."
 )
 
-# Corrective message that seeds the forced-commit retry session when the first
-# run produced no valid structured payload. The retry session is restricted to
-# the single capture tool with a named-function ``tool_choice`` (force exactly
-# ``structured_output``) — graceful, not guaranteed: an endpoint may 400-reject
-# the forced choice and degrade to ``auto``, after which the model can still
-# answer in prose. This prompt leads with an explicit MUST-call / no-prose
-# imperative and tells it to commit its final result NOW from what it already
-# gathered rather than answer in free text.
+# An endpoint may reject forced tool_choice and fall back to auto.
+# Explicit submit-only wording still directs that retry toward the capture tool.
 _STRUCTURED_RETRY = (
     "You MUST call the `structured_output` tool now, exactly once, with your "
     "final result based on what you have already gathered, conforming to the "
@@ -56,7 +48,6 @@ def _named_tool_choice(tool_name: str) -> dict[str, Any]:
     """
     return {"type": "function", "function": {"name": tool_name}}
 
-
 def _schema_satisfied(captured: Any, schema: dict[str, Any]) -> bool:
     """Minimal acceptance check for a captured structured payload.
 
@@ -75,10 +66,8 @@ def _schema_satisfied(captured: Any, schema: dict[str, Any]) -> bool:
         return True
     return all(key in captured for key in required)
 
-
 def _structured_retry_timeout(remaining: float | None) -> float | None:
     return remaining
-
 
 class WorkflowStructuredMixin:
     """``schema=`` structured-output primitives mixed into ``WorkflowContext``."""
@@ -135,12 +124,8 @@ class WorkflowStructuredMixin:
                 tools=combined_tools,
                 isolation=isolation,
                 label=label,
-                # Inherit the run-wide reasoning setting rather than forcing it
-                # off. Hard-coding it off here exempted every schema-bound agent
-                # from a setting the run had declared, which reads back from the
-                # trajectory as a per-arm difference in how the model was
-                # configured -- on the one axis an experiment turning reasoning
-                # on is trying to hold equal.
+                # Schema-bound agents inherit run-wide reasoning so their configuration
+                # remains comparable with other agents in the same run.
                 thinking=None,
             )
         except Exception as exc:  # noqa: BLE001 — factory failure must not abort the fleet
@@ -176,13 +161,9 @@ class WorkflowStructuredMixin:
             await self.log(f"structured retry skipped while prior execution drains ({label or 'agent'})")
             return None
 
-        # Corrective pass (only when the capture is genuinely empty above): force
-        # the structured commit on a single-tool session pinned to a
-        # named-function ``tool_choice`` — graceful, NOT guaranteed (an endpoint
-        # may 400-reject it and degrade to ``auto``). Reusing the same
-        # capture_tool keeps ``captured`` and the cancel event live across both
-        # passes; the first session is handed in so its exploration history is
-        # carried into the corrective turn.
+        # Reuse the capture tool so its payload and cancellation event span both
+        # passes. Carry exploration history into a submit-only corrective session.
+        # Endpoints may reject the forced choice and fall back to auto.
         try:
             retry_timeout = _structured_retry_timeout(
                 self._remaining_timeout(deadline)
@@ -244,13 +225,6 @@ class WorkflowStructuredMixin:
                 isolation=isolation,
                 label=label,
                 tool_choice=_named_tool_choice(capture_tool.name),
-                # Inherit here too, for the same reason as the first pass. The
-                # original rationale for forcing it off -- that reasoning makes
-                # the model answer in free text instead of calling the capture
-                # tool -- was measured against the endpoint in use and did not
-                # reproduce: at the highest reasoning tier the model called the
-                # tool on every attempt. What remains is a latency cost, which
-                # the caller's own timeout already bounds.
                 thinking=None,
             )
         except Exception as exc:  # noqa: BLE001 — factory failure must not abort the fleet

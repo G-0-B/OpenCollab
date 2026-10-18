@@ -16,9 +16,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-# A workflow function: ``async def fn(ctx, args) -> Any``.
 WorkflowFn = Callable[[Any, dict[str, Any]], Awaitable[Any]]
-
 
 @dataclass(frozen=True)
 class WorkflowSpec:
@@ -32,7 +30,6 @@ class WorkflowSpec:
     description: str
     fn: WorkflowFn
     phases: tuple[str, ...] = field(default_factory=tuple)
-
 
 def workflow(
     fn: WorkflowFn | None = None,
@@ -61,7 +58,6 @@ def workflow(
 
     return decorator(fn) if fn is not None else decorator
 
-
 class Registry:
     """A name -> :class:`WorkflowSpec` registry with duplicate-name rejection."""
 
@@ -81,6 +77,5 @@ class Registry:
     def list_specs(self) -> list[WorkflowSpec]:
         """All registered specs, sorted by name."""
         return [self._specs[n] for n in sorted(self._specs)]
-
 
 __all__ = ["Registry", "WorkflowFn", "WorkflowSpec", "workflow"]

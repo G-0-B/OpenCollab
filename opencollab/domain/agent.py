@@ -18,7 +18,6 @@ from opencollab.domain.tools import (
 
 DEFAULT_MAX_TOKENS_PER_STEP = 8_192
 
-
 @dataclass
 class Agent:
     """A stateless agent definition. Reusable across multiple Sessions.
@@ -65,10 +64,8 @@ class Agent:
     llm_max_retries: int = 3
     provider_error_time_budget: float = 0.0
     reasoning_effort_policy: str = "configured"
-    # Consume chat completions as a stream. OFF by default: streaming is the
-    # only way some endpoints return reasoning text, but it also changes the
-    # request body, so it stays opt-in and per-run. Appended last so the
-    # legacy positional field order is untouched.
+    # Some endpoints expose reasoning only when streamed. Keep streaming opt-in
+    # because it changes the request body.
     llm_stream_chat: bool = False
     # Direct Agent callers supply their own protocol. Bootstrap marks the
     # compatibility default separately to preserve ordinary request shapes.

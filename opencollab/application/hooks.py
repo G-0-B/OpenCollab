@@ -30,7 +30,6 @@ _TERMINAL_DISPOSITIONS = {
     "agent_cancelled": "cancelled",
 }
 
-
 class HookEventSubscriber(EventPublisherPort):
     def __init__(self, runner: HookPort):
         self._runner = runner
@@ -53,6 +52,5 @@ class HookEventSubscriber(EventPublisherPort):
         if event.type in {"agent_failed", "agent_cancelled"}:
             return "Stop" if event.data.get("aid") == 0 else "SubagentStop"
         return _DIRECT_EVENT_MAP.get(event.type)
-
 
 __all__ = ["HookEventSubscriber"]

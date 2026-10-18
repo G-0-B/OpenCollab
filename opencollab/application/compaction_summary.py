@@ -27,14 +27,11 @@ from opencollab.application.shaping.pipeline import _group_spans
 from opencollab.domain.agent import DEFAULT_MAX_TOKENS_PER_STEP
 from opencollab.domain.token_estimation import estimate_request_tokens
 
-# An async completion: given the summary request messages, return an object
-# exposing ``.content`` (the model's raw text). Kept abstract so the summarizer
-# depends only on this shape, not on any concrete LLM client.
+# Depend on the completion response shape instead of a concrete LLM client.
 ACompletePort = Callable[[list[dict[str, Any]]], Awaitable[Any]]
 
 DEFAULT_FALLBACK_CHARS = 4_000
 SUMMARY_CACHE_VERSION = "read-time-summary-v1"
-
 
 def _fallback_content_text(content: Any) -> str:
     """Render common message content shapes without exposing binary payloads."""
@@ -65,7 +62,6 @@ def _fallback_content_text(content: Any) -> str:
         parts.append(f"[{label} block]")
     return "\n".join(parts)
 
-
 def run_coro_blocking(make_coro: Callable[[], Awaitable[Any]]) -> Any:
     """Run an awaitable to completion from a sync caller, loop-safe.
 
@@ -76,7 +72,6 @@ def run_coro_blocking(make_coro: Callable[[], Awaitable[Any]]) -> Any:
     """
     with ThreadPoolExecutor(max_workers=1) as pool:
         return pool.submit(lambda: asyncio.run(make_coro())).result()
-
 
 class ReadTimeSummarizer:
     """Sync ``SummarizerPort`` that summarizes a segment via the async LLM.
@@ -218,6 +213,5 @@ class ReadTimeSummarizer:
                 parts.append(f"[{message.get('role', '?')}]: {content}")
         text = "\n".join(parts)[: self._fallback_chars]
         return text or "[summary unavailable]"
-
 
 __all__ = ["ACompletePort", "ReadTimeSummarizer", "run_coro_blocking"]

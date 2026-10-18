@@ -90,13 +90,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MAX_CONCURRENCY = 4
 
-# Seconds of head-room kept before the run's hard wall (``deadline_monotonic``).
-# Once ``time.monotonic()`` is within this margin of the deadline, ``time_low()``
-# returns True so a wall-clock-aware workflow bails to a forced final write while
-# it can still land a patch — the decisive fix for runs that locate the edit but
-# reach the hard wall before the final write completes.
+# Leave time before the hard deadline for a workflow's forced final write
+# to finish and produce an extractable patch.
 DEFAULT_DEADLINE_MARGIN_SECONDS = 120.0
-
 
 def _failure_exception_chain(error: BaseException) -> list[dict[str, Any]]:
     """Retain bounded error identity and codes without provider messages or paths."""
@@ -127,9 +123,6 @@ def _failure_exception_chain(error: BaseException) -> list[dict[str, Any]]:
         if current.__cause__ is not None:
             pending.append(current.__cause__)
     return records
-
-
-
 
 class WorkflowContext(
     WorkflowAgentRunMixin,
@@ -195,9 +188,7 @@ class WorkflowContext(
         self._semaphore = asyncio.Semaphore(max_concurrency)
         self._task_semaphore = asyncio.Semaphore(task_concurrency)
         self._sessions: list[Any] = []
-        # Title of the most recent ``phase()`` call, carried onto every agent
-        # started after it. Without it a run's agents are an undifferentiated
-        # sequence and nothing says which stage of the script each belonged to.
+        # Attribute later agents to the most recently declared workflow phase.
         self._phase_title: str | None = None
         self.budget = WorkflowBudget(budget_total, self._sessions)
         self._budget_lock = asyncio.Lock()
@@ -224,18 +215,12 @@ class WorkflowContext(
         self._trace_failures: list[dict[str, str]] = []
         self._tree_probe = tree_probe
         self._candidate_workspace = candidate_workspace
-        # Absolute path of the repo the sessions edit/read (the workspace passed to
-        # ``run_workflow``). Read-only metadata for workflows that need to run a
-        # static pass over the source (e.g. the STEP-5a pre-recon fact sheet); it
-        # changes no behavior on its own. ``None`` for unbounded CLI / tests.
+        # Expose the workspace path for workflows that inspect repository sources.
         self.workspace_root = workspace_root
         self.host_workspace = host_workspace
-        # Absolute wall-clock deadline on the ``time.monotonic()`` clock (None =
-        # unbounded: no wall, e.g. CLI runs and tests). ``time_low()`` reads it.
+        # Absolute time.monotonic deadline, or None for an unbounded run.
         self._deadline_monotonic = deadline_monotonic
         self._deadline_margin_seconds = deadline_margin_seconds
-
-    # -- working-tree verification ---------------------------------------- #
 
     async def execute_verification(
         self,
@@ -392,10 +377,8 @@ class WorkflowContext(
                     if isinstance((name := getattr(tool, "name", None)), str)
                 ],
                 "budget": budget,
-                # Whether this agent got a workspace of its own. Read with
-                # ``tools``: an isolated agent that can write is one whose edits
-                # no sibling can see, so a handoff out of it has to be carried
-                # by something the run records rather than by the file system.
+                # An isolated writer needs a recorded handoff because siblings cannot see
+                # its edits through the shared filesystem.
                 "isolated": bool(isolation),
             },
         )
@@ -484,8 +467,6 @@ class WorkflowContext(
             if not task.done() and task is not current
         )
 
-    # -- wall clock -------------------------------------------------------- #
-
     def seconds_left(self) -> float:
         """Seconds remaining until the hard deadline; ``inf`` when unbounded.
 
@@ -506,8 +487,6 @@ class WorkflowContext(
         the deadline. Always false when no deadline is wired.
         """
         return self.seconds_left() <= self._deadline_margin_seconds
-
-    # -- agent ------------------------------------------------------------- #
 
     async def agent(
         self,
@@ -622,10 +601,7 @@ class WorkflowContext(
                     prompt, schema=schema, label=label, tools=tools,
                     isolation=isolation, timeout=timeout, budget=budget,
                 )
-            # Enforcement wind-down (STEP 0): the scout path injects submit_findings
-            # and the structural commit brake. OFF (the default) routes to the
-            # unchanged ``_run_agent``, so every existing caller is byte-for-byte
-            # identical — the new path is reachable only when explicitly requested.
+            # Enforcement supplies submit_findings and the protected submit turn.
             if enforcement_strength != ENFORCEMENT_OFF:
                 return await self._run_enforced_agent(
                     prompt,
@@ -757,8 +733,6 @@ class WorkflowContext(
             pending.update(execution)
         return any(not task.done() for task in pending)
 
-    # -- observability ----------------------------------------------------- #
-
     def _raise_if_environment_revoked(self) -> None:
         if self._agent_run_environment_unsafe or bool(getattr(self._factory, "environment_revoked", False)):
             raise WorkflowEnvironmentRevoked(
@@ -781,7 +755,6 @@ class WorkflowContext(
                 await self._event_sink.emit(WorkflowEvent(kind=kind, message=message))
             except Exception as exc:
                 logger.error("workflow %s event failed: %s", kind, exc)
-
 
 __all__ = [
     "WorkflowBudget",

@@ -23,18 +23,15 @@ class RowKind(Enum):
     IMMEDIATE = "immediate"
     CHILD_AGENT = "child_agent"
 
-
 class RowStatus(Enum):
     PENDING = "pending"
     DONE = "done"
     FAILED = "failed"
 
-
 class PendingRowError(Exception):
     """Raised on an unknown ``tool_call_id`` or a double-fill — surfaced loudly
     so a misrouted completion can never silently hang a suspended session.
     """
-
 
 @dataclass(frozen=True)
 class PendingRow:
@@ -47,7 +44,6 @@ class PendingRow:
     error: str | None = None
     started_at: float | None = None
     finished_at: float | None = None
-
 
 class PendingEventTable:
     """Mutable container of frozen :class:`PendingRow`, keyed by tool_call_id."""
@@ -101,7 +97,6 @@ class PendingEventTable:
 
     def clear(self) -> None:
         self.rows.clear()
-
 
 __all__ = [
     "PendingEventTable",

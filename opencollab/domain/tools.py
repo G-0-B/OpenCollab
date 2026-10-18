@@ -10,7 +10,6 @@ from opencollab.domain.tool_loops import LoopState
 
 MAX_CALL_HASH_WINDOW = 200
 
-
 def tool_name_collision_key(name: object) -> str:
     """Return the provider/dispatcher collision key for one tool name."""
     if not isinstance(name, str) or not name:
@@ -26,7 +25,6 @@ def tool_name_collision_key(name: object) -> str:
     ):
         raise ValueError("tool name must not contain surrounding whitespace or controls")
     return normalized.casefold()
-
 
 def validate_unique_tool_names(
     names: Sequence[object],
@@ -56,7 +54,6 @@ def validate_unique_tool_names(
             )
         seen[key] = (index, name)
 
-
 class ToolSpec(Protocol):
     """The schema surface every tool exposes to an agent.
 
@@ -72,12 +69,10 @@ class ToolSpec(Protocol):
     def to_openai_schema(self) -> dict[str, Any]:
         ...
 
-
 @dataclass(frozen=True)
 class LoopDetection:
     tool: str
     count: int
-
 
 @dataclass
 class ToolProcessingResult:
@@ -91,40 +86,28 @@ class ToolProcessingResult:
     effect_unknown: bool = False
     evidence_neutral: list[bool] = field(default_factory=list)
     model_step: int | None = None
-    # Closed-loop steering counters for this batch: how many read-only tool calls
-    # executed, and whether a write landed. A successful write RESETS
-    # ``reads_since_last_edit``; otherwise the reads accumulate onto it.
+    # Aggregate read/write signals for legacy and custom executors.
     reads_executed: int = 0
     write_succeeded: bool = False
     # Successful read/write signals in execution order. New producers populate
     # this so a write resets only the reads that precede it; the aggregate fields
     # above remain as a compatibility fallback for older/custom executors.
     read_write_signals: list[str] = field(default_factory=list)
-    # A provider-issued tool step occurred even if every call short-circuited
-    # before execution (malformed args, unknown tool, schema/preflight error).
-    # The progress watchdog counts such a step as no progress instead of letting
-    # repeated malformed calls bypass it indefinitely.
+    # Count even malformed or rejected provider steps so repeated preflight
+    # failures cannot bypass the progress watchdog.
     tool_step_attempted: bool = False
-    # STEP 1 information-gain sensor: one ``(content_hash, call_hash,
-    # intrinsic_low_yield)`` tuple per EXECUTED tool result, in call order. Folded
-    # into SessionState's novelty counters by ``apply_evidence_counter_to``.
-    # Short-circuited calls (bad args / unknown tool / loop block) produce no real
-    # tool output and contribute no signal.
+    # One novelty signal per executed result in call order, folded into
+    # SessionState. Short-circuited calls have no tool output to contribute.
     evidence_signals: list[tuple[str, str, bool]] = field(default_factory=list)
-    # STEP 2 evidence ledger: one ``{tool, target, snippet}`` raw card per EXECUTED
-    # tool result, index-aligned with ``evidence_signals`` (same producer loop). The
-    # ``outcome`` is decided at fold time (it needs SessionState's novelty memory),
-    # so the card here carries only the envelope facts. Additive to STEP 1 — a
-    # caller that never populates it folds counters exactly as before.
+    # Raw evidence cards align with evidence_signals. Folding supplies outcomes
+    # using SessionState's novelty memory so the ledger agrees with the counters.
     evidence_cards: list[dict[str, Any]] = field(default_factory=list)
     # A successful structured capture is terminal for the current tool-call
     # batch. The session runner uses this to reject later deferred calls while
     # still emitting a result for every provider-issued tool call id.
     terminal_capture_accepted: bool = False
-    # A ``submit`` call in this batch. Terminal for the batch like a
-    # structured capture, and terminal for the turn as well: the session
-    # runner ends at DONE instead of looping back to PRECHECK, and uses
-    # ``submitted_summary`` as the turn's answer.
+    # A submit call ends both the batch and the turn. submitted_summary
+    # supplies the answer when the session reaches DONE.
     turn_submitted: bool = False
     submitted_summary: str | None = None
 
@@ -233,7 +216,6 @@ class ToolProcessingResult:
         if self.loop_state_update is not None:
             state.turn.loop_state = self.loop_state_update.clone()
             self.loop_state_update = None
-
 
 __all__ = [
     "LoopDetection",

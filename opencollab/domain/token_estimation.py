@@ -22,7 +22,6 @@ def estimate_tokens(text: str) -> int:
     wide = min(n_chars, len(text.encode("utf-8")) - n_chars)
     return max(1, (n_chars - wide) // 3 + wide)
 
-
 _REQUEST_MESSAGE_FIELDS = frozenset({
     "role", "content", "reasoning_content", "tool_calls", "tool_call_id", "name",
 })
@@ -39,18 +38,15 @@ _MESSAGE_PROTOCOL_TOKEN_OVERHEAD = 64
 _TOOLS_PROTOCOL_TOKEN_OVERHEAD = 16
 _TOOL_PROTOCOL_TOKEN_OVERHEAD = 32
 
-
 def _serialize_payload(value: Any) -> str:
     """Serialize a provider payload deterministically."""
     return json.dumps(
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
     )
 
-
 def _serialized_tokens(value: Any) -> int:
     """Estimate a provider payload after deterministic JSON serialization."""
     return estimate_tokens(_serialize_payload(value))
-
 
 def _request_message_payload(
     message: dict,
@@ -76,7 +72,6 @@ def _request_message_payload(
         if key in fields
     }
 
-
 def estimate_messages_tokens(
     messages: list[dict],
     tools: list[dict] | None = None,
@@ -101,7 +96,6 @@ def estimate_messages_tokens(
     if tools:
         total += _TOOLS_TOKEN_OVERHEAD + _serialized_tokens(tools)
     return total
-
 
 def estimate_request_tokens(
     messages: list[dict],
@@ -142,7 +136,6 @@ def estimate_request_tokens(
             + _serialized_tokens(tools)
         )
     return total
-
 
 def estimate_request_message_tokens(
     messages: list[dict],

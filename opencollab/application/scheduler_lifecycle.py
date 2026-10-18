@@ -27,7 +27,6 @@ from opencollab.domain.session import SessionPhase
 
 logger = logging.getLogger(__name__)
 
-
 class _SerializedTurn:
     """One driver's ownership of the team lock, including review suspension."""
 
@@ -46,7 +45,6 @@ class _SerializedTurn:
             self.held = False
             self.lock.release()
 
-
 class LifecycleMixin:
     """Spawn, drive, finalize, and wake agents in the delegation tree."""
 
@@ -58,7 +56,7 @@ class LifecycleMixin:
         AWAITING_EVENTS rows can drain before the next user turn.
         """
         session.agent.name = validate_role_identity(session.agent.name)
-        aid = self.table.allocate_aid()  # = 0
+        aid = self.table.allocate_aid()
         session.state.aid = aid
         scb = SessionControlBlock(
             aid=aid,
@@ -128,9 +126,7 @@ class LifecycleMixin:
         if self.table.get(parent_aid) is None or parent_aid not in self._sessions:
             raise ValueError(f"Cannot spawn agent: no parent with aid {parent_aid}.")
         role = validate_role_identity(role)
-        # Before the topology check, so one uniform record covers both a request
-        # for a declared role and one for a role this team was never given; the
-        # record carries whether the topology would have allowed the edge.
+        # Record declared and undeclared role refusals before topology validation.
         self._refuse_spawn_when_prebuilt(parent_aid, role, task, context)
         self._check_topology(parent_aid, role, verb="spawn")
         aid = self.table.allocate_aid()
@@ -141,22 +137,11 @@ class LifecycleMixin:
             self._startup_origin[aid] = (parent_aid, tool_call_id)
         env: Any | None = None
         parent_lease: tuple[int, int] | None = None
-        # Reserve this (role, task) AND its budget synchronously — before the
-        # first await — so a duplicate / batched spawn later in the same
-        # tool-call batch already sees the updated allocation and cannot
-        # oversubscribe the global pool.
-        # Everything from reservation until the driver task is scheduled may raise
-        # (worktree acquire, session build, event emission). The driver task owns
-        # releasing the two reservations on termination — but it only exists once
-        # ``create_task`` below succeeds. So if anything raises before that, the
-        # reservations would leak permanently (the budget grant inflates the pool
-        # for every future spawn, and the inflight key permanently refuses any
-        # re-spawn of this (role, task)). Release both and re-raise so the caller
-        # (execute_deferred) still surfaces the failure into the parent's row.
+        # Reserve identity and budget before the first await to prevent duplicate
+        # spawns and pool oversubscription. Until the driver starts, failures here
+        # must release both reservations because no driver exists to release them.
         try:
-            # ``spawn`` is the authoritative single-flight boundary. This
-            # compare-and-set runs before the first await, so concurrent
-            # coroutines cannot both reserve the same delegated-work identity.
+            # Compare-and-set before any await makes delegated-work reservation atomic.
             self._reserve_inflight(aid, parent_aid, role, task, context)
             # ``spawn`` runs after the parent's current model generation has
             # completed. Return the parent's unused turn lease before granting
@@ -182,15 +167,12 @@ class LifecycleMixin:
                     "Cannot spawn agent: team token budget is fully allocated."
                 )
 
-            # Build environment
             env = await self._worktree_pool.acquire(role)
             self._startup_envs[aid] = env
             if self._shutting_down:
                 raise RuntimeError("Cannot spawn agent: scheduler is shutting down.")
 
-            # Build session via factory. The task is seeded as the agent's first
-            # user-context message (the TASK-layer ContextSource) inside the
-            # factory, so the whole startup context is assembled in one place.
+            # The factory seeds the first TASK-layer message with the rest of startup context.
             session = self._session_factory.build_spawn_session(
                 role=role,
                 env=env,
@@ -202,7 +184,6 @@ class LifecycleMixin:
             )
             session.agent.name = role
 
-            # Create SCB
             scb = SessionControlBlock(
                 aid=aid,
                 parent_aid=parent_aid,
@@ -215,7 +196,6 @@ class LifecycleMixin:
                 self._spawn_origin[aid] = (parent_aid, tool_call_id)
                 self._startup_origin.pop(aid, None)
 
-            # Emit spawn event
             await self.emit_scheduler_event(
                 self._events.agent_spawned(aid, parent_aid, role, task)
             )

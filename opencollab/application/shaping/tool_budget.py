@@ -6,10 +6,8 @@ import copy
 import json
 from typing import Any
 
-# Per-tool-result character budget. A single tool result larger than this is
-# truncated (for the model's view only) to its head plus a re-read pointer.
+# Truncate only the model view, retaining a head and re-read pointer.
 DEFAULT_TOOL_RESULT_BUDGET = 16_000
-
 
 class PerToolResultBudgetShaper:
     """Caps each tool-result message at ``max_chars`` for the model's view.

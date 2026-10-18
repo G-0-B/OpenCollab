@@ -28,13 +28,11 @@ OBSERVATION_SCALAR_PREVIEW_CHARS = 128
 OBSERVATION_MAX_ITEMS = 64
 OBSERVATION_MAX_DEPTH = 8
 
-
 def _serialized_json_bytes(value: Any) -> bytes:
     return json.dumps(value, ensure_ascii=False, default=str).encode(
         "utf-8",
         errors="surrogatepass",
     )
-
 
 def _budgeted_metadata(
     metadata: dict[str, Any],
@@ -51,7 +49,6 @@ def _budgeted_metadata(
     }
     budget[0] = max(0, budget[0] - len(_serialized_json_bytes(compact)))
     return compact
-
 
 def sanitize_observation_args(args: dict[str, Any]) -> dict[str, Any]:
     """Return a structure-preserving, bounded copy for event and trace sinks."""
@@ -70,7 +67,6 @@ def sanitize_observation_args(args: dict[str, Any]) -> dict[str, Any]:
         "bounded_representation_bytes": len(encoded),
         "sha256": hashlib.sha256(encoded).hexdigest(),
     }
-
 
 def _sanitize_observation_value(
     value: Any,
@@ -190,7 +186,6 @@ def _sanitize_observation_value(
         depth=depth + 1,
     )
 
-
 def _positive_env_float(name: str, default: float) -> float:
     try:
         value = float(os.environ.get(name, str(default)))
@@ -198,10 +193,8 @@ def _positive_env_float(name: str, default: float) -> float:
         return default
     return value if math.isfinite(value) and value > 0 else default
 
-
 class _ToolExecutionTimeoutError(CallerTimeoutError):
     """Raised only by this use case's own per-tool deadline."""
-
 
 DEFAULT_TOOL_EXECUTION_TIMEOUT = _positive_env_float("OPENCOLLAB_TOOL_EXECUTION_TIMEOUT", 180.0)
 MAX_TOOL_EXECUTION_TIMEOUT = _positive_env_float("OPENCOLLAB_TOOL_EXECUTION_MAX_TIMEOUT", 900.0)
@@ -216,13 +209,11 @@ DEFAULT_TOOL_ENVIRONMENT_ABORT_TIMEOUT = _positive_env_float(
     "OPENCOLLAB_TOOL_ENVIRONMENT_ABORT_TIMEOUT", 1.0
 )
 
-
 @dataclass(frozen=True)
 class DeferredCall:
     """Reference to work whose tool result will arrive asynchronously."""
 
     ref: int
-
 
 @dataclass(frozen=True)
 class ToolRuntime:
@@ -239,7 +230,6 @@ class ToolRuntime:
 
     def ask_fn(self):
         return None if self.ask_policy is None else self.ask_policy.ask
-
 
 class ToolExecutionRuntimeMixin:
     @property
@@ -562,9 +552,7 @@ class ToolExecutionRuntimeMixin:
             else tool_output[:2048] + "\n...[truncated]...\n" + tool_output[-2048:]
         )
         payload = {
-            # Agent attribution: the same ``aid`` the tool runtime and
-            # steering_nudge carry, so a tool_exec record can be traced back to
-            # the agent that ran it.
+            # Join tool execution and steering records through the same agent id.
             "aid": self.state.aid,
             "tool": tool_name,
             "args": args,

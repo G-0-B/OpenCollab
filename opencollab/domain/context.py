@@ -27,24 +27,14 @@ class ContextLayer(Enum):
     TASK = "task"              # the concrete assignment (DelegationTask / first turn)
     SKILL = "skill"            # model-invocable skill catalog (name + description)
 
-
 class ContextPosition(Enum):
     """Where a source lands in the provider-facing message structure."""
 
     SYSTEM = "system"              # folded into the single system prompt
     USER_CONTEXT = "user_context"  # injected as its own user message
 
-
-# Default keep/shed priority per layer: higher = more essential (kept longer).
-# This is the scale that makes layers *load-bearing* for context budgeting — the
-# reactive shapers (``application.shaping``) pin sources at/above their
-# ``PIN_FLOOR`` and shed lower layers cheapest-first under pressure. Pure data;
-# the shaper owns the floor, the domain owns the ranking.
-#
-# Today only the ``PIN_FLOOR=70`` cut is load-bearing: identity/team/skill/task
-# all sit above it, so every startup source is pinned and nothing is sheddable.
-# The sub-floor ordering (PROJECT below) becomes live only once deferred
-# long-term sources (memory/RAG) actually carry content — an honest gap today.
+# Shapers pin sources at or above PIN_FLOOR and apply recency rules below it.
+# The domain defines layer priorities, while shapers own the protection threshold.
 LAYER_PRIORITY: dict[ContextLayer, int] = {
     ContextLayer.IDENTITY: 100,
     ContextLayer.TEAM: 90,
@@ -52,7 +42,6 @@ LAYER_PRIORITY: dict[ContextLayer, int] = {
     ContextLayer.TASK: 80,
     ContextLayer.PROJECT: 30,
 }
-
 
 @dataclass(frozen=True)
 class ContextSource:
@@ -75,7 +64,6 @@ class ContextSource:
         if self.priority is not None:
             return self.priority
         return LAYER_PRIORITY.get(self.layer, 0)
-
 
 @dataclass(frozen=True)
 class ContextPlan:
@@ -135,7 +123,6 @@ class ContextPlan:
             }
             for s in self._startup(ContextPosition.USER_CONTEXT)
         ]
-
 
 __all__ = [
     "ContextLayer",

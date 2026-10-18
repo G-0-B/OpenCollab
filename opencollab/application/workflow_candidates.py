@@ -22,7 +22,6 @@ def _candidate_budget_total(budget: int | None, limit_mode: str = "environment")
         return None
     return budget
 
-
 async def _wait_for_candidate_cleanup(lease: _BudgetLease) -> None:
     """Drain this candidate's turn tasks and session-owned cleanup."""
     current = asyncio.current_task()
@@ -48,7 +47,6 @@ async def _wait_for_candidate_cleanup(lease: _BudgetLease) -> None:
         # Finishing turn tasks and callbacks can register new session cleanup.
         await asyncio.sleep(0)
 
-
 @dataclass(frozen=True, slots=True)
 class CandidateRun:
     """One isolated agent result with its complete candidate evidence."""
@@ -61,14 +59,11 @@ class CandidateRun:
     lifecycle_errors: tuple[str, ...] = ()
     source_revision: str | None = None
 
-
 class CandidateCaptureError(RuntimeError):
     """A candidate worktree survived but its diff could not be captured."""
 
-
 class CandidateWorkspaceTrackingError(RuntimeError):
     """The source worktree changed while a candidate was executing."""
-
 
 def _candidate_worktree_location(lease: Any) -> str:
     """Include an optional location in candidate retention diagnostics."""
@@ -76,7 +71,6 @@ def _candidate_worktree_location(lease: Any) -> str:
     if workspace is None:
         workspace = getattr(lease.environment, "workspace", None)
     return f" at {workspace}" if workspace is not None else ""
-
 
 class _CandidateLeaseTreeProbe:
     """Expose one candidate lease through the working-tree probe contract."""
@@ -98,7 +92,6 @@ class _CandidateLeaseTreeProbe:
     async def diff_excluding(self, paths: Sequence[str]) -> str:
         return await self._lease.diff(exclude_paths=paths)
 
-
 def _accepts_environment(method: Any) -> bool:
     try:
         parameters = inspect.signature(method).parameters.values()
@@ -109,7 +102,6 @@ def _accepts_environment(method: Any) -> bool:
         or parameter.name == "environment" and parameter.kind is not inspect.Parameter.POSITIONAL_ONLY
         for parameter in parameters
     )
-
 
 class _CandidateWorkflowSessionFactory:
     """Bind every child workflow session to one candidate environment."""
@@ -205,7 +197,6 @@ class _CandidateWorkflowSessionFactory:
             raise RuntimeError("candidate verification environment is unavailable")
         return await self._factory.execute_verification(tool, params, environment=resolved)
 
-
 def _verification_evidence(
     tools: list[Any],
 ) -> tuple[tuple[dict[str, Any], ...], tuple[str, ...]]:
@@ -218,7 +209,6 @@ def _verification_evidence(
                 records.append(dict(record))
     return tuple(records), tuple(sorted(targets))
 
-
 def _candidate_verification_tools(tools: Sequence[Any]) -> list[Any]:
     """Keep native execution settings and fork candidate-owned observations."""
     scope: dict[object, Any] = {}
@@ -227,7 +217,6 @@ def _candidate_verification_tools(tools: Sequence[Any]) -> list[Any]:
         fork = getattr(tool, "fork_verification_scope", None)
         selected.append(fork(scope) if callable(fork) else tool)
     return selected
-
 
 class WorkflowCandidatesMixin:
     """Runs agent sessions in candidate leases and adopts a selected diff."""
@@ -599,7 +588,6 @@ class WorkflowCandidatesMixin:
             await adopt_run(candidate, preserve_paths)
         else:
             await self._candidate_workspace.adopt(candidate.diff, preserve_paths)
-
 
 __all__ = [
     "CandidateCaptureError",

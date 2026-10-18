@@ -100,22 +100,15 @@ class WorkflowAgentsMixin:
             self._record_agent_failure(label, exc)
             await self.log(f"agent failed ({label or 'agent'}): {exc}")
 
-        # Harvest is the backstop even on a timeout/exception: whatever the scout
-        # already gathered (captured payload, prose, or the runtime-authored
-        # evidence ledger) is salvaged — never a bare "(scout died)".
+        # Salvage gathered evidence even after a timeout or exception.
         ledger = self._scout_ledger(session)
         report = harvest_findings(
             submit_tool.captured, text or "", self._session_messages(session), ledger=ledger,
             draft=harvest_fallback,
         )
-        # STEP 2 (rare-case backstop): a DEAD scout — no structured commit
-        # (``captured is None``) yet a non-empty ledger of what it gathered —
-        # triggers ONE bounded transcript-only synthesizer call (submit_findings
-        # only, forced, cite-or-abstain). With STEP 0's wind-down live this fires
-        # seldom (scouts are force-committed at ~80%); it salvages the chopped /
-        # errored / strayed tail. The original caller deadline still bounds the
-        # recovery. Gated by construction: this method only runs when enforcement
-        # is on.
+        # A scout with evidence but no structured commit gets one bounded salvage
+        # call with submit_findings as its only tool. The original deadline still
+        # bounds recovery, and every finding must cite existing evidence or abstain.
         if (
             submit_tool.captured is None
             and ledger
@@ -216,10 +209,8 @@ class WorkflowAgentsMixin:
         live global remaining. Skips gracefully (``None``) if the shared pool is spent
         or the factory/session errors, so a failed draft never aborts the fleet.
         """
-        # Local import breaks the compose cycle: ``workflow.py`` imports this
-        # mixin to build ``WorkflowContext``, so this module cannot import from
-        # it at load time. ``WorkflowBudgetExceeded`` is raised by the core
-        # ``_acquire_budget_lease`` and defined there (SDK-exported from there).
+        # Import locally because workflow composes this mixin and defines the
+        # SDK-exported WorkflowBudgetExceeded raised by _acquire_budget_lease.
         from opencollab.application.workflow import WorkflowBudgetExceeded
 
         call_task = asyncio.current_task()

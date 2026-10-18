@@ -30,7 +30,6 @@ class WorkflowAgentResult:
     workspace_ready: bool
     observation_errors: tuple[str, ...] = ()
 
-
 class WorkflowAgentRunMixin:
     """Run a normal profile session through the context's owned leases."""
 

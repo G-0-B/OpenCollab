@@ -18,7 +18,6 @@ SAVE_TRIGGERS = frozenset(
 
 logger = logging.getLogger(__name__)
 
-
 def _run_save(operation: SaveOperation) -> Exception | None:
     try:
         operation()
@@ -29,7 +28,6 @@ def _run_save(operation: SaveOperation) -> Exception | None:
         error.__cause__ = exc
         return error
     return None
-
 
 class AutoSaveSubscriber(EventPublisherPort):
     """Freeze-then-flush persistence of session snapshots (Command + Memento).

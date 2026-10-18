@@ -109,9 +109,7 @@ class _SessionRunTraceMixin:
             input_tokens = getattr(usage, "input_tokens", 0)
             total_tokens = getattr(usage, "total_tokens", input_tokens)
             payload = {
-                # Agent attribution: the same ``aid`` steering_nudge/commit_brake
-                # stamp, so every record in a multi-agent trajectory file joins
-                # on one field.
+                # Join steering and commit-brake records through the same agent id.
                 "aid": self.state.aid,
                 "model": self.agent.model,
                 "finish_reason": getattr(result, "finish_reason", None),
@@ -159,8 +157,6 @@ class _SessionRunTraceMixin:
                 raw_usage = getattr(usage, "raw_usage", None)
                 if raw_usage:
                     payload["usage"]["raw_usage"] = raw_usage
-            # Record provider chain-of-thought to the trajectory when present
-            # (omitted otherwise, so non-thinking traces keep their prior shape).
             reasoning = getattr(result, "reasoning", None)
             if reasoning:
                 payload["reasoning"] = reasoning

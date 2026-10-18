@@ -67,7 +67,6 @@ SUBMIT_FINDINGS_SCHEMA: dict[str, Any] = {
     },
 }
 
-
 class SubmitFindingsTool:
     """Captures a schema-validated, cite-or-abstain findings payload.
 
@@ -149,7 +148,6 @@ class SubmitFindingsTool:
             self._on_capture()
         return "Recorded. Findings accepted. Your reconnaissance is complete."
 
-
 def format_findings_report(captured: dict[str, Any]) -> str:
     """Render a captured payload as the dense, labelled findings text the planner
     reads. Marks each finding verified|unverified and shows its anchor."""
@@ -174,7 +172,6 @@ def format_findings_report(captured: dict[str, Any]) -> str:
         )
     return "\n".join(lines)
 
-
 # Cap on how much of each salvaged tool result / interim text the partial blob
 # keeps, so a chopped scout's harvest can never itself blow the planner's context.
 _PARTIAL_SNIPPET_CHARS = 600
@@ -184,14 +181,12 @@ _LEDGER_FIELD_CHARS = 240
 _LEDGER_MAX_CARDS = 64
 _LEDGER_MAX_CHARS = 12_000
 
-
 def _with_omission_marker(text: str, marker: str, max_chars: int) -> str:
     if not marker:
         return text[:max_chars]
     separator = "\n" if text else ""
     keep = max(0, max_chars - len(separator) - len(marker))
     return f"{text[:keep]}{separator}{marker}"[:max_chars]
-
 
 def format_evidence_ledger(
     cards: list[dict[str, Any]] | None,
@@ -224,7 +219,6 @@ def format_evidence_ledger(
     marker = f"- [omitted] {omitted} evidence cards" if omitted else ""
     return _with_omission_marker(body, marker, max_chars)
 
-
 def harvest_findings(
     captured: dict[str, Any] | None,
     fallback_text: str,
@@ -251,10 +245,8 @@ def harvest_findings(
         report = format_findings_report(captured)
         if report.strip():
             return report
-    # STEP 5b: the seeded fact-sheet draft is a structured cite-or-abstain artifact —
-    # rank it above raw prose / a transcript partial so the anchors survive a scout
-    # that never produced its own refine. (The caller's dead-scout synth, built from
-    # the scout's REAL reads, still overrides this when a ledger exists.)
+    # Prefer the seeded cite-or-abstain draft to raw partial prose so anchors survive.
+    # A synthesis from the scout's actual evidence ledger still takes precedence.
     if draft and draft.strip():
         return draft
     if fallback_text and fallback_text.strip():
@@ -292,16 +284,14 @@ def harvest_findings(
     marker = f"[omitted {omitted} earlier transcript messages]" if omitted else ""
     return _with_omission_marker(body, marker, _PARTIAL_MAX_CHARS)
 
-
 # Cap on the raw tool-result block fed into the dead-scout synthesizer prompt, so
 # the single bounded salvage call can never itself overflow the model window.
 _SYNTH_RESULT_CHARS = 800
 _SYNTH_MAX_RESULTS = 12
 DEFAULT_SYNTH_PROMPT_MAX_CHARS = 16_000
 
-# The dead-scout synthesizer's instruction (STEP 2 part b). It is a transcript-ONLY
-# salvage: the model is given the evidence the scout already gathered and the single
-# submit_findings tool — NO exploration tools — and must commit cite-or-abstain.
+# Salvage uses gathered transcript evidence and submit_findings only,
+# so every finding must cite existing evidence or abstain.
 _DEAD_SCOUT_SYNTH_PROMPT = """\
 You are salvaging a reconnaissance scout that ran out of budget WITHOUT committing \
 its findings. You have NO exploration tools — do not ask to read or grep anything. \
@@ -318,7 +308,6 @@ Runtime-recorded evidence ledger (what the scout's tool calls returned):
 
 Raw tool results captured during the scout's run:
 {results}"""
-
 
 def _format_tool_results_for_synth(
     messages: list[dict[str, Any]] | None,
@@ -341,7 +330,6 @@ def _format_tool_results_for_synth(
     marker = f"[omitted {omitted} raw tool results]" if omitted else ""
     bounded = _with_omission_marker(body, marker, max_chars)
     return bounded or "(no raw tool results captured)"[:max_chars]
-
 
 def build_dead_scout_synthesis_prompt(
     ledger: list[dict[str, Any]] | None,
@@ -373,7 +361,6 @@ def build_dead_scout_synthesis_prompt(
         ledger=ledger_text,
         results=results_text,
     )[:max_chars]
-
 
 def commitment_terminus_payload(
     *,
@@ -414,7 +401,6 @@ def commitment_terminus_payload(
         ),
         "unverified_count": sum(1 for f in findings if not f.get("verified")),
     }
-
 
 __all__ = [
     "SUBMIT_FINDINGS_SCHEMA",

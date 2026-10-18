@@ -17,7 +17,6 @@ from opencollab.application.ports import EventPublisherPort
 
 EventCallback = Callable[[Any], Awaitable[None] | None]
 
-
 class EventBus:
     """Fan-out broadcaster. Multiple subscribers; failures isolated per-sink."""
 
@@ -87,6 +86,5 @@ class EventBus:
             await result
         except asyncio.CancelledError:
             return
-
 
 __all__ = ["EventBus", "EventCallback"]

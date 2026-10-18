@@ -36,7 +36,6 @@ _BUILTIN_TOOL_NAMES = frozenset(
     }
 )
 
-
 @runtime_checkable
 class VerificationTool(Tool, Protocol):
     """A test tool exposing targets with a latest parser-backed green verdict."""
@@ -44,17 +43,14 @@ class VerificationTool(Tool, Protocol):
     @property
     def verified_targets(self) -> frozenset[str]: ...
 
-
 def profile_tool_names(profile: str | None) -> tuple[str, ...]:
     """Return the profile's default coding tools in their execution order."""
     return tuple(tool.name for tool in resolve_agent_profile(profile).resolve_tools("coding"))
-
 
 def profile_tool_limits(profile: str | None) -> dict[str, dict[str, int]]:
     """Return an independent copy of a profile's built-in tool defaults."""
     resolved = resolve_agent_profile(profile)
     return {name: dict(values) for name, values in resolved.tool_limits.items()}
-
 
 def builtin_tools(
     *names: BuiltinToolName,
@@ -98,15 +94,12 @@ def builtin_tools(
     return tuple(
         build_tools_for_role(
             list(names),
-            # ``ask_user`` is not a built-in name here, so ``headless`` only
-            # ever meant one of the two things the registry now asks about:
-            # whether the shell may run outside an OS process sandbox.
+            # Legacy headless selects whether shell commands may run outside a process sandbox.
             allow_unisolated_shell=not headless,
             allow_file_creation=allow_file_creation,
             tool_limits=normalized_limits,
         )
     )
-
 
 def evidence_tools(
     *names: BuiltinToolName,
@@ -133,7 +126,6 @@ def evidence_tools(
             limits=limits,
         )
     )
-
 
 __all__ = [
     "BashEvidence",

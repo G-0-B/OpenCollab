@@ -28,7 +28,6 @@ def _positive(value: Any, name: str, *, integer: bool = False, zero: bool = Fals
             or (not integer and not zero and value == 0):
         raise ValueError(f"{name} must be {'a nonnegative' if zero else 'a positive'} finite number")
 
-
 @dataclass
 class WeaveGroup:
     id: str
@@ -54,7 +53,6 @@ class WeaveGroup:
         if not self.targets:
             self.targets = (self.id,)
 
-
 @dataclass
 class WeaveCheck:
     ok: bool
@@ -73,7 +71,6 @@ class WeaveCheck:
     @property
     def passed(self) -> bool:
         return self.ok and self.executed
-
 
 @dataclass
 class WeaveConfig:
@@ -148,7 +145,6 @@ class WeaveConfig:
         if self.history_trigger_tokens is not None and self.history_trigger_tokens < 2:
             raise ValueError("history_trigger_tokens must be at least two")
 
-
 class WeaveState:
     """Ordinary serializable progress with cumulative per-session accounting."""
 
@@ -188,7 +184,6 @@ class WeaveState:
     def snapshot(self) -> dict[str, Any]:
         self.data["elapsed_seconds"] = self.elapsed
         return copy.deepcopy(self.data)
-
 
 class WeaveAdapter:
     """Domain prompts, native tools, executed checks and optional state storage."""
@@ -255,7 +250,6 @@ class WeaveAdapter:
 
     def on_event(self, phase: str, event: RunEvent) -> None:
         pass
-
 
 def plan_weave_groups(groups: Sequence[WeaveGroup]) -> list[WeaveGroup]:
     """Order groups by dependencies, combining a dependency cycle into one session.
@@ -331,7 +325,6 @@ def plan_weave_groups(groups: Sequence[WeaveGroup]) -> list[WeaveGroup]:
         ))
     return ordered
 
-
 def _allocation(remaining: int | None, weights: Sequence[float], minimum: int) -> int | None:
     if remaining is None:
         return None
@@ -341,14 +334,11 @@ def _allocation(remaining: int | None, weights: Sequence[float], minimum: int) -
     share = int(remaining * weights[0] / sum(weights))
     return min(remaining - floor * (len(weights) - 1), max(minimum, share))
 
-
 def _minimum(*values: float | int | None) -> float:
     return min((value for value in values if value is not None), default=math.inf)
 
-
 def _optional(value: float) -> float | None:
     return value if math.isfinite(value) else None
-
 
 def _affected(group: WeaveGroup, completed: Sequence[tuple[WeaveGroup, Sequence[str]]],
               changed: Sequence[str], *, broad: bool = False,
@@ -369,7 +359,6 @@ def _affected(group: WeaveGroup, completed: Sequence[tuple[WeaveGroup, Sequence[
                 affected_groups.add(prior.id)
         if previous == affected_groups:
             return tuple(sorted(affected))
-
 
 class _WeaveRun:
     def __init__(self, ctx: WorkflowContext, groups: Sequence[WeaveGroup], config: WeaveConfig,
@@ -631,7 +620,6 @@ class _WeaveRun:
         result["state"] = state.snapshot()
         return result
 
-
 async def run_weave(ctx: WorkflowContext, groups: Sequence[WeaveGroup], *,
                         config: WeaveConfig | None = None, adapter: WeaveAdapter | None = None,
                         state: WeaveState | None = None) -> dict[str, Any]:
@@ -647,7 +635,6 @@ async def run_weave(ctx: WorkflowContext, groups: Sequence[WeaveGroup], *,
                           delivery_ok=False, error_type=type(error).__name__)
         runner.persist("finished", error_type=type(error).__name__, status=state.data["status"])
         raise
-
 
 @workflow(
     name="weave",
@@ -670,7 +657,6 @@ async def weave(ctx: WorkflowContext, args: dict[str, Any]) -> dict[str, Any]:
     saved = args.get("state")
     state = WeaveState(saved, run_id=getattr(ctx, "run_id", None))
     return await run_weave(ctx, groups, config=config, adapter=adapter, state=state)
-
 
 __all__ = ["WeaveAdapter", "WeaveCheck", "WeaveConfig", "WeaveGroup", "WeaveState",
            "weave", "plan_weave_groups", "run_weave"]

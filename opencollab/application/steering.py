@@ -19,26 +19,16 @@ from typing import Any
 READS_NUDGE_SOFT = 8
 READS_NUDGE_HARD = 16
 
-# Whether the reads-without-write family of nudges is emitted at all. ``on`` is
-# the default and is byte-for-byte today's behaviour; ``off`` emits none of the
-# three rungs (soft write advice, hard write demand, hard structured-output
-# demand) and sets no ``tool_choice`` override, leaving the ``[Budget: ...]``
-# status line untouched. ``off`` exists because the nudge is an instruction the
-# harness inserts into the outcome we measure: it tells an agent that is reading
-# in order to describe the work to STOP and act itself, which is exactly the
-# moment a delegation decision would be taken. All three rungs are switched
-# together because they are one instrument — the structured-output rung is the
-# one that dominates in an arm whose reading seat holds no write tool.
+# Switch all write nudges together because they can affect delegation decisions
+# being measured, including the structured-output nudge on read-only seats.
+# The budget status line has its own cadence.
 WRITE_NUDGE_ON = "on"
 WRITE_NUDGE_OFF = "off"
 WRITE_NUDGE_MODES = (WRITE_NUDGE_ON, WRITE_NUDGE_OFF)
 WRITE_NUDGE_ENV_VAR = "OPENCOLLAB_WRITE_NUDGE_MODE"
 
-# Cadence of the budget status line. ``every-step`` repeats it on every turn;
-# ``thresholds`` emits it only on the turn that crosses one of
-# ``BUDGET_NUDGE_THRESHOLDS_FRACTIONS`` (once per band, since spend is
-# monotone); ``off`` never emits it. The reads-without-write rungs are
-# unaffected by all three.
+# Emit the budget line every step, once per crossed spend band, or never.
+# Write nudges use their own switch.
 BUDGET_NUDGE_EVERY_STEP = "every-step"
 BUDGET_NUDGE_THRESHOLDS = "thresholds"
 BUDGET_NUDGE_OFF = "off"
@@ -50,7 +40,6 @@ BUDGET_NUDGE_MODES = (
 BUDGET_NUDGE_ENV_VAR = "OPENCOLLAB_BUDGET_NUDGE_MODE"
 BUDGET_NUDGE_THRESHOLDS_FRACTIONS = (0.2, 0.4, 0.6, 0.8)
 
-
 def resolve_budget_nudge_mode(env: Any = None) -> str:
     """Return the configured cadence, defaulting to ``every-step``.
 
@@ -60,7 +49,6 @@ def resolve_budget_nudge_mode(env: Any = None) -> str:
     source = os.environ if env is None else env
     raw = str(source.get(BUDGET_NUDGE_ENV_VAR, "") or "").strip().lower()
     return raw if raw in BUDGET_NUDGE_MODES else BUDGET_NUDGE_EVERY_STEP
-
 
 def resolve_write_nudge_mode(env: Any = None) -> str:
     """Return the configured write-nudge mode, defaulting to ``on``.
@@ -72,7 +60,6 @@ def resolve_write_nudge_mode(env: Any = None) -> str:
     source = os.environ if env is None else env
     raw = str(source.get(WRITE_NUDGE_ENV_VAR, "") or "").strip().lower()
     return raw if raw in WRITE_NUDGE_MODES else WRITE_NUDGE_ON
-
 
 def _crosses_budget_threshold(
     used_tokens: int, prev_used_tokens: int, max_budget_tokens: int
@@ -90,7 +77,6 @@ def _crosses_budget_threshold(
     return any(
         prev_frac < fraction <= frac for fraction in BUDGET_NUDGE_THRESHOLDS_FRACTIONS
     )
-
 
 def build_steering_block(
     *,
@@ -152,10 +138,7 @@ def build_steering_block(
             f"[Budget: ~{remaining_k}k/{total_k}k tokens left, "
             f"{step_status}.]"
         )
-    # Cadence gates the line AFTER it is built, so a bounded run's wording is
-    # byte-for-byte what it was before either side of this merge touched it.
-    # ``thresholds`` needs a denominator: an unbounded run has no bands to
-    # cross, and ``_crosses_budget_threshold`` answers False for 0.
+    # Threshold cadence needs a denominator. Unbounded runs have no spend bands.
     if budget_nudge_mode == BUDGET_NUDGE_OFF:
         status = ""
     elif budget_nudge_mode == BUDGET_NUDGE_THRESHOLDS and not _crosses_budget_threshold(
@@ -199,7 +182,6 @@ def build_steering_block(
     if not content:
         return None, override, level
     return {"role": "user", "content": content}, override, level
-
 
 def fold_steering(last_user_msg: dict[str, Any], steering_text: str) -> dict[str, Any]:
     """Return a copy of a trailing ``user`` message with the steering line folded

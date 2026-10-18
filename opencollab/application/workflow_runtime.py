@@ -24,7 +24,6 @@ from opencollab.application.workflow_budget import _ConcurrencyPermit
 
 DEFAULT_INTERNAL_COMMIT_TIMEOUT_SECONDS = 120.0
 
-
 class WorkflowRuntimeMixin:
     """Call cleanup, concurrency permits, and timeout helpers."""
 

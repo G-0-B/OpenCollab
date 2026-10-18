@@ -9,9 +9,7 @@ from ._prompts import SHARED_RULES as SHARED_RULES
 
 STRUCTURED_ROLE_TIMEOUT_SECONDS = 900
 
-
 CODER_ROLE_TIMEOUT_SECONDS = 1800
-
 
 def _llm_aware_role_timeout(default: float) -> float | None:
     if os.environ.get("OPENCOLLAB_EXTERNAL_PROVIDER_ISOLATION") == "1":
@@ -31,18 +29,13 @@ def _llm_aware_role_timeout(default: float) -> float | None:
         raise ValueError("OPENCOLLAB_PROVIDER_ERROR_TIME_BUDGET must be finite and non-negative")
     return max(default, llm_timeout + provider_budget + 60)
 
-
 def structured_role_timeout_seconds() -> float | None:
     """Let provider-managed retries finish before the workflow ends a role."""
     return _llm_aware_role_timeout(STRUCTURED_ROLE_TIMEOUT_SECONDS)
 
-
 def coder_role_timeout_seconds() -> float | None:
     """Keep the coding role alive through its model client's retry window."""
     return _llm_aware_role_timeout(CODER_ROLE_TIMEOUT_SECONDS)
-
-
-
 
 def _complete_goal(goal: str) -> str:
     """Keep every public task field visible to every solver role."""

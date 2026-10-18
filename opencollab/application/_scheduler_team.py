@@ -30,12 +30,10 @@ logger = logging.getLogger(__name__)
 _DIFF_HEADER = "diff --git "
 _BODY_MARKERS = ("@@", "GIT binary patch", "Binary files ")
 
-
 class _CompletedCoderChanges(NamedTuple):
     parent_turn: float | None
     step_count: int
     patch: str
-
 
 def _shell_state(agent: Any, env: Any) -> str:
     """Whether this agent's ``bash`` would run a command or refuse one.
@@ -67,7 +65,6 @@ def _shell_state(agent: Any, env: Any) -> str:
         return "available"
     return "sandbox_required"
 
-
 def _git_unquote(token: str) -> str:
     """Undo the C-style quoting git applies to paths with unusual bytes.
 
@@ -85,7 +82,6 @@ def _git_unquote(token: str) -> str:
     except (UnicodeDecodeError, UnicodeEncodeError):
         return token
 
-
 def _side_path(token: str, prefix: str) -> str | None:
     """One side of a file header (``--- a/x`` / ``+++ b/x``), or None for /dev/null.
 
@@ -96,7 +92,6 @@ def _side_path(token: str, prefix: str) -> str | None:
     if token == "/dev/null":
         return None
     return token[len(prefix):] if token.startswith(prefix) else token
-
 
 def _header_line_paths(line: str) -> tuple[str | None, str | None]:
     """The (old, new) paths off a ``diff --git a/X b/Y`` line.
@@ -126,7 +121,6 @@ def _header_line_paths(line: str) -> tuple[str | None, str | None]:
     if marker == -1:
         return None, None
     return body[:marker], body[marker + 3:]
-
 
 def _classify_block(block: list[str]) -> list[tuple[str, str]]:
     """Turn one file's diff header into ``(path, op)`` entries."""
@@ -160,7 +154,6 @@ def _classify_block(block: list[str]) -> list[tuple[str, str]]:
         return []
     return [(path, "added" if added else "modified")]
 
-
 def _parse_worktree_diff(diff: str) -> list[tuple[str, str]]:
     """Every file an *untruncated* worktree diff touches, in diff order.
 
@@ -174,7 +167,6 @@ def _parse_worktree_diff(diff: str) -> list[tuple[str, str]]:
         elif blocks:
             blocks[-1].append(line)
     return [entry for block in blocks for entry in _classify_block(block)]
-
 
 class SchedulerTeamMixin:
     @property
@@ -263,8 +255,6 @@ class SchedulerTeamMixin:
             if role not in live_roles
         ]
         return live + available
-
-    # ---- static topology: the team the config declares, built up front -------
 
     async def ensure_team_prebuilt(self) -> tuple[int, ...]:
         """Build every declared role as a live agent, once, before the first turn.
@@ -408,28 +398,19 @@ class SchedulerTeamMixin:
                     "aid": aid,
                     "role": scb.agent.name,
                     "entry": aid == entry_aid,
-                    # The model this seat calls: a role's ``model:`` override,
-                    # else the run's model.
                     "model": getattr(agent, "model", None),
                     "tools": tools,
-                    # What gates this agent's risky actions. "confirm" means a
-                    # permission policy is wired and something outside the agent
-                    # answers yes/no; "auto" means nothing does.
+                    # "confirm" means an external permission policy is wired for risky actions.
                     "permission_mode": (
                         "confirm"
                         if getattr(session, "permission_policy", None) is not None
                         else "auto"
                     ),
                     "workspace": getattr(env, "workspace", None),
-                    # True only for a real worktree. Under ``use_worktrees=False``
-                    # every agent shares one directory, and this says so.
+                    # Shared-directory runs report False even when every agent has an environment.
                     "workspace_isolated": isinstance(env, DiffCapablePort),
-                    # Whether this agent can actually run a shell command — see
-                    # ``_shell_state``. Recorded per node because "every arm had
-                    # the same capabilities" is a claim about the run, and it has
-                    # to be checkable from the run's own records.
+                    # Record actual shell capability per node so comparisons can be checked from the run.
                     "shell": _shell_state(agent, env),
-                    # The most this agent may spend over the whole run.
                     "token_allowance": self._agent_cap(aid, scb.agent.name),
                 }
             )
@@ -489,13 +470,8 @@ class SchedulerTeamMixin:
                 payload={
                     "entry_role": lead.agent.name if lead is not None else None,
                     "declared_roles": list(self._roles),
-                    # Whether the run holds the team to one turn at a time. It
-                    # is a choice made about the instrument, not OpenCollab's
-                    # default, so the run says which way it was set the same way
-                    # each node says whether its workspace was isolated.
+                    # Record serialization as part of the run configuration.
                     "turns_serialized": bool(self._serialize_turns),
-                    # Where each node's ``token_allowance`` came from: the team
-                    # file's per-role budgets, or the shared ``per_agent_cap`` rule.
                     "budget_source": "team_file" if self._role_budgets else "shared_rule",
                     "nodes": self._assigned_topology_nodes(),
                 },
@@ -811,16 +787,9 @@ class SchedulerTeamMixin:
                 payload={
                     "aid": aid,
                     "role": role,
-                    # The revision the diff was measured against. Normally the
-                    # worktree's creation base; after a handoff (the agent
-                    # checked out a teammate's commit) the commit it adopted, so
-                    # the row states which starting point "changed" is relative
-                    # to instead of leaving it to be assumed.
+                    # A handoff changes the diff base to the adopted commit rather than the creation base.
                     "diff_base": getattr(env, "diff_base", None),
-                    # Where this worktree stands now, and what it put between
-                    # the two. A row that names only its base cannot say
-                    # whether this agent committed, and a teammate that checks
-                    # one of these shas out has nothing to be joined against.
+                    # Record resulting commits so later teammate checkouts can be joined to this handoff.
                     "head_commit": getattr(env, "head_commit", None),
                     "commits": list(getattr(env, "own_commits", ()) or ()),
                     "commit_count": getattr(env, "own_commit_count", None),

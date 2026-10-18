@@ -31,14 +31,12 @@ _PUBLIC_MODULES = {
     "workflow": "opencollab.workflows",
 }
 
-
 def __getattr__(name: str) -> Any:
     if name not in __all__:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     value = getattr(import_module(_PUBLIC_MODULES[name]), name)
     globals()[name] = value
     return value
-
 
 def __dir__() -> list[str]:
     return sorted({*globals(), *__all__})

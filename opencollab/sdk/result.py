@@ -8,14 +8,12 @@ from typing import Any, Generic, Literal, TypeVar
 
 T = TypeVar("T")
 
-
 class RunError(RuntimeError):
     """Infrastructure failed, or a caller explicitly rejected a non-OK result."""
 
     def __init__(self, message: str, *, result: RunResult[Any] | None = None) -> None:
         super().__init__(message)
         self.result = result
-
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class RunResult(Generic[T]):
@@ -41,6 +39,5 @@ class RunResult(Generic[T]):
             detail = self.reason or self.status
             raise RunError(f"run {self.status}: {detail}", result=self)
         return self
-
 
 __all__ = ["RunError", "RunResult"]
