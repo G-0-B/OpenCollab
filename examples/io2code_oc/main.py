@@ -1,15 +1,8 @@
-"""Reconstruct IO2Code's hidden programs with OpenCollab's built-in ``reconstruct`` workflow.
+"""Run IO2Code tasks through the built-in ``reconstruct`` workflow.
 
-Run from the OpenCollab repository root:
-
-    export IO2CODE_ROOT=/path/to/IO2Code      # git checkout, see README
-    uv run python examples/io2code_oc/main.py Abs_Current Extra_PolishRPN \
-        --random-share 0.5 --coverage-gate --docker python:3.12-slim
-
-Each task gets its own git workspace, Docker container (network off) and
-result directory under ``--runs``. The oracle function and the 15 held-out
-tests stay in this process; the agent only sees the examples the protocol
-hands it and the tools in ``io2code_oc/tools.py``.
+Each task gets a Git workspace, an offline Docker container and results under
+``--runs``. The harness retains the oracle and held-out tests; agents see only
+protocol examples and tools. See README for launch commands.
 """
 
 from __future__ import annotations
@@ -74,10 +67,9 @@ def placeholder_record(name: str, status: str, reason: str) -> dict[str, Any]:
 
 
 def persist_record(run_dir: Path, record: dict[str, Any]) -> Path:
-    """Write ``<run_dir>/<task>/result.json``.
+    """Write ``<run_dir>/<task>/result.json``, including crashed and skipped tasks.
 
-    Every task gets one, including crashed and skipped ones, so a summary
-    rebuilt from the run directory (``--resume``) keeps the full denominator.
+    Resume summaries retain these records in the task denominator.
     """
     task_dir = run_dir / record["task"]
     task_dir.mkdir(parents=True, exist_ok=True)

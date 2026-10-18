@@ -1,13 +1,7 @@
-"""Script the exchanges of the handoff experiment's three-role team.
+"""Script handoffs for the roles and tools in ``team.handoff.experiment.yaml``.
 
-The roles, worktrees, tools and commit-based handoffs match
-``configs/team.handoff.experiment.yaml``. The script chooses when to hand
-off, while the team configuration leaves that decision to the agents.
-
-Worktrees share Git objects, so peers receive changes by checking out a
-communicated commit. Separate trees make adoption observable. The analyst
-retains the solo agent's working tools for comparison. Scheduler coordination
-tools are absent because this workflow passes messages through the script.
+Peers use separate worktrees and share changes through Git commits. The script
+controls handoff timing; the team configuration delegates timing to agents.
 """
 
 from __future__ import annotations

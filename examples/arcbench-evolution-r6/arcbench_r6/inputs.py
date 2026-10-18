@@ -22,11 +22,10 @@ def resolve_requirements_file(path: str) -> Path:
     return candidate
 
 def copy_template_contents_to_output(template_dir: Path, output_dir: Path) -> tuple[int, int]:
-    """Fill in the agent's generic starter template under output_dir, without
-    clobbering files the task workspace already ships (for example a
-    task-specific database schema and the init code that wires it in). Only
-    files missing from output_dir are written; everything already present
-    (from the ARC-Bench task workspace) is left alone. Returns (written, skipped).
+    """Copy missing starter-template files into ``output_dir``.
+
+    Preserve task-provided files, including schema and initialization code.
+    Return ``(written, skipped)``.
     """
     if not template_dir.is_dir():
         raise FileNotFoundError(f"Starter template directory not found: {template_dir}")

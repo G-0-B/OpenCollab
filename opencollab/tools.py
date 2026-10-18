@@ -1,8 +1,4 @@
-"""Public structural tool contract and built-in tool composition.
-
-Pass custom implementations directly to ``OpenCollab.agent``; built-in tools
-can be selected by preset name or composed explicitly for workflow roles.
-"""
+"""Public tool interfaces and built-in bundles for agents and workflow roles."""
 
 from __future__ import annotations
 
@@ -107,16 +103,12 @@ def evidence_tools(
     allow_file_creation: bool = True,
     limits: Mapping[str, Mapping[str, int]] | None = None,
 ) -> tuple[Tool, ...]:
-    """Build native tools whose Bash observes executed pytest, Go and Django tests.
+    """Build native tools with parser-backed pytest, Go and Django evidence.
 
-    Commands and formatted output follow the native Bash API. The Bash tool
-    retains ``verification_records`` for every recognized target and
-    ``verified_targets`` for targets with current passing execution evidence.
-    Completed native edits with observed content changes annotate earlier
-    records with uncertain applicability and their subsequent edit paths.
-    The composition inherits workflow profile defaults and explicit ``limits``.
-    Candidate agents fork these observations for each call and return their
-    execution evidence on ``CandidateRun``.
+    Bash retains all ``verification_records`` and currently passing
+    ``verified_targets``. Observed edits mark earlier evidence as uncertain and
+    record the changed paths. Candidate calls fork observations into ``CandidateRun``.
+    Workflow profile defaults apply, with explicit ``limits`` taking precedence.
     """
     return observe_test_evidence(
         builtin_tools(

@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Report the public top-level surface of every module.
-
-A good split reduces the total number of public names; a split done only to
-satisfy a line ceiling increases it. This measures the thing that matters.
-"""
+"""Report each Python module's public top-level names to assess proposed splits."""
 from __future__ import annotations
 
 import ast

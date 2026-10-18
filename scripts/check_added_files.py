@@ -1,21 +1,9 @@
 #!/usr/bin/env python3
-"""Enforce size and line-count limits on the files a Git change touches.
+"""Check changed files against the byte limit and advisory Python line limit.
 
-A change is rejected when it pushes a file *past* a ceiling: either it adds a
-file that is already too large, or it grows a compliant file until it is not.
-Appending to an existing module is the way these limits actually get broken, so
-"was the file created here" is not the question worth asking.
-
-A file that already broke a ceiling before the change stays that way without
-failing every later pull request that happens to touch it. Those are caught by
-the complete-tree run on ``main`` instead, which measures every file absolutely.
-
-The two ceilings carry different weight. The byte ceiling is a hard gate: a
-large binary in history cannot be taken back out. The line ceiling is advisory
-— module size predicts little on its own, and splitting a file to satisfy a
-number usually widens its public interface instead of narrowing it. So a broken
-line ceiling is reported as a warning and does not fail the run; interface width
-is the gate that judges a split.
+Reject newly oversized files and files grown across the byte limit. Existing
+oversized files are measured separately by complete-tree runs on ``main``.
+Line-limit violations produce warnings.
 """
 
 from __future__ import annotations

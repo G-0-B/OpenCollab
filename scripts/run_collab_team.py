@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 """Run the reusable collaborating team (`configs/team.collab.yaml`) on a workspace.
 
-The team file needs a prebuilt roster: all three roles seated before the first
-model call, and no `spawn_agent` anywhere. The `opencollab` CLI has no flag for
-that, so this script is the script route -- it passes `prebuild_team=True` and
-cannot be pointed at a run that would silently seat the Analyst alone.
+All roles are seated before the first model call with ``prebuild_team=True``.
+Model, provider and credentials use normal config resolution; ``--model`` overrides it.
 
     scripts/run_collab_team.py --workspace ./repo --prompt "fix the failing test"
     scripts/run_collab_team.py --workspace ./repo --prompt-file issue.md --budget 2000000
-
-Everything else (model, provider, key, base URL) comes from the usual
-environment/config resolution; --model overrides it for one run.
 """
 
 from __future__ import annotations

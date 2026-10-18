@@ -1,19 +1,9 @@
 #!/usr/bin/env python3
-"""Assemble the Analyst cards of the handoff experiment from one shared body.
+"""Render Analyst cards from each card set's shared body and variant registry.
 
-Every cell of that experiment is a claim that two cards differ in one named
-place and nowhere else. While each card carried its own copy of the shared
-body, that property was re-checked after the fact rather than guaranteed, and
-it had already broken once -- the body split into two generations. Here there
-is one copy, in ``configs/handoff-experiment/shared.md``, with two slots:
-
-* ``{{CAPABILITIES}}`` -- the paragraph pair under ``## What you can do``,
-  which moves only when the Analyst's tool bundle moves;
-* ``{{BLOCK}}`` -- the closing section, which is what most cells vary.
-
-Run this module to render every registered card. It refuses to write a card
-whose content would change unless ``--write`` is given, so a drifting card is
-reported rather than silently overwritten.
+``{{CAPABILITIES}}`` selects the tool-bundle description; ``{{BLOCK}}`` selects
+the variant's closing section. The default run checks rendered cards against
+existing files; ``--write`` permits updates.
 """
 from __future__ import annotations
 
@@ -37,15 +27,7 @@ DEFAULT_TOOLS = [
 
 @dataclass(frozen=True)
 class CardSet:
-    """One instrument's cards: where they live and which seat carries them.
-
-    A card set is not a level of anything -- it is a different team. The
-    handoff ladder seats an Analyst, a Coder and a Tester over a complete
-    graph; the dual-candidate family seats an Adopter and two Coders over a
-    partial one. Two cards from different sets share the closing evidence rule
-    and nothing else, so each set has its own body, its own registry and its
-    own test module, and no test in one set's module reads the other's files.
-    """
+    """A team's card directory, entry role, shared body and optional peer slots."""
 
     name: str
     directory: Path
