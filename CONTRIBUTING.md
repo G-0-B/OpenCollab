@@ -155,6 +155,18 @@ exceptions. Run it locally with `uv run lint-imports`.
   wire the concrete implementation in `bootstrap/`.
 - When splitting a module, keep its public names re-exported so import paths stay stable.
 
+Keep runtime wiring and supported seams in view when changing these boundaries.
+Bootstrap's lazy re-exports avoid eager factory import cycles;
+`bootstrap.container.LLMClient` is deliberately resolved at construction time so
+tests can replace the transport. Check injected collaborators before treating
+two fallback implementations as competing production paths. The
+[runtime design](docs/runtime-design.md) records current session invariants.
+The [June 2026 survey](https://github.com/RISE-X-Lab/OpenCollab/blob/501f825eb247aac08506d2d5b9b0e62b2aaed7cc/docs/archive/2026-06-10-architecture-survey.md)
+preserves the original findings, refuted hypotheses, and proposals against
+`816f365`; verify any proposal against current source before acting on it.
+Its [archived dependency map](https://github.com/RISE-X-Lab/OpenCollab/blob/501f825eb247aac08506d2d5b9b0e62b2aaed7cc/docs/archive/repomap/repomap.puml)
+also describes a superseded module layout.
+
 ## Extend a tool or workflow
 
 For application-specific tools, implement the public structural

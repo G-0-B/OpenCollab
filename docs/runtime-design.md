@@ -5,6 +5,23 @@ Use the [package guide](../opencollab/README.md) for API examples and the
 runtime invariants and the reasons behind them. Source links name modules and
 symbols rather than revision-dependent line numbers.
 
+## Session progress and restoration
+
+`SessionState` validates transitions in
+[domain/session.py](../opencollab/domain/session.py). `DONE` holds a final answer,
+`ERROR` an unhandled fault, and `STOPPED` a graceful stop with a reason such as
+a token, step, loop, or context limit. A final answer still needs task-specific
+verification. Token and step counters belong to the session lifetime; a new user
+turn resets turn-local enforcement state without granting fresh lifetime limits.
+
+Snapshots restore usage, terminal phases, and recoverable awaiting-event state.
+In-flight provider and tool phases restart from `IDLE`: their process-local
+coroutines cannot survive a restart. Pending-result pairing, queued turns, and
+late accounting must remain consistent with the restored conversation.
+Responses requests scope `prompt_cache_key` to the model client and response
+session. Cache reuse depends on the endpoint; provider-reported reads and
+creation are retained in usage records rather than assumed from prompt similarity.
+
 ## Context assembly and the model's view
 
 A session retains its conversation in `SessionState.messages`. Before a model
@@ -61,6 +78,12 @@ Call/result pairing and recent evidence constrain what can be removed. The
 pipeline uses the session's provider-aware, usage-calibrated token estimate;
 standalone shapers retain their local estimate. Each later layer sees the view
 produced by earlier layers, so it can do nothing if pressure has already eased.
+
+Calibration is session-local and additive: reported input sizes the sent view,
+and reported output sizes the new reply, including reasoning. New tool results
+use the local estimate. New or edited messages and restored sessions use the
+provider-aware fallback until measured. Encrypted reasoning and signed native
+blocks are replayed unchanged; summary usage is accounted separately.
 
 For a known window, `history_trigger_target` subtracts output headroom and a
 safety buffer, then targets 75% of that trigger. The gap avoids immediate repeated

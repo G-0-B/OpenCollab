@@ -39,11 +39,13 @@ conditions from measured collaboration. The
 and experiment cards live with their generators and checks in OpenCollab-Eval. Benchmark datasets, runs, and remote execution belong to
 [OpenCollab-Eval](https://github.com/RISE-X-Lab/OpenCollab-Eval#readme).
 
-The [ICLR integration record](iclr-integration.md) and
+The [release provenance](../CHANGELOG.md#iclr-source-integration) and
 [source coverage](iclr-source-coverage.json) preserve the October 1 integration
-sequence and ancestry. The [June architecture survey](archive/2026-06-10-architecture-survey.md)
-retains historical findings and rejected alternatives, not a current defect list
-or refactoring plan. Its unresolved recommendations need fresh verification.
+ancestry and its original path dispositions. The
+[contributor architecture guidance](../CONTRIBUTING.md#the-architecture-rule-enforced-by-lint-imports)
+links the archived June survey and explains how to interpret its findings.
+Historical snapshots retain their original revisions; current rules live in
+the contributor and runtime guides above.
 
 ## Upgrade an older integration
 
@@ -52,6 +54,6 @@ Migration guides describe the named release, not current signatures or defaults.
 | From / to | Guide |
 | --- | --- |
 | 0.7.x → 0.8.0 | [Base profile and Single2 defaults](migrations/0.8.0.md) |
-| 0.6.x → 0.7.0 | [Duo, evaluation runtime, and native Bash testing](migrations/0.7.0.md) |
+| 0.6.x → 0.7.0 | [Native Bash testing, evaluation runtime, and subsequent workflow changes](migrations/0.7.0.md) |
 | 0.5.x → 0.6.0 | [Public API, teams, workflows, and lifecycle](migrations/0.6.0.md) |
 | Earlier versions → 0.5.0 | [Runtime failures, isolation, configuration, and budgeting](migrations/0.5.0.md) |

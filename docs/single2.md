@@ -1,6 +1,6 @@
 # Base and Single2
 
-Base is the default standalone-agent entry. In OpenCollab 0.8 it maps to
+Base is the default standalone-agent entry. Since OpenCollab 0.8 it maps to
 Single2, the profile extracted from the evaluated SWE-Mix-80 direct-agent
 configuration. Named profiles share the same standalone API.
 
@@ -104,7 +104,7 @@ same agent the single-agent arm runs.
 roles:
   adopter:
     profile: single2
-    prompt_file: s2dual/adopter.s2dual-judge.md
+    prompt: Review candidate changes against the public requirements.
     tools: [bash, file_read, file_write, apply_patch, git_diff, grep,
             message_agent, team_status, submit]
 ```
