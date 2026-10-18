@@ -1,4 +1,4 @@
-"""Shared role-to-agent and layered-context assembly for entry and child sessions."""
+"""Build role Agents and provenance-tagged context plans for team sessions."""
 
 from __future__ import annotations
 
@@ -53,12 +53,12 @@ class SpawnConfig:
     permission_policy: PermissionPort | None
     ask_policy: AskUserPort | None = None
     safety_policy_factory: SafetyPolicyFactory | None = None
-    # Global sampling default, with per-role overrides in ``build_agent``.
+    # Role-specific sampling settings override these inherited defaults.
     temperature: float = DEFAULT_TEMPERATURE
     top_p: float | None = DEFAULT_TOP_P
     max_output_tokens: int = DEFAULT_MAX_TOKENS_PER_STEP
     context_window: int | None = None
-    # Global thinking defaults, with per-role overrides in ``build_agent``.
+    # Roles may override the inherited thinking policy.
     thinking: bool = DEFAULT_THINKING
     thinking_params: dict | None = None
     wire_protocol: str = "chat_completions"
@@ -76,12 +76,12 @@ class SpawnConfig:
             self.thinking_params_explicit = self.thinking_params is not None
         self.thinking_params = dict(DEFAULT_THINKING_PARAMS if self.thinking_params is None else self.thinking_params)
 
-class ContextBuilder:
-    """Build an agent and context plan for an entry or spawned role.
 
-    Identity, team and repository context form the system prompt. The task is
-    user context. Tool names resolve to concrete tools whose schemas reach the
-    provider through function calling.
+class ContextBuilder:
+    """Assemble role context and resolve tool names for entry and spawned agents.
+
+    System sources supply identity/team/skills/project text; a delegated task is
+    user context. Tool schemas are passed separately rather than copied as prose.
     """
 
     def __init__(
@@ -94,9 +94,9 @@ class ContextBuilder:
     ):
         self._team = team_cfg
         self._cfg = cfg
-        # The catalog and dispatcher share this store. Unwired callers get an
-        # empty catalog.
+        # Catalog and dispatcher must share the same store; absence means no skills.
         self._skill_store: SkillStorePort = skill_store or NullSkillStore()
+        # Empty project content contributes no startup source.
         self._project_context = project_context or None
 
     def build_plan(
@@ -106,14 +106,14 @@ class ContextBuilder:
         task: str | None = None,
         context: str = "",
     ) -> ContextPlan:
-        """Emit populated context sources in order for ``role_name``.
+        """Emit non-empty system sources and an optional delegated user task.
 
-        Identity, team, skills and repository context form the system prompt.
-        The task, when supplied, becomes the sole startup user message.
+        Do not register empty memory/RAG placeholders without a content producer.
         """
         role = self._team.role_for(role_name)
         sources: list[ContextSource] = []
-        # Append the role card after the profile prompt, matching workflow sessions.
+        # Match workflow composition: profile first, role second. Replacing the
+        # profile prompt with a card would change the agent being compared.
         profile = self._profile_for(role)
         if profile is not None:
             sources.append(
@@ -142,8 +142,7 @@ class ContextBuilder:
                     content=team_section,
                 )
             )
-        # Inject the catalog only for roles allowed to invoke ``use_skill``.
-        # SYSTEM placement keeps it in the cache-stable prefix.
+        # Expose the catalog only to roles allowed to invoke it.
         if "use_skill" in role.tools:
             catalog = _render_skill_catalog(self._skill_store.list_manifests())
             if catalog:
@@ -155,8 +154,7 @@ class ContextBuilder:
                         content=catalog,
                     )
                 )
-        # SYSTEM placement shares the project map with lead and spawn paths.
-        # Only spawns seed user-context messages.
+        # SYSTEM position reaches both entry and spawned sessions.
         if self._project_context:
             sources.append(
                 ContextSource(
@@ -188,10 +186,9 @@ class ContextBuilder:
         allow_unisolated_shell: bool = False,
         plan: ContextPlan | None = None,
     ) -> Agent:
-        """Assemble the agent with separate human-input and shell-isolation permissions.
+        """Build an Agent; human availability and host-shell permission are independent.
 
-        See ``build_tools_for_role`` for ``ask_user_available`` and
-        ``allow_unisolated_shell`` semantics.
+        See ``build_tools_for_role`` for permission resolution.
         """
         role = self._team.role_for(role_name)
         if plan is None:
@@ -220,7 +217,8 @@ class ContextBuilder:
         temperature = (
             role.temperature if role.temperature is not None else cfg.temperature
         )
-        # Preserve explicit per-role False instead of falling back to the default.
+        # Thinking resolves the same way: an explicit per-role value (incl. an
+        # explicit False) wins; otherwise inherit the global SpawnConfig value.
         thinking = role.thinking if role.thinking is not None else cfg.thinking
         thinking_params = (
             role.thinking_params
@@ -259,13 +257,9 @@ class ContextBuilder:
         return resolve_agent_profile(role.profile) if role.profile is not None else None
 
     def _tool_limits_for(self, role: RoleConfig) -> dict[str, dict[str, int]]:
-        """The team file's output caps over the profile's own defaults.
+        """Overlay explicit team limits on the profile's evaluated output caps.
 
-        A profile ships the caps its agent was evaluated with -- Single2's
-        10,000-character `bash` result among them -- and a seat that took the
-        profile's prompt while keeping OpenCollab's default caps would not be
-        that agent. The team file still wins where it states a cap, matching
-        how an explicit limit beats a profile default on the SDK path.
+        Taking a profile prompt without its tool caps would change that profile.
         """
         profile = self._profile_for(role)
         declared = self._team.tool_limits or {}
@@ -297,13 +291,9 @@ class ContextBuilder:
             ]
         return "\n".join(lines)
 
-def _render_skill_catalog(manifests: tuple[SkillManifest, ...]) -> str:
-    """Render the model-facing skill catalog, or ``""`` when there are none.
 
-    A short header instructs the model to call ``use_skill(name)``, followed by
-    one ``- {name}: {description}`` line per available skill. Returning an empty
-    string when the store is empty lets ``build_plan`` skip the source entirely.
-    """
+def _render_skill_catalog(manifests: tuple[SkillManifest, ...]) -> str:
+    """Return the skill invocation catalog, or an empty string so assembly omits it."""
     if not manifests:
         return ""
     lines = [
@@ -316,5 +306,6 @@ def _render_skill_catalog(manifests: tuple[SkillManifest, ...]) -> str:
     ]
     lines += [f"- {m.name}: {m.description}" for m in manifests]
     return "\n".join(lines)
+
 
 __all__ = ["ContextBuilder", "SpawnConfig"]

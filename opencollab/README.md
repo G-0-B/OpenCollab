@@ -267,7 +267,7 @@ provide parser-backed test evidence. `evidence_tools` composes native tools
 with a Bash observer for workflows such as Duo. See
 [native test evidence](../docs/test-evidence.md) for record collection and
 supported runners.
-See [test-runner migration](../docs/migrations/remove-run-tests.md) for existing
+See [test-runner migration](../docs/migrations/0.7.0.md#native-bash-testing-replaces-run_tests) for existing
 team files, saved runs, and verifier integrations.
 
 Environment composition uses the same narrow public module.
@@ -295,6 +295,51 @@ quiescence. `session_quiesced` proves that session and persistence work has
 finished. For a caller-owned environment, `environment_quiesced`,
 `cleanup_quiesced`, and `execution_quiesced` remain `None` until the caller
 performs and verifies its own environment cleanup.
+
+### Custom tools
+
+Application-specific tools can implement the public `opencollab.tools.Tool`
+protocol without inheriting an adapter or importing framework internals. This
+read-only example exposes the application's test policy to an agent.
+
+```python
+class ProjectPolicy:
+    name = "project_policy"
+    description = "Look up the project's test command for a language."
+    parameters = {
+        "type": "object",
+        "properties": {"language": {"type": "string", "enum": ["python", "javascript"]}},
+        "required": ["language"],
+        "additionalProperties": False,
+    }
+    default_timeout = 30.0
+    disable_outer_timeout = False
+
+    def to_openai_schema(self):
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.parameters,
+            },
+        }
+
+    async def execute_with_runtime(self, params, runtime):
+        commands = {"python": "python -m pytest -q", "javascript": "npm test"}
+        return commands[params["language"]]
+
+
+policy = ProjectPolicy()
+```
+
+Pass the instance in `await oc.agent("Find this Python project's test command.",
+tools=[policy])`, or in a workflow role's `tools=[policy]`. The schema declares
+accepted JSON arguments; execution returns text for the model. Framework runtime
+access is supplied to `execute_with_runtime`; this in-memory lookup needs none.
+Environment-backed tools should use that supplied runtime rather than assuming
+the caller's host directory. Keep tool names unique within a call. To contribute
+a built-in tool, see the [contributor extension guide](../CONTRIBUTING.md#extend-a-tool-or-workflow).
 
 ### Workflow authoring
 
@@ -357,8 +402,9 @@ structured cite-or-abstain draft before exploration. OpenCollab owns this
 generic capture primitive. OpenCollab-Eval owns benchmark prompts, policies,
 datasets, and runners.
 
-For a visual architecture walkthrough, open the
-[SDK 0.4 research architecture](../docs/sdk-0.4-explainer.html).
+For current internals, see [runtime design](../docs/runtime-design.md). The
+[SDK 0.4 walkthrough](../docs/sdk-0.4-explainer.html) is a historical visual guide,
+not a current API reference.
 
 OpenCollab owns built-in collaboration protocols such as Duo. OpenCollab-Eval
 contains evaluation runners and benchmark-specific workflows. Topology
@@ -399,10 +445,11 @@ context overflow.
 ### Cooperative teams
 
 A team stores active agents in a session table and schedules them cooperatively.
-The `spawn` operation creates child sessions. Budget is reserved before the
-first `await`, so a concurrent child batch cannot overspend the shared pool.
-A team file may instead give each role its own allowance; each agent is then
-held to that allowance alone, and the team's total is their sum.
+The `spawn` operation creates child sessions. Dynamic child grants are reserved
+before the first `await`; prebuilt teams instead apply a cumulative cap per seat
+within the shared pool. A team file may give each role its own allowance.
+[Runtime allocation rules](../docs/runtime-design.md#token-accounting-and-allocation)
+explain these modes and their in-flight overshoot boundary.
 Each child can work in an isolated git worktree and return its diff with the
 result.
 The built-in Analyst adopts a completed direct Coder's complete changes with
@@ -411,6 +458,12 @@ Coder's completion result. Adoption preserves the source index, combines
 independent increments, and rejects conflicts atomically. Teams that declare
 this tool create each child from the current source contents, including user
 edits and earlier adopted changes. Plain directories retain independent copies.
+Within the active entry turn, a later completed revision from the same Coder
+applies only the changes since its last successful adoption. Repeating adoption
+of the same completion leaves the delivery workspace unchanged.
+`opencollab team init` exports this protocol. Adoption failures report a complete
+recovery patch in the run's artifacts, or a private temporary recovery directory
+when artifacts are disabled. Export that patch before releasing the run.
 Custom teams without the tool retain their configured diff-return protocol.
 
 ### Swappable components
@@ -452,10 +505,8 @@ uv run pytest -q
 ```
 
 See [`../CONTRIBUTING.md`](../CONTRIBUTING.md) for contributor guidance and
-[`../CLAUDE.md`](../CLAUDE.md) for repository-specific architecture notes. The
-archived module map under [`../docs/archive/repomap/`](../docs/archive/repomap/)
-records an earlier revision. Use the current source and tests for the current
-module layout.
+[runtime design](../docs/runtime-design.md) for context, allocation, and steering
+invariants. The current source and tests define the module layout.
 
 ## License
 

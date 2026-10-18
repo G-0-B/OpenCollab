@@ -33,7 +33,7 @@ from tests.support.prebuilt_team_test_support import (
 from tests.support.scheduler_awaiting_test_support import ScriptedFactory, ScriptedSession, terminal
 
 HANDOFF_TEAM_FILE = (
-    REPO_ROOT / "configs" / "team.handoff.experiment.yaml"
+    REPO_ROOT / "tests" / "fixtures" / "teams" / "team.handoff.experiment.yaml"
 )
 
 SCHEDULER_STANDIN = object()

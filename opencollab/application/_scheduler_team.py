@@ -30,16 +30,18 @@ logger = logging.getLogger(__name__)
 _DIFF_HEADER = "diff --git "
 _BODY_MARKERS = ("@@", "GIT binary patch", "Binary files ")
 
+
 class _CompletedCoderChanges(NamedTuple):
     parent_turn: float | None
     step_count: int
     patch: str
 
-def _shell_state(agent: Any, env: Any) -> str:
-    """Classify effective shell access for the run record.
 
-    Return ``absent`` when the role lacks ``bash``, ``sandbox_required`` when
-    its required OS sandbox is unavailable, and ``available`` otherwise.
+def _shell_state(agent: Any, env: Any) -> str:
+    """Report ``absent``, ``available``, or ``sandbox_required`` for Bash.
+
+    A listed tool may still refuse execution. Keep this distinction in run records
+    so a permission difference is not mistaken for model behavior.
     """
     bash = next(
         (
@@ -57,14 +59,12 @@ def _shell_state(agent: Any, env: Any) -> str:
         return "available"
     return "sandbox_required"
 
-def _git_unquote(token: str) -> str:
-    """Undo the C-style quoting git applies to paths with unusual bytes.
 
-    ``"b/\\344\\270\\255.txt"`` is how git writes a UTF-8 path; the escapes are
-    per *byte*, so the round trip decodes the escapes to latin-1 code points,
-    packs those back into bytes, and decodes the bytes as UTF-8. Anything that
-    does not survive the trip is returned untouched — a mangled path is a
-    weaker record than a quoted one, but neither may raise.
+def _git_unquote(token: str) -> str:
+    """Decode Git's C-quoted UTF-8 bytes; retain the original on failure.
+
+    Escapes represent bytes, so decode through Latin-1 before UTF-8.
+    A malformed path must not break observational tracing.
     """
     if len(token) < 2 or not token.startswith('"') or not token.endswith('"'):
         return token
@@ -73,6 +73,7 @@ def _git_unquote(token: str) -> str:
         return raw.decode("utf-8")
     except (UnicodeDecodeError, UnicodeEncodeError):
         return token
+
 
 def _side_path(token: str, prefix: str) -> str | None:
     """One side of a file header (``--- a/x`` / ``+++ b/x``), or None for /dev/null.
@@ -85,14 +86,12 @@ def _side_path(token: str, prefix: str) -> str | None:
         return None
     return token[len(prefix):] if token.startswith(prefix) else token
 
-def _header_line_paths(line: str) -> tuple[str | None, str | None]:
-    """The (old, new) paths off a ``diff --git a/X b/Y`` line.
 
-    Only needed where git omits the ``---``/``+++`` pair — binary payloads and
-    mode-only changes. Unquoted paths containing " b/" are genuinely ambiguous
-    on this line; the same-path split is tried first because that is the shape
-    of every non-rename entry, and a rename carries explicit ``rename
-    from``/``rename to`` lines anyway.
+def _header_line_paths(line: str) -> tuple[str | None, str | None]:
+    """Read old/new paths when binary or mode-only diffs omit file headers.
+
+    Unquoted paths containing `` b/`` are ambiguous: prefer a same-path split;
+    renames have explicit metadata.
     """
     rest = line[len(_DIFF_HEADER):]
     if rest.startswith('"'):
@@ -113,6 +112,7 @@ def _header_line_paths(line: str) -> tuple[str | None, str | None]:
     if marker == -1:
         return None, None
     return body[:marker], body[marker + 3:]
+
 
 def _classify_block(block: list[str]) -> list[tuple[str, str]]:
     """Turn one file's diff header into ``(path, op)`` entries."""
@@ -146,6 +146,7 @@ def _classify_block(block: list[str]) -> list[tuple[str, str]]:
         return []
     return [(path, "added" if added else "modified")]
 
+
 def _parse_worktree_diff(diff: str) -> list[tuple[str, str]]:
     """Every file an *untruncated* worktree diff touches, in diff order.
 
@@ -159,6 +160,7 @@ def _parse_worktree_diff(diff: str) -> list[tuple[str, str]]:
         elif blocks:
             blocks[-1].append(line)
     return [entry for block in blocks for entry in _classify_block(block)]
+
 
 class SchedulerTeamMixin:
     @property
@@ -185,9 +187,9 @@ class SchedulerTeamMixin:
         return scb.agent.name if scb is not None else "?"
 
     def _topology_forbids(self, src_role: str, dst_role: str) -> bool:
-        """Whether the configured topology forbids ``src_role`` from reaching ``dst_role``.
+        """Share the role-level deny decision between spawn and messaging.
 
-        Accept role names because spawn targets have no aid yet.
+        Callers retain their own error shapes; spawn targets do not yet have aids.
         """
         return self._topology is not None and not self._topology.allows(src_role, dst_role)
 
@@ -222,11 +224,10 @@ class SchedulerTeamMixin:
         ]
 
     def team_roster(self) -> list[dict[str, Any]]:
-        """Full configured team for the prompt toolbar: every live agent plus
-        each configured role that has no live agent yet (``aid=None``, phase
-        ``"available"``). Unlike ``team_snapshot`` (live agents only, used to
-        message teammates by aid), this surfaces the team the user defined in
-        the team config before anything has spawned.
+        """Return live agents plus unseated declared roles for the prompt toolbar.
+
+        Unseated roles use ``aid=None`` and phase ``available``; ``team_snapshot``
+        contains only live agents addressable by aid.
         """
         live = self.team_snapshot()
         live_roles = {entry["role"] for entry in live}
@@ -243,16 +244,15 @@ class SchedulerTeamMixin:
         ]
         return live + available
 
+    # ---- static topology: the team the config declares, built up front -------
+
     async def ensure_team_prebuilt(self) -> tuple[int, ...]:
-        """Seat declared teammates before the first turn and return their aids.
+        """Seat all declared roles once, returning new aids in declaration order.
 
-        With ``prebuild_team`` disabled, return ``()``. Otherwise leave agent 0 in
-        place and build the remaining roles in declaration order through the normal
-        worktree and session factories. Tasks arrive later through teammate messages.
-
-        A construction failure rolls back the partial team and raises before model
-        execution. Seating reserves no shared tokens. Each seat's later calls are
-        bounded by its per-agent cap.
+        Without ``prebuild_team``, return ``()``. Agent 0 keeps its existing session
+        and workspace; peers use the normal environment and session factories.
+        Any construction failure rolls back the partial roster and raises before
+        model execution. Seating reserves no tokens; per-agent caps bound later use.
         """
         if not self._prebuild_team or self._team_prebuilt:
             return ()
@@ -288,11 +288,11 @@ class SchedulerTeamMixin:
             return tuple(aid for aid, _ in built)
 
     async def _prebuild_peer(self, role: str) -> tuple[int, Any]:
-        """Create one declared teammate and return ``(aid, env)`` for rollback.
+        """Create a taskless peer and return ``(aid, env)`` for rollback.
 
-        Use ``parent_aid=0`` so hooks report ``SubagentStop`` rather than root
-        ``Stop``. Leave the peer out of ``_spawn_origin`` so completion cannot
-        join a waiting parent. It receives tasks through teammate messages.
+        Use ``parent_aid=0`` so hooks emit SubagentStop rather than root Stop.
+        Omit ``_spawn_origin``: no parent is awaiting this peer's result, so it
+        receives tasks and returns work through teammate messages instead of joins.
         """
         aid = self.table.allocate_aid()
         env: Any | None = None
@@ -354,31 +354,37 @@ class SchedulerTeamMixin:
                     "aid": aid,
                     "role": scb.agent.name,
                     "entry": aid == entry_aid,
+                    # The model this seat calls: a role's ``model:`` override,
+                    # else the run's model.
                     "model": getattr(agent, "model", None),
                     "tools": tools,
-                    # "confirm" means an external permission policy is wired for risky actions.
+                    # What gates this agent's risky actions. "confirm" means a
+                    # permission policy is wired and something outside the agent
+                    # answers yes/no; "auto" means nothing does.
                     "permission_mode": (
                         "confirm"
                         if getattr(session, "permission_policy", None) is not None
                         else "auto"
                     ),
                     "workspace": getattr(env, "workspace", None),
-                    # Shared-directory runs report False even when every agent has an environment.
+                    # True only for a real worktree. Under ``use_worktrees=False``
+                    # every agent shares one directory, and this says so.
                     "workspace_isolated": isinstance(env, DiffCapablePort),
-                    # Record actual shell capability per node so comparisons can be checked from the run.
+                    # Whether this agent can actually run a shell command — see
+                    # ``_shell_state``. Recorded per node because "every arm had
+                    # the same capabilities" is a claim about the run, and it has
+                    # to be checkable from the run's own records.
                     "shell": _shell_state(agent, env),
+                    # The most this agent may spend over the whole run.
                     "token_allowance": self._agent_cap(aid, scb.agent.name),
                 }
             )
         return nodes
 
     def _assigned_topology_edges(self) -> list[dict[str, str]]:
-        """Every edge the team config declares, as ``(from_role, to_role)`` pairs.
+        """Return declared role edges from the same Topology used for enforcement.
 
-        Read from the same ``Topology`` object ``_topology_forbids`` consults, so
-        the recorded edge set is the one actually enforced. Roles declared with
-        no outgoing edge contribute no pair — they appear in the node record and
-        in ``roles`` instead.
+        Roles with no outgoing edges remain in the node record, not this edge list.
         """
         topology = self._topology
         if topology is None:
@@ -393,15 +399,12 @@ class SchedulerTeamMixin:
         )
 
     def _trace_assigned_topology(self) -> None:
-        """Record the prebuilt roster and declared communication edges once.
+        """Record assigned nodes and edges once at prebuild; recorder errors are nonfatal.
 
-        ``assigned.topology_nodes`` captures tools, permissions, workspace, shell
-        access and ``turns_serialized``. ``assigned.topology_edges`` retains the
-        configured edges and ``allow_all``, which distinguishes an open topology
-        from an empty closed graph.
-
-        Recording is disabled without prebuilding, and trace failures leave the run
-        unaffected.
+        Nodes retain tools, permissions, shell availability, workspace, and turn
+        serialization. Edges retain ``allow_all`` because an empty open graph must
+        not look like a graph forbidding communication. Compare these assigned
+        conditions with observed actions, not with roster size alone.
         """
         tracer = self._tracer
         if tracer is None:
@@ -414,8 +417,13 @@ class SchedulerTeamMixin:
                 payload={
                     "entry_role": lead.agent.name if lead is not None else None,
                     "declared_roles": list(self._roles),
-                    # Record serialization as part of the run configuration.
+                    # Whether the run holds the team to one turn at a time. It
+                    # is a choice made about the instrument, not OpenCollab's
+                    # default, so the run says which way it was set the same way
+                    # each node says whether its workspace was isolated.
                     "turns_serialized": bool(self._serialize_turns),
+                    # Where each node's ``token_allowance`` came from: the team
+                    # file's per-role budgets, or the shared ``per_agent_cap`` rule.
                     "budget_source": "team_file" if self._role_budgets else "shared_rule",
                     "nodes": self._assigned_topology_nodes(),
                 },
@@ -444,10 +452,10 @@ class SchedulerTeamMixin:
         task: str,
         context: str,
     ) -> None:
-        """Record and raise a roster-bearing spawn refusal for prebuilt teams.
+        """Refuse and record spawn attempts only in prebuilt mode.
 
-        ``spawn_agent`` stays available so the trace captures attempted delegation.
-        With ``prebuild_team=False``, return immediately.
+        Keep the tool exposed so requests for undeclared roles remain observable;
+        the refusal names the live roster.
         """
         if not self._prebuild_team:
             return
@@ -495,13 +503,10 @@ class SchedulerTeamMixin:
         roster: list[dict[str, Any]],
         declared: bool,
     ) -> None:
-        """Record a refused spawn with role and topology attribution.
+        """Record a spawn refusal without changing its outcome if tracing fails.
 
-        ``requested_role_declared`` identifies requests outside the declared roster.
-        ``topology_allowed`` distinguishes fixed-roster refusal from a forbidden
-        edge. Capped task text retains its full length for counting.
-
-        Trace failures leave the refusal unchanged.
+        Keep role membership separate from topology permission to distinguish why
+        the attempt failed. Capped task text retains its original length.
         """
         tracer = self._tracer
         if tracer is None:
@@ -654,21 +659,17 @@ class SchedulerTeamMixin:
     async def _trace_worktree_changes(
         self, aid: int, role: str, env: EnvironmentPort, *, diff: str,
     ) -> None:
-        """Record per-file evidence from an agent's untruncated worktree diff.
+        """Trace the untruncated diff independently of the bounded parent notice.
 
-        ``content_sha`` hashes resulting file content and is ``None`` for deletions
-        or unreadable files. The row also records the whole diff's hash, length and
-        whether the parent's prose copy was truncated. An unchanged tree still emits
-        an empty file list.
+        Record an empty file list for no change, rather than omitting the row.
+        File hashes cover post-change content (None for deletions); diff hash/length
+        and truncation describe what the parent could see. ``diff_base`` may advance
+        on adoption. Join a recipient's base to a sender's ``commits`` to identify
+        handoff; ``commit_count=None`` means unreadable, not zero commits.
 
-        ``diff_base`` moves from the creation base to an adopted commit after a
-        handoff. ``head_commit`` and ``commits`` identify the agent's own commits,
-        allowing ``tester.diff_base in coder.commits`` to link adoption. The capped
-        list has an uncapped ``commit_count``, or ``None`` when it cannot be read.
-
-        Individual reads and the complete record are guarded so tracing failures
-        leave execution unaffected. Required diff delivery is handled separately by
-        ``_append_worktree_diff``.
+        Each read and the overall record are guarded: binary files, revoked
+        environments, and concurrent removal must not fail agent execution.
+        Required patch delivery has its own failure handling.
         """
         tracer = self._tracer
         if tracer is None or not isinstance(env, DiffCapablePort):
@@ -698,9 +699,16 @@ class SchedulerTeamMixin:
                 payload={
                     "aid": aid,
                     "role": role,
-                    # A handoff changes the diff base to the adopted commit rather than the creation base.
+                    # The revision the diff was measured against. Normally the
+                    # worktree's creation base; after a handoff (the agent
+                    # checked out a teammate's commit) the commit it adopted, so
+                    # the row states which starting point "changed" is relative
+                    # to instead of leaving it to be assumed.
                     "diff_base": getattr(env, "diff_base", None),
-                    # Record resulting commits so later teammate checkouts can be joined to this handoff.
+                    # Where this worktree stands now, and what it put between
+                    # the two. A row that names only its base cannot say
+                    # whether this agent committed, and a teammate that checks
+                    # one of these shas out has nothing to be joined against.
                     "head_commit": getattr(env, "head_commit", None),
                     "commits": list(getattr(env, "own_commits", ()) or ()),
                     "commit_count": getattr(env, "own_commit_count", None),
@@ -714,7 +722,7 @@ class SchedulerTeamMixin:
             logger.error("worktree_changes trace failed for aid %s: %s", aid, exc)
 
     async def emit_scheduler_event(self, event: SchedulerEvent) -> None:
-        """Emit a scheduler event through the configured sink."""
+        """Emit an event built by the scheduler's event factory through its required sink."""
         await self._event_sink.emit(event)
 
     async def _safe_emit_scheduler_event(self, event: SchedulerEvent) -> None:

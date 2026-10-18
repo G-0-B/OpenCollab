@@ -53,9 +53,9 @@ uv run opencollab --workspace .
 ```
 
 `configs/.env` 可以指向任何 OpenAI 兼容端点或 Anthropic 端点。不要提交真实的 API key。
-这条命令启动内置的 Self-Collaboration 团队，由 Analyst 作为入口规划任务并派生 Coder 和 Tester，协作关系由封闭拓扑限定。
-Coder 完成后，Analyst 使用完成回执中的 aid 调用 `adopt_agent` 采用实现，再启动新的 Tester 验证采用后的文件。每个子代理保持独立工作区。声明这项能力的团队会复制当前源文件及已有用户改动，保留源 Git 索引。独立改动可以累加，采用冲突时源文件保持原样。在入口代理的当前活跃轮中，同一 Coder 完成后续修订时，再次采用会应用相对于上次成功采用的新改动。重复采用同一份完成结果时，交付文件保持原样。`opencollab team init` 导出相同的协作协议。自定义团队可以按自身工具和协议返回差量，由调用者采用。
-采用失败时，工具会返回完整恢复补丁的位置。有运行记录目录时，补丁保存在其中，其他运行使用受保护的临时恢复目录。
+这条命令启动内置 Self-Collaboration 团队：Analyst 向使用独立工作区的 Coder 和 Tester
+分配任务，先采用 Coder 的改动，再交给 Tester 验证。采用、冲突及恢复规则见
+[团队协作说明](opencollab/README.md#cooperative-teams)，自定义团队可以选择自己的工具。
 在终端输入 `/help` 可查看切换 agent、保存和退出操作。需要增加角色时，按下文命令创建并选择团队文件。使用以下命令在 Git 仓库上运行 Duo。
 
 ```bash
@@ -111,7 +111,7 @@ uv run opencollab workflow run duo --workspace /path/to/repository \
 | [Adherence](docs/adherence.md) | runtime 记录了什么，以及我们如何测量 Adherence |
 | [OpenCollab-Eval README](https://github.com/RISE-X-Lab/OpenCollab-Eval#readme) | 在软件工程 benchmark 上运行 agent |
 | [文档索引](docs/README.md) | skills、迁移指南与设计记录 |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | 开发检查、[测试](docs/testing.md)与[发布](RELEASING.md) |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 开发检查、[测试](CONTRIBUTING.md#checks-must-pass-before-a-pr)与[发布](RELEASING.md) |
 
 ## 引用
 

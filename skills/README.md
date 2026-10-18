@@ -12,8 +12,15 @@ of the skills directory and builds a catalog from each accepted skill's `name` a
 When a catalogued skill matches the task, the model calls `use_skill` with a `name`
 argument and receives the complete instruction body as the tool result.
 
-> The design record explains this interface in
-> [`docs/2026-06-18-skill-interface-design.md`](../docs/2026-06-18-skill-interface-design.md).
+## Why a catalog and one tool
+
+The model selects a skill from its catalog; there is no separate relevance
+ranker. A single `use_skill` dispatcher serves every package, so adding a skill
+adds no runtime tool. Returning the body as a tool result appends instructions
+without inserting a new system fragment into an established prompt prefix.
+The body remains subject to normal history shaping; it is not permanently pinned.
+This design uses the existing skill store port and tool runtime rather than a
+general deferred context loader.
 
 ---
 
@@ -94,5 +101,5 @@ invoke it by name. Adding a skill requires no registration or code change.
 ## Where skills are loaded from
 
 The current loader reads the `skills/` directory at the workspace root. In this
-repository, that path is `skills/`. The design record discusses global and
-project-specific search paths that the current loader does not implement.
+repository, that path is `skills/`. Global search paths and project overrides
+are not implemented.

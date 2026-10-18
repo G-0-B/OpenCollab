@@ -307,8 +307,32 @@ the same facts from a file before a run (`declared_role_budgets`,
 every role prompt inline. It requires a prebuilt roster. The root CLI starts the
 Analyst alone, and that role's prompt asks it to report the missing peers and
 stop. Run this file with `scripts/run_collab_team.py`, the SDK
-(`prebuild_team=True`), or the evaluation harness. See
-[the team handoff](../docs/2026-08-31-collab-team.md).
+(`prebuild_team=True`), or the evaluation harness.
+
+```python
+result = await OpenCollab(workspace).team(
+    prompt,
+    config="configs/team.collab.yaml",
+    prebuild_team=True,
+    use_worktrees=True,
+    serialize_turns=True,
+    allow_unisolated_shell=True,
+)
+```
+
+Authorize host shell execution only for a workspace where it is intended;
+otherwise use a process-isolated environment. The launcher defaults to separate
+worktrees and serialized turns. `--no-worktrees` and `--concurrent` change those
+conditions. `--budget` supplies the shared pool; a file with role allowances
+instead supplies its own budget and rejects a separate pool. The script prints
+recorded message attempts separately from actual delivery events. Test commands
+inherit cache-suppression settings unless the caller overrides them; see the
+[scripts guide](../scripts/README.md) for the launcher.
+
+The historical handoff study and experiment-only configurations are maintained
+in [OpenCollab-Eval](https://github.com/RISE-X-Lab/OpenCollab-Eval/tree/main/experiment/framework). Original batches must use their recorded framework
+revision; moving a prompt or changing its wording does not create a comparable
+rerun automatically.
 
 ## Usage records
 

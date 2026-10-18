@@ -1,7 +1,7 @@
-"""Track agent sessions and compose the passive multi-agent scheduler.
+"""Cooperative team scheduler over shared Session primitives.
 
-This module owns construction and the public ``Scheduler`` import.
-Lifecycle, messaging, budgets, cleanup and review waits live in mixins.
+Mixins own lifecycle, messaging, budgets, persistence, team views, cleanup,
+and review waits. This module owns construction and the public import surface.
 """
 
 from __future__ import annotations
@@ -55,17 +55,12 @@ class Scheduler(
     MessagingMixin,
     InflightDedupMixin,
 ):
-    """Track session control blocks and run agents concurrently.
+    """Track sessions, spawn children, and deliver results through deferred joins.
 
-    ``spawn`` returns an aid immediately. Failed construction rolls back the
-    budget lease, worktree and scheduler maps. Deferred child results fill the
-    parent's pending rows and wake it when the batch is ready.
-    ``run_turn`` waits for team quiescence.
-
-    This event-driven scheduler and the code-driven ``WorkflowContext`` both
-    drive ``Session.run_loop``. With ``prebuild_team=True``, every declared role
-    is seated before the first model call and subsequent spawns are refused.
-    See ``SchedulerTeamMixin.ensure_team_prebuilt``.
+    Spawn failures roll back budget leases, environments, and registration.
+    An AWAITING_EVENTS parent resumes when its whole result batch is ready.
+    ``prebuild_team`` seats the declared roster before any model call and then
+    refuses spawning; otherwise the model determines the roster during the run.
     """
 
     def __init__(
@@ -95,11 +90,21 @@ class Scheduler(
         self._max_budget_tokens = max_budget_tokens
         self._permission_policy = permission_policy
         self._topology = topology
-        # Seat the declared roster before the first model call and refuse later spawns.
+        # Static-topology mode. Off by default, and every behavioural difference
+        # is gated on it: the team is materialized from the config before the
+        # first turn (``ensure_team_prebuilt``), ``spawn`` then refuses, and the
+        # assigned topology is recorded. Left off, nothing below fires and the
+        # scheduler behaves exactly as it did.
         self._prebuild_team = bool(prebuild_team)
         self._team_prebuilt = False
-        # Serialize model/tool work across the team. A synchronous review releases
-        # the lock while children run, then reacquires it before its parent continues.
+        # One turn at a time across the whole team. Off by default, which is the
+        # concurrent behaviour above. On, ``_turn_gate`` holds a single lock
+        # while a driver executes its model/tool work. A synchronous review
+        # yields that driver's execution right while waiting for its children,
+        # then reacquires before the parent continues. A teammate woken by a
+        # message waits for the lock. What the agents may say
+        # to each other is untouched: the topology keeps every declared edge and
+        # ``message_agent`` stays voluntary — only the timing changes.
         self._serialize_turns = bool(serialize_turns)
         self._delivery_tree_probe = delivery_tree_probe
         self._delivery_tree_snapshots: list[dict[str, Any]] = []
@@ -112,8 +117,10 @@ class Scheduler(
         self._serialized_turn: contextvars.ContextVar[_SerializedTurn | None] = (
             contextvars.ContextVar("serialized_turn", default=None)
         )
+        # Drivers waiting to enter the existing serialized turn lock.
         self._turn_waiters: set[int] = set()
-        # Preserve declaration order so team_roster can show roles before they spawn.
+        # Configured role names (from the team config), in declaration order.
+        # Used by ``team_roster`` to surface the team before anything spawns.
         normalized_roles: list[str] = []
         role_keys: set[str] = set()
         for raw_role in roles:
@@ -126,7 +133,9 @@ class Scheduler(
             role_keys.add(collision_key)
             normalized_roles.append(role)
         self._roles = tuple(normalized_roles)
-        # Per-role allowances replace the shared-pool rule, see _agent_cap.
+        # Independent per-role allowances from the team file, or ``{}`` for the
+        # shared-pool rule. Each agent is held to its own role's allowance and
+        # to nothing else; see ``_agent_cap``.
         self._role_budgets: dict[str, int] = dict(role_budgets or {})
         self._entry_role = entry_role
         if self._role_budgets:
@@ -165,8 +174,9 @@ class Scheduler(
         # cancelling a child turn must never terminalize the Lead by default.
         self._active_run_tasks: dict[asyncio.Task[Any], int] = {}
         self._lead_session: Any | None = None
-        # Deferred child completion fills its exact parent tool-call row.
-        # Fire-and-forget spawns have no entry.
+        # child aid -> (parent aid, tool_call_id) for deferred spawns: lets a
+        # child's completion fill the exact pending row that suspended its
+        # parent. Absent for legacy fire-and-forget spawns (tool_call_id=None).
         self._spawn_origin: dict[int, tuple[int, str]] = {}
         # Children whose result row was atomically filled before teardown began.
         # Cleanup may cancel their task while it is only emitting an observational
@@ -214,7 +224,9 @@ class Scheduler(
         # The outer delivery task remains owned while ``add_user_message`` runs.
         # The durable inbox entry is removed only after that call succeeds.
         self._message_delivery_tasks: dict[int, asyncio.Task[Any]] = {}
-        # Bootstrap injects manifest persistence to keep filesystem I/O out of this layer.
+        # Optional bootstrap-injected callback that persists a team.json manifest
+        # from the current roster. Kept as a callback so the application layer
+        # stays free of filesystem I/O.
         self._manifest_writer: Callable[[], None] | None = None
         self._manifest_subscriber: AutoSaveSubscriber | None = None
         self._shutting_down = False
@@ -241,6 +253,7 @@ class Scheduler(
     ) -> None:
         """Make an externally owned resource part of final cleanup evidence."""
         self._lifecycle_resources.append((description, resource))
+
 
 __all__ = [
     "DuplicateSpawnError",

@@ -1,10 +1,4 @@
-"""Scheduler factory for the high-level CLI and SDK entry points.
-
-``build_scheduler`` loads the team config, wires every concrete dependency,
-hands the ``Scheduler`` a ``LaunchSpec`` + ``Topology``, and lets it create
-agent 0 (the init process). This is the one place that knows the full
-collaborator graph for a multi-agent run.
-"""
+"""Compose CLI/SDK team dependencies and initialize agent 0."""
 
 from __future__ import annotations
 
@@ -45,16 +39,16 @@ from opencollab.bootstrap.team_config import (
 )
 from opencollab.domain.agent import DEFAULT_MAX_TOKENS_PER_STEP
 
-# A topology edge requires the source role to hold the message tool.
+# Prebuilt peers need this tool to use their declared communication edges.
 _MESSAGING_TOOL_NAME = "message_agent"
 
-def _reject_unwalkable_edges(team: TeamConfig) -> None:
-    """Reject prebuilt-team edges whose source lacks ``message_agent``.
 
-    Prebuilt teams refuse spawning, leaving messages as the channel between
-    seated agents. Missing tools would make recorded edges unusable. Call only
-    under ``prebuild_team`` because dynamic teams can communicate through spawn
-    and join. Raise ``ValueError`` before session construction or model calls.
+def _reject_unwalkable_edges(team: TeamConfig) -> None:
+    """Reject prebuilt topology edges whose source lacks ``message_agent``.
+
+    Prebuilt teams refuse spawning, so these edges cannot be used. Fail before
+    creating agent 0; otherwise a wiring error could look like a model declining
+    to collaborate. Dynamic teams may legitimately use spawn/join without messaging.
     """
     offenders: list[tuple[str, list[str], list[str]]] = []
     for source in sorted(team.topology.edges):
@@ -84,6 +78,8 @@ def _reject_unwalkable_edges(team: TeamConfig) -> None:
         "those roles' entries from `topology:`."
     )
 
+
+
 def build_scheduler(
     ctx: RuntimeContext,
     *,
@@ -104,30 +100,26 @@ def build_scheduler(
     record_delivery_tree: bool = False,
     run_id: str | None = None,
 ) -> Scheduler:
-    """Build the Scheduler and create agent 0 from the resolved team configuration.
+    """Compose a team and initialize agent 0 with the selected configuration.
 
-    ``session_file`` restores its history. ``auto_save`` writes per-agent JSON
-    transcripts and a team manifest under the run directory. ``enable_hooks``
-    connects configured lifecycle hooks to the event bus.
+    ``session_file`` resumes entry history. ``auto_save`` writes per-agent JSON
+    and a team manifest under ``save_dir`` or a timestamped workspace session
+    folder. ``enable_hooks`` permits configured lifecycle shell commands.
 
-    ``prebuild_team`` seats all declared roles before the first model call and
-    refuses later spawns. ``environment`` supplies agent 0's workspace and, with
-    worktrees, isolated teammate views. Otherwise agents use the host workspace.
+    ``prebuild_team`` seats the complete roster before execution and refuses
+    later spawning. ``serialize_turns`` prevents concurrent turns without changing
+    topology permissions or requiring agents to communicate. ``max_steps`` bounds
+    each seat. A supplied ``environment`` hosts agent 0 and provides the source
+    for isolated teammates; otherwise the source is the host workspace.
 
-    ``interactive`` enables human questions for the entry role.
-    ``allow_unisolated_shell`` separately authorizes commands outside an OS
-    sandbox for the entry agent and prebuilt roster. None inherits interactive.
-    ``allow_unisolated_child_shell`` separately opts dynamically spawned children
-    into unsandboxed commands and defaults to False. Command confirmation continues to
-    use the run's permission policy.
+    ``interactive`` controls access to a human. ``allow_unisolated_shell`` controls
+    host commands for entry/prebuilt seats; None inherits ``interactive``.
+    ``allow_unisolated_child_shell`` separately authorizes dynamically spawned
+    children and defaults to False. A worktree is not a process sandbox;
+    command confirmation still uses the permission policy.
 
-    ``max_steps`` gives every seat the same step ceiling. ``serialize_turns``
-    runs one seat at a time while preserving the declared communication edges.
-    Both roster prebuilding and turn serialization default to False.
-
-    ``record_delivery_tree`` optionally probes agent 0's tree at seat boundaries
-    and accepted messages for attribution. It defaults to False and costs a Git
-    diff per boundary when enabled.
+    ``record_delivery_tree`` observes agent 0's delivered workspace at seat
+    boundaries. It is off by default to avoid otherwise unnecessary diff probes.
     """
     if session_file is not None and not SessionStore().has_snapshot(session_file):
         raise ValueError(f"session file does not exist: {session_file}")
@@ -142,7 +134,8 @@ def build_scheduler(
         _reject_unwalkable_edges(team_cfg)
     event_bus = EventBus(ctx.event_sink)
 
-    # Resolve the run folder before construction so children inherit it.
+    # Per-run folder: every agent's transcript plus a team.json manifest land
+    # here. Known before the factory so spawned children inherit the same dir.
     run_dir: str | None = None
     if auto_save:
         run_dir = (
@@ -216,8 +209,10 @@ def build_scheduler(
         owned_output_paths=getattr(ctx.tracer, "owned_paths", ()),
     )
 
-    # Measure the supplied environment or host workspace where agent 0 works,
-    # matching the workflow probe.
+    # The graded tree is where agent 0 works: the environment when the run was
+    # given one (a container the repository lives in), the host workspace
+    # otherwise. Same choice ``_workflow_runtime_session`` makes for the probe
+    # it hands a workflow, so both regimes measure the same directory.
     delivery_tree_probe = (
         EnvWorkingTreeProbe(
             environment if environment is not None else LocalEnvironment(ctx.workspace),
@@ -258,8 +253,9 @@ def build_scheduler(
         candidate_diff_writer=write_candidate_diff,
     )
 
-    # Attach hooks after construction so the runner holds the scheduler.
-    # Appending preserves the TUI subscriber at target[0].
+    # Attach hooks after the scheduler exists so the runner can hold its handle
+    # (the coordination-ready seam for a future ``agent`` executor). Subscribing
+    # appends to the same bus, leaving the TUI sink at target[0] untouched.
     if enable_hooks and team_cfg.hooks:
         runner = ShellHookRunner(
             team_cfg.hooks,
@@ -306,5 +302,6 @@ def build_scheduler(
         LaunchSpec(session_file=session_file, auto_save_path=lead_save_path)
     )
     return scheduler
+
 
 __all__ = ["build_scheduler"]

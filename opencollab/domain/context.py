@@ -45,11 +45,9 @@ LAYER_PRIORITY: dict[ContextLayer, int] = {
 
 @dataclass(frozen=True)
 class ContextSource:
-    """One tagged context fragment.
+    """One context fragment; empty content is omitted during assembly.
 
-    ``priority`` overrides the layer default (``LAYER_PRIORITY``) for this one
-    source; ``None`` means "use the layer's". A source with empty ``content`` is
-    skipped during assembly.
+    ``priority=None`` uses the layer default; an explicit value overrides it.
     """
 
     name: str
@@ -67,13 +65,7 @@ class ContextSource:
 
 @dataclass(frozen=True)
 class ContextPlan:
-    """An ordered set of sources plus the rules for assembling them.
-
-    Assembly is generic over ``ContextPosition``: all SYSTEM sources are joined
-    into one system message, all USER_CONTEXT sources become user messages, in
-    source order. No method inspects ``ContextLayer`` — that is what keeps "new
-    context = register a source" true.
-    """
+    """Ordered context sources assembled by position, without layer-specific rules."""
 
     sources: tuple[ContextSource, ...] = field(default_factory=tuple)
 
@@ -103,13 +95,10 @@ class ContextPlan:
         ]
 
     def startup_user_messages(self) -> list[dict[str, Any]]:
-        """Startup user-context sources as provider-shaped user messages.
+        """Return user seeds tagged with source name, layer, and resolved priority.
 
-        Each message is stamped with an internal ``_ctx`` tag (layer + resolved
-        priority) so the reactive shapers can pin or shed it by provenance once
-        it is flattened into the live history. Providers reconstruct messages
-        from ``role``/``content`` and ignore the extra key (same convention as
-        ``tool_call_id`` and the auto-compact ``compacted`` flag).
+        The internal ``_ctx`` tag lets shaping retain provenance after injection;
+        provider projections omit it from the request.
         """
         return [
             {

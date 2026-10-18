@@ -2,7 +2,7 @@
 
 Current architecture and repository checks are described in
 [CONTRIBUTING.md](../../CONTRIBUTING.md) and the
-[testing guide](../testing.md). The [native test evidence guide](../test-evidence.md)
+[testing guide](../../CONTRIBUTING.md#checks-must-pass-before-a-pr). The [native test evidence guide](../test-evidence.md)
 describes the current Bash observation surface.
 
 > **Historical Note:** This document was written in June 2026 against commit 816f365. References to `run_tests` tool and other features reflect that historical state. The `run_tests` tool was removed in 0.7.0 in favor of native Bash execution.

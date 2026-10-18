@@ -10,22 +10,24 @@ from typing import Any, Iterator
 from opencollab.application.ports import ShaperPort, TokenEstimatorPort
 from opencollab.domain.token_estimation import estimate_request_message_tokens
 
-# Compact well below the trigger so the next turn does not immediately
-# trigger another pass.
+# Fallback thresholds leave headroom so compaction does not fire again next turn.
 DEFAULT_HISTORY_TRIGGER_TOKENS = 120_000
 DEFAULT_HISTORY_TARGET_TOKENS = 90_000
+# Most-recent groups always kept verbatim (never snipped or summarized).
 DEFAULT_HISTORY_KEEP_RECENT_GROUPS = 4
 
-# Pin sources at this resolved layer priority via _ctx. Untagged messages
-# have no layer priority and follow the recency rules instead.
+# Tagged sources at this priority are protected from history compaction.
+# Untagged turns/tool work use recency rules instead; see domain.context.
 PIN_FLOOR = 70
 
-# Distinguish an unchanged shaping pass from a turn that was never recorded.
+# Distinguish an unchanged pass from a missing trace record.
 _NO_RUNG_FIRED = "none"
-# Report unlabeled custom shapers explicitly instead of calling their work "none".
+# An unlabeled shaper must not masquerade as an unchanged pass.
 _UNLABELED_RUNG = "unknown"
 
-# Reserve output room and leave headroom between trigger and target.
+# Window-derived trigger math. The effective input budget reserves room for the
+# next output; the trigger also keeps a safety buffer. Compaction targets a
+# lower ratio so the next turn does not immediately compact again.
 DEFAULT_OUTPUT_RESERVE_TOKENS = 20_000  # held back for the summary/answer response
 DEFAULT_COMPACT_BUFFER_TOKENS = 13_000  # safety margin below the effective window
 HISTORY_TARGET_RATIO = 0.75
@@ -36,6 +38,7 @@ HISTORY_TARGET_RATIO = 0.75
 _forced_shaper_ids: ContextVar[frozenset[int]] = ContextVar("forced_shaper_ids", default=frozenset())
 _context_estimator: ContextVar[TokenEstimatorPort | None] = ContextVar("context_estimator", default=None)
 
+
 @contextmanager
 def context_token_estimator(estimator: TokenEstimatorPort) -> Iterator[None]:
     """Scope the default estimator to one session's shaping call."""
@@ -45,15 +48,18 @@ def context_token_estimator(estimator: TokenEstimatorPort) -> Iterator[None]:
     finally:
         _context_estimator.reset(token)
 
+
 def require_nonnegative_int(value: Any, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ValueError(f"{name} must be a non-negative integer")
     return value
 
+
 def require_positive_int(value: Any, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ValueError(f"{name} must be a positive integer")
     return value
+
 
 def history_trigger_target(
     context_window: int | None,
@@ -88,6 +94,7 @@ def history_trigger_target(
     target = max(1, min(trigger - 1, int(trigger * target_ratio)))
     return trigger, target
 
+
 def approx_messages_tokens(messages: list[dict[str, Any]]) -> int:
     """Additive sizing shared by reactive layers and their trace reports.
 
@@ -98,6 +105,7 @@ def approx_messages_tokens(messages: list[dict[str, Any]]) -> int:
     if estimator is not None:
         return estimator(messages)
     return estimate_request_message_tokens(messages)
+
 
 @contextmanager
 def _forced_layers(shaper: ShaperPort) -> Iterator[None]:
@@ -131,6 +139,7 @@ def _forced_layers(shaper: ShaperPort) -> Iterator[None]:
         for node, prior_flag in zip(legacy, saved):
             node._forced = prior_flag
 
+
 def forced_shape(
     shaper: ShaperPort, messages: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -147,10 +156,12 @@ def forced_shape(
     with _forced_layers(shaper):
         return shaper.shape(messages)
 
+
 def _rung_label(shaper: ShaperPort) -> str:
     """The frozen trajectory label a shaper declares for itself."""
     label = getattr(shaper, "rung", None)
     return label if isinstance(label, str) and label else _UNLABELED_RUNG
+
 
 class ShaperPipeline:
     """An ordered chain of shapers applied left-to-right.
@@ -266,6 +277,7 @@ class ShaperPipeline:
             }
         ]
 
+
 def _group_spans(messages: list[dict[str, Any]]) -> list[tuple[int, int]]:
     """Partition messages into ``(start, end)`` spans that are safe to drop or
     replace as a unit.
@@ -286,6 +298,7 @@ def _group_spans(messages: list[dict[str, Any]]) -> list[tuple[int, int]]:
                 i += 1
         spans.append((start, i))
     return spans
+
 
 def matched_tool_result_occurrences(
     messages: list[dict[str, Any]],
@@ -335,6 +348,7 @@ def matched_tool_result_occurrences(
             )
     return matched
 
+
 def is_complete_tool_exchange(
     messages: list[dict[str, Any]], span: tuple[int, int]
 ) -> bool:
@@ -357,6 +371,7 @@ def is_complete_tool_exchange(
         and set(call_ids) == set(result_ids)
     )
 
+
 def span_is_safe_to_compact(
     messages: list[dict[str, Any]], span: tuple[int, int]
 ) -> bool:
@@ -368,6 +383,7 @@ def span_is_safe_to_compact(
     if leader.get("role") == "assistant" and leader.get("tool_calls"):
         return is_complete_tool_exchange(messages, span)
     return True
+
 
 def _droppable_region(
     messages: list[dict[str, Any]], keep_recent_groups: int
@@ -383,15 +399,18 @@ def _droppable_region(
     hi = max(lo, len(spans) - keep_recent_groups)
     return spans, lo, hi
 
+
 def ctx_priority(message: dict[str, Any]) -> int | None:
     """The source priority stamped on a message, or ``None`` if untagged."""
     ctx = message.get("_ctx")
     return ctx.get("priority") if isinstance(ctx, dict) else None
 
+
 def is_pinned(message: dict[str, Any]) -> bool:
     """True if the message is a context source at/above ``PIN_FLOOR``."""
     priority = ctx_priority(message)
     return priority is not None and priority >= PIN_FLOOR
+
 
 def pinned_free_region(
     messages: list[dict[str, Any]],

@@ -208,7 +208,7 @@ def test_build_can_replace_independent_output(tmp_path: Path) -> None:
     assert yaml.safe_load(_island_yaml(out.read_text(encoding="utf-8"))) == yaml.safe_load(original)
 
 @pytest.mark.parametrize(
-    "cfg", ["team.example.yaml", "team.handoff.experiment.yaml"]
+    "cfg", ["team.example.yaml", "team.collab.yaml"]
 )
 def test_shipped_team_configs_render(cfg: str, tmp_path: Path) -> None:
     src = REPO_ROOT / "configs" / cfg

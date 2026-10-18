@@ -1,17 +1,10 @@
-"""Message-view transformations applied before model calls.
+"""Read-time context shaping that preserves the stored conversation.
 
-Shapers work on copies of history, preserving full transcripts for recovery.
-The lazy-degradation design follows Liu et al. 2026, sections 3.1 and 4.3.
-Per-result budgets cap individual tool outputs. Under context pressure,
-reactive layers progressively clear old tool content, remove old exchanges,
-and summarize through an injected summarizer.
-
-The optional eager layer clears aging tool outputs on every call. It keeps
-recent results and stable stubs for older ones while preserving tool pairing.
-Default assembly is defined in ``bootstrap.container``.
-
-``pipeline`` owns ordering, thresholds and span helpers, ``tool_budget`` owns
-per-result limits, and ``reactive`` owns pressure-triggered history layers.
+The default wiring in bootstrap.container caps each tool result, then clears,
+snips, or summarizes eligible history only under context pressure. Each layer
+sees the prior layer's output, avoiding costlier work after pressure eases.
+EagerToolOutputClearShaper is exported for explicit composition; it is not a
+default rung. Pipeline helpers preserve pinned sources and call/result pairing.
 """
 
 from opencollab.application.shaping.eager import (

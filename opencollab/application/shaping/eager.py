@@ -1,13 +1,10 @@
-"""Optional age-based tool-output clearing before each model call.
+"""Optional age-based tool-output clearing over a copy of history.
 
-Keep the K most recent compactable results and replace older content with
-deterministic, message-derived stubs. Pinned sources, other messages and
-assistant/tool pairing remain intact. Full history and transcripts are kept.
-
-The projection is deterministic and idempotent. As history grows, results
-move from full content to stable stubs once, preserving the deep prefix for
-caching. It uses age rather than token-pressure thresholds and does not
-configure provider cache breakpoints.
+Keep the newest K compactable results and replace older content with stable
+message-derived stubs. Pinned sources and call/result pairing survive.
+The projection is deterministic and idempotent; a given result's full-to-stub
+transition still changes the sent prefix. Bootstrap therefore omits this
+always-on layer from the default pressure-triggered pipeline.
 """
 
 from __future__ import annotations
@@ -21,25 +18,26 @@ from opencollab.application.shaping.pipeline import (
 )
 from opencollab.application.shaping.reactive import DEFAULT_COMPACTABLE_TOOLS
 
-# Keep more recent results than reactive clearing at low context pressure.
-# Dropping reads still in the working set causes repeated multi-file reads.
-# Older results retain source slices in stubs so the model can identify prior reads.
+# K most-recent compactable tool results kept verbatim; everything older is
+# stubbed. Set ABOVE the reactive keep-recent (``DEFAULT_TOOL_CLEAR_KEEP_RECENT``)
+# on purpose: this rung runs at LOW context, where the cost of dropping a still-
+# needed read is a re-read loop (a multi-file task whose working set exceeds K
+# can never hold all its files at once and thrashes), so it retains more. The
+# reactive layer stays tighter for genuine 120k pressure. The informative stubs
+# below (which name the exact slice already read) are what make a cleared result
+# safe — the model can see it already read X without re-fetching it.
 DEFAULT_EAGER_KEEP_RECENT = 12
 
-# Visible stubs name the source tool and target for deterministic re-reads.
-# The full text remains in the transcript.
+# Marker prefix on every eager stub. A stub announces itself (no invisible
+# compression) and names the source tool + target so a reader / the model can
+# re-fetch deterministically. The full text lives in the transcript untouched.
 EAGER_STUB_PREFIX = "[Old tool result cleared"
 
-def _stub_for_call(tool_name: str, target: str | None) -> str:
-    """Deterministic, byte-stable stub naming the tool, its target and (for reads)
-    the exact slice already seen.
 
-    A pure function of ``(tool_name, target)`` — no token counts, no message
-    index, no randomness — so the same old message yields an identical stub on
-    every turn (the monotonic / cacheable property). The wording tells the model
-    it ALREADY ran this call and the output is in the transcript, so it does not
-    re-issue the call merely to re-confirm what it read — the failure mode that
-    burns a whole step budget on identical re-reads.
+def _stub_for_call(tool_name: str, target: str | None) -> str:
+    """Name the tool and already-read target with a stable, message-derived stub.
+
+    Exclude counters and randomness so unchanged old calls retain identical text.
     """
     where = f" {target}" if target else ""
     return (
@@ -48,6 +46,7 @@ def _stub_for_call(tool_name: str, target: str | None) -> str:
         " Re-issue ONLY if you need the exact content again, not to check whether"
         " you read it."
     )
+
 
 def _as_dict(arguments: Any) -> dict[str, Any] | None:
     """A tool call's arguments as a dict, or ``None``. Deterministic; never raises."""
@@ -59,6 +58,7 @@ def _as_dict(arguments: Any) -> dict[str, Any] | None:
         except (ValueError, TypeError):
             return None
     return arguments if isinstance(arguments, dict) else None
+
 
 def _range_label(arguments: dict[str, Any]) -> str:
     """`` lines A-B`` / `` from line A`` / `` first N lines`` / `` (whole file)``,
@@ -75,14 +75,11 @@ def _range_label(arguments: dict[str, Any]) -> str:
         return f" first {lim} lines"
     return " (whole file)"
 
-def _call_target(tool_name: str | None, arguments: Any) -> str | None:
-    """Best-effort target label lifted from a tool call's arguments.
 
-    For ``file_read`` the label carries the exact line range already seen
-    (``foo.py lines 1-100``) so each page of a multi-page read gets a DISTINCT
-    stub — otherwise every page of one file collapses to the same stub and the
-    model cannot tell which slice it already holds. Other tools keep their plain
-    path/pattern/command label. Deterministic; never raises.
+def _call_target(tool_name: str | None, arguments: Any) -> str | None:
+    """Extract a deterministic target label, returning safely on malformed arguments.
+
+    Include file-read line ranges so separate pages do not collapse to one stub.
     """
     parsed = _as_dict(arguments)
     if parsed is None:
@@ -98,14 +95,11 @@ def _call_target(tool_name: str | None, arguments: Any) -> str | None:
             return value
     return None
 
-class EagerToolOutputClearShaper:
-    """Always-on, age-based, deterministic tool-output clearing.
 
-    Keeps the ``keep_recent`` most-recent compactable tool results verbatim and
-    replaces every older compactable result's content with a deterministic,
-    message-derived stub. Pinned sources and non-compactable messages are never
-    touched; the ``tool_call`` <-> result pairing skeleton is preserved. Runs on
-    every call with no estimate / trigger dependency.
+class EagerToolOutputClearShaper:
+    """Clear old compactable content on every call, without a pressure trigger.
+
+    Keep recent results, pinned sources, and call/result pairing intact.
     """
 
     #: Frozen trajectory label for this rung (see ``ShaperPipeline``).
@@ -145,16 +139,15 @@ class EagerToolOutputClearShaper:
     def _stubs_for_old_results(
         self, messages: list[dict[str, Any]]
     ) -> dict[int, str]:
-        """Map exact result index -> stub for every compactable result
-        older than the last ``keep_recent``.
+        """Map old compactable result indices to stubs, excluding pinned issuing turns.
 
-        Compactable calls are scanned in issue order from the assistant
-        ``tool_calls`` (the tool *name* lives on the call, not the ``role:"tool"``
-        answer), so age is positional and independent of any token estimate.
-        Pinned issuing turns are skipped. The last ``keep_recent`` ids are
-        excluded so they stay verbatim.
+        Age follows assistant-call order; tool answers do not carry the tool name.
+        The newest ``keep_recent`` results remain verbatim.
         """
-        # Build stubs only for cleared calls to avoid parsing kept results every turn.
+        # Collect raw (id, name, arguments) for every compactable call first, then
+        # parse arguments + build stubs ONLY for the older calls that get cleared —
+        # the last ``keep_recent`` are kept verbatim, so parsing their JSON every
+        # turn would be pure waste on this always-on rung.
         compactable: list[tuple[int, str, Any]] = []
         for result_index, _call_id, name, arguments in matched_tool_result_occurrences(
             messages

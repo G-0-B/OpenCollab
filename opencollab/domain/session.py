@@ -12,8 +12,10 @@ from opencollab.domain.tool_loops import LoopState
 
 MAX_SCOUT_LEDGER_CARDS = 256
 
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
 
 class SessionPhase(Enum):
     IDLE = "idle"
@@ -30,6 +32,7 @@ class SessionPhase(Enum):
     def is_terminal(self) -> bool:
         return self in TERMINAL_PHASES
 
+
 TERMINAL_PHASES = frozenset(
     {
         SessionPhase.DONE,
@@ -38,12 +41,12 @@ TERMINAL_PHASES = frozenset(
     }
 )
 
-# transition_to validates these edges. set_phase is reserved for scheduler
-# admission and snapshot restore. fail and cancel can terminate any phase.
-# STOPPED carries the controlled-halt cause in terminal_reason and delivers
-# an explicit failed result to the parent. ERROR represents an unhandled fault.
-# AWAITING_EVENTS suspends without completing the turn. The scheduler resumes
-# it once every pending row is filled.
+
+# Validated run-loop edges. set_phase is reserved for scheduler birth/enqueue,
+# restore, and tests; fail/cancel may escape from any phase to ERROR/STOPPED.
+# STOPPED retains the reason and incomplete outcome for parent recovery.
+# AWAITING_EVENTS suspends the driver until the whole pending batch is filled,
+# then resumes through AUTOSAVING before the next PRECHECK.
 PHASE_TRANSITIONS: dict[SessionPhase, frozenset[SessionPhase]] = {
     SessionPhase.IDLE: frozenset({SessionPhase.PRECHECK}),
     SessionPhase.PRECHECK: frozenset(
@@ -66,12 +69,17 @@ PHASE_TRANSITIONS: dict[SessionPhase, frozenset[SessionPhase]] = {
         {SessionPhase.AUTOSAVING, SessionPhase.AWAITING_EVENTS}
     ),
     SessionPhase.AWAITING_EVENTS: frozenset({SessionPhase.AUTOSAVING}),
-    # Save the step before either continuing or completing a submitted turn.
+    # PRECHECK on every ordinary step; DONE when the step that just
+    # finished included a ``submit`` call. The step is saved either way --
+    # the edge is taken after ``finish_step``, so a submitted turn is
+    # persisted exactly like any other before it ends.
     SessionPhase.AUTOSAVING: frozenset({SessionPhase.PRECHECK, SessionPhase.DONE}),
+    # Terminal phases resume back to IDLE for a fresh user turn or a re-run.
     SessionPhase.DONE: frozenset({SessionPhase.IDLE}),
     SessionPhase.STOPPED: frozenset({SessionPhase.IDLE}),
     SessionPhase.ERROR: frozenset({SessionPhase.IDLE}),
 }
+
 
 class InvalidPhaseTransition(Exception):
     """Raised when the run loop attempts an edge absent from PHASE_TRANSITIONS."""
@@ -81,39 +89,43 @@ class InvalidPhaseTransition(Exception):
         self.dst = dst
         super().__init__(f"Illegal session phase transition: {src.value} -> {dst.value}")
 
+
 @dataclass
 class TurnEnforcementState:
-    """Per-turn progress and enforcement state, checkpointed and reset together.
+    """Per-turn signals checkpointed, restored, and reset together.
 
-    Counters are maintained regardless of ``enforcement_strength``. Wind-down
-    latches live on ``SessionState`` to survive within-turn persistence and
-    rollback, and reset alongside this record on a fresh user turn.
+    Signals are maintained even when enforcement is disabled; only their consuming
+    brakes are gated. Durable wind-down latches stay on SessionState and survive
+    persistence within a turn.
     """
 
-    # Path-normalized call hashes drive repeated-call blocking.
+    # Loop-detection window: path-normalized (tool, args) hashes of recent tool
+    # calls; drives the repeated-call loop block.
     recent_call_hashes: list[str] = field(default_factory=list)
     loop_state: LoopState = field(default_factory=LoopState)
     # Unknown write outcomes avoid steering that assumes a known unchanged workspace.
     write_effect_unknown: bool = False
     last_progress_unknown: bool = False
-    # Successful edits reset the read count used by write steering.
+    # file_read/grep calls since a successful edit; drives write escalation.
     reads_since_last_edit: int = 0
-    # After an edit, steering requires structured submission instead of another
-    # write. A new user turn resets this obligation.
+    # A landed edit switches the hard gate from writing to structured submission.
     has_landed_write: bool = False
-    # Repeated content or normalized calls are low-yield, as are
-    # empty and no-match results.
+    # Consecutive low-yield results; see record_evidence_signal for novelty rules.
     low_yield_since_progress: int = 0
+    # Informative results tallied in the current turn.
     distinct_evidence_count: int = 0
     # Novelty memory for the sensor: holds both content and (tool, args) call
     # hashes, so a re-read at a shifted range still scores zero gain.
     seen_result_hashes: set[str] = field(default_factory=set)
-    # Evidence cards let salvage recover a scout's gathered findings.
+    # Compact result cards retained for final synthesis after interrupted exploration.
     scout_ledger: list[dict[str, Any]] = field(default_factory=list)
-    # Count tool batches without a landed write or novel informative result.
+    # Progress watchdog (STEP 3): consecutive no-progress tool STEPS (batches),
+    # where progress is a landed write OR a novel informative ("hit") result.
     steps_since_progress: int = 0
-    # Count loop-blocked calls toward the repeated-warning stop.
+    # Hard loop-block brake: repeated identical/normalized calls short-circuited;
+    # stops the session after repeated warnings.
     loop_blocked_since_progress: int = 0
+
 
 @dataclass(frozen=True)
 class _UserTurnCheckpoint:
@@ -124,10 +136,12 @@ class _UserTurnCheckpoint:
     pending_external_user_turn: dict[str, Any] | None
     pending_step_latency: float | None
     submitted_summary: str | None
+    # The per-turn enforcement window, snapshotted and rolled back as one unit.
     turn: TurnEnforcementState
     wind_down_done: bool
     wind_down_attempts: int
     wind_down_token_mark: int
+
 
 @dataclass
 class SessionState:
@@ -139,15 +153,14 @@ class SessionState:
     # Real size (provider ``input_tokens``) of the current context as of the
     # last LLM call. 0 means "no real measurement yet — fall back to estimate".
     context_tokens: int = 0
-    # max_steps is a session-lifetime cap, like used_tokens.
-    # reset_for_user_turn deliberately retains this count.
+    # Lifetime count: a new user turn must not renew the max_steps allowance.
     step_count: int = 0
-    # Session-lifetime tally of completions with recovered Kimi tool-call markup.
+    # Lifetime count of calls with recovered tool markup; observability only.
     markup_recovered: int = 0
-    # Checkpoint, restore, and reset the per-turn enforcement state as one unit.
+    # Checkpoint, restore, and reset the turn window as one unit.
     turn: TurnEnforcementState = field(default_factory=TurnEnforcementState)
-    # Durable within a turn so restore cannot grant extra protected submit calls.
-    # The token mark measures submit-turn cost. A new user turn resets these latches.
+    # Persist the current turn's protected-submit latch and starting token mark;
+    # the latter measures submit_turn_cost. Reset only for a new user turn.
     wind_down_done: bool = False
     # Counts protected provider calls allocated by the wind-down gate. It is
     # durable so a restore cannot re-grant the one compatibility retry.
@@ -158,14 +171,20 @@ class SessionState:
     # turns, but the same lifetime reserve must never be allocated twice.
     budget_reserve_consumed: bool = field(default=False, kw_only=True)
     phase: SessionPhase = SessionPhase.IDLE
-    # Terminal cause, cleared on resume to IDLE.
+    # Human-readable detail for the current terminal phase (e.g. the exception
+    # for ERROR, the token/step counts for the resource caps). ``None`` while
+    # the session is non-terminal; cleared on resume to IDLE.
     terminal_reason: str | None = None
     aid: int = -1
     pending_events: PendingEventTable = field(default_factory=PendingEventTable)
-    # Keep timestamps index-aligned in a sidecar so messages retain their API shape.
+    # Per-message creation timestamps (UTC ISO-8601), index-aligned with
+    # ``messages``. Kept as a sidecar so ``messages`` stays a clean,
+    # API-shaped list; merged into each message only when persisting.
     message_timestamps: list[str] = field(default_factory=list)
-    # Persist queued messages while the session is mid-turn,
-    # then append them to provider history when delivery is safe.
+    # User messages queued by the scheduler but not yet appended to
+    # ``messages`` because the session is mid-turn or awaiting tool results.
+    # These are persisted for observability/recovery without changing the
+    # provider-facing history until delivery is safe.
     pending_user_messages: list[dict[str, Any]] = field(default_factory=list)
     # An external user turn has already been appended but no runner has begun
     # it yet. Unlike scheduler-owned ``pending_user_messages``, this records
@@ -392,15 +411,10 @@ class SessionState:
         self.wind_down_token_mark = checkpoint.wind_down_token_mark
 
     def reset_for_user_turn(self) -> None:
-        """Prepare an existing session to accept a new user turn.
+        """Reset turn-local phase, enforcement signals, and wind-down latches.
 
-        Resets only *per-turn* state: the terminal phase (back to IDLE) and the
-        whole per-turn enforcement window. ``step_count`` and ``used_tokens`` are
-        intentionally preserved — both ``max_steps`` and ``max_budget_tokens``
-        are session-lifetime caps, so a long-lived interactive/messaged session
-        keeps accumulating across turns rather than getting a fresh allowance.
-        Durable wind-down latches are current-turn state and reset here. The
-        session-lifetime budget-reserve latch is intentionally preserved.
+        Preserve used_tokens, step_count, and the lifetime budget-reserve latch:
+        a new user turn must not renew the session's resource allowance.
         """
         self.resume_to_idle()
         self.turn = TurnEnforcementState()
@@ -418,12 +432,13 @@ class SessionState:
         *,
         card: dict[str, Any] | None = None,
     ) -> None:
-        """Record result novelty and optionally append a classified evidence card.
+        """Update novelty counters and, when supplied, append an evidence card.
 
-        A hit requires unseen content and call hashes plus a false
-        ``intrinsic_low_yield`` flag. Empty/no-match results remain low-yield even
-        when new. Remember both hashes and classify cards as ``hit``, ``NO-MATCH``
-        or ``duplicate`` using that same decision. ``card=None`` updates counters only.
+        A result is informative only if it is not intrinsically low-yield and both
+        content and normalized-call hashes are unseen. Informative results reset the
+        low-yield streak; all others extend it. Both hashes are remembered.
+        Cards use the same decision for hit, NO-MATCH, or duplicate; omitting a card
+        updates counters only. Brakes consuming these observations are configured elsewhere.
         """
         already_seen = (
             content_hash in self.turn.seen_result_hashes
@@ -436,6 +451,7 @@ class SessionState:
             self.turn.distinct_evidence_count += 1
             outcome = "hit"
         else:
+            # Retain the distinction between no result and a duplicate result.
             self.turn.low_yield_since_progress += 1
             outcome = "NO-MATCH" if intrinsic_low_yield else "duplicate"
         if card is not None:
