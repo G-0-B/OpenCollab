@@ -145,7 +145,7 @@ run directly.
 
 `RunResult.status` is `completed`, `stopped`, or `failed`. Only `completed` has
 `ok=True`; a stop retains its `reason` and partial work. `raise_for_status()`
-returns completed results or raises `RunError`, whose `result` retains the
+returns completed results or raises `RunError`; `exception.result` retains the
 original outcome. Invalid arguments raise before execution; lifecycle or
 persistence failures can raise `RunError` directly. Execution completion still
 requires task-specific verification before claiming the application is correct.

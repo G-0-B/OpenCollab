@@ -47,8 +47,9 @@ settings.
 `RunEvent` from `opencollab`. The effective `budget` is the hard authorization;
 `initial_soft_budget_tokens` starts a smaller allowance clipped to that grant.
 
-A sync or async `decide_budget(snapshot)` returns `BudgetDecision` to keep or
-increase the soft allowance. It runs at PRECHECK after cancellation and loop
+A sync or async `decide_budget(snapshot)` returns
+`BudgetDecision(soft_budget_tokens, final_prompt=None)` to keep or increase the
+soft allowance. It runs at PRECHECK after cancellation and loop
 checks, before budget wind-down, and after input estimation for each session
 request. A response that exceeds the soft allowance can also trigger
 `after_response` before the ordinary budget stop; hard exhaustion does not call

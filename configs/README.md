@@ -33,8 +33,8 @@ of that search. The selected file must exist and be a regular UTF-8 file.
 OpenCollab supports OpenAI-compatible APIs through the OpenAI client path. Set
 `provider=openai` and a compatible `base_url` for those providers.
 
-Write settings to `configs/.env`, or prefix each assignment with `export` in
-the shell. Never commit real keys.
+Write settings to `configs/.env`, or export the same variables from the shell.
+Replace placeholder values before use and never commit real keys.
 
 ```dotenv
 OPENCOLLAB_PROVIDER=openai
