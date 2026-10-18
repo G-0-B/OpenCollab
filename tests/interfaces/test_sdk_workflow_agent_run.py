@@ -30,11 +30,9 @@ class ReplyLLM:
     def close(self):
         self.closed += 1
 
-
 def client(path):
     path.mkdir(parents=True, exist_ok=True)
     return OpenCollab(path, model="test-model", config={"max_output_tokens": 128})
-
 
 @pytest.mark.asyncio
 async def test_real_workflow_creates_fresh_single2_sessions_and_uses_borrowed_llm(tmp_path, monkeypatch):
@@ -70,7 +68,6 @@ async def test_real_workflow_creates_fresh_single2_sessions_and_uses_borrowed_ll
     assert not any(m.get("content") == "first group" for m in llm.calls[1][0])
     assert llm.closed == 0
 
-
 @pytest.mark.asyncio
 async def test_shared_application_survives_between_real_tool_sessions(tmp_path):
     class EditingLLM(ReplyLLM):
@@ -99,7 +96,6 @@ async def test_shared_application_survives_between_real_tool_sessions(tmp_path):
     assert result.tokens == 18
     assert all(row.workspace_ready for row in result.output)
 
-
 @pytest.mark.asyncio
 async def test_explicit_finite_mode_survives_global_unbounded_setting(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENCOLLAB_UNBOUNDED_LIMITS", "true")
@@ -123,7 +119,6 @@ async def test_explicit_finite_mode_survives_global_unbounded_setting(tmp_path, 
     )
     assert limited.output.tokens == 6
     assert ordinary.output.hard_budget_tokens is None
-
 
 @pytest.mark.asyncio
 async def test_actual_grants_bound_competing_agent_runs(tmp_path):
@@ -152,7 +147,6 @@ async def test_actual_grants_bound_competing_agent_runs(tmp_path):
     assert sorted(r.hard_budget_tokens for r in result.output) == [1_000, 2_000]
     assert result.tokens == 12
 
-
 @pytest.mark.asyncio
 async def test_stage_timeout_waits_for_late_usage_before_next_stage(tmp_path):
     class SlowFirstLLM(ReplyLLM):
@@ -178,7 +172,6 @@ async def test_stage_timeout_waits_for_late_usage_before_next_stage(tmp_path):
     assert result.output[0].reason == "timeout"
     assert result.tokens == 66
 
-
 @pytest.mark.asyncio
 async def test_step_limit_is_reported_instead_of_success(tmp_path):
     class CallingLLM(ReplyLLM):
@@ -200,7 +193,6 @@ async def test_step_limit_is_reported_instead_of_success(tmp_path):
     assert "step limit" in result.output.reason
     assert result.output.steps == 1
     assert (tmp_path / "one.txt").exists()
-
 
 @pytest.mark.asyncio
 async def test_run_control_receives_actual_grant_and_matches_usage_events(tmp_path):
@@ -241,7 +233,6 @@ async def test_run_control_receives_actual_grant_and_matches_usage_events(tmp_pa
     assert sum(e.data["total_tokens"] for e in events if e.type == "usage") == result.tokens == 12
     assert {e.session_id for e in events} == {r.session_id for r in result.output}
 
-
 @pytest.mark.asyncio
 async def test_explicit_mode_and_injected_llm_reach_candidate_child(tmp_path, monkeypatch):
     (tmp_path / "source.txt").write_text("initial\n")
@@ -266,7 +257,6 @@ async def test_explicit_mode_and_injected_llm_reach_candidate_child(tmp_path, mo
     assert result.output.output.hard_budget_tokens == 1_000
     assert result.tokens == 6
     assert llm.closed == 0
-
 
 @pytest.mark.asyncio
 async def test_incomplete_cleanup_stops_later_generation_and_verification(tmp_path):
@@ -294,7 +284,6 @@ async def test_incomplete_cleanup_stops_later_generation_and_verification(tmp_pa
     assert result.output.reason == "cleanup incomplete"
     assert result.tokens == 6
 
-
 @pytest.mark.asyncio
 async def test_call_result_includes_cleanup_observer_failure_and_finishes_receiver(tmp_path):
     received = []
@@ -316,7 +305,6 @@ async def test_call_result_includes_cleanup_observer_failure_and_finishes_receiv
     assert received.count("cleanup_completed") == 1
     assert llm.closed == 0
 
-
 @pytest.mark.asyncio
 async def test_named_tools_work_without_a_workflow_profile(tmp_path):
     llm = ReplyLLM()
@@ -327,7 +315,6 @@ async def test_named_tools_work_without_a_workflow_profile(tmp_path):
     result = await client(tmp_path).workflow(flow, llm=llm, budget=100_000)
     assert result.ok and result.output.status == "completed"
     assert "file_write" in {tool["function"]["name"] for tool in llm.calls[0][1]}
-
 
 @pytest.mark.asyncio
 async def test_cancelled_writer_cannot_race_a_later_verification(tmp_path):
@@ -375,7 +362,6 @@ async def test_cancelled_writer_cannot_race_a_later_verification(tmp_path):
 
     result = await client(tmp_path).workflow(flow, llm=WritingLLM(), budget=10_000)
     assert result.ok and result.output == "settled"
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("late_write", [False, True])
@@ -467,7 +453,6 @@ async def test_concurrent_result_reports_shared_workspace_readiness(tmp_path, la
     )
     assert result.ok
     assert marker.read_text() == ("after" if late_write else "before")
-
 
 @pytest.mark.asyncio
 async def test_isolated_build_failure_reports_shared_workspace_readiness(tmp_path, monkeypatch):

@@ -56,7 +56,6 @@ class Environment:
             await self.cleanup_release.wait()
         self.cleanup_done.set()
 
-
 class Session:
     def __init__(self, *, outcome: str = "complete", auto_save_path: str | None = None) -> None:
         self.outcome = outcome
@@ -93,14 +92,11 @@ class Session:
     async def aclose(self) -> None:
         self.close_calls += 1
 
-
 def _agent() -> Agent:
     return Agent(name="agent", system_prompt="prompt", model="model", provider="provider")
 
-
 def _patch_session(monkeypatch, session: Session) -> None:
     monkeypatch.setattr(agent_runtime, "build_session", lambda **_kwargs: session)
-
 
 def test_agent_rejects_duplicate_normalized_tool_names() -> None:
     with pytest.raises(ValueError, match="duplicate tool names"):
@@ -110,13 +106,11 @@ def test_agent_rejects_duplicate_normalized_tool_names() -> None:
             tools=[NamedTool("reader"), NamedTool("ＲＥＡＤＥＲ")],
         )
 
-
 def test_agent_lookup_uses_same_normalization_as_uniqueness_check() -> None:
     tool = NamedTool("ＲＥＡＤＥＲ")
     agent = Agent(name="agent", system_prompt="prompt", tools=[tool])
 
     assert agent.find_tool("reader") is tool
-
 
 def test_agent_revalidates_tool_names_before_provider_schema_build() -> None:
     agent = Agent(
@@ -128,7 +122,6 @@ def test_agent_revalidates_tool_names_before_provider_schema_build() -> None:
 
     with pytest.raises(ValueError, match="duplicate tool names"):
         agent.tool_schemas()
-
 
 async def test_agent_runtime_returns_metrics_after_final_save(monkeypatch) -> None:
     session = Session(auto_save_path="agent.json")
@@ -155,7 +148,6 @@ async def test_agent_runtime_returns_metrics_after_final_save(monkeypatch) -> No
     assert environment.cleanup_calls == 1
     assert session.close_calls == 1
 
-
 async def test_agent_runtime_returns_quiescent_execution_failure(monkeypatch) -> None:
     session = Session(outcome="fail")
     _patch_session(monkeypatch, session)
@@ -174,7 +166,6 @@ async def test_agent_runtime_returns_quiescent_execution_failure(monkeypatch) ->
     assert result.phase == "error"
     assert result.environment_cleanup_quiesced is None
     assert result.environment_quiesced is None
-
 
 async def test_agent_runtime_timeout_leaves_caller_environment_active(monkeypatch) -> None:
     session = Session(outcome="block")
@@ -195,7 +186,6 @@ async def test_agent_runtime_timeout_leaves_caller_environment_active(monkeypatc
     assert not environment.revoked
     assert environment.abort_calls == 0
 
-
 async def test_agent_runtime_timeout_fails_when_abort_fails(monkeypatch) -> None:
     session = Session(outcome="block")
     _patch_session(monkeypatch, session)
@@ -211,7 +201,6 @@ async def test_agent_runtime_timeout_fails_when_abort_fails(monkeypatch) -> None
             transcript_path=None,
             cleanup_environment=True,
         )
-
 
 async def test_agent_runtime_timeout_still_aborts_when_revoke_fails(monkeypatch) -> None:
     session = Session(outcome="block")
@@ -230,7 +219,6 @@ async def test_agent_runtime_timeout_still_aborts_when_revoke_fails(monkeypatch)
             cleanup_environment=True,
         )
     assert environment.abort_calls == 1
-
 
 async def test_agent_runtime_caller_cancellation_leaves_caller_environment_active(monkeypatch) -> None:
     session = Session(outcome="block")
@@ -254,7 +242,6 @@ async def test_agent_runtime_caller_cancellation_leaves_caller_environment_activ
         await owner
     assert not environment.revoked
     assert environment.abort_calls == 0
-
 
 async def test_agent_runtime_caller_cancellation_rejects_lingering_owner(monkeypatch) -> None:
     class StubbornSession(Session):
@@ -299,7 +286,6 @@ async def test_agent_runtime_caller_cancellation_rejects_lingering_owner(monkeyp
         session.release.set()
         await asyncio.wait_for(session.finished.wait(), timeout=0.2)
 
-
 async def test_agent_runtime_double_cancellation_finishes_abort_and_save(monkeypatch) -> None:
     session = Session(outcome="block")
     _patch_session(monkeypatch, session)
@@ -326,7 +312,6 @@ async def test_agent_runtime_double_cancellation_finishes_abort_and_save(monkeyp
         await owner
     assert environment.abort_calls == 1
     assert session.save_calls == 1
-
 
 async def test_agent_runtime_cancellation_during_finalization_keeps_cleanup_owned(monkeypatch) -> None:
     session = Session()
@@ -361,7 +346,6 @@ async def test_agent_runtime_cancellation_during_finalization_keeps_cleanup_owne
     assert environment.cleanup_calls == 1
     assert session.save_calls == 1
 
-
 async def test_agent_runtime_retries_transient_finalization_failure(monkeypatch) -> None:
     session = Session()
     _patch_session(monkeypatch, session)
@@ -389,7 +373,6 @@ async def test_agent_runtime_retries_transient_finalization_failure(monkeypatch)
     assert result.outcome == "completed"
     assert attempts == 2
 
-
 async def test_agent_runtime_rejects_missing_final_save_owner(monkeypatch) -> None:
     session = Session(auto_save_path="agent.json")
     original_enqueue = session.enqueue_auto_save
@@ -416,7 +399,6 @@ async def test_agent_runtime_rejects_missing_final_save_owner(monkeypatch) -> No
     assert session.save_calls == 2
     assert environment.cleanup_calls == 2
     assert original_enqueue is not None
-
 
 async def test_agent_runtime_attempts_cleanup_after_pending_task_timeout(monkeypatch) -> None:
     session = Session()

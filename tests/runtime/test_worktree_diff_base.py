@@ -1,24 +1,7 @@
-"""A handoff must not put one agent's files in another agent's diff.
+"""Worktree diffs attribute handoff commits to their original author.
 
-Agents hand work over inside one repository: a coder commits in its own linked
-worktree and sends the sha to a tester, which runs ``git checkout <sha>`` in
-another linked worktree of the same repository (they share ``.git/objects``, so
-nothing is fetched and no patch is applied). The tester then writes its own
-files on top.
-
-``get_diff`` used to measure every worktree against ``_base_commit``, the HEAD
-pinned when that worktree was created. After a checkout that base is stale, so
-the tester's diff carried the coder's files too — and the scheduler's
-``worktree_changes`` record, which is the per-agent "who touched which file"
-evidence, filed them all under the tester.
-
-The base is now the commit HEAD was last moved *onto* rather than the one it
-*grew from*, read out of the worktree's own HEAD reflog. An agent's own commits
-therefore still count as its own work, and a worktree that never takes a handoff
-is measured exactly where it was before.
-
-These tests run real ``git`` against real linked worktrees. A mock cannot show
-this: the whole failure lives in what git reports for a base that has moved.
+After a checkout, the reflog supplies the commit HEAD moved onto as the new base.
+Real linked worktrees exercise shared Git objects and checkout behavior.
 """
 
 from __future__ import annotations
@@ -37,7 +20,6 @@ def _git(cwd, *args) -> str:
         text=True,
     ).stdout.strip()
 
-
 def _repo(path, *, object_format: str = "sha1"):
     """A committed repository — the precondition for linked worktrees."""
     path.mkdir()
@@ -49,11 +31,9 @@ def _repo(path, *, object_format: str = "sha1"):
     _git(path, "commit", "-qm", "base")
     return path
 
-
 def _changed_files(diff: str) -> list[str]:
     """What the scheduler's ``worktree_changes`` record would list."""
     return [path for path, _ in _parse_worktree_diff(diff)]
-
 
 async def test_an_agents_own_commits_stay_in_its_own_diff(tmp_path) -> None:
     """Committing is how work is handed over, so it must not erase the record."""
@@ -68,13 +48,11 @@ async def test_an_agents_own_commits_stay_in_its_own_diff(tmp_path) -> None:
         diff = await env.get_diff()
 
         assert _changed_files(diff) == ["f1.txt"]
-        # HEAD moved, but it grew from the base rather than jumping to someone
-        # else's commit, so the base did not move with it.
+        # A descendant commit advances HEAD while retaining the original diff base.
         assert _git(env.workspace, "rev-parse", "HEAD") != creation_base
         assert env.diff_base == creation_base
     finally:
         await env.cleanup()
-
 
 async def test_a_checked_out_teammate_commit_is_not_this_agents_work(tmp_path) -> None:
     """The bug this exists for: the tester's row must not claim the coder's file."""
@@ -89,7 +67,6 @@ async def test_a_checked_out_teammate_commit_is_not_this_agents_work(tmp_path) -
         assert _changed_files(await coder.get_diff()) == ["f1.txt"]
 
         await tester.setup()
-        # The handoff itself: same repository, shared object store, no fetch.
         assert (await tester.exec_cmd(f"git checkout -q {handoff_sha}")).returncode == 0
         await tester.write_file("f2.txt", "tester work\n")
 
@@ -101,7 +78,6 @@ async def test_a_checked_out_teammate_commit_is_not_this_agents_work(tmp_path) -
     finally:
         await tester.cleanup()
         await coder.cleanup()
-
 
 async def test_work_committed_after_a_handoff_still_belongs_to_the_taker(tmp_path) -> None:
     """Adopting a base and then committing on it are different moves."""
@@ -128,7 +104,6 @@ async def test_work_committed_after_a_handoff_still_belongs_to_the_taker(tmp_pat
         await tester.cleanup()
         await coder.cleanup()
 
-
 async def test_a_worktree_that_never_takes_a_handoff_is_measured_where_it_was(
     tmp_path,
 ) -> None:
@@ -149,7 +124,6 @@ async def test_a_worktree_that_never_takes_a_handoff_is_measured_where_it_was(
         assert _changed_files(diff) == ["committed.txt", "tracked.txt", "untracked.txt"]
     finally:
         await env.cleanup()
-
 
 async def test_a_reset_onto_a_teammate_commit_moves_the_base_too(tmp_path) -> None:
     """``checkout`` is not the only way to adopt another agent's commit."""
@@ -172,7 +146,6 @@ async def test_a_reset_onto_a_teammate_commit_moves_the_base_too(tmp_path) -> No
         await tester.cleanup()
         await coder.cleanup()
 
-
 async def test_a_non_git_worktree_names_no_base_and_diffs_as_before(tmp_path) -> None:
     """The directory-copy fallback has no revisions; it must be untouched."""
     source = tmp_path / "plain"
@@ -190,15 +163,8 @@ async def test_a_non_git_worktree_names_no_base_and_diffs_as_before(tmp_path) ->
     finally:
         await env.cleanup()
 
-
 async def test_the_commits_an_agent_made_are_reported_beside_the_base(tmp_path) -> None:
-    """A base alone cannot say whether the agent committed, or what it can hand over.
-
-    ``diff_base`` names where a stretch of work started. What a teammate can be
-    handed is the other end of it — the commits reachable from HEAD but not from
-    that base — and until a run records them, a sha another agent checks out has
-    nothing on disk to be joined against.
-    """
+    """Commits reachable from HEAD beyond diff_base identify the payload available for handoff."""
     source = _repo(tmp_path / "repo")
     env = WorktreeEnvironment(str(source), branch_name="own-commits-coder")
     try:
@@ -206,8 +172,6 @@ async def test_the_commits_an_agent_made_are_reported_beside_the_base(tmp_path) 
         creation_base = _git(env.workspace, "rev-parse", "HEAD")
 
         await env.get_diff()
-        # Nothing committed yet: HEAD is the base, and the list is empty rather
-        # than unavailable.
         assert env.head_commit == creation_base
         assert env.own_commits == ()
         assert env.own_commit_count == 0
@@ -223,12 +187,10 @@ async def test_the_commits_an_agent_made_are_reported_beside_the_base(tmp_path) 
 
         assert env.diff_base == creation_base
         assert env.head_commit == second
-        # Newest first, and both are listed — a teammate may be handed either.
         assert env.own_commits == (second, first)
         assert env.own_commit_count == 2
     finally:
         await env.cleanup()
-
 
 async def test_a_commit_adopted_from_a_teammate_is_not_counted_as_the_takers_own(
     tmp_path,
@@ -249,17 +211,14 @@ async def test_a_commit_adopted_from_a_teammate_is_not_counted_as_the_takers_own
         await tester.write_file("f2.txt", "tester work\n")
         await tester.get_diff()
 
-        # What the coder can hand over, and that the tester took exactly that.
         assert coder.own_commits == (handoff_sha,)
         assert tester.diff_base == handoff_sha
-        # The taker committed nothing of its own, so it claims none.
         assert tester.own_commits == ()
         assert tester.own_commit_count == 0
         assert tester.head_commit == handoff_sha
     finally:
         await tester.cleanup()
         await coder.cleanup()
-
 
 async def test_a_non_git_worktree_names_no_head_and_no_commits(tmp_path) -> None:
     """The directory-copy fallback has no revisions to report, and invents none."""
@@ -279,16 +238,10 @@ async def test_a_non_git_worktree_names_no_head_and_no_commits(tmp_path) -> None
     finally:
         await env.cleanup()
 
-
 async def test_a_handoff_is_read_in_a_sha256_repository_too(tmp_path) -> None:
-    """The same handoff, in a repository whose object ids are 64 characters.
+    """SHA-256 reflogs use 64-character IDs.
 
-    A harness that rebuilds the repository under test can choose SHA-256, and
-    the evaluation harness this project runs against does exactly that for
-    instances whose base tree is recorded that way. The base is read out of the
-    HEAD reflog, so a rule that recognised only 40-character ids would find no
-    entry it could parse, quietly fall back to the creation base, and report
-    every handoff as work the taker did itself — with nothing failing to say so.
+    A 40-character-only parser falls back to the creation base and misattributes handoffs.
     """
     source = _repo(tmp_path / "repo", object_format="sha256")
     coder = WorktreeEnvironment(str(source), branch_name="sha256-coder")
@@ -299,8 +252,7 @@ async def test_a_handoff_is_read_in_a_sha256_repository_too(tmp_path) -> None:
         assert (await coder.exec_cmd("git add -A && git commit -qm coder")).returncode == 0
         handoff_sha = _git(coder.workspace, "rev-parse", "HEAD")
         assert len(handoff_sha) == 64
-        # The scheduler reads an agent's evidence by taking its diff, so the
-        # coder's commit list is populated the same way it is in a real run.
+        # Populate commit evidence through the same diff read used by the scheduler.
         assert _changed_files(await coder.get_diff()) == ["f1.txt"]
 
         await tester.setup()

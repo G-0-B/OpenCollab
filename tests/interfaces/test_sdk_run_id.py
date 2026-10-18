@@ -1,11 +1,4 @@
-"""Every SDK run has one run id, and every file the run writes carries it.
-
-A single agent used to stamp its trajectory with its name and a workflow with
-the workflow's name, so every run of one setting shared one "run id" and the
-records of two runs could not be told apart. Only a team generated a unique
-one. A harness that launches runs can also pass its own id, so the files it
-writes join the files the run writes on one key.
-"""
+"""SDK artifacts share a run ID that distinguishes repeated runs of the same setting."""
 
 from __future__ import annotations
 
@@ -30,11 +23,9 @@ class ReplyLLM:
             finish_reason="stop",
         )
 
-
 @workflow(name="echo-flow", description="Echo one value")
 async def echo(_ctx, inputs):
     return {"answer": inputs["value"] + 1}
-
 
 def _records(path: Path) -> list[dict]:
     return [
@@ -42,7 +33,6 @@ def _records(path: Path) -> list[dict]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-
 
 async def _agent(tmp_path: Path, artifacts: Path, *, trace: bool = True, **kwargs):
     return await OpenCollab(tmp_path, model="model", provider="openai").agent(
@@ -54,11 +44,9 @@ async def _agent(tmp_path: Path, artifacts: Path, *, trace: bool = True, **kwarg
         **kwargs,
     )
 
-
 class FailingLLM:
     async def complete(self, messages, tools=None, temperature=0.0, **kwargs):
         raise RuntimeError("controlled agent failure")
-
 
 async def test_an_agent_run_id_is_unique_and_joins_trajectory_and_result(tmp_path):
     first = await _agent(tmp_path, tmp_path / "a")
@@ -70,7 +58,6 @@ async def test_an_agent_run_id_is_unique_and_joins_trajectory_and_result(tmp_pat
     records = _records(tmp_path / "a" / "trajectory.jsonl")
     assert records
     assert {record["run_id"] for record in records} == {run_id}
-
 
 @pytest.mark.parametrize("trace", [False, True])
 @pytest.mark.parametrize("run_id", [None, "batch-7-single"])
@@ -100,7 +87,6 @@ async def test_agent_snapshot_carries_run_identity_independently_of_tracing(
         assert {row["run_id"] for row in _records(artifacts / "trajectory.jsonl")} == {
             canonical_id
         }
-
 
 @pytest.mark.parametrize("trace", [False, True])
 @pytest.mark.parametrize(
@@ -146,7 +132,6 @@ async def test_loading_an_sdk_snapshot_keeps_the_selected_run_identity(
     finally:
         await restored.aclose()
 
-
 @pytest.mark.parametrize("saved_id", [None, "", "  ", 7, "invalid\x00id"])
 def test_loading_an_unusable_saved_run_id_preserves_agent_identity(tmp_path, saved_id):
     path = tmp_path / "snapshot.json"
@@ -161,7 +146,6 @@ def test_loading_an_unusable_saved_run_id_preserves_agent_identity(tmp_path, sav
     assert restored.run_id is None
     assert restored.state.aid == 7
 
-
 @pytest.mark.parametrize("document", [None, "{}"])
 def test_loading_an_unreadable_snapshot_preserves_the_restore_error(tmp_path, document):
     path = tmp_path / "snapshot.json"
@@ -173,7 +157,6 @@ def test_loading_an_unreadable_snapshot_preserves_the_restore_error(tmp_path, do
     with pytest.raises(error, match=re.escape(message)):
         load_session(str(path), agent=Agent(name="saved", system_prompt="sys"), llm=ReplyLLM())
 
-
 async def test_a_workflow_run_id_is_unique_and_joins_manifest_and_result(tmp_path):
     client = OpenCollab(tmp_path)
     first = await client.workflow(echo, {"value": 3}, artifacts=tmp_path / "a", trace=True)
@@ -184,7 +167,6 @@ async def test_a_workflow_run_id_is_unique_and_joins_manifest_and_result(tmp_pat
     assert second.metrics["run_id"] != run_id
     manifest = json.loads((tmp_path / "a" / "workflow.json").read_text(encoding="utf-8"))
     assert manifest["run_id"] == run_id
-
 
 @pytest.mark.parametrize("trace", [False, True])
 @pytest.mark.parametrize("run_id", [None, "batch-7-workflow"])
@@ -207,7 +189,6 @@ async def test_workflow_manifest_keeps_identity_independently_of_tracing(tmp_pat
     else:
         assert manifest["run_id"] == run_id
     assert manifest["trace_enabled"] is trace
-
 
 @pytest.mark.parametrize("trace", [False, True])
 @pytest.mark.parametrize("explicit_run_id", [None, "harness-run-9"])
@@ -240,7 +221,6 @@ async def test_scheduler_manifest_uses_one_run_identity(tmp_path, trace, explici
         if ctx.tracer is not None:
             ctx.tracer.close()
         await scheduler.cleanup()
-
 
 @pytest.mark.parametrize("bad", ["", "  ", 7])
 async def test_a_run_id_must_be_a_non_empty_string(tmp_path, bad):

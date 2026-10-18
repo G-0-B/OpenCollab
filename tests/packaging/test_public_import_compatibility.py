@@ -19,7 +19,6 @@ def test_application_facades_reexport_timeout_helper() -> None:
     assert tool_execution_abandon_on_timeout is abandon_on_timeout
     assert workflow_abandon_on_timeout is abandon_on_timeout
 
-
 def test_safe_file_facade_retains_public_operations() -> None:
     facade = importlib.import_module("opencollab.adapters.safe_files")
     operations = {
@@ -44,7 +43,6 @@ def test_safe_file_facade_retains_public_operations() -> None:
 
     assert operations <= set(facade.__all__)
     assert all(callable(getattr(facade, name)) for name in operations)
-
 
 def test_safe_file_facade_composed_operations_use_current_bindings(
     tmp_path,
@@ -82,7 +80,6 @@ def test_safe_file_facade_composed_operations_use_current_bindings(
     )
     assert ensured == [tmp_path]
 
-
 def test_added_runtime_fields_preserve_legacy_construction() -> None:
     message = QueuedTeammateMessage(
         from_aid=1,
@@ -103,7 +100,6 @@ def test_added_runtime_fields_preserve_legacy_construction() -> None:
 
     assert message.sent_at == ""
     assert runtime.auto_save_subscriber is None
-
 
 def test_workflow_runtime_retains_its_declared_public_bindings() -> None:
     module = importlib.import_module("opencollab.bootstrap.workflow_runtime")

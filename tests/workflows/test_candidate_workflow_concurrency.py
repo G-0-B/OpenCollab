@@ -32,7 +32,6 @@ def _repository(root: Path) -> Path:
     subprocess.run(["git", "-C", str(root), "commit", "-qm", "initial"], check=True)
     return root
 
-
 def _context(repository: Path, sessions: list[FakeSession], concurrency: int) -> WorkflowContext:
     environment = LocalEnvironment(str(repository))
     return WorkflowContext(
@@ -41,7 +40,6 @@ def _context(repository: Path, sessions: list[FakeSession], concurrency: int) ->
         task_concurrency=concurrency,
         candidate_workspace=EnvCandidateWorkspace(environment),
     )
-
 
 @pytest.mark.asyncio
 async def test_parallel_candidate_children_share_parent_agent_session_cap(tmp_path: Path) -> None:
@@ -97,7 +95,6 @@ async def test_parallel_candidate_children_share_parent_agent_session_cap(tmp_pa
     assert [getattr(result, "output", None) for result in results] == ["done", "done"], results
     assert high_water == 2
 
-
 @pytest.mark.asyncio
 async def test_nested_candidate_pipelines_share_workflow_task_cap(tmp_path: Path) -> None:
     running = 0
@@ -146,7 +143,6 @@ async def test_nested_candidate_pipelines_share_workflow_task_cap(tmp_path: Path
     assert [result.output for result in results] == ["done", "done"]
     assert high_water == 2
 
-
 @pytest.mark.asyncio
 async def test_nested_candidate_pipeline_borrows_parent_task_slot_at_cap_one(tmp_path: Path) -> None:
     entered = asyncio.Event()
@@ -172,7 +168,6 @@ async def test_nested_candidate_pipeline_borrows_parent_task_slot_at_cap_one(tmp
     results = await asyncio.wait_for(task, timeout=10)
 
     assert results[0].output == "1,2"
-
 
 @pytest.mark.asyncio
 async def test_candidate_child_parallelism_uses_available_cap_without_deadlock(tmp_path: Path) -> None:
@@ -213,7 +208,6 @@ async def test_candidate_child_parallelism_uses_available_cap_without_deadlock(t
     assert result.output == "done"
     assert high_water == 2
 
-
 @pytest.mark.asyncio
 async def test_candidate_child_finishes_with_single_session_slot(tmp_path: Path) -> None:
     parent = _context(
@@ -232,7 +226,6 @@ async def test_candidate_child_finishes_with_single_session_slot(tmp_path: Path)
     )
 
     assert result.output == "done,done"
-
 
 @pytest.mark.asyncio
 async def test_parent_agent_overlaps_candidate_child_within_shared_cap(tmp_path: Path) -> None:
@@ -287,7 +280,6 @@ async def test_parent_agent_overlaps_candidate_child_within_shared_cap(tmp_path:
     assert (await candidate_task).output == "done"
     assert high_water == 2
 
-
 @pytest.mark.asyncio
 async def test_timed_out_candidate_child_keeps_single_slot_until_cleanup_finishes(
     tmp_path: Path,
@@ -339,7 +331,6 @@ async def test_timed_out_candidate_child_keeps_single_slot_until_cleanup_finishe
     assert parent_started.is_set()
     assert len(factory.builds) == 2
 
-
 @pytest.fixture
 def repository(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENCOLLAB_UNBOUNDED_LIMITS", raising=False)
@@ -353,7 +344,6 @@ def repository(tmp_path, monkeypatch):
     ):
         subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
     return tmp_path
-
 
 @pytest.mark.parametrize("concurrency", [1, 2])
 @pytest.mark.parametrize("depth", [0, 2])
@@ -432,7 +422,6 @@ async def test_public_candidate_tree_respects_provider_capacity(repository, monk
     assert rejected == active == 0
     assert peak == concurrency
 
-
 async def test_candidate_task_capacity_is_independent_of_agent_capacity(repository):
     started = asyncio.Event()
     release = asyncio.Event()
@@ -477,7 +466,6 @@ async def test_candidate_task_capacity_is_independent_of_agent_capacity(reposito
     assert candidate.output == ["ordinary task", "ordinary task"]
     assert parent.agent_failures == ()
 
-
 @pytest.mark.parametrize("ending", ["error", "cancel"])
 async def test_candidate_exit_returns_shared_agent_slot(repository, ending):
     started = asyncio.Event()
@@ -518,7 +506,6 @@ async def test_candidate_exit_returns_shared_agent_slot(repository, ending):
     assert await asyncio.wait_for(parent.agent("later agent"), timeout=5) == "later"
     assert parent.pending_cleanup_tasks == ()
 
-
 async def test_candidate_and_nested_collection_complete_with_one_slot(repository):
     parent = WorkflowContext(
         FakeFactory([FakeSession(), FakeSession()]), max_concurrency=1,
@@ -534,7 +521,6 @@ async def test_candidate_and_nested_collection_complete_with_one_slot(repository
 
     assert candidates[0].output == ["done", "done"]
     assert parent.agent_failures == ()
-
 
 @pytest.mark.parametrize("capacity", [1, 2])
 @pytest.mark.parametrize("outer_collection", [False, True])
@@ -570,7 +556,6 @@ async def test_parallel_candidate_collections_share_task_capacity(repository, ca
     assert peak == capacity
     assert [candidate.output for candidate in candidates] == [["completed", "completed"]] * 2
     assert parent.agent_failures == ()
-
 
 async def test_timed_out_child_holds_shared_slot_until_cleanup_finishes(repository):
     slow = CancelCleanupSession()

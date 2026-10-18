@@ -31,7 +31,6 @@ class DockerWorkspaceEnvironment(DockerEnvironment):
             timeout_returncode=timeout_returncode,
         )
 
-
 __all__ = [
     "ContainerWorktreeEnvironment",
     "DockerEnvironment",

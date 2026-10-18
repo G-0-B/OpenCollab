@@ -10,19 +10,16 @@ def test_allow_all_permits_every_edge():
     assert topo.allows("lead", "coder")
     assert topo.allows("anyone", "anyone-else")
 
-
 def test_explicit_edges_permit_only_listed_targets():
     topo = Topology(edges={"lead": frozenset({"coder", "reviewer"}), "coder": frozenset({"reviewer"})})
     assert topo.allows("lead", "coder")
     assert topo.allows("lead", "reviewer")
     assert topo.allows("coder", "reviewer")
 
-
 def test_unlisted_edge_is_denied():
     topo = Topology(edges={"lead": frozenset({"coder"})})
     assert not topo.allows("lead", "reviewer")
-    assert not topo.allows("coder", "lead")  # coder has no entry at all
-
+    assert not topo.allows("coder", "lead")
 
 def test_empty_topology_denies_everything():
     topo = Topology()

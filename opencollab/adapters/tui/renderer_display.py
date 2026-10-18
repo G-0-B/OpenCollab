@@ -1,12 +1,7 @@
-"""Display building for the TUI: team panel, live viewport, and block chrome.
+"""Build the TUI's in-flight HUD, status row, and block chrome.
 
-Mixed into ``renderer.TUI`` — methods render the state that
-``renderer_events`` maintains. Also owns the shared style palette.
-
-Settled blocks are printed to scrollback by ``renderer``; what is built here is
-only the in-flight remainder — the HUD the prompt paints above its input line —
-so the frame stays proportional to its content instead of claiming rows it has
-nothing to say in.
+Mixed into ``renderer.TUI`` to render state maintained by ``renderer_events``.
+``renderer`` prints settled blocks to scrollback. This module owns the palette.
 """
 
 from __future__ import annotations
@@ -30,25 +25,17 @@ from opencollab.adapters.tui.theme import (
 )
 from opencollab.application.scheduler_types import roster_display_state
 
-# Ceiling on the HUD body, in terminal rows. The frame carries only in-flight
-# chrome, so it is normally far shorter; this bounds the pathological case (a
-# long streamed answer) so the HUD can never push the input line off the screen
-# it shares with the transcript.
+# Cap the HUD body so a long streamed answer cannot push input off screen.
 MAX_LIVE_BODY_LINES = 12
 
-
 def collapse_rows(value: str) -> str:
-    """Fold CR/LF into spaces so one line of chrome stays one terminal row.
+    """Fold CR/LF into spaces to keep uncontrolled text on one status row.
 
-    Chrome quotes text the renderer does not control — a shell command, a tool
-    argument, an error reason. A newline in any of them turns the single shared
-    status row into three, which is the regression the one-row chrome exists to
-    prevent. Width is already handled downstream by truncation.
+    Width truncation is handled downstream.
     """
     if "\n" not in value and "\r" not in value:
         return value
     return " ".join(value.replace("\r\n", "\n").replace("\r", "\n").split("\n"))
-
 
 def collapse_text_rows(text: Text) -> Text:
     """``collapse_rows`` for a styled ``Text``.
@@ -60,7 +47,6 @@ def collapse_text_rows(text: Text) -> Text:
     if "\n" not in plain and "\r" not in plain:
         return text
     return Text(collapse_rows(plain), style=text.style)
-
 
 class _LineViewport:
     """A pre-rendered, bottom-aligned view of a taller body.
@@ -81,12 +67,9 @@ class _LineViewport:
             if self.close or index < len(self.lines) - 1:
                 yield Segment.line()
 
-
 class _RendererDisplayMixin:
     """Builds Rich renderables from the TUI's current state."""
 
-    # Neutral terminal chrome with one sparse OC-violet focus color. Warning and
-    # error hues are reserved for exceptional outcomes, not ordinary activity.
     _STYLE_MUTED = MUTED
     _STYLE_SUBTLE = SUBTLE
     _STYLE_ACCENT = BRAND_VIOLET
@@ -96,7 +79,6 @@ class _RendererDisplayMixin:
     _STYLE_HEADING = f"bold {PRIMARY}"
     _STYLE_KEY = SUBTLE
 
-    # Bold marker glyphs for activity lines — a marker reads louder than its sentence.
     _MARK_START = ("▸ ", BRAND_VIOLET)
     _MARK_DONE = ("▪ ", SUCCESS)
     _MARK_FAIL = ("✗ ", f"bold {ERROR}")
@@ -247,16 +229,9 @@ class _RendererDisplayMixin:
         return None
 
     def _build_status_row(self) -> Text | None:
-        """The whole live frame's chrome on one row: activity, then roster.
+        """Build one status row with activity first and the roster after it.
 
-        Everything the frame says about *state* shares this single row — it is
-        the terminal's bottom status bar. Stacking it (a heading per tool, a row
-        per status note, a roster line) cost up to a dozen rows and pushed the
-        settled transcript off the screen it belongs on.
-
-        Activity goes left because it is the volatile half and the half that
-        must never be the one truncated; the roster already knows how to shrink
-        into whatever width is left.
+        Preserve activity by shrinking the roster to the remaining width.
         """
         width = max(1, self.console.width)
         line = Text(no_wrap=True, overflow="ellipsis")
@@ -291,8 +266,8 @@ class _RendererDisplayMixin:
         from rich.table import Table
 
         grid = Table.grid(padding=(0, 1))
-        grid.add_column(no_wrap=True)   # narrow ◆ gutter (top-aligned by default)
-        grid.add_column(ratio=1)        # markdown body
+        grid.add_column(no_wrap=True)
+        grid.add_column(ratio=1)
         grid.add_row(Text("◆", style=MARK_HEX), body)
         return grid
 
@@ -326,15 +301,12 @@ class _RendererDisplayMixin:
         return Rule(Text(title, style=self._STYLE_HEADING), style=self._STYLE_MUTED)
 
     def _build_body(self) -> Any | None:
-        """The in-flight content above the status row: the streaming answer.
+        """Build the streaming answer above the status row.
 
-        Settled blocks are not included: they already went to scrollback. Tool
-        progress, status notes and the roster are not here either — they are
-        chrome, and chrome lives on the one status row.
+        Settled blocks live in scrollback and tool progress lives in the status row.
         """
         if not self._current_text:
             return None
-        # Current streaming chunk — fronted by the brand ◆ gutter marker.
         return self._assistant_block(Markdown(self._current_text))
 
     def _build_display(self) -> Any:
@@ -342,24 +314,15 @@ class _RendererDisplayMixin:
         body = self._build_body()
         status = self._build_status_row()
         if body is None:
-            # Nothing yet — still animate the wait so first-token latency doesn't
-            # look frozen. Route the placeholder through the same pulsing dot.
+            # Keep the pulsing wait indicator until the first content arrives.
             return status or self._thinking or self._new_thinking_bar("Thinking…")
         return Group(body, status) if status is not None else body
 
     def _build_hud(self) -> Any | None:
-        """Build the rows painted ABOVE the input line, sized to their content.
+        """Build content-sized rows above the input, or ``None`` when idle.
 
-        The in-flight body only. The status row sits under the input line now,
-        so it is no longer part of this frame and no longer costs it a row.
-
-        The body is capped at ``MAX_LIVE_BODY_LINES`` (and at the terminal
-        height) and shows its tail when it overflows. It is never padded out to
-        the terminal height: every row the HUD claims is a row the transcript
-        above it loses, and the input line has to stay visible under it.
-
-        ``None`` means nothing is streaming — between turns there is no reason
-        to hold a row above the input at all.
+        Cap the body at ``MAX_LIVE_BODY_LINES`` and the terminal height, showing its
+        tail on overflow. Keep it unpadded to leave room for scrollback and input.
         """
         body = self._build_body()
         if body is None:

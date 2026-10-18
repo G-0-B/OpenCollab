@@ -1,14 +1,7 @@
-"""Minimal LLM interface — thin wrapper over OpenAI-compatible API.
+"""LLM clients for OpenAI-compatible endpoints and native Anthropic requests.
 
-Supports any OpenAI-compatible provider (OpenAI, DeepSeek, local models)
-and Anthropic natively. No custom message format — uses standard dicts.
-
-This package keeps one provider per module behind the ``LLMClient`` facade:
-
-- ``types``      — response containers, model metadata, token estimators
-- ``retry``      — transient-error retry policy
-- ``openai_provider`` / ``anthropic_provider`` — request build/parse per provider
-- ``client``     — the ``LLMClient`` facade dispatching to providers
+``LLMClient`` dispatches to provider adapters using shared response types,
+model metadata, token estimators, and retry handling.
 """
 
 from opencollab.adapters.llm.client import LLMClient

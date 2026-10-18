@@ -14,7 +14,6 @@ _TITLE = re.compile(
     r"(\([a-z0-9._/ -]+\))?!?: .+$"
 )
 
-
 def validate_title(title: str) -> str | None:
     """Return an error message when *title* violates the repository convention."""
     if "\n" in title or "\r" in title:
@@ -31,7 +30,6 @@ def validate_title(title: str) -> str | None:
         return "title summary must use English"
     return None
 
-
 def is_merge_commit(repository: Path, commit: str) -> bool:
     """Return whether *commit* has more than one parent."""
     completed = subprocess.run(
@@ -42,7 +40,6 @@ def is_merge_commit(repository: Path, commit: str) -> bool:
         text=True,
     )
     return len(completed.stdout.split()) > 1
-
 
 def commit_subject(repository: Path, commit: str) -> str:
     """Read the canonical subject from the commit object named by *commit*."""
@@ -55,14 +52,12 @@ def commit_subject(repository: Path, commit: str) -> str:
     )
     return completed.stdout.rstrip("\n")
 
-
 def _arguments(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--title")
     source.add_argument("--commit")
     return parser.parse_args(argv)
-
 
 def main(argv: list[str] | None = None) -> int:
     args = _arguments(argv)
@@ -83,7 +78,6 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(f"Conventional title check passed for {title!r}.")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

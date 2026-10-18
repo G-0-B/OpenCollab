@@ -36,7 +36,6 @@ def _run_session(calls):
     assert known_tool.calls == []
     return session, [step for step in tracer.steps if step["step_type"] == "tool_error"]
 
-
 def test_out_of_role_call_in_a_session_is_traced():
     _, errors = _run_session([tool_call(name="missing_tool", arguments='{"value": 1}')])
 
@@ -46,7 +45,6 @@ def test_out_of_role_call_in_a_session_is_traced():
     assert payload["error"] == "unknown_tool"
     assert payload["batch_rejected"] is False
 
-
 def test_every_call_of_a_rejected_batch_is_traced():
     calls = [
         tool_call(name="known_tool", arguments='{"value": 1}', call_id="call-ok"),
@@ -55,7 +53,6 @@ def test_every_call_of_a_rejected_batch_is_traced():
 
     session, errors = _run_session(calls)
 
-    # The model-facing replies are unchanged: both calls answer with the batch refusal.
     replies = [m for m in session.messages if m.get("role") == "tool"]
     assert [m["tool_call_id"] for m in replies] == ["call-ok", "call-out"]
     assert all("entire tool-call batch rejected" in m["content"] for m in replies)

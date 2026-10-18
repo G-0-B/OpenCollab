@@ -51,5 +51,4 @@ async def close_session_resources(
         task.add_done_callback(consume_task_result)
     return succeeded and not pending
 
-
 __all__ = ["close_session_resources"]

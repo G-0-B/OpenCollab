@@ -12,14 +12,11 @@ from pathlib import Path
 # Most pairs share a directory. Duo keeps its translation in a guide directory.
 _SEPARATE_PAIRS = {"docs/duo.md": "docs/duo/README.zh-CN.md"}
 
-
 def _git(repository: Path, *args: str) -> bytes:
     return subprocess.check_output(["git", *args], cwd=repository)
 
-
 def _paths(payload: bytes) -> set[str]:
     return {os.fsdecode(path) for path in payload.split(b"\0") if path}
-
 
 def missing_translations(repository: Path, base: str, head: str) -> list[tuple[str, str]]:
     """Compare the PR's net changes from its merge base, including removed pairs."""
@@ -34,7 +31,6 @@ def missing_translations(repository: Path, base: str, head: str) -> list[tuple[s
         for english, chinese in pairs
         if english in files and chinese in files and english in changed and chinese not in changed
     )
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = ArgumentParser(description=__doc__)
@@ -52,7 +48,6 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print("Documentation translation check passed.")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

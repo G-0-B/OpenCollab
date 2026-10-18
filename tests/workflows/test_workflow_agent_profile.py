@@ -24,7 +24,6 @@ SCHEMA = {
     "required": ["choice"],
 }
 
-
 class _EvidenceBash:
     def __init__(self, tool):
         self.tool = tool
@@ -44,7 +43,6 @@ class _EvidenceBash:
         result = await self.tool.execute_with_runtime(params, runtime)
         self.records.append((dict(params), result))
         return result
-
 
 class _RoleLLM:
     def __init__(self, tool_names, tool_choice):
@@ -78,7 +76,6 @@ class _RoleLLM:
             usage=Usage(4, 2),
         )
 
-
 def _capture_sessions(monkeypatch):
     sessions = []
     original = workflow_session.build_session
@@ -92,7 +89,6 @@ def _capture_sessions(monkeypatch):
 
     monkeypatch.setattr(workflow_session, "build_session", build)
     return sessions
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("profile", ["single2", "base", "default", "single"])
@@ -147,7 +143,6 @@ async def test_public_workflow_profiles_both_coders_and_structured_judge(tmp_pat
     assert "structured submission requirement takes precedence" in judge.system_prompt
     assert "available tools are `structured_output`" in judge.system_prompt
 
-
 @pytest.mark.asyncio
 async def test_default_and_profiled_workflows_keep_separate_tool_defaults(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENCOLLAB_UNBOUNDED_LIMITS", raising=False)
@@ -192,7 +187,6 @@ async def test_default_and_profiled_workflows_keep_separate_tool_defaults(tmp_pa
     }])
     assert not shaped[0]["content"].endswith("TAIL")
 
-
 @pytest.mark.asyncio
 async def test_explicit_workflow_tool_objects_keep_their_configuration(tmp_path, monkeypatch):
     sessions = _capture_sessions(monkeypatch)
@@ -208,7 +202,6 @@ async def test_explicit_workflow_tool_objects_keep_their_configuration(tmp_path,
     assert result.ok
     assert sessions[0][0].agent.tools == list(explicit)
     assert sessions[0][0].agent.tools[0] is explicit[0]
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("profile", [None, "single2"])
@@ -239,7 +232,6 @@ async def test_corrective_model_input_retains_current_single_tool_permissions(tm
         assert "available tools are `structured_output`, `file_read`" not in corrective_system[0]["content"]
     assert any(message.get("content") == "finished" for message in corrective_messages)
 
-
 @pytest.mark.asyncio
 async def test_invalid_workflow_profile_is_rejected_before_execution(tmp_path):
     async def flow(ctx, inputs):
@@ -247,7 +239,6 @@ async def test_invalid_workflow_profile_is_rejected_before_execution(tmp_path):
 
     with pytest.raises(ValueError, match="profile"):
         await OpenCollab(tmp_path).workflow(flow, agent_profile="unknown")
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("profile", [None, "single2"])
@@ -267,7 +258,6 @@ async def test_profile_selection_keeps_workflow_unbounded_limits(tmp_path, monke
     assert sessions[0][0].max_budget_tokens is None
     assert sessions[0][0].max_steps is None
 
-
 @pytest.mark.asyncio
 async def test_profile_tool_defaults_restore_after_workflow_failure(tmp_path):
     async def flow(ctx, inputs):
@@ -279,7 +269,6 @@ async def test_profile_tool_defaults_restore_after_workflow_failure(tmp_path):
     assert result.status == "failed"
     assert result.metrics["agent_profile"] == "single2"
     assert builtin_tools("bash")[0].max_output_chars == 8_000
-
 
 def test_public_profile_tool_defaults_are_independent():
     defaults = profile_tool_limits("single2")

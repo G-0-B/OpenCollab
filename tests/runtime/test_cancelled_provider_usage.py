@@ -49,16 +49,13 @@ class _DelayedProvider:
             raise RuntimeError("late provider failure")
         return llm_response(content="provider response", input_tokens=13, output_tokens=24)
 
-
 async def _drain(session):
     while session.pending_cleanup_tasks or session.runner.pending_cleanup_tasks:
         await asyncio.gather(*session.pending_cleanup_tasks, return_exceptions=True)
         await asyncio.sleep(0)
 
-
 def _message_payloads(messages):
     return [{key: value for key, value in message.items() if key != "timestamp"} for message in messages]
-
 
 async def _abandon_call(session, provider, trigger):
     call = asyncio.create_task(session.run_loop())
@@ -71,7 +68,6 @@ async def _abandon_call(session, provider, trigger):
         with pytest.raises(GenerationTimeoutError):
             await asyncio.wait_for(call, 1)
     await asyncio.wait_for(provider.cancelled.wait(), 1)
-
 
 @pytest.mark.parametrize("protected_call", [False, True])
 @pytest.mark.parametrize(
@@ -172,7 +168,6 @@ async def test_session_accounts_only_successful_abandoned_response_once(
         await asyncio.gather(call, return_exceptions=True)
         await _drain(session)
 
-
 @pytest.mark.parametrize("trigger", ["cancel", "timeout"])
 async def test_late_usage_autosave_failure_remains_visible(trigger, tmp_path):
     error = OSError("late usage save failed")
@@ -214,7 +209,6 @@ async def test_late_usage_autosave_failure_remains_visible(trigger, tmp_path):
         provider.release.set()
         await _drain(session)
 
-
 @pytest.mark.parametrize("trigger", ["cancel", "timeout"])
 async def test_late_summary_usage_is_automatically_saved(trigger, tmp_path):
     provider = _DelayedProvider()
@@ -246,7 +240,6 @@ async def test_late_summary_usage_is_automatically_saved(trigger, tmp_path):
         provider.release.set()
         await _drain(session)
 
-
 async def test_session_accounts_provider_success_when_cancellation_races_with_completion():
     class Provider:
         async def complete(self, **kwargs):
@@ -265,7 +258,6 @@ async def test_session_accounts_provider_success_when_cancellation_races_with_co
     assert session.runner.late_provider_usage == (37,)
     assert all(message.get("content") != "racing response" for message in session.messages)
 
-
 class _ChildFactory:
     def __init__(self, provider, auto_save_path=None):
         self.provider = provider
@@ -280,7 +272,6 @@ class _ChildFactory:
             auto_save_path=self.auto_save_path,
         )
         return self.session
-
 
 @pytest.mark.parametrize("cancel", [False, True])
 async def test_scheduler_preserves_child_usage_after_parent_cancellation(cancel, tmp_path, monkeypatch):

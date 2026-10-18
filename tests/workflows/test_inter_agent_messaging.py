@@ -42,7 +42,6 @@ class PersistingFakeSession(FakeSession):
         with open(path, "w") as f:
             json.dump(obj, f)
 
-
 class RespondingFakeSession(FakeSession):
     """Fake that records a complete user/assistant turn in SessionState."""
 
@@ -57,10 +56,8 @@ class RespondingFakeSession(FakeSession):
         self.state.mark_done()
         return result
 
-
 def _scheduler_events(events):
     return [e for e in events if isinstance(e, SchedulerEvent)]
-
 
 def _assert_teammate_envelope(delivery, *, sender, summary, content):
     root = ET.fromstring(delivery)
@@ -70,7 +67,6 @@ def _assert_teammate_envelope(delivery, *, sender, summary, content):
     assert len(root.attrib["message_id"]) == 32
     assert root.text == f"\n{content}\n"
     return root
-
 
 def _register_child(scheduler, session, *, aid: int = 1) -> None:
     session.state.aid = aid
@@ -84,7 +80,6 @@ def _register_child(scheduler, session, *, aid: int = 1) -> None:
     )
     scheduler._sessions[aid] = session
 
-
 async def _wait_agent_idle(scheduler, aid: int) -> None:
     for _ in range(5):
         task = scheduler._tasks.get(aid)
@@ -93,7 +88,6 @@ async def _wait_agent_idle(scheduler, aid: int) -> None:
         await task
         if scheduler._tasks.get(aid) is task and not scheduler._message_inbox.get(aid):
             return
-
 
 def test_run_turn_routes_raw_user_message_to_selected_child():
     teammate = RespondingFakeSession(["direct answer"], role="coder")
@@ -110,7 +104,6 @@ def test_run_turn_routes_raw_user_message_to_selected_child():
     assert scheduler._sessions[0].added == []
     assert scheduler.table.get(1).result == "direct answer"
 
-
 def test_run_turn_rejects_unknown_or_non_addressable_aid():
     scheduler, _ = _build_scheduler(FakeSession([], role="coder"))
 
@@ -118,7 +111,6 @@ def test_run_turn_rejects_unknown_or_non_addressable_aid():
         run(scheduler.run_turn(7, "hello"))
     with pytest.raises(ValueError, match="non-negative integer"):
         run(scheduler.run_turn(-1, "hello"))
-
 
 def test_run_turn_rejects_busy_target_without_mutating_history():
     teammate = RespondingFakeSession(["unused"], role="coder")
@@ -142,7 +134,6 @@ def test_run_turn_rejects_busy_target_without_mutating_history():
 
     assert teammate.added == []
 
-
 def test_agent_step_count_reads_selected_session():
     teammate = FakeSession([], role="coder")
     teammate.state.set_step_count(7)
@@ -150,7 +141,6 @@ def test_agent_step_count_reads_selected_session():
     _register_child(scheduler, teammate)
 
     assert scheduler.agent_step_count(1) == 7
-
 
 def test_send_message_queues_xml_and_returns_ack():
     teammate = FakeSession(["spawn result", "message result"], role="coder")
@@ -177,7 +167,6 @@ def test_send_message_queues_xml_and_returns_ack():
     assert "agent_message_sent" in types
     assert "agent_message_delivered" in types
 
-
 def test_send_message_to_idle_target_schedules_background_run():
     teammate = FakeSession(["message result"], role="coder")
     scheduler, _ = _build_scheduler(teammate)
@@ -196,7 +185,6 @@ def test_send_message_to_idle_target_schedules_background_run():
     assert ack == "Message queued to aid 1."
     assert len(teammate.added) == 1
     assert scheduler.table.get(1).result == "message result"
-
 
 def test_message_events_cannot_strand_a_durable_delivery():
     class FailingPublisher:
@@ -226,7 +214,6 @@ def test_message_events_cannot_strand_a_durable_delivery():
     assert scheduler.table.get(1).result == "message result"
     assert scheduler._message_inbox.get(1) == []
     assert teammate.state.pending_user_messages == []
-
 
 def test_message_sent_event_can_reenter_same_target_without_locking_up():
     teammate = FakeSession(["first handled", "second handled"], role="coder")
@@ -270,7 +257,6 @@ def test_message_sent_event_can_reenter_same_target_without_locking_up():
     assert "first message" in teammate.added[0]
     assert "second message" in teammate.added[1]
 
-
 def test_send_message_to_busy_target_autosaves_pending_xml(tmp_path):
     path = tmp_path / "agent_1_coder.json"
     teammate = PersistingFakeSession([], role="coder", auto_save_path=path)
@@ -300,7 +286,6 @@ def test_send_message_to_busy_target_autosaves_pending_xml(tmp_path):
         content="check <this> & report",
     )
     assert saved["pending_messages"][0]["message_id"] == root.attrib["message_id"]
-
 
 def test_delivery_final_autosave_commits_message_and_removes_pending_sidecar(tmp_path):
     class AutosavingOnAdd(PersistingFakeSession):
@@ -348,7 +333,6 @@ def test_delivery_final_autosave_commits_message_and_removes_pending_sidecar(tmp
     assert "pending_messages" not in delivery_snapshots[-1]
     assert teammate.state.pending_user_messages == []
 
-
 def test_shutdown_after_append_dequeues_and_restore_skips_committed_message():
     class ShutdownAfterAppend(RespondingFakeSession):
         def __init__(self):
@@ -389,7 +373,6 @@ def test_shutdown_after_append_dequeues_and_restore_skips_committed_message():
     assert resumed.state.pending_user_messages == []
     assert resumed_scheduler._message_inbox.get(1) in (None, [])
     assert resumed.added == []
-
 
 @pytest.mark.parametrize(
     (
@@ -473,7 +456,6 @@ def test_restored_message_revalidates_current_roster_and_topology(
         assert "agent_message_rejected_on_restore" in event_types
         assert "agent_message_delivered" not in event_types
 
-
 def test_ready_inboxes_drain_independent_targets_concurrently():
     async def scenario():
         first_started = asyncio.Event()
@@ -524,7 +506,6 @@ def test_ready_inboxes_drain_independent_targets_concurrently():
     assert len(first.added) == 1
     assert len(second.added) == 1
 
-
 def test_add_user_message_failure_rolls_back_partial_state_and_restores_budget():
     class FailingAdd(FakeSession):
         async def add_user_message(self, content):
@@ -553,18 +534,8 @@ def test_add_user_message_failure_rolls_back_partial_state_and_restores_budget()
     assert scheduler.allocated_tokens == allocation_before
     assert 1 not in scheduler._turn_lease
 
-
 def test_run_lead_add_user_message_failure_rolls_back_turn_and_restores_lease():
-    """A-path (lead, aid=0) twin of the message-path rollback net above.
-
-    ``_run_turn_exclusive`` reserves a fresh lead turn lease, checkpoints, then calls
-    ``add_user_message``. If that raises, the same checkpoint -> try ->
-    except-restore -> finally-pop transaction must leave the lead turn
-    byte-identical and the lease released-then-restored — the exact contract
-    S2 single-sources into ``_append_user_turn_txn``. The message path (aid!=0)
-    is netted above; this locks the lead path so the extraction cannot silently
-    drift the lead's preamble contract.
-    """
+    """A lead add_user_message failure must roll back both turn state and its reserved lease."""
 
     class FailingAdd(FakeSession):
         async def add_user_message(self, content):
@@ -591,16 +562,12 @@ def test_run_lead_add_user_message_failure_rolls_back_turn_and_restores_lease():
     with pytest.raises(RuntimeError, match="lead append hook failed"):
         run(scheduler.run("kick off the team"))
 
-    # user-turn append rolled back byte-identical (restore_user_turn)
     assert lead.state.messages == []
     assert lead.state.phase is SessionPhase.IDLE
-    # lease released-then-restored: neither leaked nor left None
     assert scheduler._current_turn_lease(0) == prior_lease
     assert scheduler.allocated_tokens == allocation_before
-    # finally-pop cleared the delivery task; no drive task was ever created
     assert 0 not in scheduler._message_delivery_tasks
     assert 0 not in scheduler._tasks
-
 
 def test_multiple_queued_messages_are_delivered_as_one_timestamped_user_turn():
     teammate = FakeSession(["message result"], role="coder")
@@ -644,7 +611,6 @@ def test_multiple_queued_messages_are_delivered_as_one_timestamped_user_turn():
     ]
     assert len(delivered) == 2
 
-
 def test_busy_target_applies_count_backpressure_before_persisting_message():
     teammate = FakeSession([], role="coder")
     scheduler, _ = _build_scheduler(teammate)
@@ -664,7 +630,6 @@ def test_busy_target_applies_count_backpressure_before_persisting_message():
     assert "backpressure" in acknowledgements[-1]
     assert len(scheduler._message_inbox[1]) == MAX_TEAMMATE_INBOX_MESSAGES
     assert len(teammate.state.pending_user_messages) == MAX_TEAMMATE_INBOX_MESSAGES
-
 
 def test_busy_target_applies_byte_backpressure_and_rejects_oversized_message():
     teammate = FakeSession([], role="coder")
@@ -697,7 +662,6 @@ def test_busy_target_applies_byte_backpressure_and_rejects_oversized_message():
     )
     assert len(teammate.state.pending_user_messages) == len(scheduler._message_inbox[1])
 
-
 def test_message_inbox_drains_fifo_batches_under_delivery_byte_limit():
     teammate = FakeSession(["first batch", "second batch"], role="coder")
     scheduler, _ = _build_scheduler(teammate)
@@ -726,20 +690,17 @@ def test_message_inbox_drains_fifo_batches_under_delivery_byte_limit():
     assert teammate.state.pending_user_messages == []
     assert scheduler._message_inbox.get(1) == []
 
-
 def test_send_message_to_self_is_rejected():
     teammate = FakeSession([], role="coder")
     scheduler, _ = _build_scheduler(teammate)
     result = run(scheduler.send_message(0, 0, "hi", "there"))
     assert "itself" in result
 
-
 def test_send_message_to_unknown_aid_is_rejected():
     teammate = FakeSession([], role="coder")
     scheduler, _ = _build_scheduler(teammate)
     result = run(scheduler.send_message(0, 99, "hi", "there"))
     assert "no agent with aid 99" in result
-
 
 def test_send_message_from_unknown_aid_is_rejected_before_mutation():
     teammate = FakeSession([], role="coder")

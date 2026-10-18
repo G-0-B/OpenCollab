@@ -20,7 +20,6 @@ def _sample_exception(sample: dict[str, Any]) -> Exception:
         error.status_code = sample["status"]
     return error
 
-
 def inspect_model_runtime(
     model: str,
     *,

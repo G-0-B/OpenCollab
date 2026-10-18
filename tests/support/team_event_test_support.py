@@ -14,21 +14,13 @@ from opencollab.domain.session import SessionPhase, SessionState
 def run(coro):
     return asyncio.run(coro)
 
-
 async def _spawn_and_settle(scheduler, *args, **kwargs):
-    """Spawn and await the resulting background task within one event loop.
-
-    ``Scheduler.spawn`` returns after creating a detached ``_drive_agent`` task;
-    awaiting that task in a *second* ``asyncio.run`` would bind it to a different
-    loop (``ValueError: future belongs to a different loop``). Doing both in one
-    coroutine keeps spawn and the await on the same loop.
-    """
+    """Spawn and await the detached driver task on the same event loop."""
     aid = await scheduler.spawn(*args, **kwargs)
     task = scheduler._tasks.get(aid)
     if task is not None:
         await asyncio.wait_for(task, timeout=1.0)
     return aid
-
 
 class _FakeTeammateSession:
     """Minimal session stand-in: records messages and returns a canned result."""
@@ -46,7 +38,6 @@ class _FakeTeammateSession:
     async def run_loop(self) -> str:
         self.state.set_phase(SessionPhase.DONE)
         return self._result
-
 
 class _FakeLeadSession:
     """Stand-in for the Lead session; never run in these tests."""
@@ -71,12 +62,10 @@ class _FakeLeadSession:
     async def run_loop(self) -> str:
         return ""
 
-
 class _FakeSessionFactory:
     """Drives spawn()/spawn_with_review() with canned teammate sessions."""
 
     def __init__(self, role_results: dict[str, list[str]]):
-        # Map of role -> queue of canned results.
         self._queues = {role: list(results) for role, results in role_results.items()}
         self.built: list[tuple[str, int]] = []
         self.built_tasks: list[tuple[str, str]] = []
@@ -93,7 +82,6 @@ class _FakeSessionFactory:
         result = queue.pop(0) if queue else ""
         return _FakeTeammateSession(result, role=role)
 
-
 def _build_scheduler(monkeypatch, role_results: dict[str, list[str]]) -> tuple[Scheduler, list[Any]]:
     captured: list[Any] = []
 
@@ -109,7 +97,6 @@ def _build_scheduler(monkeypatch, role_results: dict[str, list[str]]) -> tuple[S
     lead_session = _FakeLeadSession()
     scheduler.register_lead(lead_session)
     return scheduler, captured
-
 
 def _scheduler_events(events: list[Any]) -> list[SchedulerEvent]:
     return [e for e in events if isinstance(e, SchedulerEvent)]

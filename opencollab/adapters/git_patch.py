@@ -67,7 +67,6 @@ def _git_command_and_config_guard() -> tuple[str, str]:
     )
     return git_command, unsafe_config_guard
 
-
 def _submodule_patch_guard(
     git_command: str,
     base_revision: str,
@@ -108,7 +107,6 @@ def _submodule_patch_guard(
         'if [ -n "$submodule_contents" ]; then '
         "echo 'submodule changes cannot be delivered as a repository patch' >&2; exit 125; fi; "
     )
-
 
 def guarded_staged_diff_command(
     *,
@@ -206,6 +204,5 @@ def guarded_staged_diff_command(
         '--no-color --unified=3 --src-prefix=a/ --dst-prefix=b/ '
         f"{shlex.quote(base_revision)}"
     )
-
 
 __all__ = ["guarded_staged_diff_command"]

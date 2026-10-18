@@ -14,7 +14,6 @@ from opencollab.bootstrap.workflow_runtime import WorkflowSessionFactory
 def git(path, *args):
     return subprocess.run(["git", "-C", str(path), *args], capture_output=True, text=True, check=True).stdout.strip()
 
-
 def repository(path, marker):
     path.mkdir()
     git(path, "init", "-q")
@@ -25,12 +24,10 @@ def repository(path, marker):
     git(path, "commit", "-qm", "initial")
     return path
 
-
 def factory(workspace=None, env=None):
     return WorkflowSessionFactory(
         model="test-model", provider="openai", api_key=None, base_url=None, workspace=workspace, env=env
     )
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("anchor_supplied", [True, False])
@@ -47,7 +44,6 @@ async def test_isolated_role_reads_the_supplied_repository(tmp_path, anchor_supp
     finally:
         await owner.release_isolated_envs()
 
-
 @pytest.mark.asyncio
 async def test_unsupported_supplied_environment_does_not_fall_back_to_host(tmp_path):
     anchor = repository(tmp_path / "anchor", "host repository")
@@ -58,7 +54,6 @@ async def test_unsupported_supplied_environment_does_not_fall_back_to_host(tmp_p
     finally:
         await owner.release_isolated_envs()
     assert len(git(anchor, "worktree", "list", "--porcelain").split("worktree ")) == 2
-
 
 @pytest.mark.asyncio
 async def test_failed_release_keeps_worktree_available_for_cleanup_retry(tmp_path, monkeypatch):
@@ -86,7 +81,6 @@ async def test_failed_release_keeps_worktree_available_for_cleanup_retry(tmp_pat
     finally:
         await cleanup()
 
-
 @pytest.mark.asyncio
 async def test_implicit_workspace_still_isolates_sibling_roles(tmp_path, monkeypatch):
     cwd = tmp_path / "plain-directory"
@@ -104,7 +98,6 @@ async def test_implicit_workspace_still_isolates_sibling_roles(tmp_path, monkeyp
         assert "private.txt" in await first.get_diff()
     finally:
         await owner.release_isolated_envs()
-
 
 @pytest.mark.asyncio
 async def test_workspace_acquired_while_release_finishes_remains_tracked(tmp_path, monkeypatch):

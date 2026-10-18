@@ -28,7 +28,6 @@ def _coder_tools(*, allow_unisolated_shell: bool = False) -> list[Any]:
         headless=not allow_unisolated_shell,
     ))
 
-
 async def _coder_candidate(
     ctx: Any,
     *,
@@ -66,7 +65,6 @@ async def _coder_candidate(
         },
     )
 
-
 async def _contract_adjudicate(
     ctx: Any,
     *,
@@ -81,7 +79,6 @@ async def _contract_adjudicate(
         return "B", None, "contract-evidence-incomplete-default-b"
     prompt = selector_prompt.format(rules=rules, goal=goal, candidates=evidence)
     return await _review_and_select(ctx, prompt=prompt, paths=paths, tools=[])
-
 
 async def _review_and_select(
     ctx: Any, *, prompt: str, paths: dict[str, list[str]], tools: list[Any],
@@ -127,7 +124,6 @@ async def _review_and_select(
     reason = ("contract-b-regression-default-a" if winner == "A"
               else "contract-evidence-insufficient-default-b")
     return winner, decisions[-1] if decisions else None, reason
-
 
 async def run_dual_coder(
     ctx: Any,

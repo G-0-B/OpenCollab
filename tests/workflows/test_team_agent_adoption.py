@@ -34,7 +34,6 @@ def _scheduler():
     scheduler._turn_started_at[0] = 10.0
     return scheduler, applied
 
-
 class _CapturedEnvironment:
     workspace = "/isolated-coder"
 
@@ -43,7 +42,6 @@ class _CapturedEnvironment:
 
     async def get_diff(self):
         return self.diff
-
 
 async def test_full_captured_diff_is_adopted_once_after_text_is_bounded():
     scheduler, applied = _scheduler()
@@ -61,7 +59,6 @@ async def test_full_captured_diff_is_adopted_once_after_text_is_bounded():
     with pytest.raises(ValueError, match="in this turn"):
         await scheduler.adopt_agent(0, 7)
 
-
 @pytest.mark.parametrize("aid,phase,partial", [
     (7, SessionPhase.CALLING_LLM, False),
     (7, SessionPhase.ERROR, True),
@@ -77,7 +74,6 @@ async def test_only_a_completed_direct_coder_is_available(aid, phase, partial):
     with pytest.raises(ValueError, match="successfully completed direct coder"):
         await scheduler.adopt_agent(0, aid)
     assert applied == []
-
 
 async def test_runtime_identity_and_schema_reject_arbitrary_changes():
     scheduler, applied = _scheduler()
@@ -96,7 +92,6 @@ async def test_runtime_identity_and_schema_reject_arbitrary_changes():
     with pytest.raises(PermissionError, match="declared capability"):
         await scheduler.adopt_agent(0, 7)
     assert applied == []
-
 
 async def test_cancellation_settles_apply_and_adopted_record_together():
     scheduler, applied = _scheduler()
@@ -120,7 +115,6 @@ async def test_cancellation_settles_apply_and_adopted_record_together():
     assert "already adopted" in await scheduler.adopt_agent(0, 7)
     assert applied == ["captured"]
 
-
 async def test_conflict_can_be_retried_without_marking_the_child_adopted():
     scheduler, applied = _scheduler()
     await scheduler._append_worktree_diff(_CapturedEnvironment("captured"), "done", aid=7, role="coder")
@@ -136,7 +130,6 @@ async def test_conflict_can_be_retried_without_marking_the_child_adopted():
     scheduler._worktree_pool.adopt = apply
     await scheduler.adopt_agent(0, 7)
     assert applied == ["captured"]
-
 
 async def test_custom_diff_environment_preserves_first_adoption_and_reports_missing_increment():
     scheduler, applied = _scheduler()
@@ -157,7 +150,6 @@ async def test_custom_diff_environment_preserves_first_adoption_and_reports_miss
     assert applied == ["first"]
     assert scheduler._adopted_coders[7] == adopted
     assert scheduler._completed_coder_diffs[7].patch == "second"
-
 
 async def test_completion_during_adoption_keeps_the_actually_delivered_receipt():
     scheduler, applied = _scheduler()

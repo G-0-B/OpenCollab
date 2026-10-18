@@ -1,18 +1,8 @@
-"""The ``use_skill`` dispatcher tool.
+"""Load a catalog skill's full instructions through ``use_skill(name)``.
 
-One generic dispatcher serves *all* skills: the model reads the catalog (injected
-into the system prompt by ``ContextBuilder.build_plan``) and calls
-``use_skill(name)`` to pull a skill's full instruction body into its context.
-
-The store is a construction-time dependency, injected via the factory exactly
-like the scheduler-bound tools take a ``SchedulerPort`` — a global, stateless
-catalog is a construction dep, not a per-execution runtime capability, so
-``ToolRuntime`` stays lean (mirrors ``adapters/tools/spawn.py``).
-
-Delivery is *option A* (design §1): the body IS the tool result, tail-appended
-at the natural tool-result position so the cached system prefix stays intact.
-The store is the single size-cap site (design decision #5), so this tool trusts
-the body it gets back and never re-caps.
+The store is injected at construction. Its body becomes the tool result,
+preserving the cached system prefix. The store owns description and body
+size limits, and the dispatcher returns its body unchanged.
 """
 
 from __future__ import annotations
@@ -61,8 +51,6 @@ class UseSkillTool(Tool):
                     f"Unknown skill '{name}'. No skills are available in the catalog."
                 )
             return f"Unknown skill '{name}'. Available skills: {available}"
-        # Option A: the body IS the tool result — tail-appended, cache-friendly.
         return body
-
 
 __all__ = ["UseSkillTool"]

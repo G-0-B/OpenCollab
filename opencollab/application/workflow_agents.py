@@ -48,15 +48,10 @@ class WorkflowAgentsMixin:
         commit_reserve: int | None,
         harvest_fallback: str | None = None,
     ) -> str | None:
-        """Run a scout under the enforcement wind-down (STEP 0).
+        """Run a scout with submit capture and the enforcement wind-down.
 
-        Mirrors ``_run_agent`` but injects a ``submit_findings`` capture tool, arms
-        the runner's structural commit brake, and HARVESTS a usable report: the
-        captured payload if present, else the final text, else a "(partial …)"
-        salvage from the transcript — so a chopped scout never yields a bare
-        "(scout died)". A successful capture sets the cancel event so the loop halts
-        at once (commit-first friendly), exactly as the structured path does. Emits
-        one ``commitment_terminus`` metric per scout to the orchestration trace.
+        Successful capture sets the cancellation event. Harvest captured findings,
+        final text or transcript evidence, and emit one ``commitment_terminus`` metric.
         """
         deadline = self._timeout_deadline(timeout)
         session_budget = self._capped_session_budget(budget)
@@ -100,22 +95,15 @@ class WorkflowAgentsMixin:
             self._record_agent_failure(label, exc)
             await self.log(f"agent failed ({label or 'agent'}): {exc}")
 
-        # Harvest is the backstop even on a timeout/exception: whatever the scout
-        # already gathered (captured payload, prose, or the runtime-authored
-        # evidence ledger) is salvaged — never a bare "(scout died)".
+        # Salvage gathered evidence even after a timeout or exception.
         ledger = self._scout_ledger(session)
         report = harvest_findings(
             submit_tool.captured, text or "", self._session_messages(session), ledger=ledger,
             draft=harvest_fallback,
         )
-        # STEP 2 (rare-case backstop): a DEAD scout — no structured commit
-        # (``captured is None``) yet a non-empty ledger of what it gathered —
-        # triggers ONE bounded transcript-only synthesizer call (submit_findings
-        # only, forced, cite-or-abstain). With STEP 0's wind-down live this fires
-        # seldom (scouts are force-committed at ~80%); it salvages the chopped /
-        # errored / strayed tail. The original caller deadline still bounds the
-        # recovery. Gated by construction: this method only runs when enforcement
-        # is on.
+        # A scout with evidence but no structured commit gets one bounded salvage
+        # call with submit_findings as its only tool. The original deadline still
+        # bounds recovery, and every finding must cite existing evidence or abstain.
         if (
             submit_tool.captured is None
             and ledger
@@ -140,17 +128,13 @@ class WorkflowAgentsMixin:
         commit_reserve: int,
         caller_deadline: float | None,
     ) -> str | None:
-        """Salvage a dead/empty scout with ONE bounded transcript-only LLM call.
+        """Recover an empty scout report with one bounded submission call.
 
-        Its ONLY input is the scout's runtime-authored evidence ledger + raw tool
-        results; its ONLY tool is ``submit_findings`` with a forced (named-function)
-        ``tool_choice`` and the cite-or-abstain post-validation — NO exploration
-        tools, so the salvage cannot wander or fabricate. Returns the formatted
-        findings (or a valid ``insufficient_evidence`` abstention) on a successful
-        capture, else ``None`` so the caller keeps the harvested partial. Bounded by
-        ``commit_reserve`` (the reserve sized for a single submit turn) and clamped
-        to the live global remaining. A caller-supplied absolute deadline is
-        clamped with the internal commit cap, never replaced by it.
+        Seed it with the evidence ledger and raw tool results, offering only
+        ``submit_findings`` with a named tool choice and cite-or-abstain validation.
+        Return formatted findings or an insufficient-evidence abstention on capture,
+        otherwise ``None``. Clamp ``commit_reserve`` to the remaining pool and use
+        the earlier of the caller deadline and internal commit deadline.
         """
         ledger = self._scout_ledger(dead_session)
         messages = self._session_messages(dead_session)
@@ -203,23 +187,14 @@ class WorkflowAgentsMixin:
     async def draft_findings(
         self, prompt: str, *, label: str | None = None, budget: int | None = None
     ) -> dict[str, Any] | None:
-        """STEP 5b commit-first: ONE bounded submit-only call that commits a
-        structured ``submit_findings`` DRAFT from STATIC context (the pre-recon fact
-        sheet) BEFORE any exploration, returning the captured payload (or ``None``).
+        """Capture a structured draft from static context before scout exploration.
 
-        Reuses the validated dead-scout-synth wiring exactly — ``tools=[submit_findings]``
-        only, a named-function (forced) ``tool_choice``, the configured reasoning policy — so the
-        draft cannot wander or fabricate and the call is a single constrained turn.
-        It touches NO part of the session FSM: the exploring scout that consumes this
-        draft runs the unchanged capture→cancel→harvest path. Cost is one bounded
-        call per scout, clamped to ``budget`` (sized to ``commit_reserve``) and to the
-        live global remaining. Skips gracefully (``None``) if the shared pool is spent
-        or the factory/session errors, so a failed draft never aborts the fleet.
+        Use one submit-only call with a named tool choice and the configured
+        reasoning policy. Clamp its budget to the shared pool. Return ``None``
+        on exhausted budget or factory/session failure so other scouts can proceed.
         """
-        # Local import breaks the compose cycle: ``workflow.py`` imports this
-        # mixin to build ``WorkflowContext``, so this module cannot import from
-        # it at load time. ``WorkflowBudgetExceeded`` is raised by the core
-        # ``_acquire_budget_lease`` and defined there (SDK-exported from there).
+        # Import locally because workflow composes this mixin and defines the
+        # SDK-exported WorkflowBudgetExceeded raised by _acquire_budget_lease.
         from opencollab.application.workflow import WorkflowBudgetExceeded
 
         call_task = asyncio.current_task()

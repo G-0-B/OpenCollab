@@ -21,7 +21,6 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
         stderr=subprocess.PIPE,
     )
 
-
 def _repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -33,7 +32,6 @@ def _repo(tmp_path: Path) -> Path:
     _git(repo, "add", "tracked.txt", ".gitignore")
     _git(repo, "commit", "-qm", "base")
     return repo
-
 
 def _extract(
     repo: Path,
@@ -51,7 +49,6 @@ def _extract(
         stderr=subprocess.PIPE,
     )
 
-
 def test_patch_blocks_ignored_untracked_files_without_leaking_content(tmp_path):
     repo = _repo(tmp_path)
     (repo / "tracked.txt").write_text("new\n", encoding="utf-8")
@@ -64,7 +61,6 @@ def test_patch_blocks_ignored_untracked_files_without_leaking_content(tmp_path):
     assert "secret.txt" not in result.stdout
     assert "api-token" not in result.stdout
     assert _git(repo, "diff", "--cached", "--quiet").returncode == 0
-
 
 @pytest.mark.parametrize(
     ("key", "value"),
@@ -80,15 +76,7 @@ def test_patch_blocks_ignored_untracked_files_without_leaking_content(tmp_path):
     ],
 )
 def test_patch_rejects_config_it_cannot_make_harmless(tmp_path, key, value):
-    """Settings no command-line override can be trusted to defuse.
-
-    A clean/smudge filter and an external diff driver are reached through a
-    tracked ``.gitattributes`` this command does not control; a sparse
-    checkout's skip-worktree bits outlive the setting that made them; a
-    redirected working tree moves what is being read; and a monitor that is
-    *on* can lie about what changed. Each makes the command exit 125 rather
-    than report a patch it cannot vouch for.
-    """
+    """Attributes, sparse bits, redirected worktrees, or active monitors can defeat overrides."""
     repo = _repo(tmp_path)
     (repo / "tracked.txt").write_text("new\n", encoding="utf-8")
     _git(repo, "config", key, value)
@@ -97,7 +85,6 @@ def test_patch_rejects_config_it_cannot_make_harmless(tmp_path, key, value):
 
     assert result.returncode == 125
     assert "unsafe repository Git configuration" in result.stderr
-
 
 def test_patch_rejects_repository_local_attributes(tmp_path):
     repo = _repo(tmp_path)
@@ -110,16 +97,9 @@ def test_patch_rejects_repository_local_attributes(tmp_path):
     assert result.returncode == 125
     assert "info/attributes" in result.stderr
 
-
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO requires POSIX")
 def test_patch_allows_attributes_that_only_turn_conversions_off(tmp_path):
-    """The exact line the evaluation harness writes into its own snapshot.
-
-    Every token unsets something -- line-ending conversion, clean/smudge
-    filters, ``$Id$`` expansion, encoding conversion -- so the diff it produces
-    is a more faithful reading of the bytes on disk, not a less faithful one.
-    Refusing it left an agent in such a repository unable to produce any patch.
-    """
+    """The harness disables conversions through tracked attributes to preserve disk bytes."""
     repo = _repo(tmp_path)
     (repo / "tracked.txt").write_text("new\n", encoding="utf-8")
     info = repo / ".git" / "info" / "attributes"
@@ -129,7 +109,6 @@ def test_patch_allows_attributes_that_only_turn_conversions_off(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert "+new" in result.stdout
-
 
 def test_patch_rejects_attributes_that_mark_a_path_binary(tmp_path):
     """``-diff`` is the one unset that hides content instead of revealing it."""
@@ -143,13 +122,12 @@ def test_patch_rejects_attributes_that_mark_a_path_binary(tmp_path):
     assert result.returncode == 125
     assert "info/attributes" in result.stderr
 
-
 @pytest.mark.parametrize(
     "line",
     [
-        "tracked.txt text",  # setting, not unsetting
+        "tracked.txt text",
         "tracked.txt working-tree-encoding=UTF-16",
-        "[attr]hidden -diff",  # a macro definition
+        "[attr]hidden -diff",
     ],
 )
 def test_patch_rejects_attributes_that_turn_anything_on(tmp_path, line):
@@ -163,7 +141,6 @@ def test_patch_rejects_attributes_that_turn_anything_on(tmp_path, line):
     assert result.returncode == 125
     assert "info/attributes" in result.stderr
 
-
 def test_patch_allows_a_comment_only_attributes_file(tmp_path):
     repo = _repo(tmp_path)
     (repo / "tracked.txt").write_text("new\n", encoding="utf-8")
@@ -175,7 +152,6 @@ def test_patch_allows_a_comment_only_attributes_file(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "+new" in result.stdout
 
-
 def test_patch_rejects_non_regular_repository_attributes(tmp_path):
     repo = _repo(tmp_path)
     info_attributes = repo / ".git" / "info" / "attributes"
@@ -185,7 +161,6 @@ def test_patch_rejects_non_regular_repository_attributes(tmp_path):
 
     assert result.returncode == 125
     assert "not a regular file" in result.stderr
-
 
 def test_patch_does_not_let_repository_exclude_rules_hide_candidates(tmp_path):
     repo = _repo(tmp_path)
@@ -198,7 +173,6 @@ def test_patch_does_not_let_repository_exclude_rules_hide_candidates(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "payload.txt" in result.stdout
 
-
 def test_patch_allows_comment_only_repository_exclude_file(tmp_path):
     repo = _repo(tmp_path)
     (repo / "payload.txt").write_text("candidate\n", encoding="utf-8")
@@ -209,7 +183,6 @@ def test_patch_allows_comment_only_repository_exclude_file(tmp_path):
 
     assert result.returncode == 0, result.stderr
     assert "payload.txt" in result.stdout
-
 
 def test_patch_marks_controlled_workspace_safe_without_global_config(tmp_path):
     repo = _repo(tmp_path)
@@ -222,7 +195,6 @@ def test_patch_marks_controlled_workspace_safe_without_global_config(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "tracked.txt" in result.stdout
 
-
 def test_patch_rejects_worktree_scoped_sparse_checkout(tmp_path):
     repo = _repo(tmp_path)
     _git(repo, "config", "extensions.worktreeConfig", "true")
@@ -232,7 +204,6 @@ def test_patch_rejects_worktree_scoped_sparse_checkout(tmp_path):
 
     assert result.returncode == 125
     assert "core.sparsecheckout" in result.stderr
-
 
 def test_patch_rejects_transform_config_loaded_through_include(tmp_path):
     repo = _repo(tmp_path)
@@ -248,7 +219,6 @@ def test_patch_rejects_transform_config_loaded_through_include(tmp_path):
     assert result.returncode == 125
     assert "core.excludesfile" in result.stderr
 
-
 def test_patch_survives_repository_attributes_that_would_hide_content(tmp_path):
     """``core.attributesFile`` is pinned, so it cannot mark a file undiffable."""
     repo = _repo(tmp_path)
@@ -262,7 +232,6 @@ def test_patch_survives_repository_attributes_that_would_hide_content(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "+new" in result.stdout
     assert "Binary files" not in result.stdout
-
 
 def test_patch_rejects_gitlink_changes_even_when_repository_hides_them(tmp_path):
     """A gitlink patch cannot deliver the module's checkout or objects."""
@@ -283,7 +252,6 @@ def test_patch_rejects_gitlink_changes_even_when_repository_hides_them(tmp_path)
     assert "submodule changes" in result.stderr
     assert result.stdout == ""
 
-
 @pytest.mark.parametrize("name", [":160000 160000 file.txt", "name\n:160000 160000 file.txt", "name\t160000"])
 def test_raw_submodule_inspection_keeps_unusual_parent_filenames_patchable(tmp_path, name):
     repo = _repo(tmp_path)
@@ -302,15 +270,8 @@ def test_raw_submodule_inspection_keeps_unusual_parent_filenames_patchable(tmp_p
     )
     assert (repo / name).read_text() == "original\n"
 
-
 def test_patch_allows_a_repository_that_turns_its_monitor_off(tmp_path):
-    """The exact local configuration the evaluation harness writes.
-
-    Its snapshot sets these three to *disable* attribute and monitor influence
-    on the tree it hashes. A guard that read the key name alone refused all
-    three, so no agent working in such a repository could produce any patch at
-    all -- the failure this case exists to keep from coming back.
-    """
+    """The harness explicitly disables attributes and monitors in its snapshot configuration."""
     repo = _repo(tmp_path)
     (repo / "tracked.txt").write_text("new\n", encoding="utf-8")
     _git(repo, "config", "core.attributesFile", os.devnull)
@@ -322,7 +283,6 @@ def test_patch_allows_a_repository_that_turns_its_monitor_off(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "tracked.txt" in result.stdout
     assert "+new" in result.stdout
-
 
 def test_patch_forces_filemode_evidence_on(tmp_path):
     repo = _repo(tmp_path)
@@ -339,7 +299,6 @@ def test_patch_forces_filemode_evidence_on(tmp_path):
     assert result.returncode == 0, result.stderr
     assert "old mode 100644" in result.stdout
     assert "new mode 100755" in result.stdout
-
 
 def test_patch_ignores_replace_refs_when_reading_base_tree(tmp_path):
     repo = _repo(tmp_path)
@@ -358,7 +317,6 @@ def test_patch_ignores_replace_refs_when_reading_base_tree(tmp_path):
     assert "-old" in result.stdout
     assert "+candidate" in result.stdout
 
-
 def test_excluded_paths_do_not_modify_real_index(tmp_path):
     repo = _repo(tmp_path)
     (repo / "tracked.txt").write_text("staged\n", encoding="utf-8")
@@ -373,7 +331,6 @@ def test_excluded_paths_do_not_modify_real_index(tmp_path):
     assert "included.txt" in result.stdout
     assert "excluded.txt" not in result.stdout
     assert _git(repo, "diff", "--cached", "--binary").stdout == staged_before
-
 
 def test_reserved_path_guard_reads_temporary_index(tmp_path):
     repo = _repo(tmp_path)

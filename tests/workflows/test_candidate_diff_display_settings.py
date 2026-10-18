@@ -49,7 +49,6 @@ async def test_candidate_preserves_delivery_with_display_settings(tmp_path, sett
                 _git(repo, "worktree", "remove", "--force", candidate_env.workspace)
         await env.cleanup()
 
-
 @pytest.mark.parametrize("dirty", [False, True])
 async def test_candidate_keeps_context_when_git_display_context_is_zero(tmp_path, dirty):
     repo = _repository(tmp_path)

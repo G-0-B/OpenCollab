@@ -1,8 +1,6 @@
-"""Public names for selecting single-agent implementations.
+"""Public single-agent profile names.
 
-Base is the default single-agent profile and currently selects Single2.
-``resolve_profile_name`` returns the implementation name for configuration
-and result attribution.
+Base currently selects Single2; ``resolve_profile_name`` returns that implementation.
 """
 
 from opencollab.bootstrap.agent_profiles import BASE_PROFILE, resolve_profile_name

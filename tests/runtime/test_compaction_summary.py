@@ -13,7 +13,6 @@ SEGMENT = [
     {"role": "assistant", "content": "working on it"},
 ]
 
-
 def _summarizer(content, *, transcript_path=None, record=None):
     async def acomplete(request):
         if record is not None:
@@ -24,14 +23,12 @@ def _summarizer(content, *, transcript_path=None, record=None):
 
     return ReadTimeSummarizer(acomplete, transcript_path=transcript_path)
 
-
 def test_run_coro_blocking_returns_result_from_sync_caller():
     async def coro():
         await asyncio.sleep(0)
         return 42
 
     assert run_coro_blocking(coro) == 42
-
 
 def test_run_coro_blocking_works_inside_running_loop():
     async def driver():
@@ -44,14 +41,12 @@ def test_run_coro_blocking_works_inside_running_loop():
 
     assert asyncio.run(driver()) == 7
 
-
 def test_summarizer_parses_summary_block():
     s = _summarizer("<analysis>scratch</analysis><summary>the gist</summary>")
     out = s(SEGMENT)
     assert "scratch" not in out
     assert out == "Summary:\nthe gist"
     assert s.last_call_cacheable is True
-
 
 def test_summarizer_sends_the_segment_plus_prompt():
     record: list = []
@@ -61,28 +56,23 @@ def test_summarizer_sends_the_segment_plus_prompt():
     assert request[:2] == SEGMENT
     assert "detailed summary of the conversation" in request[-1]["content"]
 
-
 def test_summarizer_appends_transcript_pointer_when_configured():
     s = _summarizer("<summary>done</summary>", transcript_path="/runs/a0.json")
     out = s(SEGMENT)
     assert "/runs/a0.json" in out
 
-
 def test_summarizer_falls_back_on_llm_error():
     s = _summarizer(RuntimeError("boom"))
     out = s(SEGMENT)
-    assert "[user]: build the thing" in out  # bounded raw excerpt
+    assert "[user]: build the thing" in out
     assert "Summary:" not in out
     assert s.last_call_cacheable is False
 
-
 def test_summarizer_falls_back_when_no_summary_block():
-    # Model returned only an analysis block → format yields empty → fallback.
     s = _summarizer("<analysis>only thinking, forgot the summary</analysis>")
     out = s(SEGMENT)
     assert "[assistant]: working on it" in out
     assert s.last_call_cacheable is False
-
 
 def test_empty_tagged_summary_uses_fallback_and_is_never_cached_sync_or_async():
     s = _summarizer("<summary> \n </summary>")
@@ -96,7 +86,6 @@ def test_empty_tagged_summary_uses_fallback_and_is_never_cached_sync_or_async():
     result = asyncio.run(async_result())
     assert "[assistant]: working on it" in result
     assert s.last_call_cacheable is False
-
 
 def test_empty_tagged_summary_is_not_cached_by_autocompact():
     from opencollab.application.shaping import AutoCompactShaper
@@ -134,7 +123,6 @@ def test_empty_tagged_summary_is_not_cached_by_autocompact():
     assert len(calls) == 4
     assert summarizer.last_call_cacheable is False
 
-
 def test_summarizer_falls_back_when_summary_formatting_fails(monkeypatch):
     def broken_formatter(_raw):
         raise ValueError("broken parser")
@@ -145,13 +133,11 @@ def test_summarizer_falls_back_when_summary_formatting_fails(monkeypatch):
     assert "[user]: build the thing" in out
     assert s.last_call_cacheable is False
 
-
 def test_summarizer_fallback_is_bounded_and_never_empty():
     big = [{"role": "user", "content": "x" * 100_000}]
     s = _summarizer(RuntimeError("boom"))
     out = s(big)
     assert 0 < len(out) <= 4_000
-
 
 def test_summarizer_fallback_preserves_supported_content_blocks():
     segment = [
@@ -173,12 +159,10 @@ def test_summarizer_fallback_preserves_supported_content_blocks():
     assert "[custom_attachment block]" in out
     assert "plain list text" in out
 
-
 def test_summarizer_fallback_keeps_non_text_only_messages_visible():
     segment = [{"role": "user", "content": [{"type": "image_url", "image_url": "..."}]}]
     out = _summarizer(RuntimeError("boom"))(segment)
     assert out == "[user]: [image_url block]"
-
 
 def test_composed_summarizer_closes_each_ephemeral_client(monkeypatch):
     from opencollab.bootstrap import container

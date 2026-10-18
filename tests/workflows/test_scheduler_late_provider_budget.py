@@ -23,14 +23,12 @@ class _Lead:
         self.state.set_phase(SessionPhase.DONE)
         self.used_tokens = 0
 
-
 class _WorktreePool:
     async def acquire(self, _role: str) -> None:
         return None
 
     async def release(self) -> None:
         return None
-
 
 class _LateProvider:
     def __init__(self, *, late_error: bool = False, block: bool = False) -> None:
@@ -54,7 +52,6 @@ class _LateProvider:
                 raise RuntimeError("late provider failure")
             return llm_response(content="late", total_tokens=100_000)
 
-
 class _Factory:
     def __init__(self) -> None:
         self.providers: dict[int, _LateProvider] = {}
@@ -73,7 +70,6 @@ class _Factory:
         self.sessions[aid] = session
         return session
 
-
 def _scheduler(factory: _Factory) -> Scheduler:
     scheduler = Scheduler(
         session_factory=factory,
@@ -83,7 +79,6 @@ def _scheduler(factory: _Factory) -> Scheduler:
     )
     scheduler.register_lead(_Lead())
     return scheduler
-
 
 @pytest.mark.asyncio
 async def test_late_provider_usage_stays_reserved_after_child_terminal():
@@ -131,7 +126,6 @@ async def test_late_provider_usage_stays_reserved_after_child_terminal():
                 scheduler._tasks[aid].cancel()
                 await asyncio.gather(scheduler._tasks[aid], return_exceptions=True)
 
-
 @pytest.mark.asyncio
 async def test_late_provider_failure_releases_unused_budget_reservation():
     factory = _Factory()
@@ -163,7 +157,6 @@ async def test_late_provider_failure_releases_unused_budget_reservation():
     finally:
         provider.release_late.set()
         await asyncio.gather(*factory.sessions[first].pending_cleanup_tasks, return_exceptions=True)
-
 
 @pytest.mark.asyncio
 async def test_grouped_provider_reservation_waits_for_each_accounting_callback():

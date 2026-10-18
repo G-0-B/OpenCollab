@@ -1,14 +1,4 @@
-"""Tool base class — JSON Schema driven, async execution.
-
-First Principle: A Tool is a function with a JSON Schema input and string output.
-LLM calls tools via function calling; the framework routes to the right
-Tool.execute_with_runtime().
-
-Ref:
-- kimi-cli: CallableTool2[Params] with Pydantic schema + async __call__
-- opencode: ToolRegistry with init/execute pattern
-- openclaw: AnyAgentTool structural interface
-"""
+"""Async tools with JSON Schema inputs and string results."""
 
 from __future__ import annotations
 
@@ -27,20 +17,17 @@ from opencollab.application.tool_execution import DeferredCall, ToolRuntime
 HOST_WRITE_LOCK_TIMEOUT_SECONDS = 10.0
 HOST_WRITE_LOCK_POLL_SECONDS = 0.02
 
-
 def _host_lock_root() -> str:
     uid = os.getuid() if hasattr(os, "getuid") else 0
     root = os.path.join(tempfile.gettempdir(), f"opencollab-write-locks-{uid}")
     os.makedirs(root, mode=0o700, exist_ok=True)
     return root
 
-
 def _host_lock_path(path: str, env: Any) -> str:
     workspace = getattr(env, "workspace", "") if env is not None else ""
     identity = os.path.abspath(os.path.join(workspace, path)) if workspace else os.path.abspath(path)
     digest = hashlib.sha256(identity.encode("utf-8", errors="surrogatepass")).hexdigest()
     return os.path.join(_host_lock_root(), f"{digest}.lock")
-
 
 @contextlib.asynccontextmanager
 async def host_write_lock(path: str, env: Any) -> AsyncIterator[Any]:
@@ -73,7 +60,6 @@ async def host_write_lock(path: str, env: Any) -> AsyncIterator[Any]:
     finally:
         if acquired:
             lock.release()
-
 
 class Tool:
     """Base class for all tools. Subclass and implement ``execute_with_runtime``.

@@ -1,15 +1,6 @@
-"""Per-agent worktree changes must land on disk as a structured trace record.
+"""Persist per-file worktree changes from the untruncated diff.
 
-The diff a finished child hands its parent is prose: it is wrapped in a
-markdown code fence and, past ``WORKTREE_DIFF_MAX_CHARS``, has its middle cut
-out. That string is the only place the "which agent touched which file"
-evidence used to live, so it could not be used as evidence.
-
-These tests pin a second, separate destination: a ``worktree_changes`` trace
-record built from the *untruncated* diff, carrying one entry per changed file
-with the sha256 of the file's post-change content. They drive the real
-:class:`~opencollab.adapters.trace.Tracer` and read the JSONL back off disk, so
-a field that never reaches the file fails here.
+The prose result delivered to a parent may omit the middle of a large diff.
 """
 
 from __future__ import annotations
@@ -42,11 +33,9 @@ class _Env:
     async def read_file(self, path: str) -> str:
         return self._files[path]
 
-
 class _UnreadableEnv(_Env):
     async def read_file(self, path: str) -> str:
         raise RuntimeError("no reading today")
-
 
 class _RebasedEnv(_Env):
     """A worktree that took a handoff: its diff is measured against that commit."""
@@ -56,7 +45,6 @@ class _RebasedEnv(_Env):
     own_commits = ()
     own_commit_count = 0
 
-
 class _CommittedEnv(_Env):
     """A worktree that committed twice on top of the base it started from."""
 
@@ -65,19 +53,13 @@ class _CommittedEnv(_Env):
     own_commits = ("2" * 40, "3" * 40)
     own_commit_count = 2
 
-
 class _BudgetStoppedSession(_ChildSession):
-    """A child that spends its whole budget and is stopped, not finished.
-
-    This is what a per-agent cap does: the loop winds down and the session ends
-    in STOPPED, which the scheduler reads as a terminal failure.
-    """
+    """A child stopped by its per-agent budget cap."""
 
     async def run_loop(self) -> str:
         self.state.set_phase(SessionPhase.STOPPED)
         self.state.terminal_reason = "budget exhausted"
         return "ran out of budget"
-
 
 class _CrashingSession(_ChildSession):
     """A child whose run loop raises instead of returning."""
@@ -85,26 +67,18 @@ class _CrashingSession(_ChildSession):
     async def run_loop(self) -> str:
         raise RuntimeError("provider fell over")
 
-
 def _payloads(path: str, step_type: str) -> list[dict]:
     with open(path, encoding="utf-8") as handle:
         records = [json.loads(line) for line in handle if line.strip()]
     return [record["payload"] for record in records if record["type"] == step_type]
 
-
 def _sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
 
 def _run_one_child(
     tmp_path, env, run_id: str, *, session_class=None
 ) -> tuple[list[dict], PendingRow]:
-    """Spawn one child that ends with ``env``; return traces + parent row.
-
-    ``session_class`` picks how that child ends: it defaults to the one that
-    completes, and the failure tests pass one that stops at its budget or dies
-    on its provider instead.
-    """
+    """Spawn one child with the selected terminal behavior and return its traces and parent row."""
     tracer = Tracer(run_id=run_id, output_dir=str(tmp_path))
     trace_path = tracer.path
     child = (session_class or _ChildSession)("coder", "implemented it", env)
@@ -142,7 +116,6 @@ def _run_one_child(
 
     return _payloads(trace_path, "worktree_changes"), lead.state.pending_events.rows["tc-1"]
 
-
 ADDED = "print('brand new')\n"
 MODIFIED = "print('changed')\n"
 
@@ -169,7 +142,6 @@ index b023018..0000000
 -print('bye')
 """
 
-
 def test_added_modified_and_deleted_files_are_recorded_with_content_shas(tmp_path):
     env = _Env(THREE_FILE_DIFF, {"pkg/new.py": ADDED, "pkg/mod.py": MODIFIED})
 
@@ -189,7 +161,6 @@ def test_added_modified_and_deleted_files_are_recorded_with_content_shas(tmp_pat
     ]
     assert row.status is RowStatus.DONE
 
-
 def test_the_row_names_the_revision_its_files_were_measured_against(tmp_path):
     """A file counts as changed only relative to a base, so name the base."""
     env = _RebasedEnv(THREE_FILE_DIFF, {"pkg/new.py": ADDED, "pkg/mod.py": MODIFIED})
@@ -197,7 +168,6 @@ def test_the_row_names_the_revision_its_files_were_measured_against(tmp_path):
     payloads, _ = _run_one_child(tmp_path, env, "worktree-base")
 
     assert payloads[0]["diff_base"] == "9" * 40
-
 
 def test_an_environment_that_names_no_base_records_a_null_one(tmp_path):
     """A non-Git worktree has no revision to name, and must not invent one."""
@@ -208,10 +178,8 @@ def test_an_environment_that_names_no_base_records_a_null_one(tmp_path):
     assert payloads[0]["diff_base"] is None
     assert payloads[0]["head_commit"] is None
     assert payloads[0]["commits"] == []
-    # Not zero: an environment with no revisions did not make no commits, it
-    # has nowhere for a commit to be counted.
+    # An environment without revision support cannot measure commits.
     assert payloads[0]["commit_count"] is None
-
 
 def test_the_row_lists_the_commits_this_agent_could_hand_a_teammate(tmp_path):
     """A checked-out sha is only attributable if someone's row claims it."""
@@ -224,7 +192,6 @@ def test_the_row_lists_the_commits_this_agent_could_hand_a_teammate(tmp_path):
     assert payloads[0]["commits"] == ["2" * 40, "3" * 40]
     assert payloads[0]["commit_count"] == 2
 
-
 def test_an_agent_that_only_took_a_handoff_claims_no_commits(tmp_path):
     """Adopting a base is not producing one, and the row must not blur them."""
     env = _RebasedEnv(THREE_FILE_DIFF, {"pkg/new.py": ADDED, "pkg/mod.py": MODIFIED})
@@ -234,7 +201,6 @@ def test_an_agent_that_only_took_a_handoff_claims_no_commits(tmp_path):
     assert payloads[0]["diff_base"] == payloads[0]["head_commit"] == "9" * 40
     assert payloads[0]["commits"] == []
     assert payloads[0]["commit_count"] == 0
-
 
 def _long_diff(file_count: int) -> tuple[str, dict[str, str]]:
     """A diff whose middle is guaranteed to be cut from the parent's copy."""
@@ -254,7 +220,6 @@ def _long_diff(file_count: int) -> tuple[str, dict[str, str]]:
         files[path] = body.replace("+", "")
     return "".join(blocks), files
 
-
 def test_truncated_delivery_still_records_every_file_and_the_full_diff_length(tmp_path):
     from opencollab.application._scheduler_constants import WORKTREE_DIFF_MAX_CHARS
 
@@ -264,8 +229,7 @@ def test_truncated_delivery_still_records_every_file_and_the_full_diff_length(tm
 
     payloads, row = _run_one_child(tmp_path, env, "worktree-truncated")
 
-    # The parent's copy really is the mutilated one — that is what makes the
-    # structured record necessary, and it must stay that way.
+    # The parent copy is truncated, so attribution requires the structured record.
     assert "chars truncated" in row.result
     assert len(row.result) < len(diff)
 
@@ -280,7 +244,6 @@ def test_truncated_delivery_still_records_every_file_and_the_full_diff_length(tm
         entry["content_sha"] == _sha(files[entry["path"]]) for entry in payload["files"]
     )
 
-
 def test_unreadable_file_records_a_null_sha_and_an_error_without_failing_the_run(tmp_path):
     env = _UnreadableEnv(THREE_FILE_DIFF, {})
 
@@ -292,10 +255,8 @@ def test_unreadable_file_records_a_null_sha_and_an_error_without_failing_the_run
     assert entries["pkg/new.py"]["content_sha"] is None
     assert entries["pkg/new.py"]["sha_error"] == "RuntimeError"
     assert entries["pkg/mod.py"]["sha_error"] == "RuntimeError"
-    # A deleted file is never read, so it carries no read error.
     assert entries["pkg/gone.py"]["content_sha"] is None
     assert "sha_error" not in entries["pkg/gone.py"]
-
 
 # Verbatim `git diff --binary` output: a binary payload (which git emits with
 # no ``---``/``+++`` pair), a path containing a space (git appends a tab), a
@@ -333,7 +294,6 @@ REAL_GIT_DIFF = (
     "+u\n"
 )
 
-
 def test_parser_survives_the_header_shapes_real_git_actually_emits():
     from opencollab.application._scheduler_team import _parse_worktree_diff
 
@@ -341,12 +301,10 @@ def test_parser_survives_the_header_shapes_real_git_actually_emits():
         ("bin.dat", "modified"),
         ("has space.txt", "added"),
         ("keep.txt", "modified"),
-        # A rename is split into its two endpoints.
         ("ren_old.txt", "deleted"),
         ("ren_new.txt", "added"),
         ("café.txt", "added"),
     ]
-
 
 def test_parser_returns_nothing_for_input_that_is_not_a_diff():
     from opencollab.application._scheduler_team import _parse_worktree_diff
@@ -354,15 +312,8 @@ def test_parser_returns_nothing_for_input_that_is_not_a_diff():
     assert _parse_worktree_diff("") == []
     assert _parse_worktree_diff("no headers here\n") == []
 
-
 def test_an_agent_that_changed_nothing_still_gets_a_row(tmp_path):
-    """Absence of a row must not be the only signal for "changed nothing".
-
-    An empty diff is a real, reportable outcome — it says this agent produced
-    no files. Skipping the record would make that indistinguishable from a
-    recorder that broke, the same reason a turn with no compaction still emits
-    ``rung="none"``.
-    """
+    """An explicit empty row distinguishes no changes from a broken recorder."""
     env = _Env("", {})
 
     payloads, row = _run_one_child(tmp_path, env, "worktree-empty")
@@ -376,17 +327,8 @@ def test_an_agent_that_changed_nothing_still_gets_a_row(tmp_path):
     assert payload["truncated_in_result"] is False
     assert row.status is RowStatus.DONE
 
-
 def test_an_agent_stopped_at_its_budget_still_records_what_it_left_behind(tmp_path):
-    """A cap must not erase the evidence of the work it interrupted.
-
-    Only the completion path used to write this row, so an agent stopped at its
-    per-agent cap wrote nothing — and "nothing" is exactly what an agent that
-    changed no files writes. The two are opposite outcomes: this one committed
-    a fix and ran out of tokens before it could say so. Per-agent adherence is
-    scored off these rows, so scoring the first as the second counts real
-    collaboration as collaboration that never happened.
-    """
+    """A budget stop can occur after a child commits but before it reports its changes."""
     env = _CommittedEnv(THREE_FILE_DIFF, {"pkg/new.py": ADDED, "pkg/mod.py": MODIFIED})
 
     payloads, row = _run_one_child(
@@ -399,7 +341,6 @@ def test_an_agent_stopped_at_its_budget_still_records_what_it_left_behind(tmp_pa
     assert payload["aid"] == 1
     assert payload["role"] == "coder"
     assert payload["diff_sha"] == _sha(THREE_FILE_DIFF)
-    # The half of the row a handoff is joined on survives the stop too.
     assert payload["commits"] == ["2" * 40, "3" * 40]
     assert payload["head_commit"] == "2" * 40
     assert [entry["path"] for entry in payload["files"]] == [
@@ -407,7 +348,6 @@ def test_an_agent_stopped_at_its_budget_still_records_what_it_left_behind(tmp_pa
         "pkg/mod.py",
         "pkg/gone.py",
     ]
-
 
 def test_an_agent_whose_run_loop_raised_still_records_what_it_left_behind(tmp_path):
     """Same argument as the budget stop, reached down the exception path."""

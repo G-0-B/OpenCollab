@@ -20,17 +20,14 @@ TABLE_NAMES = (
     "node_contracts",
 )
 
-
 def _utc_timestamp() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-
 
 def _resolve_under_project(project_dir: Path, value: str | os.PathLike[str]) -> Path:
     path = Path(value)
     if path.is_absolute():
         return path
     return project_dir / path
-
 
 def _paths(
     project_dir: str | None,
@@ -61,12 +58,10 @@ def _paths(
     traceability_path.mkdir(parents=True, exist_ok=True)
     return resolved_project_dir, runner_events_path, traceability_path
 
-
 def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as output:
         output.write(json.dumps(payload, ensure_ascii=True) + "\n")
-
 
 def _read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
     if not path.exists():
@@ -77,7 +72,6 @@ def _read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
         return dict(default)
     return payload if isinstance(payload, dict) else dict(default)
 
-
 def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(f"{path.suffix}.tmp")
@@ -86,10 +80,8 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
         output.write("\n")
     tmp_path.replace(path)
 
-
 def _print(value: Any) -> None:
     print(json.dumps(value, ensure_ascii=False, indent=2))
-
 
 def _payload(args: argparse.Namespace) -> dict[str, Any]:
     if args.payload_file:
@@ -98,19 +90,15 @@ def _payload(args: argparse.Namespace) -> dict[str, Any]:
         return json.loads(args.payload_json)
     return {}
 
-
 def _as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
-
 
 def _as_str_list(value: Any) -> list[str]:
     return [str(item).strip() for item in _as_list(value) if str(item).strip()]
 
-
 def _as_optional_str(value: Any) -> str | None:
     normalized = str(value or "").strip()
     return normalized or None
-
 
 def _as_bool_or_none(value: Any) -> bool | None:
     if value is None:
@@ -124,7 +112,6 @@ def _as_bool_or_none(value: Any) -> bool | None:
         return False
     return None
 
-
 def _edge_key(source_req_id: str, target_req_id: str, from_interface_id: str, to_interface_id: str) -> str:
     return "::".join(
         [
@@ -135,20 +122,16 @@ def _edge_key(source_req_id: str, target_req_id: str, from_interface_id: str, to
         ]
     )
 
-
 def _table_path(traceability_dir: Path, table_name: str) -> Path:
     if table_name not in TABLE_NAMES:
         raise ValueError(f"Unknown traceability table: {table_name}")
     return traceability_dir / f"{table_name}.json"
 
-
 def _read_table(traceability_dir: Path, table_name: str) -> dict[str, Any]:
     return _read_json(_table_path(traceability_dir, table_name), {})
 
-
 def _write_table(traceability_dir: Path, table_name: str, rows: dict[str, Any]) -> None:
     _write_json_atomic(_table_path(traceability_dir, table_name), dict(sorted(rows.items())))
-
 
 def _upsert_row(traceability_dir: Path, table_name: str, key: str, row: dict[str, Any]) -> None:
     normalized_key = str(key or "").strip()
@@ -158,12 +141,10 @@ def _upsert_row(traceability_dir: Path, table_name: str, key: str, row: dict[str
     rows[normalized_key] = row
     _write_table(traceability_dir, table_name, rows)
 
-
 def _delete_row(traceability_dir: Path, table_name: str, key: str) -> None:
     rows = _read_table(traceability_dir, table_name)
     rows.pop(str(key or "").strip(), None)
     _write_table(traceability_dir, table_name, rows)
-
 
 def _emit_refresh_signal(
     runner_events_path: Path,
@@ -193,7 +174,6 @@ def _emit_refresh_signal(
         },
     )
 
-
 def _notify_traceability_changed(runner_events_path: Path, reason: str) -> None:
     _emit_refresh_signal(
         runner_events_path,
@@ -203,12 +183,10 @@ def _notify_traceability_changed(runner_events_path: Path, reason: str) -> None:
         traceability_all=True,
     )
 
-
 def _emit_traceability_event(runner_events_path: Path, payload: dict[str, Any]) -> None:
     normalized = dict(payload)
     normalized.setdefault("timestamp", _utc_timestamp())
     _append_jsonl(runner_events_path, normalized)
-
 
 def _init_store(traceability_dir: Path, runner_events_path: Path, *, reset: bool = False) -> None:
     traceability_dir.mkdir(parents=True, exist_ok=True)
@@ -218,15 +196,12 @@ def _init_store(traceability_dir: Path, runner_events_path: Path, *, reset: bool
             _write_json_atomic(path, {})
     _notify_traceability_changed(runner_events_path, "traceability_store_initialized")
 
-
 def _get_requirement(traceability_dir: Path, req_id: str) -> dict[str, Any] | None:
     row = _read_table(traceability_dir, "requirements").get(str(req_id or "").strip())
     return dict(row) if isinstance(row, dict) else None
 
-
 def _list_requirements(traceability_dir: Path) -> list[dict[str, Any]]:
     return [dict(row) for row in _read_table(traceability_dir, "requirements").values() if isinstance(row, dict)]
-
 
 def _list_interfaces(traceability_dir: Path, *, req_id: str | None = None) -> list[dict[str, Any]]:
     rows = [dict(row) for row in _read_table(traceability_dir, "interfaces").values() if isinstance(row, dict)]
@@ -234,13 +209,11 @@ def _list_interfaces(traceability_dir: Path, *, req_id: str | None = None) -> li
         rows = [row for row in rows if req_id in _as_str_list(row.get("req_ids"))]
     return rows
 
-
 def _list_tests(traceability_dir: Path, *, req_id: str | None = None) -> list[dict[str, Any]]:
     rows = [dict(row) for row in _read_table(traceability_dir, "tests").values() if isinstance(row, dict)]
     if req_id:
         rows = [row for row in rows if row.get("req_id") == req_id]
     return rows
-
 
 def _list_call_edges(traceability_dir: Path, *, req_id: str | None = None) -> list[dict[str, Any]]:
     rows = [dict(row) for row in _read_table(traceability_dir, "call_edges").values() if isinstance(row, dict)]
@@ -248,10 +221,8 @@ def _list_call_edges(traceability_dir: Path, *, req_id: str | None = None) -> li
         rows = [row for row in rows if row.get("source_req_id") == req_id or row.get("target_req_id") == req_id]
     return rows
 
-
 def _list_node_states(traceability_dir: Path) -> list[dict[str, Any]]:
     return [dict(row) for row in _read_table(traceability_dir, "node_states").values() if isinstance(row, dict)]
-
 
 def _upsert_requirement(traceability_dir: Path, runner_events_path: Path, **payload: Any) -> None:
     normalized_req_id = str(payload.get("req_id") or "").strip()
@@ -290,14 +261,12 @@ def _upsert_requirement(traceability_dir: Path, runner_events_path: Path, **payl
     _write_table(traceability_dir, "scenarios", scenarios_table)
     _notify_traceability_changed(runner_events_path, "requirements_updated")
 
-
 def _update_requirement_fields(traceability_dir: Path, runner_events_path: Path, req_id: str, **fields: Any) -> None:
     current = _get_requirement(traceability_dir, req_id)
     if current is None:
         raise ValueError(f"Requirement not found: {req_id}")
     merged = {**current, **fields}
     _upsert_requirement(traceability_dir, runner_events_path, **merged)
-
 
 def _store_requirement_tree(traceability_dir: Path, runner_events_path: Path, requirement_tree: dict[str, Any]) -> None:
     requirements: dict[str, Any] = {}
@@ -346,7 +315,6 @@ def _store_requirement_tree(traceability_dir: Path, runner_events_path: Path, re
     _write_table(traceability_dir, "scenarios", scenarios)
     _notify_traceability_changed(runner_events_path, "requirement_tree_stored")
 
-
 def _upsert_scenario(traceability_dir: Path, runner_events_path: Path, **payload: Any) -> None:
     normalized_scenario_id = str(payload.get("scenario_id") or "").strip()
     normalized_req_id = str(payload.get("req_id") or "").strip()
@@ -369,7 +337,6 @@ def _upsert_scenario(traceability_dir: Path, runner_events_path: Path, **payload
         scenarios.append({"id": normalized_scenario_id, "name": row["name"], "steps": row["steps"]})
         _update_requirement_fields(traceability_dir, runner_events_path, normalized_req_id, scenarios=scenarios)
     _notify_traceability_changed(runner_events_path, "scenarios_updated")
-
 
 def _upsert_interface(traceability_dir: Path, runner_events_path: Path, **payload: Any) -> None:
     normalized_interface_id = str(payload.get("interface_id") or "").strip()
@@ -403,7 +370,6 @@ def _upsert_interface(traceability_dir: Path, runner_events_path: Path, **payloa
         },
     )
 
-
 def _set_interface_implemented(
     traceability_dir: Path, runner_events_path: Path, interface_id: str, implemented: bool
 ) -> None:
@@ -423,7 +389,6 @@ def _set_interface_implemented(
             "message": None,
         },
     )
-
 
 def _upsert_test(traceability_dir: Path, runner_events_path: Path, **payload: Any) -> None:
     normalized_test_id = str(payload.get("test_id") or "").strip()
@@ -461,7 +426,6 @@ def _upsert_test(traceability_dir: Path, runner_events_path: Path, **payload: An
         },
     )
 
-
 def _set_test_status(traceability_dir: Path, runner_events_path: Path, test_id: str, passed: Any) -> None:
     normalized_test_id = str(test_id or "").strip()
     rows = _read_table(traceability_dir, "tests")
@@ -472,7 +436,6 @@ def _set_test_status(traceability_dir: Path, runner_events_path: Path, test_id: 
     _write_table(traceability_dir, "tests", rows)
     _notify_traceability_changed(runner_events_path, "test_status_updated")
 
-
 def _set_test_statuses(traceability_dir: Path, runner_events_path: Path, status_by_test_id: dict[str, Any]) -> None:
     rows = _read_table(traceability_dir, "tests")
     for test_id, passed in status_by_test_id.items():
@@ -482,7 +445,6 @@ def _set_test_statuses(traceability_dir: Path, runner_events_path: Path, status_
             row["passed"] = _as_bool_or_none(passed)
     _write_table(traceability_dir, "tests", rows)
     _notify_traceability_changed(runner_events_path, "test_statuses_updated")
-
 
 def _insert_call_edge(traceability_dir: Path, runner_events_path: Path, **payload: Any) -> None:
     source_req_id = str(payload.get("source_req_id") or "").strip()
@@ -505,7 +467,6 @@ def _insert_call_edge(traceability_dir: Path, runner_events_path: Path, **payloa
     )
     _notify_traceability_changed(runner_events_path, "call_edges_updated")
 
-
 def _upsert_node_state(
     traceability_dir: Path, runner_events_path: Path, req_id: str, state: str, phase: str | None = None
 ) -> None:
@@ -526,7 +487,6 @@ def _upsert_node_state(
     )
     _notify_traceability_changed(runner_events_path, "node_state_updated")
 
-
 def _upsert_node_contract(
     traceability_dir: Path, runner_events_path: Path, req_id: str, content: dict[str, Any]
 ) -> None:
@@ -542,7 +502,6 @@ def _upsert_node_contract(
         },
     )
     _notify_traceability_changed(runner_events_path, "node_contract_updated")
-
 
 def _clear_node_design_artifacts(traceability_dir: Path, runner_events_path: Path, req_id: str) -> None:
     interfaces = _read_table(traceability_dir, "interfaces")
@@ -568,7 +527,6 @@ def _clear_node_design_artifacts(traceability_dir: Path, runner_events_path: Pat
     }
     _write_table(traceability_dir, "call_edges", call_edges)
     _notify_traceability_changed(runner_events_path, "design_artifacts_cleared")
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Read/write ARC Bench traceability tables.")
@@ -655,7 +613,6 @@ def main() -> int:
 
     _print(result)
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

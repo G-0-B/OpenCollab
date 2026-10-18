@@ -39,7 +39,6 @@ def repository(tmp_path, monkeypatch):
         subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
     return tmp_path
 
-
 @pytest.fixture
 def provider_calls(monkeypatch):
     original_client = openai.AsyncOpenAI
@@ -60,14 +59,12 @@ def provider_calls(monkeypatch):
     monkeypatch.setattr(openai, "AsyncOpenAI", build_client)
     return calls
 
-
 def _client(repository):
     return OpenCollab(
         repository, model="test-model", provider="openai",
         api_key="test-key",  # pragma: allowlist secret -- in-memory transport
         base_url="https://provider.example.invalid/v1", config={"llm_max_retries": 0},
     )
-
 
 @pytest.mark.parametrize("concurrency", [1, 2])
 async def test_public_candidate_and_ordinary_agent_complete(repository, provider_calls, concurrency):
@@ -92,7 +89,6 @@ async def test_public_candidate_and_ordinary_agent_complete(repository, provider
         if not task.done():
             task.cancel()
         await asyncio.gather(task, return_exceptions=True)
-
 
 async def test_public_candidate_waits_for_session_subscriber_write(repository, provider_calls, monkeypatch):
     cleanup_started = asyncio.Event()
@@ -148,7 +144,6 @@ async def test_public_candidate_waits_for_session_subscriber_write(repository, p
     assert len(provider_calls) == 1
     assert context.tokens_remaining() == 99_985
     assert (repository / "source.txt").read_text() == "initial\n"
-
 
 @pytest.mark.parametrize("past_cleanup_deadline", [False, True])
 async def test_public_candidate_timeout_captures_owned_atomic_write(repository, monkeypatch, past_cleanup_deadline):
@@ -228,7 +223,6 @@ async def test_public_candidate_timeout_captures_owned_atomic_write(repository, 
     finally:
         release.set()
         await asyncio.gather(task, return_exceptions=True)
-
 
 @pytest.mark.parametrize("kind", ["ordinary", "candidate_agent", "candidate_workflow"])
 @pytest.mark.parametrize("background", [False, True])
@@ -329,7 +323,6 @@ async def test_public_workflow_waits_through_candidate_capture(repository, monke
                     subprocess.run(["git", "worktree", "remove", "--force", "--", session.env.workspace],
                                    cwd=repository, check=True, capture_output=True)
 
-
 @pytest.mark.parametrize("kind", ["ordinary", "draft_findings", "candidate_agent", "candidate_workflow"])
 async def test_nested_candidate_preserves_outer_call_ownership(repository, kind):
     parent = WorkflowContext(
@@ -357,7 +350,6 @@ async def test_nested_candidate_preserves_outer_call_ownership(repository, kind)
     assert candidate.output == "done"
     assert parent.agent_failures == ()
     assert parent._active_call_tasks == set()
-
 
 @pytest.mark.parametrize("ending", ["timeout", "cancel", "cancel-twice"])
 async def test_candidate_keeps_lease_for_cleanup_spawned_by_cancelled_turn(repository, ending):

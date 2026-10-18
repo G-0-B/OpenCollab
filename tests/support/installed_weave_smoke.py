@@ -48,7 +48,6 @@ class FileEditingModel:
     def close(self):
         self.closed += 1
 
-
 async def exercise_weave(workspace: Path) -> dict:
     model = FileEditingModel()
     probe = workspace / "check_file.py"
@@ -91,7 +90,6 @@ async def exercise_weave(workspace: Path) -> dict:
     return {"file": "shared.txt", "content": "alpha\nbeta\n", "checks": len(checks), "model_calls": len(model.calls),
             "tokens": result.tokens, "delivery_ok": result.output["delivery_ok"]}
 
-
 def main() -> None:
     package = Path(opencollab.__file__).resolve()
     assert package.is_relative_to(Path(sys.prefix).resolve()), package
@@ -109,7 +107,6 @@ def main() -> None:
         assert "weave" in listed.stdout, listed.stdout
         report = asyncio.run(exercise_weave(workspace))
     print(json.dumps({"package": str(package), "execution": report}, indent=2))
-
 
 if __name__ == "__main__":
     main()

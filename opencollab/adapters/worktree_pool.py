@@ -1,9 +1,4 @@
-"""Lifecycle for per-spawn WorktreeEnvironments.
-
-A spawned agent running in parallel needs its own physical workspace so it
-cannot corrupt a sibling's edits. WorktreePool encapsulates: create a worktree
-env for a given role, remember it for cleanup, tear them all down at the end.
-"""
+"""Create, track, and clean up per-agent worktree environments."""
 
 from __future__ import annotations
 
@@ -38,25 +33,16 @@ logger = logging.getLogger(__name__)
 # full of files no agent wrote.
 CONTAINER_WORKTREE_ROOT = "/tmp/opencollab-worktrees"
 
-
 async def _finish_cleanup(operation):
     return await await_owned_operation(operation, propagate_cancellation=True)
 
-
 class WorktreePool:
-    """Lends out worktree-isolated environments and tracks them for cleanup.
+    """Lend isolated environments and track them for cleanup.
 
-    When use_worktrees is False, hands out LocalEnvironment(workspace) instead
-    — caller code does not need to branch on the mode.
-
-    ``base_environment`` says where the repository being worked on actually
-    lives. Left unset, it is the host file system and a worktree is made there.
-    Set to a container this run is attached to, every worktree is carved out
-    inside that container instead, because a repository that exists only there
-    cannot be reached from the host without a mount — and a harness that reads
-    its result out of a bounded container archive is precisely one that cannot
-    allow a mount. Either way the agents get the same isolation and report the
-    same evidence; only the side of the wall changes.
+    With ``use_worktrees=False``, return ``LocalEnvironment(workspace)``.
+    ``base_environment`` selects host worktrees by default or worktrees inside
+    an attached container. Container worktrees avoid host mounts so bounded
+    container archives remain usable for patch extraction.
     """
 
     def __init__(

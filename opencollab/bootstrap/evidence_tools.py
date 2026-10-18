@@ -15,5 +15,4 @@ def observe_test_evidence(tools: tuple[ToolPort, ...]) -> tuple[ToolPort, ...]:
         for tool in tools
     )
 
-
 __all__ = ["BashEvidence", "has_pass_evidence", "observe_test_evidence"]

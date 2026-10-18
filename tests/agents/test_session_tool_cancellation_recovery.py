@@ -31,7 +31,6 @@ class WaitingTool(FakeTool):
         self.started.set()
         await asyncio.Event().wait()
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("completed_first", [False, True])
 async def test_cancelled_tool_batch_can_continue_with_complete_chat_history(completed_first, tmp_path):
@@ -82,7 +81,6 @@ async def test_cancelled_tool_batch_can_continue_with_complete_chat_history(comp
     ] == [call["id"] for call in calls]
     assert waiting.executions == 1
     assert len(completed.calls) == int(completed_first)
-
 
 @pytest.mark.asyncio
 async def test_cancellation_keeps_deferred_result_with_a_live_producer():

@@ -1,10 +1,4 @@
-"""Tracer — JSONL trajectory recorder for observability.
-
-Pure Unix-style: append-write to a JSONL file. No databases, no heavy tracing
-frameworks. Scientists can analyze trajectories with simple Python scripts.
-
-Ref: tracer design with fine-grained steps for debugging agent failures.
-"""
+"""Append JSONL trajectory records for analysis and debugging."""
 
 from __future__ import annotations
 
@@ -31,11 +25,9 @@ _TRACE_RECOVERY_TAIL_BYTES = 1024 * 1024
 _TRACE_QUEUE_MAX_RECORDS = 1024
 _CLOSE_WRITER = object()
 
-
 def _trace_lease_path(output_dir: str, trace_filename: str) -> str:
     digest = hashlib.sha256(trace_filename.encode("utf-8")).hexdigest()
     return os.path.join(output_dir, f".trace-{digest}.lock")
-
 
 def _acquire_trace_lease(output_dir: str, trace_filename: str) -> Any:
     lease_path = _trace_lease_path(output_dir, trace_filename)
@@ -51,13 +43,11 @@ def _acquire_trace_lease(output_dir: str, trace_filename: str) -> Any:
         raise
     return handle
 
-
 def _release_trace_lease(handle: Any) -> None:
     try:
         fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
     finally:
         handle.close()
-
 
 def _recover_trace_tail(path: str) -> tuple[int, bool, bool]:
     """Return the latest step, boundary need, and damaged-record status."""
@@ -105,7 +95,6 @@ def _recover_trace_tail(path: str) -> tuple[int, bool, bool]:
         )
     return latest_step, not tail.endswith(b"\n"), damaged
 
-
 def _quarantine_damaged_trace(path: str) -> str:
     """Move a damaged trace aside so the active JSONL remains parseable."""
     quarantine_path = f"{path}.corrupt-{time.time_ns()}-{os.getpid()}"
@@ -114,11 +103,9 @@ def _quarantine_damaged_trace(path: str) -> str:
     os.replace(path, quarantine_path)
     return quarantine_path
 
-
 @dataclass(slots=True)
 class _FlushRequest:
     done: threading.Event = field(default_factory=threading.Event)
-
 
 @dataclass(slots=True)
 class _TraceWriterState:
@@ -128,7 +115,6 @@ class _TraceWriterState:
     write_error_errno: int | None = None
     dropped_steps: int = 0
     close_error: BaseException | None = None
-
 
 def _latch_write_error(
     state: _TraceWriterState,
@@ -142,7 +128,6 @@ def _latch_write_error(
             code = getattr(exc, "errno", None)
             state.write_error_errno = code if isinstance(code, int) and not isinstance(code, bool) else None
         state.dropped_steps += dropped
-
 
 def _trace_writer_loop(
     records: queue.Queue[object],
@@ -186,22 +171,11 @@ def _trace_writer_loop(
         finally:
             records.task_done()
 
-
 class Tracer:
-    """Transparent, append-only trajectory recorder (fail-soft Observer sink).
+    """Append trajectory steps with timestamps, token counts, and latencies.
 
-    Records every LLM call, tool execution, delegation, and compaction event
-    with timestamps, token counts, and latencies.
-
-    Fail-soft latch-and-drop: on the first write error it latches the error,
-    closes the file, and thereafter *counts* dropped steps instead of raising —
-    trajectory recording must never crash the run it observes, nor silently
-    pretend a dropped step was written.
-
-    Usage:
-        tracer = Tracer("my-session")
-        tracer.log_step("llm_call", {"model": "gpt-4o"}, tokens=1500, latency=2.3)
-        tracer.flush()
+    On the first write error, latch the error and close the file. Count subsequent
+    dropped steps while letting the observed run continue.
     """
 
     def __init__(
@@ -213,10 +187,8 @@ class Tracer:
     ):
         self.run_id = run_id
         self._output_dir = output_dir
-        # ``filename`` decouples the on-disk name from ``run_id``: the workflow
-        # run folder writes ``orchestration.jsonl`` while each record still
-        # carries the meaningful ``run_id`` (e.g. an external task id). When
-        # omitted the name falls back to ``<run_id>.jsonl`` (the prior behaviour).
+        # ``filename`` lets workflows write ``orchestration.jsonl`` while preserving
+        # the run identity in each record. It defaults to ``<run_id>.jsonl``.
         trace_filename = filename or f"{run_id}.jsonl"
         if (
             not trace_filename
@@ -315,7 +287,6 @@ class Tracer:
                 self._state.write_error = "BufferError: trajectory queue is full"
                 self._state.dropped_steps += 1
 
-
     def for_agent(self, aid: int, agent: Any) -> AgentTraceView:
         """A view of this tracer whose records name ``aid`` and ``agent.name``."""
         return AgentTraceView(self, lambda: (aid, getattr(agent, "name", None)))
@@ -387,7 +358,6 @@ class Tracer:
             # Python cannot propagate destructor failures to a caller. Explicit
             # close sites retain their ordinary error handling and reporting.
             pass
-
 
 class AgentTraceView:
     """One agent's handle on a shared ``Tracer``: same file, same step counter.

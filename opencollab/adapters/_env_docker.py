@@ -43,23 +43,10 @@ _FULL_ID_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 _WRITE_LOCKS: dict[str, asyncio.Lock] = {}
 _WRITE_LOCK_OWNERS: dict[str, asyncio.Task] = {}
 
-# Git refuses to commit without an author, and a benchmark image is not
-# configured with one: ``git commit`` inside the container fails with "Please
-# tell me who you are" before it writes anything. That is fatal to a team whose
-# handoff payload is a commit sha -- the agent doing the work has nothing to
-# hand over, and the failure surfaces as a shell error inside one turn rather
-# than as anything the run records.
-#
-# Passed per exec rather than written into the repository's config, because the
-# repository the agent works in is evidence: the evaluation harness rebuilds it
-# as a single anonymous commit and reads it back afterwards, so a key this
-# process added to ``.git/config`` would be a difference between the workspace
-# it prepared and the one it verifies. An environment variable leaves the
-# workspace byte-identical.
-#
-# The identity is deliberately not a person and its address is unroutable: the
-# commits never leave the container, and ``worktree_changes`` already attributes
-# each sha to an agent, so nothing reads this back.
+# Git commits need an author in benchmark images. Pass an anonymous identity
+# per exec so handoff commits succeed without changing the repository config
+# that the evaluation harness later verifies. ``worktree_changes`` attributes
+# the commits to agents.
 _GIT_IDENTITY_ENV: tuple[tuple[str, str], ...] = (
     ("GIT_AUTHOR_NAME", "OpenCollab Agent"),
     ("GIT_AUTHOR_EMAIL", "agent@opencollab.invalid"),
@@ -146,12 +133,10 @@ rm -f -- "$pidfile" && exit 0
 exit 125
 """.strip()
 
-
 def _validate_image(value: str) -> str:
     if not isinstance(value, str) or not _IMAGE_RE.fullmatch(value) or value.startswith("-"):
         raise ValueError("Docker image reference is unsafe or malformed")
     return value
-
 
 def _validate_container_reference(value: str) -> str:
     if not isinstance(value, str) or value.startswith("-"):
@@ -161,7 +146,6 @@ def _validate_container_reference(value: str) -> str:
     if not _NAME_RE.fullmatch(value) or re.fullmatch(r"[0-9a-fA-F]+", value):
         raise ValueError("Docker container reference is unsafe or ambiguous")
     return value
-
 
 class DockerEnvironment(Environment):
     """Run commands in a new network-isolated or caller-owned container.
@@ -219,20 +203,17 @@ class DockerEnvironment(Environment):
 
     @property
     def container_reference(self) -> str | None:
-        """The container this was attached to, or ``None`` when it owns one.
+        """Return the attached container, or ``None`` for an owned container.
 
-        Read by whatever needs to open a second view onto the same container --
-        a per-agent worktree, say -- without reaching into how attaching works.
+        Per-agent worktrees use this reference to share an attached container.
         """
         return self._attached_reference
 
     @property
     def command_prefix(self) -> Callable[[str], str] | str | None:
-        """What an agent's commands here are wrapped with, if anything.
+        """Return the wrapper applied to agent commands, if any.
 
-        A container built for a benchmark usually needs its interpreter
-        activated first, and a second view onto the same container has to run
-        commands the same way for its results to mean the same thing.
+        Other views of this container must use it to share the same runtime setup.
         """
         return self._command_prefix
 
@@ -487,10 +468,8 @@ class DockerEnvironment(Environment):
                 propagate_cancellation=True,
             ):
                 raise ProcessCleanupError("timed out container command did not quiesce")
-            # Everything the command printed before the deadline goes back with
-            # the timeout. A test run that hung after reporting nine failures
-            # and one that hung immediately used to be the same empty result,
-            # and the only move left was to run it again.
+            # Return pre-deadline output with the timeout so failures printed before a
+            # hang remain visible.
             return timed_out_result(exc, self._timeout_returncode, timeout)
         except asyncio.CancelledError as exc:
             if not await await_owned_operation(self._recover_inner(token)):

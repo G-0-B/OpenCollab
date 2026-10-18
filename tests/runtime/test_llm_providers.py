@@ -24,24 +24,19 @@ from tests.support.llm_provider_test_support import _openai_resp
 def test_is_anthropic_normalizes_case_and_whitespace(provider):
     assert is_anthropic(provider) is True
 
-
 @pytest.mark.parametrize("provider", ["openai", "deepseek", "claude", None])
 def test_is_anthropic_false_for_non_anthropic(provider):
     assert is_anthropic(provider) is False
 
-
 def test_normalize_provider_defaults_to_openai_only_for_none():
     assert normalize_provider(None) == "openai"
-    # Whitespace strips to empty, which is still a non-anthropic provider.
     assert normalize_provider("  ") == ""
     assert is_anthropic("  ") is False
-
 
 def test_required_env_key_maps_provider_to_key():
     assert required_env_key("anthropic") == "ANTHROPIC_API_KEY"
     assert required_env_key("openai") == "OPENAI_API_KEY"
     assert required_env_key(None) == "OPENAI_API_KEY"
-
 
 @pytest.mark.parametrize("provider", ["claude", "Anthropics", "claude-ai", "anthropic-ai"])
 def test_near_miss_warns_for_anthropic_lookalikes(caplog, provider):
@@ -49,25 +44,14 @@ def test_near_miss_warns_for_anthropic_lookalikes(caplog, provider):
         warn_provider_near_miss(provider)
     assert any("not recognized as 'anthropic'" in r.message for r in caplog.records)
 
-
 @pytest.mark.parametrize("provider", ["anthropic", "openai", "deepseek", "ollama", None])
 def test_near_miss_silent_for_real_providers(caplog, provider):
     with caplog.at_level(logging.WARNING, logger="opencollab.adapters.llm.providers"):
         warn_provider_near_miss(provider)
     assert caplog.records == []
 
-
-# ---------------------------------------------------------------------------
-# Issue A — Anthropic prompt-cache token accounting
-# ---------------------------------------------------------------------------
-
-
 def test_anthropic_folds_cache_tokens_into_input():
-    """cache_read + cache_creation must be added to accounted input tokens.
-
-    Anthropic's ``input_tokens`` excludes cached portions, so the true input
-    the model processed is input + cache_read + cache_creation.
-    """
+    """Anthropic input_tokens excludes cache reads and cache creation."""
     usage = SimpleNamespace(
         input_tokens=100,
         output_tokens=20,
@@ -76,13 +60,11 @@ def test_anthropic_folds_cache_tokens_into_input():
     )
     result = parse_anthropic_usage(usage)
 
-    assert result.input_tokens == 100 + 500 + 300  # 900
+    assert result.input_tokens == 100 + 500 + 300
     assert result.output_tokens == 20
-    assert result.total_tokens == 920  # what add_used_tokens accumulates
-    # Cache sub-fields retained for observability (already folded into input).
+    assert result.total_tokens == 920
     assert result.cache_read_tokens == 500
     assert result.cache_creation_tokens == 300
-
 
 def test_anthropic_without_cache_attrs_does_not_crash():
     """A usage object lacking cache attributes equals plain input+output."""
@@ -94,7 +76,6 @@ def test_anthropic_without_cache_attrs_does_not_crash():
     assert result.total_tokens == 120
     assert result.cache_read_tokens == 0
     assert result.cache_creation_tokens == 0
-
 
 def test_anthropic_treats_none_cache_fields_as_zero():
     """SDK may expose cache attrs set to None when caching is inactive."""
@@ -109,12 +90,6 @@ def test_anthropic_treats_none_cache_fields_as_zero():
     assert result.input_tokens == 100
     assert result.total_tokens == 120
 
-
-# ---------------------------------------------------------------------------
-# Issue B — OpenAI-compatible usage-missing estimate fallback
-# ---------------------------------------------------------------------------
-
-
 def test_openai_usage_none_yields_nonzero_estimate():
     """When usage is missing the budget must still advance (non-zero estimate)."""
     messages = [
@@ -127,11 +102,9 @@ def test_openai_usage_none_yields_nonzero_estimate():
 
     assert result.usage.input_tokens > 0
     assert result.usage.output_tokens > 0
-    assert result.usage.total_tokens > 0  # budget cannot be defeated
+    assert result.usage.total_tokens > 0
     assert result.usage.estimated is True
-    # Input estimate is derived from the request messages.
     assert result.usage.input_tokens == estimate_messages_tokens(messages)
-
 
 def test_openai_usage_zero_counts_fall_back_to_estimate():
     """A present usage block reporting zeros still estimates (non-zero)."""
@@ -144,7 +117,6 @@ def test_openai_usage_zero_counts_fall_back_to_estimate():
     assert result.usage.input_tokens > 0
     assert result.usage.output_tokens > 0
     assert result.usage.estimated is True
-
 
 def test_openai_usage_estimate_includes_tool_call_structure_and_tool_schema():
     """Usage fallbacks must charge serialized requests, not only prose content."""
@@ -177,13 +149,8 @@ def test_openai_usage_estimate_includes_tool_call_structure_and_tool_schema():
     assert result.usage.input_tokens > 6_000
     assert result.usage.input_tokens > estimate_messages_tokens(messages)
 
-
 def test_openai_normal_usage_unchanged_and_no_double_count():
-    """A normal usage block is used verbatim; cached_tokens is NOT added on top.
-
-    OpenAI ``prompt_tokens`` already includes cached tokens, so the accounted
-    input must equal prompt_tokens exactly (no additive cache fix here).
-    """
+    """OpenAI prompt_tokens already includes cached tokens."""
     usage = SimpleNamespace(
         prompt_tokens=1000,
         completion_tokens=50,
@@ -196,13 +163,12 @@ def test_openai_normal_usage_unchanged_and_no_double_count():
 
     result = parse_openai_response(resp, messages)
 
-    assert result.usage.input_tokens == 1000  # exactly prompt_tokens, no +800
+    assert result.usage.input_tokens == 1000
     assert result.usage.output_tokens == 50
     assert result.usage.cache_read_tokens == 800
     assert result.usage.raw_usage["prompt_tokens_details"]["cached_tokens"] == 800
     assert result.usage.total_tokens == 1050
     assert result.usage.estimated is False
-
 
 def test_anthropic_tolerates_null_text_and_thinking_blocks():
     """Compatible Anthropic gateways may emit nullable content fields."""

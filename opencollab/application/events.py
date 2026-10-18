@@ -1,11 +1,7 @@
-"""Single source of truth for run-loop and scheduler event construction.
+"""Construct session-runtime and scheduler events.
 
-Every session-runtime event — run loop, tool execution — is built here so the
-event vocabulary lives in one place and each event carries the owning agent's
-``aid`` for TUI routing. The use cases hold a frozen ``SessionEventFactory``
-(injected in tests, defaulted otherwise) and call only the builders they need.
-The ``Scheduler`` holds a ``SchedulerEventFactory`` for the same reason on the
-orchestration side.
+``SessionEventFactory`` attaches the owning ``aid`` for TUI routing.
+``SchedulerEventFactory`` supplies orchestration events.
 """
 
 from __future__ import annotations
@@ -19,19 +15,15 @@ from opencollab.domain.events import SchedulerEvent, SessionRuntimeEvent
 # blow up a TUI line or a persisted manifest.
 SCHEDULER_TASK_PREVIEW_CHARS = 100
 
-
 @dataclass(frozen=True)
 class SessionEventFactory:
-    # run loop
     step_start: Callable[[int], Any]
     step_end: Callable[[int, float], Any]
     text_delta: Callable[[str], Any]
     error: Callable[[str], Any]
-    # tool execution
     loop_detected: Callable[[str, int], Any]
     tool_start: Callable[[str, dict[str, Any], str | None], Any]
     tool_end: Callable[[str, float, str | None], Any]
-
 
 def default_session_event_factory(
     aid: int | Callable[[], int] = -1,
@@ -77,23 +69,18 @@ def default_session_event_factory(
         ),
     )
 
-
 @dataclass(frozen=True)
 class SchedulerEventFactory:
-    # agent lifecycle
     agent_spawned: Callable[[int, int | None, str, str], SchedulerEvent]
     agent_completed: Callable[[int, int | None, str, float, int], SchedulerEvent]
     agent_resumed: Callable[[int, str], SchedulerEvent]
     agent_failed: Callable[[int, str, str], SchedulerEvent]
     agent_cancelled: Callable[[int, str], SchedulerEvent]
-    # teammate messaging
     agent_message_sent: Callable[[int, int, str, str], SchedulerEvent]
     agent_message_delivered: Callable[[int, int, str, int], SchedulerEvent]
     agent_message_rejected_on_restore: Callable[[int, int, str], SchedulerEvent]
-    # review loop
     review_started: Callable[[int, int], SchedulerEvent]
     review_completed: Callable[[int, bool], SchedulerEvent]
-
 
 def default_scheduler_event_factory() -> SchedulerEventFactory:
     return SchedulerEventFactory(
@@ -164,7 +151,6 @@ def default_scheduler_event_factory() -> SchedulerEventFactory:
             },
         ),
     )
-
 
 __all__ = [
     "SchedulerEventFactory",

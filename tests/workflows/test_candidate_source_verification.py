@@ -24,7 +24,6 @@ def _repository(tmp_path: Path) -> Path:
     subprocess.run(["git", "-C", str(repo), "commit", "-qm", "initial"], check=True)
     return repo
 
-
 @pytest.mark.parametrize("mode", ["agent", "workflow"])
 @pytest.mark.asyncio
 async def test_post_capture_source_read_error_preserves_candidate_lease(tmp_path, monkeypatch, mode):
@@ -71,7 +70,6 @@ async def test_post_capture_source_read_error_preserves_candidate_lease(tmp_path
     finally:
         for lease in leases:
             await lease.cleanup()
-
 
 @pytest.mark.parametrize("mode", ["agent", "workflow"])
 @pytest.mark.asyncio

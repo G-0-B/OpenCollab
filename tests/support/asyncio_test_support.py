@@ -5,7 +5,6 @@ import sys
 
 CANCEL_METADATA_SURVIVES_TASK_BOUNDARY = sys.version_info >= (3, 11)
 
-
 def assert_cancel_reason(
     error: asyncio.CancelledError,
     expected: str,
@@ -17,7 +16,6 @@ def assert_cancel_reason(
         # CPython 3.10 synthesizes a fresh empty CancelledError when a cancelled
         # Task is awaited, even when Task.cancel(message) supplied a reason.
         assert error.args == ()
-
 
 def assert_cancel_note(
     error: asyncio.CancelledError,

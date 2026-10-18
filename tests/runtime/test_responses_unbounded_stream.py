@@ -18,7 +18,6 @@ class TimedOutStream(FakeStream):
     async def __anext__(self):
         raise asyncio.TimeoutError("transport timeout")
 
-
 @pytest.mark.asyncio
 async def test_unbounded_iterator_timeout_retains_transport_cause():
     stream = TimedOutStream([])
@@ -26,7 +25,6 @@ async def test_unbounded_iterator_timeout_retains_transport_cause():
         await _consume_stream(stream, None, None)
     assert isinstance(captured.value.__cause__, asyncio.TimeoutError)
     assert stream.closed
-
 
 @pytest.mark.asyncio
 async def test_unbounded_creation_timeout_retains_transport_cause():
@@ -37,7 +35,6 @@ async def test_unbounded_creation_timeout_retains_transport_cause():
     with pytest.raises(ResponsesStreamInterruptedError, match="provider transport") as captured:
         await _create_and_consume_stream(client, {}, None, None, "gpt-fake")
     assert isinstance(captured.value.__cause__, asyncio.TimeoutError)
-
 
 @pytest.mark.asyncio
 async def test_unbounded_creation_and_idle_wait_complete():
@@ -54,7 +51,6 @@ async def test_unbounded_creation_and_idle_wait_complete():
     )
     assert state.completed_response.status == "completed"
     assert stream.closed
-
 
 @pytest.mark.asyncio
 async def test_unbounded_stream_still_accepts_caller_cancellation():

@@ -18,7 +18,6 @@ _BLOCKED_CONTAINER_SEARCH_RE = tuple(
     )
 )
 
-
 class Single2SafetyPolicy:
     """Preserve the active safety policy and add the root-search guard."""
 
@@ -52,7 +51,6 @@ class Single2SafetyPolicy:
                 "use the dedicated grep tool."
             )
 
-
 def wrap_single2_safety(
     policy: SafetyPolicyPort | None,
     workspace: str,
@@ -60,6 +58,5 @@ def wrap_single2_safety(
     """Layer Single2's root-search guard over a workspace policy."""
     base = policy if policy is not None else SandboxInterceptor(workspace)
     return Single2SafetyPolicy(base, workspace)
-
 
 __all__ = ["Single2SafetyPolicy", "wrap_single2_safety"]

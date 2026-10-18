@@ -23,7 +23,6 @@ from opencollab.bootstrap._workflow_runtime_state import (
 
 _WORKFLOW_IMPORT_STATE_LOCK = threading.RLock()
 
-
 class _WorkflowSourceLoader(importlib.abc.Loader):
     """Execute the already bounded source through an importlib module spec."""
 
@@ -39,7 +38,6 @@ class _WorkflowSourceLoader(importlib.abc.Loader):
 
     def get_resource_reader(self, fullname: str):
         return importlib.machinery.SourceFileLoader(fullname, self._path).get_resource_reader(fullname)
-
 
 class _WorkflowImportFinder(importlib.abc.MetaPathFinder):
     """Resolve local workflow imports through the bounded source loader."""
@@ -114,9 +112,7 @@ class _WorkflowImportFinder(importlib.abc.MetaPathFinder):
             return spec
         return None
 
-
 _WORKFLOW_IMPORT_FINDER = _WorkflowImportFinder()
-
 
 def _remove_workflow_package(package_name: str) -> None:
     with _WORKFLOW_IMPORT_STATE_LOCK:
@@ -125,7 +121,6 @@ def _remove_workflow_package(package_name: str) -> None:
             if registered_name == package_name or registered_name.startswith(prefix):
                 sys.modules.pop(registered_name, None)
         _WORKFLOW_IMPORT_FINDER.unregister(package_name)
-
 
 class _WorkflowModuleOwner:
     """Keep workflow modules alive while exposing them only during execution."""
@@ -163,7 +158,6 @@ class _WorkflowModuleOwner:
                 self.capture_modules()
                 _remove_workflow_package(self.package_name)
 
-
 def _bind_runtime_package(spec: WorkflowSpec, owner: _WorkflowModuleOwner) -> WorkflowSpec:
     original = spec.fn
 
@@ -183,7 +177,6 @@ def _bind_runtime_package(spec: WorkflowSpec, owner: _WorkflowModuleOwner) -> Wo
     )
     run.__workflow_spec__ = bound  # type: ignore[attr-defined]
     return bound
-
 
 def discover_workflows(directory: str, *, include_builtin: bool = False) -> Registry:
     """Load every ``@workflow``-decorated function under ``directory``.
@@ -232,7 +225,6 @@ def discover_workflows(directory: str, *, include_builtin: bool = False) -> Regi
             registry.register(spec)
     return registry
 
-
 def _load_workflow_specs(path: str) -> list[WorkflowSpec]:
     """Import one workflow file and bind its package to returned specs."""
     path = os.path.abspath(path)
@@ -272,10 +264,8 @@ def _load_workflow_specs(path: str) -> list[WorkflowSpec]:
     try:
         loader.exec_module(module)
 
-        # Dedupe by spec identity: a decorated function bound under more than one
-        # module-level name (an alias or a re-export) carries the SAME spec object
-        # under each name. Collecting both would register the same name twice and
-        # abort discovery of the whole directory, so keep one entry per spec.
+        # Aliases and re-exports share a decorated function's spec object. Dedupe
+        # by its identity to avoid registering the same workflow twice.
         found: list[WorkflowSpec] = []
         seen: set[int] = set()
         for value in vars(module).values():
@@ -299,7 +289,6 @@ def _load_workflow_specs(path: str) -> list[WorkflowSpec]:
     _remove_workflow_package(package_name)
     return bound
 
-
 def load_workflow_specs(path: str) -> list[WorkflowSpec]:
     """Import one bounded workflow file and collect its workflow specs.
 
@@ -309,7 +298,6 @@ def load_workflow_specs(path: str) -> list[WorkflowSpec]:
     Every local source uses the same bounded, regular-file-only loader.
     """
     return _load_workflow_specs(path)
-
 
 _load_specs_from_file = load_workflow_specs
 

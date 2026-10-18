@@ -39,7 +39,6 @@ async def test_output_limit_keeps_usage_without_executing_partial_tool(streamed,
     assert session.used_tokens == 150
     assert not any(message.get("tool_calls") for message in session.messages)
 
-
 @pytest.mark.parametrize("encrypted", [None, "opaque encrypted reasoning"])
 @pytest.mark.asyncio
 async def test_hidden_reasoning_output_limit_returns_once_with_reported_usage(encrypted):
@@ -78,7 +77,6 @@ async def test_hidden_reasoning_output_limit_returns_once_with_reported_usage(en
     assert session.phase is SessionPhase.STOPPED
     assert session.used_tokens == 150
 
-
 def test_completed_partial_tool_remains_a_protocol_error():
     from opencollab.adapters.llm.responses_provider import ResponsesProtocolError, parse_responses_response
 
@@ -87,7 +85,6 @@ def test_completed_partial_tool_remains_a_protocol_error():
         parse_responses_response(
             completed_response(output=[item]), [{"role": "user", "content": "write"}], expected_model="gpt-fake",
         )
-
 
 def test_completed_hidden_reasoning_remains_empty_output():
     from opencollab.adapters.llm.responses_provider import ResponsesEmptyOutputError, parse_responses_response

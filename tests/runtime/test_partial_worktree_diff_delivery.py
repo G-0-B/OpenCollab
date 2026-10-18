@@ -29,11 +29,9 @@ class _DiffEnvironment:
     async def read_file(self, path):
         return "content\n"
 
-
 class _FailedChild(_ChildSession):
     async def run_loop(self):
         raise RuntimeError("provider unavailable")
-
 
 class _StoppedChild(_ChildSession):
     async def run_loop(self):
@@ -41,11 +39,9 @@ class _StoppedChild(_ChildSession):
         self.state.terminal_reason = "step limit reached"
         return "stopped"
 
-
 class _BrokenTracer:
     def log_step(self, **kwargs):
         raise OSError("trace unavailable")
-
 
 @pytest.mark.parametrize("child_class", [_FailedChild, _StoppedChild])
 @pytest.mark.parametrize("trace", ["off", "on", "broken"])

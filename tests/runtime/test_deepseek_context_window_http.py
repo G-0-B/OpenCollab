@@ -60,7 +60,6 @@ def _seven_file_server():
         server.server_close()
         thread.join(timeout=2)
 
-
 @pytest.mark.parametrize("model", [
     "deepseek-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp",
     "gateway/deepseek-flash-2026-10-14", "gateway/deepseek-v4-pro-2026-10-14",

@@ -23,7 +23,6 @@ from opencollab.domain.token_estimation import estimate_request_message_tokens
 def _tool_msg(content, tool_call_id="t1"):
     return {"role": "tool", "tool_call_id": tool_call_id, "content": content}
 
-
 def test_oversize_tool_result_is_truncated_to_budget_with_reference():
     shaper = PerToolResultBudgetShaper(max_chars=1000)
     big = "x" * 5000
@@ -34,13 +33,11 @@ def test_oversize_tool_result_is_truncated_to_budget_with_reference():
     assert "re-read a narrower range" in content
     assert "truncated" in content
 
-
 def test_under_budget_tool_result_is_untouched():
     shaper = PerToolResultBudgetShaper(max_chars=1000)
     small = "x" * 500
     out = shaper.shape([_tool_msg(small)])
     assert out[0]["content"] == small
-
 
 def test_non_tool_messages_pass_through_even_when_huge():
     shaper = PerToolResultBudgetShaper(max_chars=100)
@@ -49,7 +46,6 @@ def test_non_tool_messages_pass_through_even_when_huge():
     out = shaper.shape([user, assistant])
     assert out == [user, assistant]
 
-
 def test_shaper_does_not_mutate_input():
     shaper = PerToolResultBudgetShaper(max_chars=1000)
     messages = [_tool_msg("y" * 5000)]
@@ -57,13 +53,11 @@ def test_shaper_does_not_mutate_input():
     shaper.shape(messages)
     assert messages == snapshot
 
-
 def test_any_size_result_fits_budget():
     shaper = PerToolResultBudgetShaper(max_chars=2000)
     for n in (1999, 2000, 2001, 100_000):
         out = shaper.shape([_tool_msg("z" * n)])
         assert len(out[0]["content"]) <= 2000
-
 
 def test_reactive_clear_keeps_new_result_when_provider_reuses_call_id():
     messages = [
@@ -84,7 +78,6 @@ def test_reactive_clear_keeps_new_result_when_provider_reuses_call_id():
     out = shaper.shape(messages)
     results = [message["content"] for message in out if message.get("role") == "tool"]
     assert results == [DEFAULT_CLEARED_TOOL_CONTENT, "new result"]
-
 
 @pytest.mark.parametrize(
     "kwargs",
@@ -107,12 +100,10 @@ def test_reactive_shapers_reject_inconsistent_thresholds(kwargs):
     with pytest.raises(ValueError):
         OldHistorySnipShaper(**{**defaults, **kwargs})
 
-
 @pytest.mark.parametrize("max_chars", [True, 0, -1, 1.5, float("nan")])
 def test_tool_result_budget_rejects_invalid_limits(max_chars):
     with pytest.raises(ValueError, match="positive integer"):
         PerToolResultBudgetShaper(max_chars=max_chars)
-
 
 @pytest.mark.parametrize("max_chars", [1, 5, 20, 100])
 def test_tiny_tool_result_budgets_remain_hard_caps(max_chars):
@@ -122,12 +113,10 @@ def test_tiny_tool_result_budgets_remain_hard_caps(max_chars):
     assert 0 < len(content) <= max_chars
     assert message == snapshot
 
-
 def test_empty_pipeline_is_identity():
     messages = [_tool_msg("z" * 100_000)]
     out = ShaperPipeline(()).shape(messages)
     assert out is messages
-
 
 def test_pipeline_applies_shapers_in_order():
     class TagShaper:
@@ -141,24 +130,15 @@ def test_pipeline_applies_shapers_in_order():
     out = pipeline.shape([{"role": "user", "content": "x"}])
     assert out[0]["tags"] == ["a", "b"]
 
-
-# ---------------------------------------------------------------------------
-# History-compaction layers (snip / auto-compact / collapse)
-# ---------------------------------------------------------------------------
-
-
 def _chars(messages):
     """Char-counting estimator — additive and predictable for thresholds."""
     return sum(len(m.get("content") or "") for m in messages)
 
-
 def _sys():
     return {"role": "system", "content": "s"}
 
-
 def _user(c="u"):
     return {"role": "user", "content": c}
-
 
 def _call(tid, text=""):
     msg = {
@@ -169,14 +149,11 @@ def _call(tid, text=""):
         msg["content"] = text
     return msg
 
-
 def _tool(tid, c):
     return {"role": "tool", "tool_call_id": tid, "content": c}
 
-
 def _text(c):
     return {"role": "assistant", "content": c}
-
 
 def _orphaned_tool_ids(messages):
     """tool-result ids that lack a surviving assistant tool_call answering them."""
@@ -191,13 +168,11 @@ def _orphaned_tool_ids(messages):
     }
     return result_ids - call_ids
 
-
 def _snip(**kw):
     return OldHistorySnipShaper(
         estimate_tokens=_chars, trigger_tokens=1500, target_tokens=800,
         keep_recent_groups=1, **kw,
     )
-
 
 def _autocompact(summarizer, **kw):
     return AutoCompactShaper(
@@ -205,12 +180,10 @@ def _autocompact(summarizer, **kw):
         target_tokens=800, keep_recent_groups=1, **kw,
     )
 
-
 def test_snip_noop_below_trigger_returns_input_identity():
     messages = [_sys(), _user(), _text("small"), _text("recent")]
     out = _snip().shape(messages)
     assert out is messages
-
 
 def test_snip_preserves_reasoning_only_tool_group_when_it_cannot_split_safely():
     """Provider-signed reasoning must not be detached from its tool call."""
@@ -231,7 +204,6 @@ def test_snip_preserves_reasoning_only_tool_group_when_it_cannot_split_safely():
     assert _tool("large", "small result") in out
     assert out[-1] == _text("recent")
 
-
 def test_snip_drops_old_tool_turns_when_over_trigger():
     messages = [
         _sys(),
@@ -241,13 +213,11 @@ def test_snip_drops_old_tool_turns_when_over_trigger():
         _text("recent answer"),
     ]
     out = _snip().shape(messages)
-    # Old tool-exchange turns are gone; system, user and recent group survive.
     assert not any(m.get("role") == "tool" for m in out)
     assert not any(m.get("tool_calls") for m in out)
     assert out[0] == _sys()
     assert out[-1] == _text("recent answer")
     assert _user() in out
-
 
 def test_snip_brings_view_under_target_anti_thrash_headroom():
     messages = [
@@ -257,10 +227,7 @@ def test_snip_brings_view_under_target_anti_thrash_headroom():
         _text("recent"),
     ]
     out = _snip().shape(messages)
-    # Compacted to <= target (well under trigger) so next turn won't immediately
-    # re-trigger.
     assert _chars(out) <= 800
-
 
 def test_snip_preserves_tool_pairing():
     messages = [
@@ -271,7 +238,6 @@ def test_snip_preserves_tool_pairing():
     ]
     out = _snip().shape(messages)
     assert _orphaned_tool_ids(out) == set()
-
 
 def test_snip_preserves_hybrid_assistant_text_when_dropping_tool_payload():
     hybrid = _call("t1", text="decision: keep the verified constraint")
@@ -290,7 +256,6 @@ def test_snip_preserves_hybrid_assistant_text_when_dropping_tool_payload():
     assert "tool_calls" not in preserved
     assert not any(message.get("role") == "tool" for message in out)
 
-
 @pytest.mark.parametrize(
     "malformed_results",
     [
@@ -305,7 +270,6 @@ def test_snip_leaves_malformed_tool_exchanges_untouched(malformed_results):
     out = _snip().shape(messages)
     assert all(message in out for message in exchange)
 
-
 def test_snip_does_not_mutate_input():
     messages = [
         _sys(), _user(),
@@ -317,7 +281,6 @@ def test_snip_does_not_mutate_input():
     _snip().shape(messages)
     assert messages == snapshot
 
-
 def test_autocompact_disabled_when_no_summarizer():
     messages = [
         _sys(), _user(),
@@ -325,8 +288,7 @@ def test_autocompact_disabled_when_no_summarizer():
         _text("recent"),
     ]
     out = _autocompact(summarizer=None).shape(messages)
-    assert out is messages  # default-off switch: identity even over trigger
-
+    assert out is messages
 
 def test_autocompact_replaces_old_span_with_visible_marker():
     messages = [
@@ -341,10 +303,8 @@ def test_autocompact_replaces_old_span_with_visible_marker():
     assert marker["role"] == "system"
     assert marker["compacted"] is True
     assert "SUMMARY" in marker["content"]
-    # System + recent survive verbatim; the old span collapsed to one marker.
     assert out[0] == _sys()
     assert out[-1] == _text("recent")
-
 
 def test_autocompact_preserves_tool_pairing_at_group_boundary():
     messages = [
@@ -356,13 +316,11 @@ def test_autocompact_preserves_tool_pairing_at_group_boundary():
     out = _autocompact(summarizer=lambda seg: "SUMMARY").shape(messages)
     assert _orphaned_tool_ids(out) == set()
 
-
 def test_autocompact_does_not_mutate_input():
     messages = [_sys(), _user(), _text("x" * 1000), _text("y" * 1000), _text("recent")]
     snapshot = copy.deepcopy(messages)
     _autocompact(summarizer=lambda seg: "SUMMARY").shape(messages)
     assert messages == snapshot
-
 
 def test_autocompact_rejects_summary_that_grows_view():
     class CountingSummarizer:
@@ -390,7 +348,6 @@ def test_autocompact_rejects_summary_that_grows_view():
     assert shaper.shape(messages) is messages
     assert summarizer.calls == 1
 
-
 def test_autocompact_accepts_strict_reduction_that_misses_target():
     messages = [
         _sys(),
@@ -406,7 +363,6 @@ def test_autocompact_accepts_strict_reduction_that_misses_target():
     assert out is not messages
     assert _chars(out) < _chars(messages)
     assert _chars(out) > shaper.target_tokens
-
 
 def test_autocompact_reuses_summary_for_unchanged_segment():
     class CountingSummarizer:
@@ -429,7 +385,6 @@ def test_autocompact_reuses_summary_for_unchanged_segment():
 
     assert first == second
     assert summarizer.calls == 1
-
 
 def test_autocompact_cache_invalidates_on_segment_or_summarizer_key_change():
     class CountingSummarizer:
@@ -455,7 +410,6 @@ def test_autocompact_cache_invalidates_on_segment_or_summarizer_key_change():
     shaper.shape(changed)
 
     assert summarizer.calls == 3
-
 
 def test_autocompact_reuses_summary_when_only_kept_tool_group_grows():
     class CountingSummarizer:
@@ -492,7 +446,6 @@ def test_autocompact_reuses_summary_when_only_kept_tool_group_grows():
 
     assert summarizer.calls == 1
 
-
 def test_autocompact_summary_cache_is_bounded_lru():
     class CountingSummarizer:
         cache_key = "model-a:prompt-v1"
@@ -517,7 +470,6 @@ def test_autocompact_summary_cache_is_bounded_lru():
 
     assert summarizer.calls == 3
 
-
 def test_autocompact_does_not_cache_fallback_or_failed_summary():
     class FlakySummarizer:
         cache_key = "model-a:prompt-v1"
@@ -541,10 +493,8 @@ def test_autocompact_does_not_cache_fallback_or_failed_summary():
 
     assert summarizer.calls == 2
 
-
 def test_lazy_degradation_snip_sufficient_skips_autocompact():
-    # Old tool turns are snippable, so snip alone gets under the trigger and the
-    # downstream auto-compact sees no pressure → no summary marker appears.
+    # Snipping alone relieves pressure before auto-compaction.
     messages = [
         _sys(), _user(),
         _call("t1"), _tool("t1", "x" * 1000),
@@ -555,10 +505,8 @@ def test_lazy_degradation_snip_sufficient_skips_autocompact():
     out = pipeline.shape(messages)
     assert not any(str(m.get("content", "")).startswith(COMPACTED_MARKER_PREFIX) for m in out)
 
-
 def test_lazy_degradation_snip_insufficient_triggers_autocompact():
-    # One snippable tool turn plus two valuable text turns snip won't touch:
-    # snip fires but stays over trigger, so auto-compact finishes the job.
+    # Snipping one tool turn leaves enough text to trigger auto-compaction.
     messages = [
         _sys(), _user(),
         _call("t1"), _tool("t1", "x" * 1000),
@@ -567,24 +515,15 @@ def test_lazy_degradation_snip_insufficient_triggers_autocompact():
     ]
     pipeline = ShaperPipeline((_snip(), _autocompact(summarizer=lambda seg: "SUMMARY")))
     out = pipeline.shape(messages)
-    # snip acted (the tool turn is gone) AND auto-compact acted (marker present).
     assert not any(m.get("role") == "tool" for m in out)
     assert any(str(m.get("content", "")).startswith(COMPACTED_MARKER_PREFIX) for m in out)
     assert _orphaned_tool_ids(out) == set()
 
-
-# ---------------------------------------------------------------------------
-# Layer-aware compaction: pinning (auto-compact never folds a pinned source)
-# ---------------------------------------------------------------------------
-
-
 def _ctx_user(content, layer="task", priority=80):
     return {"role": "user", "content": content, "_ctx": {"layer": layer, "priority": priority}}
 
-
 def test_autocompact_never_folds_a_pinned_source_into_the_summary():
-    # A pinned task sits in the droppable middle (group 1). Auto-compact must
-    # summarize the non-pinned tool span around it but leave the task verbatim.
+    # Place the pinned task inside the otherwise droppable middle span.
     task = _ctx_user("the immutable task", priority=PIN_FLOOR + 10)
     messages = [_sys(), task, _text("x" * 1000), _text("y" * 1000), _text("recent")]
     seen_segments = []
@@ -594,11 +533,9 @@ def test_autocompact_never_folds_a_pinned_source_into_the_summary():
         return "SUMMARY"
 
     out = _autocompact(summarizer=summarizer).shape(messages)
-    assert task in out                                   # pinned source survives
+    assert task in out
     assert any(str(m.get("content", "")).startswith(COMPACTED_MARKER_PREFIX) for m in out)
-    # the task was never handed to the summarizer
     assert all(task not in segment for segment in seen_segments)
-
 
 def test_autocompact_can_shed_low_priority_system_source_by_provenance():
     identity = {
@@ -627,17 +564,10 @@ def test_autocompact_can_shed_low_priority_system_source_by_provenance():
     assert any(message.get("compacted") for message in out)
     assert messages == snapshot
 
-
-# ---------------------------------------------------------------------------
-# Forced maximal compaction (the context-overflow safety-net entry point)
-# ---------------------------------------------------------------------------
-
-
 def test_forced_shape_compacts_even_below_trigger():
     from opencollab.application.shaping import forced_shape
 
-    # A view comfortably BELOW the trigger: the estimate-gated snip layer would
-    # normally no-op. A forced pass must still drop the old tool turns.
+    # Forced compaction must act even below the normal estimate trigger.
     snip = OldHistorySnipShaper(
         estimate_tokens=_chars, trigger_tokens=1_000_000, target_tokens=10,
         keep_recent_groups=1,
@@ -648,13 +578,10 @@ def test_forced_shape_compacts_even_below_trigger():
         _call("t2"), _tool("t2", "x" * 50),
         _text("recent"),
     ]
-    # Normal pass: identity (well below trigger).
     assert snip.shape(messages) is messages
-    # Forced pass: old tool turns are dropped despite being under the trigger.
     out = forced_shape(snip, messages)
     assert not any(m.get("role") == "tool" for m in out)
     assert out[-1] == _text("recent")
-
 
 def test_forced_shape_restores_forced_flag_after():
     from opencollab.application.shaping import forced_shape
@@ -665,16 +592,12 @@ def test_forced_shape_restores_forced_flag_after():
     )
     messages = [_sys(), _user(), _call("t1"), _tool("t1", "x" * 50), _text("recent")]
     forced_shape(snip, messages)
-    # The flag is restored, so a subsequent normal call no-ops again.
     assert snip._forced is False
     assert snip.shape(messages) is messages
-
 
 def test_forced_shape_still_never_folds_pinned_source():
     from opencollab.application.shaping import forced_shape
 
-    # Even under forced compaction, a pinned task is never handed to the
-    # summarizer — the safety net must not destroy identity/team/task.
     task = _ctx_user("the immutable task", priority=PIN_FLOOR + 10)
     messages = [_sys(), task, _text("x" * 50), _text("y" * 50), _text("recent")]
     seen = []
@@ -691,12 +614,9 @@ def test_forced_shape_still_never_folds_pinned_source():
     assert task in out
     assert all(task not in segment for segment in seen)
 
-
 def test_forced_shape_through_pipeline_reaches_nested_layers():
     from opencollab.application.shaping import forced_shape
 
-    # A real pipeline wrapping a reactive layer: forcing the pipeline must reach
-    # the nested layer (recursion through ShaperPipeline).
     snip = OldHistorySnipShaper(
         estimate_tokens=_chars, trigger_tokens=1_000_000, target_tokens=10,
         keep_recent_groups=1,
@@ -707,20 +627,12 @@ def test_forced_shape_through_pipeline_reaches_nested_layers():
         _call("t1"), _tool("t1", "x" * 50),
         _text("recent"),
     ]
-    assert pipeline.shape(messages) == messages  # normal: nothing to do
+    assert pipeline.shape(messages) == messages
     out = forced_shape(pipeline, messages)
     assert not any(m.get("role") == "tool" for m in out)
 
-
 def test_compaction_estimate_still_counts_reasoning_content():
-    """B3 guard: shaping is a compaction threshold, not a budget reservation.
-
-    The pre-call reservation now drops ``reasoning_content`` because streaming
-    strips it from the outbound request. This estimator must NOT follow: the
-    recorded reasoning still sits in the local history that compaction sizes,
-    and shrinking it here would move every arm's compaction trigger — a new
-    behaviour change on all arms, which is exactly what the plan declined.
-    """
+    """Compaction sizes local reasoning history even when outbound reservations omit it."""
     messages = [
         {"role": "system", "content": "sys"},
         {"role": "user", "content": "task"},
@@ -739,7 +651,6 @@ def test_compaction_estimate_still_counts_reasoning_content():
         messages
     )
     assert approx_messages_tokens(messages) > 3 * approx_messages_tokens(stripped)
-
 
 @pytest.mark.parametrize("backend", ["legacy", "anthropic", "responses"])
 def test_old_history_snip_removes_native_calls_with_their_results(backend):

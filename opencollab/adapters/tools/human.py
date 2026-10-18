@@ -1,13 +1,4 @@
-"""Ask-User Tool — human-in-the-loop as a regular Tool.
-
-First principle: human is not a special framework interrupt mechanism,
-but merely another Tool the agent can call.  The run_loop state machine
-needs zero changes.
-
-Ref:
-- kimi-cli: tools/ask_user — async wire-based question, yolo auto-dismiss
-- claude-code: AskUserQuestion tool
-"""
+"""Ask the user a question through the regular async tool interface."""
 
 from __future__ import annotations
 
@@ -68,7 +59,6 @@ class AskUserTool(Tool):
             return "User declined to answer."
 
         return answer
-
 
 def _prompt_user(question: str) -> str:
     """Synchronous prompt — runs in executor thread."""

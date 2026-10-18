@@ -26,7 +26,6 @@ async def client():
     finally:
         await client.close()
 
-
 def _history():
     return [
         {"role": "system", "content": "You are a coding assistant."},
@@ -35,7 +34,6 @@ def _history():
         {"role": "user", "content": "Continue."},
         {"role": "assistant", "content": "I will edit the implementation."},
     ]
-
 
 @pytest.mark.parametrize("part_type", ["text", "input_text", "output_text", "image_url"])
 async def test_restored_block_metadata_does_not_change_responses_pressure(client, part_type):
@@ -66,7 +64,6 @@ async def test_restored_block_metadata_does_not_change_responses_pressure(client
     assert reports[0]["tokens_before"] == reports[0]["tokens_after"] == before
     assert shaped == history == original
 
-
 async def test_legacy_reasoning_is_excluded_before_output_measurement(client):
     history = _history()
     sent = messages_to_input(history)
@@ -82,7 +79,6 @@ async def test_legacy_reasoning_is_excluded_before_output_measurement(client):
     pressure.observe_output(history[2], Usage(output_tokens=10_000, reasoning_tokens=9_900))
     assert pressure([history[2]]) == client.estimate_context_tokens([history[2]]) < 1_000
     assert history == original
-
 
 async def test_tool_fragments_count_native_fields_additively_and_keep_real_output(client):
     history = [
@@ -109,7 +105,6 @@ async def test_tool_fragments_count_native_fields_additively_and_keep_real_outpu
     history[2]["content"][0]["text"] = "real tool output " * 20_000
     assert client.estimate_context_tokens(history) > before + 1_000
 
-
 async def test_unsent_annotations_do_not_stop_a_session_before_calling_the_model(client):
     history = _history()
     budget = client.estimate_request_tokens(history) + 2_000
@@ -122,7 +117,6 @@ async def test_unsent_annotations_do_not_stop_a_session_before_calling_the_model
 
     assert await runner.run_loop() == "done"
     assert len(llm.calls) == 1
-
 
 async def test_measured_usage_still_calibrates_the_converted_history(client):
     history = _history()

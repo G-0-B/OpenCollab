@@ -1,12 +1,4 @@
-"""Contract tests for the opt-in chat-completions streaming path.
-
-Streaming exists for one reason: several OpenAI-compatible endpoints return the
-model's reasoning text ONLY over the streamed wire format. Reassembling a
-completion from chunks re-implements everything the single-response parser did
-for free, so most of these tests pin a failure mode that would otherwise be
-silent — a truncated turn read as a complete one, one tool call's arguments
-spliced onto another's, a budget driven by estimated tokens.
-"""
+"""Chat-completions streaming preserves reasoning, tool calls, finish state, and usage."""
 
 from __future__ import annotations
 
@@ -57,12 +49,6 @@ TOOLS = [
     },
 ]
 
-
-# ---------------------------------------------------------------------------
-# Fixtures: real SDK chunk objects, a fake stream, a fake client
-# ---------------------------------------------------------------------------
-
-
 def chunk(
     *,
     delta: dict[str, Any] | None = None,
@@ -72,12 +58,7 @@ def chunk(
     index: int = 0,
     no_choices: bool = False,
 ) -> ChatCompletionChunk:
-    """A genuine ``ChatCompletionChunk``.
-
-    Validated through the SDK model rather than faked with ``SimpleNamespace``
-    so ``reasoning_content`` really has to survive as a pydantic extra, which is
-    the only reason the provider can read it at all.
-    """
+    """Use the SDK chunk model so reasoning_content must survive as a Pydantic extra."""
     payload: dict[str, Any] = {
         "id": "chatcmpl-1",
         "object": "chat.completion.chunk",
@@ -93,11 +74,9 @@ def chunk(
         payload["usage"] = usage
     return ChatCompletionChunk.model_validate(payload)
 
-
 def usage_chunk(usage: dict[str, Any] | None = None) -> ChatCompletionChunk:
     """The terminal chunk the endpoint sends: usage, and an EMPTY choices list."""
     return chunk(no_choices=True, usage=usage if usage is not None else USAGE)
-
 
 def text_script(
     text: str = "391",
@@ -114,7 +93,6 @@ def text_script(
     if with_usage:
         chunks.append(usage_chunk())
     return chunks
-
 
 class FakeStream:
     def __init__(self, chunks: list[Any], delays: list[float] | None = None):
@@ -136,7 +114,6 @@ class FakeStream:
 
     async def close(self):
         self.closed = True
-
 
 class FakeClient:
     """Stands in for ``AsyncOpenAI``; records every create() kwargs dict."""
@@ -160,7 +137,6 @@ class FakeClient:
         self.streams.append(stream)
         return stream
 
-
 async def run_stream(
     script: list[Any],
     *,
@@ -182,7 +158,6 @@ async def run_stream(
     )
     return response, client
 
-
 def tool_delta(
     index: int,
     *,
@@ -201,15 +176,7 @@ def tool_delta(
         call["type"] = "function"
     return {"tool_calls": [call]}
 
-
-# ---------------------------------------------------------------------------
-# Equivalence with the runs already on disk
-# ---------------------------------------------------------------------------
-
-
 async def test_stream_off_sends_no_stream_keys_to_create():
-    """The switch off must not add a single request key: the existing runs are
-    the control arm, and a changed body makes them incomparable."""
     completion = ChatCompletion.model_validate({
         "id": "chatcmpl-1",
         "object": "chat.completion",
@@ -231,17 +198,13 @@ async def test_stream_off_sends_no_stream_keys_to_create():
     assert "stream" not in client.calls[0]
     assert "stream_options" not in client.calls[0]
 
-
 async def test_stream_on_adds_stream_and_include_usage():
     _, client = await run_stream(text_script())
 
     assert client.calls[0]["stream"] is True
     assert client.calls[0]["stream_options"] == {"include_usage": True}
 
-
 async def test_streamed_and_non_streamed_answers_parse_identically():
-    """One logical answer, delivered both ways, must produce the same
-    ``LLMResponse`` — the single guard against the two parsers drifting."""
     completion = ChatCompletion.model_validate({
         "id": "chatcmpl-1",
         "object": "chat.completion",
@@ -285,19 +248,11 @@ async def test_streamed_and_non_streamed_answers_parse_identically():
 
     assert streamed == expected
 
-
-# ---------------------------------------------------------------------------
-# finish_reason: the one field whose loss is invisible
-# ---------------------------------------------------------------------------
-
-
 async def test_finish_reason_length_survives_streaming():
-    """A turn cut off at max_tokens must still report ``length`` — the session's
-    truncation guard reads nothing else."""
+    """The session truncation check relies on finish_reason carrying length."""
     streamed, _ = await run_stream(text_script(finish_reason="length"))
 
     assert streamed.finish_reason == "length"
-
 
 async def test_finish_reason_is_read_from_a_non_final_chunk():
     """The configured endpoint puts finish_reason on the second-to-last chunk,
@@ -309,16 +264,12 @@ async def test_finish_reason_is_read_from_a_non_final_chunk():
 
     assert streamed.finish_reason == "stop"
 
-
 async def test_stream_without_any_finish_reason_raises():
-    """No finish_reason means the stream broke. Filling in a default would let a
-    truncated answer — possibly a half-written tool call — be executed as if
-    complete, with nothing in the trajectory saying so."""
+    """Missing finish_reason can hide a truncated answer or half-written tool call."""
     script = [chunk(delta={"content": "39"}), chunk(delta={"content": "1"}), usage_chunk()]
 
     with pytest.raises(TransientProviderError, match="finish_reason"):
         await run_stream(script)
-
 
 async def test_stream_interrupted_mid_tool_call_raises():
     script = [
@@ -328,11 +279,9 @@ async def test_stream_interrupted_mid_tool_call_raises():
     with pytest.raises(TransientProviderError, match="finish_reason"):
         await run_stream(script, tools=TOOLS)
 
-
 async def test_empty_stream_raises():
     with pytest.raises(TransientProviderError, match="no chunks"):
         await run_stream([])
-
 
 async def test_interrupted_stream_is_retried_as_one_unit():
     """create() returns at the response headers, so a retry wrapped around it
@@ -346,12 +295,6 @@ async def test_interrupted_stream_is_retried_as_one_unit():
     assert response.content == "391"
     assert len(client.calls) == 2
 
-
-# ---------------------------------------------------------------------------
-# usage / budget
-# ---------------------------------------------------------------------------
-
-
 async def test_usage_is_read_from_the_final_empty_choices_chunk():
     streamed, _ = await run_stream(text_script())
 
@@ -359,32 +302,22 @@ async def test_usage_is_read_from_the_final_empty_choices_chunk():
     assert streamed.usage.output_tokens == 15
     assert streamed.usage.estimated is False
 
-
 async def test_usage_detail_fields_match_the_non_streaming_parse():
     streamed, _ = await run_stream(text_script())
 
     assert streamed.usage.cache_read_tokens == 7
     assert streamed.usage.reasoning_tokens == 13
 
-
 async def test_missing_usage_chunk_is_raised_not_silently_estimated():
-    """Without a usage block the budget meter, the USD ledger and every token
-    comparison would run on an estimate flagged by a boolean nobody reads."""
+    """Missing usage must not turn token budgets and cost records into silent estimates."""
     with pytest.raises(StreamedUsageUnavailableError):
         await run_stream(text_script(with_usage=False))
-
 
 async def test_missing_usage_is_not_retried():
     """The stream completed, so repeating it buys the same answer at full price."""
     error = StreamedUsageUnavailableError("chat completion stream reported no usable usage block")
 
     assert is_retryable_error(error) is False
-
-
-# ---------------------------------------------------------------------------
-# tool calls
-# ---------------------------------------------------------------------------
-
 
 async def test_tool_arguments_join_across_chunks():
     script = [
@@ -400,10 +333,8 @@ async def test_tool_arguments_join_across_chunks():
 
     assert streamed.tool_calls[0]["function"]["arguments"] == '{"city": "Paris"}'
 
-
 async def test_parallel_tool_calls_keep_separate_index_slots():
-    """Interleaved fragments must follow ``index``, not arrival order: appending
-    in arrival order can splice two calls into one that still parses."""
+    """Arrival order can splice interleaved calls into one valid-looking payload."""
     script = [
         chunk(delta=tool_delta(0, call_id="c1", name="get_weather", arguments='{"city": ')),
         chunk(delta=tool_delta(1, call_id="c2", name="get_population", arguments='{"city": ')),
@@ -425,7 +356,6 @@ async def test_parallel_tool_calls_keep_separate_index_slots():
         "arguments": '{"city": "Berlin"}',
     }
 
-
 async def test_tool_id_and_name_survive_blank_later_fragments():
     """The endpoint repeats ``name`` as "" and ``id`` as null after the first
     fragment; assigning instead of keeping would erase both."""
@@ -441,7 +371,6 @@ async def test_tool_id_and_name_survive_blank_later_fragments():
     assert streamed.tool_calls[0]["id"] == "c1"
     assert streamed.tool_calls[0]["function"]["name"] == "get_weather"
 
-
 async def test_fragmented_tool_name_is_assembled():
     script = [
         chunk(delta=tool_delta(0, call_id="c1", name="get_")),
@@ -454,10 +383,7 @@ async def test_fragmented_tool_name_is_assembled():
 
     assert streamed.tool_calls[0]["function"]["name"] == "get_weather"
 
-
 async def test_assembled_tool_name_outside_the_request_tools_raises():
-    """A misassembled name would otherwise call a different tool, or none, with
-    no signal at all."""
     script = [
         chunk(delta=tool_delta(0, call_id="c1", name="weather", arguments="{}")),
         chunk(delta={}, finish_reason="tool_calls"),
@@ -466,7 +392,6 @@ async def test_assembled_tool_name_outside_the_request_tools_raises():
 
     with pytest.raises(TransientProviderError, match="unregistered name"):
         await run_stream(script, tools=TOOLS)
-
 
 async def test_tool_call_without_an_id_raises():
     script = [
@@ -478,7 +403,6 @@ async def test_tool_call_without_an_id_raises():
     with pytest.raises(TransientProviderError, match="never carried an id"):
         await run_stream(script, tools=TOOLS)
 
-
 async def test_tool_call_without_a_name_raises():
     script = [
         chunk(delta=tool_delta(0, call_id="c1", arguments="{broken")),
@@ -488,7 +412,6 @@ async def test_tool_call_without_a_name_raises():
 
     with pytest.raises(TransientProviderError, match="never carried a name"):
         await run_stream(script, tools=TOOLS)
-
 
 @pytest.mark.parametrize("arguments", ['{"city"', "{broken", "{}{broken"])
 async def test_invalid_assembled_arguments_reach_tool_validation(arguments):
@@ -509,7 +432,6 @@ async def test_invalid_assembled_arguments_reach_tool_validation(arguments):
     assert streamed.usage.estimated is False
     assert len(client.calls) == 1
 
-
 async def test_invalid_tool_arguments_still_require_reported_stream_usage():
     script = [
         chunk(delta=tool_delta(0, call_id="c1", name="get_weather", arguments="{broken")),
@@ -518,7 +440,6 @@ async def test_invalid_tool_arguments_still_require_reported_stream_usage():
 
     with pytest.raises(StreamedUsageUnavailableError):
         await run_stream(script, tools=TOOLS)
-
 
 async def test_stream_applies_the_shared_empty_object_prefix_repair():
     """``{}{...}`` is repaired on the streamed path exactly as on the other."""
@@ -532,7 +453,6 @@ async def test_stream_applies_the_shared_empty_object_prefix_repair():
     streamed, _ = await run_stream(script, tools=TOOLS)
 
     assert streamed.tool_calls[0]["function"]["arguments"] == '{"city": "Paris"}'
-
 
 async def test_tool_fragment_without_an_index_raises():
     delta = SimpleNamespace(
@@ -554,21 +474,13 @@ async def test_tool_fragment_without_an_index_raises():
     with pytest.raises(TransientProviderError, match="no index"):
         await run_stream([fake_chunk], tools=TOOLS)
 
-
-# ---------------------------------------------------------------------------
-# reasoning — the reason this path exists
-# ---------------------------------------------------------------------------
-
-
 async def test_reasoning_content_deltas_concatenate_in_order():
     streamed, _ = await run_stream(text_script("391", reasoning="17*23=391"))
 
     assert streamed.reasoning == "17*23=391"
 
-
 async def test_reasoning_alias_field_is_accepted():
-    """OpenRouter-style gateways spell it ``reasoning``; without this the text
-    would silently stay empty and look exactly like today."""
+    """OpenRouter-style gateways use reasoning as an alias for reasoning_content."""
     script = [
         chunk(delta={"reasoning": "thinking "}),
         chunk(delta={"reasoning": "hard"}),
@@ -581,10 +493,7 @@ async def test_reasoning_alias_field_is_accepted():
 
     assert streamed.reasoning == "thinking hard"
 
-
 async def test_only_the_first_reasoning_spelling_is_read():
-    """A gateway sending both keys must not duplicate the chain of thought —
-    duplicated reasoning is unreadable as a bug to a human."""
     script = [
         chunk(delta={"reasoning_content": "step one "}),
         chunk(delta={"reasoning_content": "step two", "reasoning": "step two"}),
@@ -597,11 +506,8 @@ async def test_only_the_first_reasoning_spelling_is_read():
 
     assert streamed.reasoning == "step one step two"
 
-
 async def test_the_reasoning_spelling_stays_locked_for_the_whole_turn():
-    """Once a spelling has produced text, the other one is ignored even on a
-    later chunk that carries only the alias — otherwise a gateway echoing the
-    same thought under both names concatenates it twice."""
+    """Gateways may echo the same thought under the alias in a later chunk."""
     script = [
         chunk(delta={"reasoning_content": "step one"}),
         chunk(delta={"reasoning": "step one"}),
@@ -613,7 +519,6 @@ async def test_the_reasoning_spelling_stays_locked_for_the_whole_turn():
     streamed, _ = await run_stream(script)
 
     assert streamed.reasoning == "step one"
-
 
 async def test_streaming_without_thinking_omits_recorded_reasoning():
     history = [
@@ -628,7 +533,6 @@ async def test_streaming_without_thinking_omits_recorded_reasoning():
         {"role": "assistant", "content": "ok"},
     ]
 
-
 async def test_non_streaming_thinking_preserves_recorded_reasoning():
     history = [
         {"role": "user", "content": "hi"},
@@ -638,7 +542,6 @@ async def test_non_streaming_thinking_preserves_recorded_reasoning():
     kwargs = _build_request_kwargs(MODEL, history, None, 0.0, thinking=True)
 
     assert kwargs["messages"][1]["reasoning_content"] == "private thought"
-
 
 @pytest.mark.parametrize("model", ["gpt-4o", "gateway/unknown-model"])
 @pytest.mark.parametrize("stream", [False, True])
@@ -666,7 +569,6 @@ async def test_reasoning_replay_follows_thinking_configuration(model, stream, th
     )
     assert ("reasoning_content" in client.calls[0]["messages"][0]) is keep
 
-
 @pytest.mark.parametrize("model", [
     "deepseek-reasoner", "deepseek/deepseek-reasoner", "deepseek-pro",
     "deepseek-flash", "deepseek-v4-flash", "deepseek-v4-pro",
@@ -680,7 +582,6 @@ def test_native_thinking_models_preserve_required_prior_reasoning(model):
     else:
         assert "extra_body" not in kwargs
 
-
 @pytest.mark.parametrize("model", ["deepseek-flash", "deepseek-v4-flash"])
 def test_explicit_disabled_thinking_preserves_required_prior_reasoning(model):
     history = [{"role": "assistant", "content": "ok", "reasoning_content": "thought"}]
@@ -690,10 +591,7 @@ def test_explicit_disabled_thinking_preserves_required_prior_reasoning(model):
     assert kwargs["messages"][0]["reasoning_content"] == "thought"
     assert kwargs["extra_body"] == {"thinking": {"type": "disabled"}}
 
-
 async def test_reasoning_only_turn_is_rescued_into_content():
-    """A turn with thinking but no answer and no tool call must not read as an
-    empty stop — the shared rescue rung applies here too."""
     script = [
         chunk(delta={"reasoning_content": "I considered it."}),
         chunk(delta={}, finish_reason="stop"),
@@ -705,10 +603,8 @@ async def test_reasoning_only_turn_is_rescued_into_content():
     assert streamed.content == "I considered it."
     assert streamed.reasoning == "I considered it."
 
-
 async def test_kimi_markup_in_streamed_content_is_recovered():
-    """The special-token recovery has to run on the ASSEMBLED text, not on
-    fragments; losing it would turn an intended tool call into prose."""
+    """A special-token sequence can span chunks and needs recovery after assembly."""
     markup = (
         "<|tool_calls_section_begin|><|tool_call_begin|>functions.get_weather:c9"
         '<|tool_call_argument_begin|>{"city": "Paris"}<|tool_call_end|>'
@@ -722,10 +618,8 @@ async def test_kimi_markup_in_streamed_content_is_recovered():
     assert streamed.tool_calls[0]["function"]["name"] == "get_weather"
     assert streamed.usage.markup_recovered == 1
 
-
 async def test_provider_model_comes_from_the_first_chunk():
-    """Later frames may omit the model; the first one that carries it wins, so
-    ``provider_model`` never degrades to None on the streamed path."""
+    """Later chunks may omit the provider model."""
     script = text_script()
     script.append(
         SimpleNamespace(model=None, usage=None, choices=[])
@@ -735,10 +629,7 @@ async def test_provider_model_comes_from_the_first_chunk():
 
     assert streamed.provider_model == MODEL
 
-
 async def test_content_absent_stays_none_not_empty_string():
-    """The trajectory stores this verbatim; '""' and 'null' are not the same
-    value to a script reading old and new runs together."""
     script = [
         chunk(delta=tool_delta(0, call_id="c1", name="get_weather", arguments="{}")),
         chunk(delta={}, finish_reason="tool_calls"),
@@ -748,7 +639,6 @@ async def test_content_absent_stays_none_not_empty_string():
     streamed, _ = await run_stream(script, tools=TOOLS)
 
     assert streamed.content is None
-
 
 async def test_second_choice_of_a_multi_choice_stream_is_ignored():
     script = [
@@ -762,16 +652,8 @@ async def test_second_choice_of_a_multi_choice_stream_is_ignored():
 
     assert streamed.content == "391"
 
-
-# ---------------------------------------------------------------------------
-# the two stream clocks
-# ---------------------------------------------------------------------------
-
-
 async def test_first_chunk_timeout_bounds_the_wait_for_the_first_chunk():
-    """The elapsed time, not just the error text, decides which clock ran: a
-    first chunk billed against the (much longer) idle budget would still report
-    "first-chunk" while hanging for the wrong length of time."""
+    """The wrong timeout clock can still report the expected first-chunk error text."""
     client = FakeClient([text_script()], delays=[[20.0]])
     started = time.monotonic()
 
@@ -790,10 +672,8 @@ async def test_first_chunk_timeout_bounds_the_wait_for_the_first_chunk():
 
     assert time.monotonic() - started < 5.0
 
-
 async def test_idle_timeout_bounds_the_gap_between_chunks():
-    """A stream that stalls after its first chunk must not hang until the
-    per-call wall clock: the httpx timeout only bounds one socket read."""
+    """The httpx timeout bounds one socket read rather than the entire inter-chunk gap."""
     client = FakeClient([text_script()], delays=[[0.0, 20.0]])
     started = time.monotonic()
 
@@ -811,7 +691,6 @@ async def test_idle_timeout_bounds_the_gap_between_chunks():
         )
 
     assert time.monotonic() - started < 5.0
-
 
 async def test_stream_is_closed_even_when_consumption_fails():
     client = FakeClient([[chunk(delta={"content": "39"})]])

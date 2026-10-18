@@ -29,7 +29,6 @@ def _save_session(session, path, snapshot_format):
         "model": session.agent.model,
     })
 
-
 def _tool_request_response(request):
     model = json.loads(request.content)["model"]
     if request.url.path.endswith("/messages"):
@@ -47,7 +46,6 @@ def _tool_request_response(request):
         }]}, "finish_reason": "tool_calls"}],
         "usage": {"prompt_tokens": 2, "completion_tokens": 2, "total_tokens": 4},
     })
-
 
 def _tool_exchange_error(messages, provider):
     pending = []
@@ -74,7 +72,6 @@ def _tool_exchange_error(messages, provider):
                 return "tool calls must be followed immediately by tool results"
             pending.extend(call["id"] for call in message.get("tool_calls", []))
     return "tool calls have missing results" if pending else None
-
 
 @pytest.mark.parametrize("provider", ["openai", "anthropic"])
 @pytest.mark.parametrize("snapshot_format", ["legacy-json", "legacy-jsonl", "current-json"])
@@ -121,7 +118,6 @@ async def test_saved_tool_exchange_can_continue_without_replaying_effects(
     model = "claude-sonnet-4-6" if provider == "anthropic" else "gpt-4o"
     agent = Agent(name="restore", system_prompt="Perform the requested writes.",
                   model=model, provider=provider, tools=[tool])
-    # The placeholder credential is received by the in-memory MockTransport.
     async with LLMClient(
         model=model, provider=provider,
         api_key="controlled-test",  # pragma: allowlist secret

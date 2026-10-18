@@ -1,13 +1,4 @@
-"""Single-flight spawn dedup — the reliable, tool-level guard against the
-"won't stop" loop where a model re-spawns an identical delegated task.
-
-Prompt-level "don't duplicate" is unreliable; the scheduler enforces it. While
-a (parent, role, task, context) spawn is in flight, ``inflight_spawn`` reports
-the handling aid and ``SpawnAgentTool`` refuses to spawn again, returning a
-self-describing message instead of a second child. The reservation clears once
-the child reaches a terminal phase, so a legitimate later re-run is never
-blocked.
-"""
+"""Deduplicate identical in-flight spawns and release their reservations at termination."""
 
 from __future__ import annotations
 
@@ -28,7 +19,6 @@ from opencollab.domain.session import SessionPhase, SessionState
 def run(coro):
     return asyncio.run(coro)
 
-
 class BlockingChild:
     """A child whose run_loop blocks on a gate so we can observe in-flight state."""
 
@@ -48,7 +38,6 @@ class BlockingChild:
         self.state.append_message({"role": "assistant", "content": self._result})
         return self._result
 
-
 class ChildFactory:
     def __init__(self, children: BlockingChild | list[BlockingChild]):
         self._children = list(children) if isinstance(children, list) else [children]
@@ -60,7 +49,6 @@ class ChildFactory:
         child.state.aid = aid
         return child
 
-
 def _scheduler(child: BlockingChild | list[BlockingChild]) -> Scheduler:
     scheduler = Scheduler(
         session_factory=ChildFactory(child),
@@ -71,7 +59,6 @@ def _scheduler(child: BlockingChild | list[BlockingChild]) -> Scheduler:
     lead.state.set_phase(SessionPhase.DONE)
     scheduler.register_lead(lead)
     return scheduler
-
 
 def test_inflight_spawn_keeps_parent_context_and_task_whitespace_distinct():
     async def scenario():
@@ -85,7 +72,6 @@ def test_inflight_spawn_keeps_parent_context_and_task_whitespace_distinct():
 
         aid = await scheduler.spawn(0, "coder", task, context, tool_call_id="call-1")
 
-        # Only the same parent's exact delegated input is single-flight.
         assert scheduler.inflight_spawn("coder", task, parent_aid=0, context=context) == aid
         assert scheduler.inflight_spawn(
             "CoDeR", task.replace("\n", "\r\n"), parent_aid=0, context=context.replace("\n", "\r"),
@@ -98,14 +84,12 @@ def test_inflight_spawn_keeps_parent_context_and_task_whitespace_distinct():
         gate.set()
         await scheduler._tasks[aid]
 
-        # Terminal completion releases the reservation.
         assert scheduler.inflight_spawn("Coder", task, parent_aid=0, context=context) is None
         rerun_aid = await scheduler.spawn(0, "Coder", task, context)
         assert rerun_aid != aid
         await scheduler._tasks[rerun_aid]
 
     run(scenario())
-
 
 def test_duplicate_spawn_tool_call_is_refused_while_in_flight():
     async def scenario():
@@ -124,7 +108,6 @@ def test_duplicate_spawn_tool_call_is_refused_while_in_flight():
         assert isinstance(deferred, DeferredCall)
         aid = deferred.ref
 
-        # Second identical spawn returns a self-describing string, not a child.
         dup_rt = ToolRuntime(
             environment=None, safety_policy=None, permission_policy=None,
             aid=0, tool_call_id="call-2",
@@ -135,14 +118,12 @@ def test_duplicate_spawn_tool_call_is_refused_while_in_flight():
         assert isinstance(msg, str)
         assert f"aid={aid}" in msg
         assert "already" in msg.lower()
-        # Only one child was actually spawned.
         assert len(scheduler._tasks) == 1
 
         gate.set()
         await scheduler._tasks[aid]
 
     run(scenario())
-
 
 def test_direct_duplicate_spawn_is_rejected_before_allocating_resources():
     async def scenario():
@@ -161,14 +142,12 @@ def test_direct_duplicate_spawn_is_rejected_before_allocating_resources():
         assert caught.value.existing_aid == aid
         assert set(scheduler._sessions) == {0, aid}
         assert set(scheduler._tasks) == {aid}
-        # Agent 0's own booking shares the one lease table.
         assert set(scheduler._turn_lease) == {0, aid}
 
         gate.set()
         await scheduler._tasks[aid]
 
     run(scenario())
-
 
 def test_concurrent_direct_duplicate_spawns_create_only_one_child():
     async def scenario():
@@ -201,7 +180,6 @@ def test_concurrent_direct_duplicate_spawns_create_only_one_child():
         await scheduler._tasks[aids[0]]
 
     run(scenario())
-
 
 def test_same_role_task_from_different_parent_is_not_deduped():
     async def scenario():
@@ -243,7 +221,6 @@ def test_same_role_task_from_different_parent_is_not_deduped():
         await asyncio.gather(*scheduler._tasks.values())
 
     run(scenario())
-
 
 def test_model_controlled_unsafe_role_is_rejected_before_spawn_side_effects():
     async def scenario():

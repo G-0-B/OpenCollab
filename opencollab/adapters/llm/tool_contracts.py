@@ -13,14 +13,12 @@ _FUNCTION_FIELDS = frozenset({"name", "description", "parameters", "strict"})
 _STRING_TOOL_CHOICES = frozenset({"auto", "none", "required"})
 _TOOL_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
-
 @dataclass(frozen=True)
 class NormalizedToolChoice:
     """One provider-independent tool selection."""
 
     mode: str
     name: str | None = None
-
 
 def normalize_text_content(content: Any) -> str:
     """Flatten supported text content without dropping other modalities."""
@@ -49,7 +47,6 @@ def normalize_text_content(content: Any) -> str:
             raise ValueError(f"message content block {index} is missing text")
         parts.append(text)
     return "\n".join(parts)
-
 
 def normalize_function_tools(
     tools: list[dict[str, Any]] | None,
@@ -110,7 +107,6 @@ def normalize_function_tools(
     validate_unique_tool_names(names)
     return normalized
 
-
 def normalize_tool_choice(value: Any) -> NormalizedToolChoice | None:
     """Normalize supported string and named-function tool choices."""
     if value is None:
@@ -151,7 +147,6 @@ def normalize_tool_choice(value: Any) -> NormalizedToolChoice | None:
     if not isinstance(name, str) or not name:
         raise ValueError("named tool_choice requires a non-empty name")
     return NormalizedToolChoice("named", name)
-
 
 def validate_tool_choice_target(
     choice: NormalizedToolChoice | None,

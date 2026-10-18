@@ -102,9 +102,11 @@ or measurement.
   testing guidance instead of copying it. Preserve runtime prompt files. Experiment
   cards and their generation belong to OpenCollab-Eval; edit their source templates
   and run the experiment checks there.
-- **Explain constraints, not syntax.** Comments and docstrings should retain caller
-  contracts, reasons, edge cases, and tradeoffs. Avoid narrating the code or copying
-  background from a guide. Check runtime and tooling consumers before editing strings.
+- **Explain what code cannot express.** Use clear names and types. Add comments or
+  docstrings for behavior, failures, ownership, or constraints that need explanation.
+  Keep brief explanations near code, design rationale in maintained guides, and
+  change history in Git or PRs. Follow the consumer checks and preservation rules in
+  [Documentation and comments](CONTRIBUTING.md#documentation-and-comments).
 - **No hardcoded infrastructure.** Never bake a hostname, NFS path, username, private
   model name, or personal env-file path in as a default. Read them from env/CLI and
   fail fast if unset. (These leak topology and are useless to an external clone.)

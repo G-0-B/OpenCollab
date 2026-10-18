@@ -63,7 +63,6 @@ async def test_concurrency_cap_honored():
     assert sorted(results) == [str(i) for i in range(n)]
     assert high_water <= 2
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("composition", ["parallel", "pipeline"])
 @pytest.mark.parametrize("task_concurrency", [1, 2, 4])
@@ -107,7 +106,6 @@ async def test_collections_cap_arbitrary_units(composition, task_concurrency):
     finally:
         release.set()
     assert await task == list(range(8))
-
 
 @pytest.mark.asyncio
 async def test_task_and_agent_concurrency_caps_are_independent():
@@ -175,7 +173,6 @@ async def test_task_and_agent_concurrency_caps_are_independent():
 
     assert await task == ["0", "1", "2"]
 
-
 @pytest.mark.asyncio
 async def test_concurrent_collections_share_the_task_concurrency_cap():
     running = 0
@@ -219,7 +216,6 @@ async def test_concurrent_collections_share_the_task_concurrency_cap():
     assert parallel_result == list(range(4))
     assert pipeline_result == list(range(4, 8))
 
-
 @pytest.mark.asyncio
 async def test_direct_nested_collection_reuses_task_permit_at_single_concurrency():
     ctx = WorkflowContext(
@@ -242,7 +238,6 @@ async def test_direct_nested_collection_reuses_task_permit_at_single_concurrency
     )
 
     assert result == [["first", "second"]]
-
 
 @pytest.mark.asyncio
 async def test_gathered_nested_collections_borrow_one_task_permit_serially():
@@ -281,7 +276,6 @@ async def test_gathered_nested_collections_borrow_one_task_permit_serially():
     assert result == [[["parallel"], ["pipeline"]]]
     assert high_water == 1
 
-
 @pytest.mark.asyncio
 async def test_task_permit_released_after_unit_exception():
     entered = asyncio.Event()
@@ -304,7 +298,6 @@ async def test_task_permit_released_after_unit_exception():
         timeout=0.5,
     ) == ["ok"]
     assert entered.is_set()
-
 
 @pytest.mark.asyncio
 async def test_task_permit_released_after_collection_cancellation():
@@ -329,7 +322,6 @@ async def test_task_permit_released_after_collection_cancellation():
         ctx.parallel([lambda: asyncio.sleep(0, result="next")]),
         timeout=0.5,
     ) == ["next"]
-
 
 @pytest.mark.asyncio
 async def test_inherited_closed_task_permit_is_not_reused_by_stale_child():
@@ -372,7 +364,6 @@ async def test_inherited_closed_task_permit_is_not_reused_by_stale_child():
     assert await blocker_task == ["blocker"]
     assert await asyncio.wait_for(child_task, timeout=0.5) == ["child"]
 
-
 @pytest.mark.asyncio
 async def test_parallel_nested_agent_reuses_single_concurrency_permit():
     ctx = WorkflowContext(
@@ -387,7 +378,6 @@ async def test_parallel_nested_agent_reuses_single_concurrency_permit():
     )
 
     assert result == ["nested"]
-
 
 @pytest.mark.asyncio
 async def test_parallel_thunk_can_gather_agents_at_single_concurrency():
@@ -414,7 +404,6 @@ async def test_parallel_thunk_can_gather_agents_at_single_concurrency():
     )
 
     assert result == [["first", "second"]]
-
 
 @pytest.mark.asyncio
 async def test_parallel_task_creation_is_bounded_by_concurrency():
@@ -451,7 +440,6 @@ async def test_parallel_task_creation_is_bounded_by_concurrency():
         release.set()
 
     assert await task == list(range(2_000))
-
 
 @pytest.mark.asyncio
 async def test_draft_findings_uses_the_shared_concurrency_cap():
@@ -500,7 +488,6 @@ async def test_parallel_thunk_exception_becomes_none():
         ]
     )
 
-    # ok agent -> "ok", raising thunk -> None, boom agent -> None
     assert results == ["ok", None, None]
 
 @pytest.mark.asyncio
@@ -539,8 +526,8 @@ async def test_pipeline_no_inter_stage_barrier():
     # Let A flow through both stages while B is stuck in stage 1.
     for _ in range(20):
         await asyncio.sleep(0)
-    assert "A-s2" in order  # A is past stage 2
-    assert "B-s1-exit" not in order  # B still inside stage 1 -> no barrier
+    assert "A-s2" in order
+    assert "B-s1-exit" not in order
 
     b_stage1_gate.set()
     results = await task
@@ -563,10 +550,8 @@ async def test_pipeline_stage_exception_drops_item_and_skips_rest():
     results = await ctx.pipeline(["good", "bad", "fine"], stage1, stage2)
 
     assert results == ["good!?", None, "fine!?"]
-    # The failed item never reaches stage 2.
     assert "bad" not in seen_stage2
     assert sorted(seen_stage2) == ["fine", "good"]
-
 
 @pytest.mark.asyncio
 async def test_pipeline_stops_after_agent_failure_returns_none():
@@ -582,7 +567,6 @@ async def test_pipeline_stops_after_agent_failure_returns_none():
 
     assert await ctx.pipeline(["item"], agent_stage, later_stage) == [None]
     assert later_inputs == []
-
 
 @pytest.mark.asyncio
 async def test_pipeline_can_explicitly_continue_after_business_none():
@@ -605,7 +589,6 @@ async def test_pipeline_can_explicitly_continue_after_business_none():
 
     assert result == ["continued"]
     assert seen == [None]
-
 
 @pytest.mark.asyncio
 async def test_pipeline_passes_index_and_original_item():
@@ -640,26 +623,21 @@ async def test_budget_exceeded_raises_before_next_call():
     s2 = FakeSession(reply="b", tokens=0)
     ctx = WorkflowContext(FakeFactory([s1, s2]), budget_total=500)
 
-    assert await ctx.agent("first") == "a"  # spends 500, reaching the cap
+    assert await ctx.agent("first") == "a"
     with pytest.raises(WorkflowBudgetExceeded):
         await ctx.agent("second")
 
 @pytest.mark.asyncio
 async def test_over_budget_ok_bypasses_the_pre_call_raise():
-    """``over_budget_ok=True`` lets the budget-floor's forced write run past zero.
+    """The final write may bypass an exhausted token pool under the caller's timeout.
 
-    The single guaranteed final write must execute even with the meter already
-    exhausted — otherwise it self-aborts on the pre-call gate and no patch lands
-    (the sympy-11400 regression). It is bounded instead by ``thinking=False`` +
-    a wall-clock ``timeout``, not by this budget gate. The default path stays
-    gated. The pre-call raise fires before any session is consumed, so the gated
-    attempt does not eat ``s2``.
+    An ordinary budget refusal occurs before consuming a scripted session.
     """
     s1 = FakeSession(reply="a", tokens=500)
     s2 = FakeSession(reply="forced", tokens=0)
     ctx = WorkflowContext(FakeFactory([s1, s2]), budget_total=500)
 
-    assert await ctx.agent("first") == "a"  # spends 500, exhausting the budget
+    assert await ctx.agent("first") == "a"
     assert ctx.budget.remaining() <= 0
     with pytest.raises(WorkflowBudgetExceeded):
         await ctx.agent("default is still gated")
@@ -684,12 +662,10 @@ async def test_parallel_propagates_budget_exceeded():
     s2 = FakeSession(reply="b", tokens=0)
     ctx = WorkflowContext(FakeFactory([s1, s2]), budget_total=500)
 
-    # First call spends the whole budget; the second starts already exhausted.
     assert await ctx.agent("warm up") == "a"
 
     with pytest.raises(WorkflowBudgetExceeded):
         await ctx.parallel([lambda: ctx.agent("exhausted")])
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("composition", ("parallel", "pipeline"))
@@ -748,7 +724,6 @@ async def test_pipeline_propagates_budget_exceeded_and_skips_later_stages():
     s2 = FakeSession(reply="b", tokens=0)
     ctx = WorkflowContext(FakeFactory([s1, s2]), budget_total=500)
 
-    # Spend the whole budget so the pipeline's agent stage starts exhausted.
     assert await ctx.agent("warm up") == "a"
 
     later_ran: list[int] = []
@@ -762,5 +737,4 @@ async def test_pipeline_propagates_budget_exceeded_and_skips_later_stages():
 
     with pytest.raises(WorkflowBudgetExceeded):
         await ctx.pipeline([7], agent_stage, later_stage)
-    # The exhausted item never reaches the later stage.
     assert later_ran == []

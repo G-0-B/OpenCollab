@@ -32,7 +32,6 @@ async def test_phase_and_log_emit_via_sink():
 @pytest.mark.asyncio
 async def test_phase_and_log_noop_without_sink():
     ctx = WorkflowContext(FakeFactory([]))
-    # Must not raise when no sink is wired.
     await ctx.phase("planning")
     await ctx.log("hello world")
 
@@ -55,7 +54,6 @@ async def test_phase_and_log_ignore_observer_failures():
 
 @pytest.mark.asyncio
 async def test_tree_changed_is_none_without_probe():
-    # No probe wired -> "cannot verify" -> None (callers must not hard-block).
     ctx = WorkflowContext(FakeFactory([]))
     assert await ctx.tree_changed() is None
 
@@ -68,15 +66,12 @@ async def test_tree_changed_proxies_probe_result():
 
 @pytest.mark.asyncio
 async def test_tree_changed_swallows_probe_error_to_none():
-    # A flaky git call must never abort the run: error -> None.
     ctx = WorkflowContext(FakeFactory([]), tree_probe=FakeProbe(boom=True))
     assert await ctx.tree_changed() is None
 
 @pytest.mark.asyncio
 async def test_source_changed_excludes_injected_paths():
-    # The whole tree is dirty (changed=True) only because the harness git-applied
-    # an injected test; with that path excluded the SOURCE is clean -> False, while
-    # tree_changed still reports True. This is the core of Bug A.
+    # Exclude the injected test from source changes while retaining whole-tree dirtiness.
     probe = FakeProbe(changed=True, excluded_changed=False)
     ctx = WorkflowContext(FakeFactory([]), tree_probe=probe)
 
@@ -86,16 +81,13 @@ async def test_source_changed_excludes_injected_paths():
 
 @pytest.mark.asyncio
 async def test_source_changed_is_none_without_probe():
-    # No probe wired -> "cannot verify" -> None (callers must not hard-block).
     ctx = WorkflowContext(FakeFactory([]))
     assert await ctx.source_changed(["t/test_x.py"]) is None
 
 @pytest.mark.asyncio
 async def test_source_changed_swallows_probe_error_to_none():
-    # A flaky git call must never abort the run: probe error -> None.
     ctx = WorkflowContext(FakeFactory([]), tree_probe=FakeProbe(boom=True))
     assert await ctx.source_changed(["t/test_x.py"]) is None
-
 
 @pytest.mark.asyncio
 async def test_diff_reports_probe_output_or_unknown() -> None:
@@ -114,7 +106,6 @@ async def test_diff_reports_probe_output_or_unknown() -> None:
         ).diff()
         is None
     )
-
 
 @pytest.mark.asyncio
 async def test_diff_exclusions_keep_legacy_probe_and_backend_behavior() -> None:
@@ -137,7 +128,6 @@ async def test_diff_exclusions_keep_legacy_probe_and_backend_behavior() -> None:
     assert await context.diff(["test_probe.py"]) == "filtered backend diff"
     assert backend.calls == [("test_probe.py",)]
 
-
 @pytest.mark.asyncio
 async def test_candidate_diff_exclusion_failure_remains_unknown() -> None:
     class FailingLease:
@@ -147,7 +137,6 @@ async def test_candidate_diff_exclusion_failure_remains_unknown() -> None:
     context = WorkflowContext(FakeFactory([]), tree_probe=_CandidateLeaseTreeProbe(FailingLease()))
     assert await context.diff() is None
     assert await context.diff(["test_probe.py"]) is None
-
 
 @pytest.mark.asyncio
 async def test_token_observation_reports_live_session_usage() -> None:
@@ -162,11 +151,9 @@ async def test_token_observation_reports_live_session_usage() -> None:
     assert ctx.tokens_spent() == 12
     assert ctx.tokens_remaining() == 88
 
-
 class _NamedTool:
     def __init__(self, name: str) -> None:
         self.name = name
-
 
 @pytest.mark.asyncio
 async def test_starting_an_agent_records_which_agent_it_was() -> None:
@@ -199,7 +186,6 @@ async def test_starting_an_agent_records_which_agent_it_was() -> None:
         }
     ]
 
-
 @pytest.mark.asyncio
 async def test_each_agent_in_a_run_is_recorded_under_its_own_id() -> None:
     """Two agents, two ids — the join key that makes the run per-agent."""
@@ -221,7 +207,6 @@ async def test_each_agent_in_a_run_is_recorded_under_its_own_id() -> None:
         (1, "coder", "fix"),
     ]
 
-
 @pytest.mark.asyncio
 async def test_an_agent_that_never_built_is_not_recorded_as_started() -> None:
     """A build failure has no id to attribute anything to, so it claims none."""
@@ -236,7 +221,6 @@ async def test_an_agent_that_never_built_is_not_recorded_as_started() -> None:
     assert await ctx.agent("never runs", label="scout") is None
     assert tracer.payloads("workflow_agent_started") == []
     assert [failure["label"] for failure in ctx.agent_failures] == ["scout"]
-
 
 @pytest.mark.asyncio
 async def test_an_agent_started_before_any_phase_records_no_phase() -> None:

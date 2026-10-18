@@ -1,11 +1,7 @@
-"""Spawn-session wiring used by the scheduler.
+"""Build, restore and snapshot sessions for scheduler entry and child agents.
 
-``build_session`` is the self-wiring ``Session`` factory (with its
-``load_session``/``snapshot_session`` companions); ``build_spawn_session`` and
-``DefaultSessionFactory`` assemble the Agent + Session bundle for spawned
-children and for agent 0 (the lead), delegating role -> Agent assembly to a
-``ContextBuilder``. The ``SessionRuntime`` core stays in ``container``
-(``build_session_runtime`` — the only place ``LLMClient`` is instantiated).
+``ContextBuilder`` assembles role definitions. Shared runtime and LLM client
+construction live in ``container.build_session_runtime``.
 """
 
 from __future__ import annotations
@@ -60,7 +56,6 @@ from opencollab.domain.identity import role_storage_slug, validate_role_identity
 class SnapshotSessionError(RuntimeError):
     """An independent session snapshot could not be created safely."""
 
-
 def validate_responses_model_controls(
     model: str | None,
     *,
@@ -91,7 +86,6 @@ def validate_responses_model_controls(
             f"role {role_name!r} model {model!r} does not support Responses reasoning_effort"
         )
 
-
 def _team_budget_guard(scheduler: SchedulerPort | None) -> Callable[[], bool] | None:
     """A zero-arg predicate over the scheduler's aggregate budget, or ``None``.
 
@@ -101,7 +95,6 @@ def _team_budget_guard(scheduler: SchedulerPort | None) -> Callable[[], bool] | 
     if scheduler is None:
         return None
     return lambda: scheduler.budget_exhausted
-
 
 def agent_save_path(save_dir: str, aid: int, role: str) -> str:
     """Per-agent transcript path within a run folder: ``agent_<aid>_<role>.json``."""
@@ -116,23 +109,15 @@ def agent_save_path(save_dir: str, aid: int, role: str) -> str:
         raise ValueError("agent transcript path escapes run directory")
     return path
 
-
-# A workflow run folder groups one workflow's per-role conversation transcripts
-# (``<seq>_<role>.json``) the way a team run folder groups ``agent_<aid>_<role>``
-# transcripts. Its orchestration signals (phases, logs, step metrics) go to one
-# ``orchestration.jsonl``; a ``workflow.json`` manifest ties the folder together.
+# Workflow folders hold ``<seq>_<role>.json`` transcripts,
+# ``orchestration.jsonl`` signals, and a ``workflow.json`` manifest.
 ORCHESTRATION_FILENAME = "orchestration.jsonl"
 WORKFLOW_MANIFEST_FILENAME = "workflow.json"
 
-# Prefix on a workflow run folder's name so ``ls .opencollab/sessions/`` tells a
-# workflow run (``wf-<timestamp>``) apart from a team run (``<timestamp>``) at a
-# glance — both share the same parent dir. The manifest filename
-# (``workflow.json`` vs ``team.json``) is the in-folder discriminator.
+# The ``wf-`` prefix distinguishes workflow folders from team folders.
 WORKFLOW_RUN_PREFIX = "wf-"
 
-# Longest slug kept from an agent label when naming its transcript file.
 _MAX_LABEL_SLUG_LEN = 40
-
 
 def slug_label(label: str | None) -> str:
     """Filename-safe slug from an agent label (``coder:s1r2`` -> ``coder-s1r2``).
@@ -147,7 +132,6 @@ def slug_label(label: str | None) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-._")
     return cleaned[:_MAX_LABEL_SLUG_LEN]
 
-
 def workflow_transcript_path(save_dir: str, seq: int, label: str | None) -> str:
     """Per-session transcript path within a workflow run folder.
 
@@ -161,7 +145,6 @@ def workflow_transcript_path(save_dir: str, seq: int, label: str | None) -> str:
     slug = slug_label(label)
     stem = f"{seq:03d}_{slug}" if slug else f"{seq:03d}"
     return os.path.join(save_dir, f"{stem}.json")
-
 
 def make_run_dir(workspace: str, *, prefix: str = "") -> str:
     """A timestamped run folder under ``<workspace>/.opencollab/sessions``.
@@ -196,7 +179,6 @@ def make_run_dir(workspace: str, *, prefix: str = "") -> str:
     run_dir = base / f"{prefix}{stamp}-{uuid.uuid4().hex}"
     run_dir.mkdir(mode=0o700)
     return str(run_dir)
-
 
 def build_session(
     *,
@@ -272,7 +254,6 @@ def build_session(
     )
     return session
 
-
 def load_session(
     path: str,
     agent: Agent,
@@ -288,7 +269,6 @@ def load_session(
     session = build_session(agent=agent, **kwargs)
     session.restore(path)
     return session
-
 
 def _snapshot_identity(path: str, agent: Agent, store: SessionStorePort | None) -> dict[str, Any]:
     """The saved identity fields available before constructing the session.
@@ -308,7 +288,6 @@ def _snapshot_identity(path: str, agent: Agent, store: SessionStorePort | None) 
     except Exception:  # noqa: BLE001 - restore raises the real error
         pass
     return identity
-
 
 def snapshot_session(
     session: Session,
@@ -372,13 +351,11 @@ def snapshot_session(
     new.runner.shaper = shaper
     return new
 
-
 def _clone_snapshot_component(value: Any, *, label: str, memo: dict[int, Any] | None = None) -> Any:
     try:
         return copy.deepcopy(value, memo)
     except Exception as exc:  # noqa: BLE001 - snapshot must not share mutable state
         raise SnapshotSessionError(f"cannot clone {label} for an independent snapshot") from exc
-
 
 def _fork_snapshot_environment(environment: Any) -> Environment:
     fork = getattr(environment, "fork_snapshot", None)
@@ -401,7 +378,6 @@ def _fork_snapshot_environment(environment: Any) -> Environment:
             "environment.fork_snapshot() must synchronously return a distinct environment"
         )
     return snapshot_environment
-
 
 SESSION_MAX_STEPS = 100
 """The step ceiling every session in a run is built with.
@@ -428,7 +404,6 @@ agent's allowance for no reason anyone could state, which is the same kind of
 unearned privilege difference the shell gate had.
 """
 
-
 def build_spawn_session(
     *,
     role: str,
@@ -442,14 +417,10 @@ def build_spawn_session(
     task: str | None = None,
     context: str = "",
 ) -> Session:
-    """Build the Agent + Session bundle for a spawned child agent.
+    """Build a child session through ``DefaultSessionFactory``.
 
-    ``team_cfg`` defaults to the Self-Collaboration team, so roles resolve to the
-    generic spec (base tools). The safety policy is derived from the child's
-    environment. When ``task`` is given it is seeded as the agent's first
-    user-context message (the TASK-layer source), so no separate
-    ``add_user_message`` is needed. Delegates to ``DefaultSessionFactory`` so the
-    spawn-session assembly lives in one place.
+    ``team_cfg`` defaults to the Self-Collaboration team. Safety follows the
+    child environment. ``task``, when supplied, seeds its first user-context message.
     """
     role = validate_role_identity(role)
     factory = DefaultSessionFactory(cfg, team_cfg=team_cfg)
@@ -464,34 +435,17 @@ def build_spawn_session(
         context=context,
     )
 
-
 class DefaultSessionFactory:
-    """Default ``SessionFactoryPort`` implementation used by the scheduler.
+    """Build scheduler sessions from shared configuration and role definitions.
 
-    Holds the shared ``SpawnConfig`` (LLM config inherited by every session),
-    the resolved ``TeamConfig`` (role prompts/tools + topology), and the
-    agent-0 composition bits (``lead_workspace`` for the local environment and
-    ``interactive`` for the ask-user tool). All role -> Agent assembly is
-    delegated to a single ``ContextBuilder``.
+    ``ContextBuilder`` assembles agents from SpawnConfig and TeamConfig.
+    ``lead_environment`` supplies agent 0's environment, otherwise it uses the
+    host ``lead_workspace``. ``interactive`` controls the entry ask-user tool.
 
-    ``prebuilt_roster`` says whether this run's roster is an input to the run
-    (every agent declared in the team file and seated before the first model
-    call) or an outcome of it (children the model spawns mid-run). It is the
-    only thing that separates a teammate from an ad-hoc child here, and it is
-    read exclusively by ``_unisolated_shell_allowed``.
-
-    ``allow_unisolated_child_shell`` separately authorizes host commands for
-    dynamically spawned children. It defaults to False and does not alter
-    command confirmation or the entry agent's permissions.
-
-    ``allow_unisolated_shell`` answers the shell question directly instead of
-    letting ``interactive`` answer it by implication. ``None`` keeps the old
-    coupling (a human at the run is what licensed an unsandboxed shell), so a
-    caller that does not pass it gets exactly the previous behaviour.
-
-    ``lead_environment`` is where agent 0 works. Unset, it is the lead workspace
-    on this host; set, it is whatever the caller handed in, which is how a run
-    reaches a repository that exists only inside a container.
+    ``allow_unisolated_shell`` authorizes unsandboxed commands for initial seats, with
+    None inheriting interactive. ``prebuilt_roster`` distinguishes those seats
+    from dynamic children. ``allow_unisolated_child_shell`` separately authorizes
+    child unsandboxed commands, defaults to False and preserves command confirmation.
     """
 
     def __init__(
@@ -584,43 +538,22 @@ class DefaultSessionFactory:
                 )
 
     def _unisolated_shell_allowed(self, *, seated_at_start: bool) -> bool:
-        """May this agent run commands the OS does not sandbox?
+        """Resolve unsandboxed-command permission independently of human interaction.
 
-        The one source every session in this run reads, so agent 0 and its
-        teammates cannot end up on different answers. ``ask_user`` is decided
-        separately (``interactive`` plus the entry-role rule) — the two used to
-        be the same boolean, which is how teammates came to be seated without a
-        working shell while agent 0 had one.
-
-        ``seated_at_start`` is what distinguishes an agent the run was given
-        from one the run invented. Agent 0 is seated at the start by
-        definition, and so is every teammate of a prebuilt roster: both are
-        nodes a human declared in the team file, running where agent 0 runs, so
-        both get agent 0's answer. A child a model spawned mid-run is not
-        declared anywhere, and keeps the hardened default — it must be handed an
-        OS-sandboxed environment before it can run a command, unless the caller
-        explicitly opts into ``allow_unisolated_child_shell``.
-
-        The left half is ``allow_unisolated_shell``, which defaults to
-        ``interactive`` and so reproduces the old rule unless a caller states
-        otherwise. An unattended run that states it — a batch experiment whose
-        agents must be able to run ``git`` — gets the shell without also
-        acquiring a human it could put a question to.
+        Agent 0 and prebuilt teammates use ``allow_unisolated_shell``, with None
+        inheriting interactive. Dynamic children require a sandboxed environment
+        unless ``allow_unisolated_child_shell`` explicitly permits unsandboxed commands.
+        ``ask_user`` follows the separate interactive entry-role rule.
         """
         if not seated_at_start:
             return self._allow_unisolated_child_shell
         return self._allow_unisolated_shell
 
     def _lead_workspace_is_readable_by_the_agents(self) -> bool:
-        """Whether the agents' repository is readable on this host.
+        """Whether the agents' repository can be mapped on this host.
 
         A local environment's workspace holds the repository. The lead workspace
-        anchors configuration and may point to a different directory.
-
-        Only the repository map turns on this. A skill package is read off this
-        host once, at build time, and reaches the agent as text it can use from
-        anywhere; a repository map is a claim about a directory the agent is
-        expected to go and read.
+        anchors configuration and may point elsewhere.
         """
         env = self._lead_environment
         if env is None:
@@ -660,9 +593,8 @@ class DefaultSessionFactory:
         context: str = "",
     ) -> Session:
         role = validate_role_identity(role)
-        # ``None`` means "whatever this run is using", which is the run's single
-        # ceiling. A caller that names a number still gets it, so the standalone
-        # ``build_spawn_session`` helper keeps its own documented default.
+        # ``None`` inherits the run ceiling. Explicit values retain the standalone
+        # ``build_spawn_session`` override.
         max_steps = self._max_steps if max_steps is None else int(max_steps)
         cfg = self._cfg
         safety_policy = (
@@ -675,8 +607,7 @@ class DefaultSessionFactory:
         agent = context_builder.build_agent(
             role,
             scheduler=scheduler,
-            # Never: a spawned agent is not the entry role, and a peer has no
-            # human of its own to ask.
+            # Spawned agents have no independent human to answer their questions.
             ask_user_available=False,
             allow_unisolated_shell=self._unisolated_shell_allowed(
                 seated_at_start=self._prebuilt_roster
@@ -729,19 +660,13 @@ class DefaultSessionFactory:
         budget: int,
         aid: int = 0,
     ) -> Session:
-        """Build agent 0 with its local env, entry-role tools, and prompt.
+        """Build agent 0 from the configured entry role and scheduler-bound tools.
 
-        The entry role comes from the team config (``team_cfg.entry``), so agent
-        0 is whichever root the team declares — not a hardcoded ``lead``. The
-        scheduler-bound tools are resolved against ``scheduler`` here, so the
-        lead<->scheduler cycle is closed inside this single handshake.
-        ``launch.auto_save_path`` wires the auto-save subscriber; resume/seed is
-        left to ``Session.apply_launch``.
+        ``launch.auto_save_path`` wires autosave. ``Session.apply_launch`` handles
+        resume or seed messages.
         """
         cfg = self._cfg
-        # Agent 0 works where the run works. A caller that supplied an
-        # environment -- a container holding the repository under test, say --
-        # gets that one; otherwise the lead workspace on this host.
+        # Agent 0 shares the supplied environment or the lead host workspace.
         env = self._lead_environment or LocalEnvironment(self._lead_workspace)
         context_builder = self._fresh_context_builder()
         plan = context_builder.build_plan(self._team.entry)
@@ -774,7 +699,6 @@ class DefaultSessionFactory:
             agent_profile=self._role_profile(self._team.entry),
             run_id=self._run_id,
         )
-
 
 __all__ = [
     "ORCHESTRATION_FILENAME",

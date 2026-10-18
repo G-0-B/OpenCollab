@@ -13,13 +13,11 @@ DEFAULT_GIT_USER_EMAIL = "arcbench@example.com"
 ARC_GITIGNORE_START = "# >>> arcbench-agent-runtime >>>"
 ARC_GITIGNORE_END = "# <<< arcbench-agent-runtime <<<"
 
-
 @dataclass(frozen=True)
 class GitResult:
     returncode: int
     stdout: str
     stderr: str
-
 
 class GitClient:
     def __init__(self, paths: RuntimePaths, events: EventClient) -> None:

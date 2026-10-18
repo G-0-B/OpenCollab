@@ -20,7 +20,6 @@ _PROTOCOLS = [
 _ANSWER = "Finished the requested edit."
 _WRITTEN = "actual edit\n"
 
-
 def _read_blocks():
     return [
         {"type": "tool_use", "id": f"read_{index}", "name": "file_read", "input": {
@@ -29,12 +28,10 @@ def _read_blocks():
         for index in range(READS_NUDGE_HARD)
     ]
 
-
 def _write_blocks():
     return [{"type": "tool_use", "id": "write_1", "name": "file_write", "input": {
         "path": "delivered.txt", "mode": "create", "content": _WRITTEN,
     }}]
-
 
 def _http_reply(body, blocks, *, provider, wire, index):
     input_tokens, output_tokens = 20 + index, 5 + index
@@ -79,7 +76,6 @@ def _http_reply(body, blocks, *, provider, wire, index):
         "usage": {"prompt_tokens": input_tokens, "completion_tokens": output_tokens,
                   "total_tokens": input_tokens + output_tokens},
     })
-
 
 async def _run_agent(monkeypatch, tmp_path, *, provider="anthropic", wire="chat_completions",
                      write_at=None, require_write=True):
@@ -130,13 +126,11 @@ async def _run_agent(monkeypatch, tmp_path, *, provider="anthropic", wire="chat_
     ledger = [json.loads(line) for line in ledger_path.read_text().splitlines()]
     return result, requests, snapshot, trace, ledger
 
-
 def _assert_usage(result, requests, ledger):
     expected = [25 + 2 * index for index in range(1, len(requests) + 1)]
     assert result.tokens == sum(expected)
     assert [row["status"] for row in ledger] == ["success"] * len(requests)
     assert [row["usage"]["total_tokens"] for row in ledger] == expected
-
 
 @pytest.mark.parametrize("provider,wire", _PROTOCOLS)
 @pytest.mark.parametrize("write_at", [None, 2, 3], ids=["repeated-prose", "immediate-write", "corrected-write"])
@@ -179,7 +173,6 @@ async def test_required_write_completion_uses_existing_correction(monkeypatch, t
         if write_at != 2:
             assert requests[2]["tool_choice"] == "required"
     _assert_usage(result, requests, ledger)
-
 
 async def test_ordinary_anthropic_end_turn_completes_with_manual_thinking(monkeypatch, tmp_path):
     result, requests, snapshot, trace, ledger = await _run_agent(monkeypatch, tmp_path, require_write=False)

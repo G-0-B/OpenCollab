@@ -18,10 +18,8 @@ class _SlowPayload:
         assert self.release.wait(timeout=5)
         return "first"
 
-
 def _records(path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
-
 
 def test_step_numbers_follow_queue_order_and_survive_reopen(tmp_path) -> None:
     tracer = Tracer("thread-order", output_dir=str(tmp_path))
@@ -58,7 +56,6 @@ def test_step_numbers_follow_queue_order_and_survive_reopen(tmp_path) -> None:
         (3, "third"),
     ]
     assert list(tmp_path.glob("thread-order.jsonl.corrupt-*")) == []
-
 
 def test_close_racing_with_serialization_counts_the_dropped_step(tmp_path) -> None:
     tracer = Tracer("close-race", output_dir=str(tmp_path))

@@ -27,7 +27,6 @@ MAX_REVISIONS = 2
 def _record(**properties: Any) -> dict[str, Any]:
     return {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
 
-
 REVIEW_SCHEMA = _record(
     verdict={"type": "string", "enum": ["approve", "revise"]},
     findings={"type": "array", "items": {"type": "string"}},
@@ -42,10 +41,8 @@ DISPATCH_SCHEMA = _record(
     assignments={"type": "array", "minItems": 1, "maxItems": len(MINISTRY_CARDS), "items": ASSIGNMENT_SCHEMA},
 )
 
-
 def _blocked(stage: str, **evidence: Any) -> dict[str, Any]:
     return {"status": "blocked", "stage": stage, **evidence}
-
 
 async def _ask(
     ctx: WorkflowContext,
@@ -61,7 +58,6 @@ async def _ask(
         schema=schema,
     )
 
-
 async def _review(ctx: WorkflowContext, subject: str, material: str) -> Any:
     return await _ask(
         ctx,
@@ -70,7 +66,6 @@ async def _review(ctx: WorkflowContext, subject: str, material: str) -> Any:
         f"issue is addressed. Otherwise request concrete revisions.\n\n{material}",
         schema=REVIEW_SCHEMA,
     )
-
 
 @workflow(
     name="three-departments-six-ministries",

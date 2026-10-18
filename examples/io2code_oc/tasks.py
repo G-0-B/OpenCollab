@@ -63,11 +63,7 @@ class Task:
     adapter: Any = field(repr=False, compare=False)
 
     def random_inputs(self, k: int, exclude: set[str] = frozenset()) -> list[Any]:
-        """Inputs drawn from IO2Code's own generator (the benchmark's distribution).
-
-        Independent of any hypothesis the agent holds, which is what makes
-        them useful as verification evidence (rea's authority rule).
-        """
+        """Draw fresh inputs from the benchmark generator independently of agent hypotheses."""
         out: list[Any] = []
         seen = set(exclude)
         for _ in range(6):  # a few rounds of oversampling to get k distinct new inputs
@@ -227,12 +223,7 @@ def load_task(name: str) -> Task:
 
 
 def jsonable(value: Any) -> Any:
-    """Round-trip through JSON so tuples compare equal to lists.
-
-    Candidate programs run in a subprocess and report outputs as JSON, so an
-    oracle output such as ``(1, 2)`` must be normalised the same way before
-    comparison.
-    """
+    """JSON-round-trip oracle outputs to match subprocess outputs, including tuple-to-list conversion."""
     import json
 
     return json.loads(json.dumps(value))

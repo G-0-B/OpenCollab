@@ -18,7 +18,6 @@ from opencollab.workflows import workflow
 
 _BUILTIN_NAMES = {"duo", "reconstruct", "weave"}
 
-
 def _write_workflow(directory, *, name="local-flow"):
     directory.mkdir(parents=True)
     (directory / "local.py").write_text(
@@ -28,7 +27,6 @@ def _write_workflow(directory, *, name="local-flow"):
         "    return args\n",
         encoding="utf-8",
     )
-
 
 def test_builtin_registry_is_fresh_and_exposes_installed_workflows():
     first = get_builtin_workflows()
@@ -45,7 +43,6 @@ def test_builtin_registry_is_fresh_and_exposes_installed_workflows():
     with pytest.raises(KeyError):
         second.get("caller-only")
 
-
 def test_directory_discovery_keeps_caller_only_default_and_can_include_builtins(tmp_path):
     directory = tmp_path / "workflows"
     _write_workflow(directory)
@@ -57,14 +54,12 @@ def test_directory_discovery_keeps_caller_only_default_and_can_include_builtins(
     installed = discover_workflows(str(tmp_path / "missing"), include_builtin=True)
     assert {spec.name for spec in installed.list_specs()} == _BUILTIN_NAMES
 
-
 @pytest.mark.parametrize("name", sorted(_BUILTIN_NAMES))
 def test_caller_module_using_builtin_name_raises_existing_duplicate_error(tmp_path, name):
     directory = tmp_path / "workflows"
     _write_workflow(directory, name=name)
     with pytest.raises(ValueError, match="workflow name already registered"):
         discover_workflows(str(directory), include_builtin=True)
-
 
 def test_cli_lists_installed_workflows_in_workspace_without_workflow_directory(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENCOLLAB_WORKFLOWS_DIR", raising=False)
@@ -74,7 +69,6 @@ def test_cli_lists_installed_workflows_in_workspace_without_workflow_directory(t
     assert "weave" in result.stdout
     assert "duo-v3" not in result.stdout
     assert "validation-council-dual-coder-selection" not in result.stdout
-
 
 @pytest.mark.parametrize("name", sorted(_BUILTIN_NAMES))
 def test_cli_runs_installed_workflow_and_forwards_agent_profile(tmp_path, monkeypatch, name):
@@ -97,7 +91,6 @@ def test_cli_runs_installed_workflow_and_forwards_agent_profile(tmp_path, monkey
     assert captured["spec"].fn is {"duo": duo, "reconstruct": reconstruct, "weave": weave}[name]
     assert captured["args"] == {"goal": "repair"}
     assert captured["agent_profile"] == "single2"
-
 
 @pytest.mark.parametrize("name", sorted(_BUILTIN_NAMES))
 async def test_sdk_name_resolves_installed_workflow_and_preserves_execution_options(tmp_path, monkeypatch, name):
@@ -126,7 +119,6 @@ async def test_sdk_name_resolves_installed_workflow_and_preserves_execution_opti
     assert captured["task_concurrency"] == 3
     assert captured["agent_profile"].name == "single2"
 
-
 @pytest.mark.parametrize("absolute", [False, True])
 async def test_sdk_name_resolves_caller_directory_from_workspace(tmp_path, monkeypatch, absolute):
     project = tmp_path / "project"
@@ -137,7 +129,6 @@ async def test_sdk_name_resolves_caller_directory_from_workspace(tmp_path, monke
     result = await OpenCollab(project).workflow("local-flow", {"value": 19}, trace=False)
     assert result.ok and result.output == {"value": 19}
 
-
 async def test_sdk_unknown_name_and_builtin_conflict_fail_before_execution(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENCOLLAB_WORKFLOWS_DIR", raising=False)
     client = OpenCollab(tmp_path)
@@ -146,7 +137,6 @@ async def test_sdk_unknown_name_and_builtin_conflict_fail_before_execution(tmp_p
     _write_workflow(tmp_path / "workflows", name="duo")
     with pytest.raises(ValueError, match="workflow name already registered"):
         await client.workflow("duo")
-
 
 @pytest.mark.parametrize("use_spec", [False, True])
 async def test_sdk_explicit_function_or_spec_bypasses_name_discovery(tmp_path, monkeypatch, use_spec):

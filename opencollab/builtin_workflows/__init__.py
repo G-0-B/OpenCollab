@@ -28,7 +28,6 @@ def get_builtin_workflows():
     registry.register(weave.__workflow_spec__)
     return registry
 
-
 __all__ = [
     "duo", "reconstruct", "ReconstructionTask", "register_task", "weave", "get_builtin_workflows",
     "run_dual_coder", "CONTRACT_PROMPT",

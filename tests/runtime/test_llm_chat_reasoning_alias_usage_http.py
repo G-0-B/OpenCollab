@@ -14,7 +14,6 @@ _REASONING = "Intermediate reasoning text. " * 2_000
 _USAGE = {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20}
 _ZERO_USAGE = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
-
 def _wire_response(message, usage):
     return {
         "id": "chatcmpl-reasoning-alias-usage",
@@ -24,7 +23,6 @@ def _wire_response(message, usage):
         "choices": [{"index": 0, "message": message, "finish_reason": "stop"}],
         **({"usage": usage} if usage is not None else {}),
     }
-
 
 async def _complete(content, reasoning_fields, usage):
     requests = []
@@ -49,7 +47,6 @@ async def _complete(content, reasoning_fields, usage):
     finally:
         await client.close()
 
-
 @pytest.mark.parametrize("content", [None, "42"], ids=["reasoning-only", "with-content"])
 @pytest.mark.parametrize("usage", [None, _ZERO_USAGE, _USAGE], ids=["missing", "zero", "reported"])
 async def test_non_streaming_reasoning_alias_usage_matches_primary(content, usage):
@@ -68,7 +65,6 @@ async def test_non_streaming_reasoning_alias_usage_matches_primary(content, usag
         assert alias.usage.output_tokens > 19_000
         assert alias.usage.estimated is True
 
-
 @pytest.mark.parametrize("primary", ["preferred", "", 17], ids=["valid", "empty", "malformed"])
 @pytest.mark.parametrize("usage", [None, _ZERO_USAGE], ids=["missing", "zero"])
 async def test_reasoning_usage_estimates_only_the_selected_valid_field(primary, usage):
@@ -80,7 +76,6 @@ async def test_reasoning_usage_estimates_only_the_selected_valid_field(primary, 
 
     assert response.reasoning == selected
     assert response.usage == reference.usage
-
 
 def test_reasoning_usage_projection_preserves_the_sdk_message():
     message = {"role": "assistant", "content": None, "reasoning_content": 17, "reasoning": _REASONING}

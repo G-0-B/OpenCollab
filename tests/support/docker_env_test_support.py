@@ -7,7 +7,6 @@ from opencollab.adapters._env_process import ProcessResult
 
 CONTAINER_ID = "a" * 64
 
-
 def _result(
     returncode: int = 0,
     stdout: bytes = b"",
@@ -24,7 +23,6 @@ def _result(
         stderr_dropped_bytes=stderr_dropped,
     )
 
-
 class FakeDocker:
     def __init__(self, handler: Callable | None = None) -> None:
         self.handler = handler
@@ -39,7 +37,6 @@ class FakeDocker:
         if isinstance(value, BaseException):
             raise value
         return value
-
 
 def _patch(monkeypatch, fake: FakeDocker) -> None:
     monkeypatch.setattr(docker_module, "run_process", fake)

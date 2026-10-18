@@ -24,7 +24,6 @@ def application(tmp_path):
     (backend / "inherited.test.js").write_text("inherited assertion")
     return database
 
-
 def test_resume_uses_original_rows_and_repeated_capture_is_refused(tmp_path):
     database = application(tmp_path)
     capture_baseline(tmp_path, run_id="existing-run", input_source="public-requirements.yaml")
@@ -40,7 +39,6 @@ def test_resume_uses_original_rows_and_repeated_capture_is_refused(tmp_path):
         assert database_values(isolated / "backend/app.sqlite") == original["inherited_values"]["app.sqlite"]
     assert database_values(database)["records"]["rows"] == 0
 
-
 def test_snapshot_missing_corrupt_or_wrong_run_stays_unverified(tmp_path):
     application(tmp_path)
     assert not working_integrity(tmp_path)[0]["ok"]
@@ -53,7 +51,6 @@ def test_snapshot_missing_corrupt_or_wrong_run_stays_unverified(tmp_path):
     write_public_checks({"id": "REQ-1", "name": "Unknown", "scenarios": []}, tmp_path)
     report = verify(tmp_path)
     assert not report["ok"] and report["checks"][0]["step"] == "verification_inputs"
-
 
 def test_wal_committed_data_enters_backup_and_protected_tests_survive(tmp_path):
     database = application(tmp_path)
@@ -72,7 +69,6 @@ def test_wal_committed_data_enters_backup_and_protected_tests_survive(tmp_path):
         assert not next(c for c in working_integrity(tmp_path) if c["step"] == "inherited_test_integrity")["ok"]
     finally:
         db.close()
-
 
 def test_cancelled_verifier_rolls_back_real_sqlite_write_and_cleans_copy(tmp_path):
     database = application(tmp_path)
@@ -108,7 +104,6 @@ def test_cancelled_verifier_rolls_back_real_sqlite_write_and_cleans_copy(tmp_pat
     assert failures == ["Verification cancelled; no acceptance verdict"]
     assert database_values(database) == original
     assert copies and not copies[0].exists()
-
 
 def test_malformed_snapshot_returns_input_failure_and_keeps_candidate(tmp_path):
     database = application(tmp_path)

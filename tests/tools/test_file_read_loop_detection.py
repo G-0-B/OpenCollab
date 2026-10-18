@@ -20,7 +20,6 @@ class RangeReadTool(RuntimeNativeTool):
         self.runtime_calls.append((args, runtime))
         return f"File: large.ts\n{args.get('offset', 1)}\tsection {args.get('limit', 500)}"
 
-
 def reads(ranges, *, batch):
     return [
         tool_call(
@@ -30,7 +29,6 @@ def reads(ranges, *, batch):
         )
         for index, (offset, limit) in enumerate(ranges)
     ]
-
 
 def test_distinct_pages_after_writes_do_not_stop_the_session():
     # Captures the failure shape from a real large-file task. The last batch
@@ -59,7 +57,6 @@ def test_distinct_pages_after_writes_do_not_stop_the_session():
     asyncio.run(build_runner(state=state).precheck(None))
     assert state.phase is SessionPhase.CALLING_LLM
 
-
 def test_pagination_cycle_still_reaches_the_loop_stop():
     state = SessionState(messages=[])
     read = RangeReadTool()
@@ -85,7 +82,6 @@ def test_pagination_cycle_still_reaches_the_loop_stop():
     asyncio.run(build_runner(state=state).precheck(None))
     assert state.phase is SessionPhase.STOPPED
     assert state.terminal_reason == "loop block limit reached: 3 unproductive tool batches"
-
 
 def test_omitted_and_explicit_read_defaults_share_the_repeat_count():
     state = SessionState(messages=[])

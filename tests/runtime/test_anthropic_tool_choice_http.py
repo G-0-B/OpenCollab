@@ -18,12 +18,10 @@ _MODEL = "claude-opus-5-5"
 _CHOICE_ERROR = 'tool_choice: type "tool" and "any" are not supported for this model.'
 _NAMED_CHOICE = {"type": "function", "function": {"name": "submit_findings"}}
 
-
 def _error_response(request, message=_CHOICE_ERROR, **fields):
     return http_response(request, 400, json={
         "type": "error", "error": {"type": "invalid_request_error", "message": message, **fields},
     })
-
 
 def _agent(*, tool_choice=None):
     return Agent(
@@ -33,18 +31,15 @@ def _agent(*, tool_choice=None):
         thinking_params={"thinking": {"type": "adaptive"}}, tool_choice=tool_choice,
     )
 
-
 def _client():
     return LLMClient(
         model=_MODEL, provider="anthropic", api_key="controlled-test",  # pragma: allowlist secret
         base_url="https://controlled.invalid/v1", max_retries=0,
     )
 
-
 @pytest.fixture(autouse=True)
 def isolate_usage_log(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(tmp_path / "usage.jsonl"))
-
 
 @pytest.mark.parametrize("tool_choice", [_NAMED_CHOICE, "required"], ids=["named", "required"])
 async def test_documented_rejection_retries_named_and_required_choices_once(monkeypatch, tmp_path, tool_choice):
@@ -73,7 +68,6 @@ async def test_documented_rejection_retries_named_and_required_choices_once(monk
     ledger = [json.loads(line) for line in (tmp_path / "usage.jsonl").read_text().splitlines()]
     assert [row["status"] for row in ledger] == ["error", "success"]
     assert [row["usage"]["total_tokens"] for row in ledger] == [0, 9]
-
 
 @pytest.mark.parametrize("fallback_fails", [False, True], ids=["recovered", "second-error"])
 async def test_budget_wind_down_recovers_documented_rejection_and_preserves_second_error(
@@ -128,7 +122,6 @@ async def test_budget_wind_down_recovers_documented_rejection_and_preserves_seco
     assert [row["status"] for row in ledger] == ["success", "error", "error" if fallback_fails else "success"]
     assert sum(row["usage"]["total_tokens"] for row in ledger) == session.used_tokens
 
-
 @pytest.mark.parametrize("param", ["temperature", "tools", "messages"])
 async def test_explicit_unrelated_parameter_prevents_tool_choice_retry(monkeypatch, param):
     requests = []
@@ -150,7 +143,6 @@ async def test_explicit_unrelated_parameter_prevents_tool_choice_retry(monkeypat
     assert requests[0]["tool_choice"] == {"type": "any"}
     assert session.phase is SessionPhase.ERROR
     assert session.used_tokens == 0
-
 
 @pytest.mark.parametrize("message", [
     'tool_choice: type "tool" and "any" were requested; invalid temperature',

@@ -31,7 +31,6 @@ async def test_candidate_repository_path_retains_trailing_spaces(tmp_path):
         await environment.cleanup()
     assert _git(repo, "worktree", "list", "--porcelain").count("worktree ") == 1
 
-
 @pytest.mark.parametrize("prefix", ["package", "package/deep", "package with spaces"])
 @pytest.mark.parametrize("tracked", [False, True])
 async def test_subdirectory_candidate_inherits_edits_and_adopts_at_repository_root(tmp_path, prefix, tracked):
@@ -72,7 +71,6 @@ async def test_subdirectory_candidate_inherits_edits_and_adopts_at_repository_ro
     assert not candidate_root.exists()
     assert _git(repo, "worktree", "list", "--porcelain").count("worktree ") == 1
 
-
 @pytest.mark.parametrize("mode", ["agent", "workflow"])
 async def test_candidate_session_uses_subdirectory_relative_paths(tmp_path, mode):
     repo = _repository(tmp_path)
@@ -101,7 +99,6 @@ async def test_candidate_session_uses_subdirectory_relative_paths(tmp_path, mode
         assert (repo / "source.py").read_text() == "value = 1\n"
     finally:
         await environment.cleanup()
-
 
 async def test_linked_subdirectory_candidate_preserves_paths_and_source_edits(tmp_path):
     main = _repository(tmp_path)
@@ -132,7 +129,6 @@ async def test_linked_subdirectory_candidate_preserves_paths_and_source_edits(tm
         await environment.cleanup()
         _git(main, "worktree", "remove", "--force", str(repo))
 
-
 @pytest.mark.parametrize("prefix", ["", "package", "package/deep", "package with spaces"])
 @pytest.mark.parametrize("preserved", ["tests", "./tests/", "tests/inner/..", "tests/check.py", "."])
 async def test_public_subdirectory_candidate_preserves_workspace_paths(tmp_path, prefix, preserved):
@@ -159,7 +155,6 @@ async def test_public_subdirectory_candidate_preserves_workspace_paths(tmp_path,
     assert result.output == "protected"
     assert protected.read_text() == "protected = True\n"
     assert _git(repo, "status", "--porcelain") == ""
-
 
 @pytest.mark.parametrize("prefix", ["", "package"])
 @pytest.mark.parametrize("preserved", ["", "../tests", "tests/../../escape", "/tests"])

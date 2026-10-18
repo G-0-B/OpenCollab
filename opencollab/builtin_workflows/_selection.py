@@ -13,15 +13,11 @@ from . import _candidate_records as dual
 
 MAX_DIFF_BYTES = 240_000
 
-
 MAX_JUDGE_INPUT_BYTES = 600_000
-
 
 MAX_REQUIREMENTS = 64
 
-
 COVERAGE_VALUES = frozenset({"covered", "not_covered", "unclear"})
-
 
 CONTRACT_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -77,13 +73,11 @@ CONTRACT_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
-
 def _clip_text(value: Any, limit: int) -> tuple[str, bool]:
     """Preserve complete model-visible evidence, including identity-bearing text."""
     del limit
     text = "" if value is None else str(value)
     return text, False
-
 
 def _mechanical_choice(
     candidate_a: CandidateRun,
@@ -103,7 +97,6 @@ def _mechanical_choice(
     if candidate_a.diff == candidate_b.diff:
         return "B", "identical-diff", False
     return None, "contract-adjudication", True
-
 
 def _shared_public_records(
     candidate_a: CandidateRun,
@@ -140,7 +133,6 @@ def _shared_public_records(
         for key in sorted(records_a.keys() & records_b.keys())
     ]
 
-
 def _candidate_view(candidate: CandidateRun) -> tuple[dict[str, Any], bool]:
     diff, truncated = _clip_text(candidate.diff, MAX_DIFF_BYTES)
     return {
@@ -149,7 +141,6 @@ def _candidate_view(candidate: CandidateRun) -> tuple[dict[str, Any], bool]:
         "changed_paths": patch_paths(candidate.diff),
         "public_command": dual._candidate_command(candidate),
     }, truncated
-
 
 def _judge_input(
     candidate_a: CandidateRun,
@@ -178,7 +169,6 @@ def _judge_input(
     }
     return text, paths, truncated_a or truncated_b or payload_truncated
 
-
 def _evidence_mentions_changed_path(
     evidence: list[Any],
     paths: list[str],
@@ -190,7 +180,6 @@ def _evidence_mentions_changed_path(
         if any(normalized in anchor or name and name in anchor for anchor in anchors):
             return True
     return False
-
 
 def _judge_issue(
     result: Any,
@@ -240,10 +229,8 @@ def _judge_issue(
         return None
     return "tie" if tied else "recommendation_has_no_supported_advantage"
 
-
 def _validated_judge_winner(result: Any, paths: dict[str, list[str]]) -> str | None:
     return result["winner"] if _judge_issue(result, paths) is None else None
-
 
 def _fallback_winner(*results: Any) -> str:
     """Prefer B without overriding an already reported explicit B regression."""

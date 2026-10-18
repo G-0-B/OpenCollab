@@ -30,7 +30,6 @@ class FakeAgent:
     def tool_schemas(self):
         return []
 
-
 class RuntimeAwareTool:
     def __init__(self):
         self.runtime_calls = []
@@ -38,7 +37,6 @@ class RuntimeAwareTool:
     async def execute_with_runtime(self, args, runtime):
         self.runtime_calls.append((args, runtime))
         return "runtime result"
-
 
 def test_session_accepts_explicit_safety_policy(tmp_path):
     ws = tmp_path / "ws"
@@ -48,11 +46,9 @@ def test_session_accepts_explicit_safety_policy(tmp_path):
     session = session_mod.build_session(agent=FakeAgent(), env=env, safety_policy=safety_policy, llm=object())
     proc = session.tool_execution
     assert proc.safety_policy is safety_policy
-    # Path inside workspace resolves; path outside raises.
     assert proc.safety_policy.check_path("inside.txt").startswith(str(ws.resolve()))
     with pytest.raises(PermissionError):
         proc.safety_policy.check_path("/etc/passwd")
-
 
 def test_direct_session_does_not_derive_safety_policy_from_env(tmp_path):
     ws = tmp_path / "ws"
@@ -61,7 +57,6 @@ def test_direct_session_does_not_derive_safety_policy_from_env(tmp_path):
     session = session_mod.build_session(agent=FakeAgent(), env=env, llm=object())
 
     assert session.tool_execution.safety_policy is None
-
 
 def test_snapshot_preserves_explicit_safety_policy(tmp_path):
     class ForkableEnvironment:
@@ -84,7 +79,6 @@ def test_snapshot_preserves_explicit_safety_policy(tmp_path):
     assert snap.tool_execution.safety_policy is not safety_policy
     assert snap.tool_execution.safety_policy.root == safety_policy.root
 
-
 def test_tool_execution_accepts_explicit_safety_policy(tmp_path):
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -98,7 +92,6 @@ def test_tool_execution_accepts_explicit_safety_policy(tmp_path):
         safety_policy=custom,
     )
     assert proc.safety_policy is custom
-
 
 def test_tool_execution_builds_application_tool_runtime(tmp_path):
     ws = tmp_path / "ws"
@@ -120,7 +113,6 @@ def test_tool_execution_builds_application_tool_runtime(tmp_path):
     assert runtime.environment is env
     assert runtime.safety_policy is safety_policy
     assert runtime.permission_policy is permission_policy
-
 
 def test_tool_execution_prefers_execute_with_runtime(tmp_path):
     ws = tmp_path / "ws"
@@ -148,7 +140,6 @@ def test_tool_execution_prefers_execute_with_runtime(tmp_path):
     assert runtime.safety_policy is safety_policy
     assert runtime.permission_policy is permission_policy
 
-
 def test_tool_execution_does_not_expand_legacy_runtime_arguments():
     source = inspect.getsource(ToolExecutionUseCase.execute_tool)
 
@@ -157,13 +148,11 @@ def test_tool_execution_does_not_expand_legacy_runtime_arguments():
     assert "confirm_fn=runtime.confirm_fn()" not in source
     assert "interceptor=runtime.safety_policy" not in source
 
-
 def test_application_tool_exposes_typed_timeout_policy():
     tool = SubmitFindingsTool()
 
     assert tool.default_timeout is None
     assert tool.disable_outer_timeout is False
-
 
 def test_tool_port_describes_runtime_dispatch_not_legacy_execute():
     source = inspect.getsource(ToolPort)
@@ -172,7 +161,6 @@ def test_tool_port_describes_runtime_dispatch_not_legacy_execute():
     assert "async def execute(" not in source
     assert "env:" not in source
     assert "interceptor:" not in source
-
 
 def test_no_concrete_tool_defines_legacy_execute():
     from opencollab.adapters.tools.base import Tool
@@ -193,12 +181,10 @@ def test_no_concrete_tool_defines_legacy_execute():
 
     assert offenders == []
 
-
 def test_tool_execution_does_not_import_concrete_sandbox():
     import opencollab.application.tool_execution as tools_mod
 
     assert not hasattr(tools_mod, "SandboxInterceptor")
-
 
 def test_container_does_not_reference_deleted_bootstrap_safety_module():
     source = inspect.getsource(session_mod)

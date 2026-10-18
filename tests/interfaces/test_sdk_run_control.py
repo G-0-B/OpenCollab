@@ -32,24 +32,19 @@ class Model:
         self.calls.append({"messages": copy.deepcopy(messages), **kwargs})
         return self.responses.pop(0) if self.responses else reply()
 
-
 def reply(tokens=10, content="finished"):
     return LLMResponse(content=content, finish_reason="stop", usage=Usage(input_tokens=2, output_tokens=tokens - 2))
-
 
 def client(tmp_path, **config):
     return OpenCollab(tmp_path, model="unit-model", provider="openai", config=config)
 
-
 def consumption(events):
     return [event for event in events if event.type == "usage"]
-
 
 @pytest.fixture(autouse=True)
 def quiet_steering(monkeypatch):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
-
 
 @pytest.mark.parametrize("trace", [False, True])
 async def test_control_clips_initial_soft_allowance_and_emits_with_either_trace_mode(tmp_path, trace):
@@ -69,7 +64,6 @@ async def test_control_clips_initial_soft_allowance_and_emits_with_either_trace_
     assert [event.type for event in events][-2:] == ["session_stopped", "cleanup_completed"]
     assert events[-2].data["pending_provider_requests"] == 0
     assert bool(list((tmp_path / "artifacts").glob("trajectory.jsonl"))) is trace
-
 
 async def test_soft_allowance_extension_continues_the_same_sdk_session(tmp_path):
     events, snapshots = [], []
@@ -98,7 +92,6 @@ async def test_soft_allowance_extension_continues_the_same_sdk_session(tmp_path)
     assert {event.session_id for event in events} == {snapshots[0].session_id}
     assert [event.data["total_tokens"] for event in consumption(events)] == [100, 10]
 
-
 @pytest.mark.parametrize("suggestion", [90, 201, None, True])
 async def test_illegal_runtime_budget_suggestions_fail_before_the_next_provider_attempt(tmp_path, suggestion):
     events = []
@@ -118,7 +111,6 @@ async def test_illegal_runtime_budget_suggestions_fail_before_the_next_provider_
     assert rejected.data["suggested_budget"] == suggestion
     assert events[-1].type == "cleanup_completed"
 
-
 async def test_hard_exhaustion_keeps_ordinary_budget_stop(tmp_path):
     model = Model([reply(tokens=201, content="")])
     decisions = []
@@ -129,7 +121,6 @@ async def test_hard_exhaustion_keeps_ordinary_budget_stop(tmp_path):
     assert result.status == "stopped" and result.tokens == 201
     assert "budget" in result.reason
     assert decisions and all(snapshot.used_tokens < 200 for snapshot in decisions)
-
 
 @pytest.mark.parametrize("too_long", [False, True])
 async def test_final_prompt_is_present_in_current_http_request_and_reserves_input(tmp_path, too_long):
@@ -154,7 +145,6 @@ async def test_final_prompt_is_present_in_current_http_request_and_reserves_inpu
         assert body["max_tokens"] == 500 - estimate_request_tokens(body["messages"])
     decision = next(event for event in events if event.type == "budget_decision")
     assert decision.data["accepted"] is True
-
 
 async def test_summary_spend_reaches_soft_cap_and_next_request_uses_host_extension(tmp_path, monkeypatch):
     sessions, snapshots, events = [], [], []
@@ -182,7 +172,6 @@ async def test_summary_spend_reaches_soft_cap_and_next_request_uses_host_extensi
     assert sessions[0].max_budget_tokens == sessions[0].runner.max_budget_tokens == 40_000
     assert [event.data["purpose"] for event in consumption(events)] == ["summary", "completion"]
     assert any(event.type == "context_shaping" and event.data["rung"] == "auto_compact" for event in events)
-
 
 @pytest.mark.parametrize("failure", ["invalid_decision", "callback_error"])
 async def test_summary_budget_policy_failure_stops_before_fallback_answer(tmp_path, monkeypatch, failure):
@@ -216,7 +205,6 @@ async def test_summary_budget_policy_failure_stops_before_fallback_answer(tmp_pa
     rejected = next(event for event in events if event.type == "budget_decision" and not event.data["accepted"])
     assert rejected.data["reason"] == "request"
     assert events[-1].type == "cleanup_completed"
-
 
 @pytest.mark.parametrize("summary_error", [False, True])
 async def test_usage_on_provider_exception_is_accounted_and_emitted_once(tmp_path, monkeypatch, summary_error):
@@ -255,7 +243,6 @@ async def test_usage_on_provider_exception_is_accounted_and_emitted_once(tmp_pat
     assert result.tokens == (47 if summary_error else 37)
     assert result.status == ("completed" if summary_error else "failed")
     assert events[-1].type == "cleanup_completed"
-
 
 @pytest.mark.parametrize("late_error", [False, True])
 async def test_late_usage_keeps_original_receiver_while_same_client_runs_again(tmp_path, late_error):
@@ -305,7 +292,6 @@ async def test_late_usage_keeps_original_receiver_while_same_client_runs_again(t
     assert consumption(first_events)[0].session_id != consumption(second_events)[0].session_id
     assert first_events[-1].type == "cleanup_completed"
 
-
 async def test_receiver_failure_keeps_accounting_and_cleanup_and_reports_observation_error(tmp_path):
     received = []
 
@@ -323,7 +309,6 @@ async def test_receiver_failure_keeps_accounting_and_cleanup_and_reports_observa
     assert result.metrics["observation_errors"] == ["usage: RuntimeError: fixture sink failed"]
     assert received[-1].type == "cleanup_completed"
 
-
 @pytest.mark.parametrize("window,cap,expected", [(40_000, None, (7_000, 5_250)),
                                                (40_000, 4_000, (4_000, 3_000)),
                                                (40_000, 9_000, (7_000, 5_250)),
@@ -332,12 +317,10 @@ def test_history_cap_uses_existing_window_rules(window, cap, expected):
     settings = _history_compaction_settings(type("Window", (), {"context_window": lambda self: window})(), cap)
     assert (settings["history_trigger_tokens"], settings["history_target_tokens"]) == expected
 
-
 @pytest.mark.parametrize("invalid", [0, 1, True, 1.5, "4000"])
 def test_history_cap_rejects_invalid_values(invalid):
     with pytest.raises(ValueError, match="history_trigger_tokens"):
         RunControl(history_trigger_tokens=invalid)
-
 
 async def test_parallel_sessions_apply_independent_history_caps_and_record_effective_values(tmp_path):
     async def run(name, cap):
@@ -355,7 +338,6 @@ async def test_parallel_sessions_apply_independent_history_caps_and_record_effec
     assert (right["history_trigger_tokens"], right["history_target_tokens"]) == (6_000, 4_500)
     assert left["history_thresholds_from"] == right["history_thresholds_from"] == "context_window_with_run_control"
 
-
 async def test_policy_can_hold_soft_cap_and_stop_after_retaining_prior_usage(tmp_path):
     snapshots = []
     model = Model([reply(tokens=100, content="")])
@@ -367,7 +349,6 @@ async def test_policy_can_hold_soft_cap_and_stop_after_retaining_prior_usage(tmp
     assert result.status == "stopped" and result.tokens == 100
     assert len(model.calls) == 1
     assert snapshots[-1].used_tokens == 100 and snapshots[-1].reason == "precheck"
-
 
 async def test_completed_summary_at_precheck_can_extend_before_local_stop():
     events, snapshots = [], []
@@ -387,7 +368,6 @@ async def test_completed_summary_at_precheck_can_extend_before_local_stop():
     assert next(snapshot for snapshot in snapshots if snapshot.used_tokens == 20_000).reason == "precheck"
     assert [call["summary"] for call in model.calls] == [True, False]
     assert sum(event.data["total_tokens"] for event in consumption(events)) == session.used_tokens == 20_010
-
 
 @pytest.mark.parametrize("retry", ["context", "tool_choice"])
 async def test_each_retry_reserves_again_and_reports_each_attempt_usage(tmp_path, monkeypatch, retry):
@@ -431,7 +411,6 @@ async def test_each_retry_reserves_again_and_reports_each_attempt_usage(tmp_path
     else:
         assert [call["tool_choice"] for call in model.calls] == ["required", "auto"]
 
-
 @pytest.mark.parametrize("explicit_budget", [False, True])
 async def test_run_control_obeys_single2_unbounded_configuration_priority(tmp_path, monkeypatch, explicit_budget):
     monkeypatch.setenv("OPENCOLLAB_UNBOUNDED_LIMITS", "true")
@@ -446,7 +425,6 @@ async def test_run_control_obeys_single2_unbounded_configuration_priority(tmp_pa
     assert result.ok
     assert snapshots[0].hard_budget_tokens == (200 if explicit_budget else None)
     assert model.calls[0]["max_output_tokens"] == 87
-
 
 @pytest.mark.parametrize("late_error", [False, True])
 async def test_late_summary_accounting_retains_original_receiver(tmp_path, monkeypatch, late_error):
@@ -491,7 +469,6 @@ async def test_late_summary_accounting_retains_original_receiver(tmp_path, monke
     assert usages[0].data["purpose"] == "summary" and usages[0].data["late"] is True
     assert events[-1].type == "cleanup_completed"
 
-
 async def test_parallel_sdk_calls_own_their_tool_cancellation_cleanup_timeout(tmp_path, monkeypatch):
     observed = {}
     original = agent_runtime.build_session
@@ -510,12 +487,10 @@ async def test_parallel_sdk_calls_own_their_tool_cancellation_cleanup_timeout(tm
     assert all(result.ok for result in results)
     assert observed == {"long-cleanup": 10, "short-cleanup": 0.25}
 
-
 @pytest.mark.parametrize("invalid", [0, -1, True, float("nan"), float("inf"), "10"])
 def test_tool_cleanup_timeout_rejects_invalid_values(invalid):
     with pytest.raises(ValueError, match="tool_cancellation_cleanup_timeout"):
         RunControl(tool_cancellation_cleanup_timeout=invalid)
-
 
 async def test_output_minimum_is_exposed_before_a_request_that_cannot_fit(tmp_path):
     snapshots = []
@@ -536,7 +511,6 @@ async def test_output_minimum_is_exposed_before_a_request_that_cannot_fit(tmp_pa
     assert request_snapshot.minimum_output_tokens == 20
     assert "less than 20 output tokens" in result.reason
 
-
 async def test_policy_callback_exception_preserves_accounted_usage_and_finishes_cleanup(tmp_path):
     events = []
 
@@ -555,7 +529,6 @@ async def test_policy_callback_exception_preserves_accounted_usage_and_finishes_
     assert [event.data["total_tokens"] for event in consumption(events)] == [100]
     assert events[-1].type == "cleanup_completed"
 
-
 async def test_holding_soft_cap_after_response_overspend_keeps_ordinary_budget_stop(tmp_path):
     snapshots = []
     model = Model([reply(tokens=101)])
@@ -569,7 +542,6 @@ async def test_holding_soft_cap_after_response_overspend_keeps_ordinary_budget_s
     assert len(model.calls) == 1
     assert snapshots[-1].reason == "after_response"
     assert snapshots[-1].soft_budget_tokens == 100 and snapshots[-1].used_tokens == 101
-
 
 @pytest.mark.parametrize("stage,spent,reserved", [("precheck", 450_000, 20_000), ("request", 400_000, 90_000)])
 async def test_progress_policy_can_extend_before_minimum_output_is_exhausted(
@@ -617,7 +589,6 @@ async def test_progress_policy_can_extend_before_minimum_output_is_exhausted(
     assert len(decisions) == 1 and decisions[0].reason == stage
     assert sessions[0].max_budget_tokens == 1_500_000
 
-
 async def test_no_progress_closing_prompt_reaches_http_before_soft_cap_is_exhausted(tmp_path, monkeypatch):
     original = agent_runtime.build_session
     decisions = []
@@ -652,7 +623,6 @@ async def test_no_progress_closing_prompt_reaches_http_before_soft_cap_is_exhaus
     assert body["messages"][-1]["content"] == "Finish the focused check and record the handoff now."
     assert body["max_tokens"] == min(1_000, 2_000 - estimate_request_tokens(body["messages"]))
 
-
 async def test_usage_events_preserve_cache_reasoning_and_estimation_without_adding_cache_to_total(tmp_path):
     events = []
     response = LLMResponse(
@@ -669,7 +639,6 @@ async def test_usage_events_preserve_cache_reasoning_and_estimation_without_addi
     assert usage["input_tokens"] == 96 and usage["output_tokens"] == 15
     assert usage["cache_read_tokens"] == 7 and usage["cache_creation_tokens"] == 3
     assert usage["reasoning_tokens"] == 13 and usage["estimated"] is True
-
 
 @pytest.mark.parametrize("stage", ["precheck", "request"])
 @pytest.mark.parametrize("proposed", [600, 1_500])

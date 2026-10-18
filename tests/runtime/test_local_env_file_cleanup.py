@@ -50,7 +50,6 @@ async def test_local_cleanup_retains_workspace_fd_for_temp_removal_retry(
     with pytest.raises(OSError):
         os.fstat(workspace_fd)
 
-
 async def test_local_cleanup_removes_files_after_process_abort_failure(
     tmp_path,
     monkeypatch,
@@ -71,7 +70,6 @@ async def test_local_cleanup_removes_files_after_process_abort_failure(
     assert env._workspace_fd is None
     with pytest.raises(OSError):
         os.fstat(workspace_fd)
-
 
 async def test_local_cleanup_removes_files_when_process_abort_is_cancelled(
     tmp_path,
@@ -98,7 +96,6 @@ async def test_local_cleanup_removes_files_when_process_abort_is_cancelled(
     assert env._workspace_fd is None
     with pytest.raises(OSError):
         os.fstat(workspace_fd)
-
 
 async def test_local_cleanup_reports_process_and_file_failures(
     tmp_path,
@@ -131,7 +128,6 @@ async def test_local_cleanup_reports_process_and_file_failures(
         for note in getattr(captured.value, "__notes__", ())
     )
     assert isinstance(captured.value.__cause__, OSError)
-
 
 async def test_local_cleanup_cancellation_still_closes_workspace_fd(
     tmp_path,
@@ -168,7 +164,6 @@ async def test_local_cleanup_cancellation_still_closes_workspace_fd(
     assert env._workspace_fd is None
     with pytest.raises(OSError):
         os.fstat(workspace_fd)
-
 
 def test_atomic_write_closes_parent_fd_when_temporary_unlink_fails(
     tmp_path,

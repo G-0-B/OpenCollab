@@ -21,7 +21,6 @@ def reserve(state, key, *, count=1, owner="owner", timeout=None, active_keys=Non
         tool_call_id=owner, active_keys=active_keys,
     )
 
-
 def test_fresh_operations_after_edit_cannot_award_validation_progress():
     state = LoopState(edit_seq=7)
     for index in range(5):
@@ -31,13 +30,11 @@ def test_fresh_operations_after_edit_cannot_award_validation_progress():
         assert not state.finish(key, ToolFacts(exit_code=0), tool_call_id="owner", workspace_sensitive=True)
     assert state.edit_seq == 7
 
-
 def test_old_history_without_operation_state_still_gets_one_validation():
     state = LoopState(edit_seq=7)
     assert reserve(state, "old", count=3) == "validation"
     assert state.finish("old", ToolFacts(exit_code=0), tool_call_id="owner", workspace_sensitive=True)
     assert reserve(state, "old", count=4) == "blocked"
-
 
 async def test_untracked_custom_edit_does_not_evict_retained_permissions():
     class CustomWriter:
@@ -62,7 +59,6 @@ async def test_untracked_custom_edit_does_not_evict_retained_permissions():
     assert set(state.turn.loop_state.operations) == set(keys)
     assert state.turn.loop_state.operations[keys[0]].inflight_tool_call_id == "owner"
 
-
 def test_pruning_and_restore_keep_out_of_window_unresolved_owners():
     state = LoopState()
     assert reserve(state, "pending", owner="original") is None
@@ -76,7 +72,6 @@ def test_pruning_and_restore_keep_out_of_window_unresolved_owners():
     restored.finish("pending", ToolFacts(), tool_call_id="original")
     restored.prune([])
     assert restored.operations == {}
-
 
 @pytest.mark.parametrize("eager_policy", [False, True])
 def test_batch_and_session_window_eviction_preserve_unresolved_owner(eager_policy):
@@ -99,7 +94,6 @@ def test_batch_and_session_window_eviction_preserve_unresolved_owner(eager_polic
     count = batch.append(key)
     assert batch.reserve(key, "bash", BashTool(), {"command": "true"}, "replacement", count, 3) == "inflight"
     assert batch.loops.operations[key].inflight_tool_call_id == "original"
-
 
 def test_full_active_window_cannot_evict_consumed_timeout_recovery():
     state = LoopState()
@@ -125,7 +119,6 @@ def test_full_active_window_cannot_evict_consumed_timeout_recovery():
     assert len(state.operations) == 200
     assert state.operations["timed"].timeout_recovery_used
 
-
 def test_two_hundred_unresolved_operations_reject_new_operation_without_dropping_identity():
     state = LoopState()
     for index in range(200):
@@ -133,7 +126,6 @@ def test_two_hundred_unresolved_operations_reject_new_operation_without_dropping
     before = state.to_dict()
     assert reserve(state, "new", active_keys=[]) == "capacity"
     assert state.to_dict() == before
-
 
 def test_restore_prioritizes_unresolved_records_and_rejects_too_many_owners():
     raw = {"operations": {
@@ -146,7 +138,6 @@ def test_restore_prioritizes_unresolved_records_and_rejects_too_many_owners():
     raw["operations"] = {str(index): {"inflight_tool_call_id": f"owner-{index}"} for index in range(201)}
     with pytest.raises(ValueError, match="more than 200 unresolved"):
         LoopState.from_dict(raw, active_keys=[])
-
 
 async def test_fresh_noop_commands_cannot_reset_known_blocked_batches_after_edit(tmp_path):
     (tmp_path / "f.txt").write_text("before")

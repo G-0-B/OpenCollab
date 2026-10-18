@@ -17,7 +17,6 @@ def _encoded(text, encoding):
     cookie = "# coding: cp1252\n" if encoding == "cp1252" else ""
     return (cookie + text).encode(encoding)
 
-
 @pytest.mark.parametrize("entry", ["cli", "sdk"])
 @pytest.mark.parametrize("location", ["entry", "sibling", "package"])
 @pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig", "cp1252"])
@@ -65,7 +64,6 @@ async def test_public_workflow_uses_python_source_encoding(tmp_path, monkeypatch
         assert result.output == "caf\u00e9"
     assert target.read_bytes() == expected
     assert {name for name in sys.modules if name.startswith("_opencollab_workflow_")} == before
-
 
 @pytest.mark.parametrize("payload", [b"value = '\xff'\n", b"# coding: missing-codec\nvalue = 1\n"])
 def test_invalid_python_encoding_preserves_file_and_import_state(tmp_path, payload):

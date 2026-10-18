@@ -33,13 +33,11 @@ class PausedAppendStore(SessionStore):
             raise OSError("manual checkpoint failed")
         return super().checkpoint_snapshot(*args, **kwargs)
 
-
 def new_session(path, store):
     return build_session(
         agent=Agent(name="save-order", system_prompt="system"),
         llm=FakeLLM(), store=store, auto_save_path=str(path),
     )
-
 
 @pytest.mark.parametrize("initial_saves", [0, 1, 2])
 @pytest.mark.parametrize("replace_messages", [False, True])
@@ -99,7 +97,6 @@ async def test_manual_checkpoint_survives_older_autosave_and_next_delta(
     finally:
         store.release.set()
         await asyncio.gather(*session.pending_cleanup_tasks, return_exceptions=True)
-
 
 async def test_failed_manual_checkpoint_retains_the_older_durable_autosave(tmp_path):
     path = tmp_path / "session.json"

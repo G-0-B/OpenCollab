@@ -34,7 +34,6 @@ def configuration_only(monkeypatch, tmp_path):
     monkeypatch.setattr(container, "LLMClient", unexpected_runtime)
     monkeypatch.setattr(Scheduler, "__init__", unexpected_runtime)
 
-
 def _team_file(path, role):
     path.write_text(
         yaml.safe_dump(
@@ -49,7 +48,6 @@ def _team_file(path, role):
     )
     return path
 
-
 def test_init_default_team_round_trips_every_resolved_field(tmp_path):
     result = CliRunner().invoke(cli_main.app, ["team", "init"])
 
@@ -63,7 +61,6 @@ def test_init_default_team_round_trips_every_resolved_field(tmp_path):
     assert "opencollab --team-config team.yaml --workspace ." in result.output
     assert "Edit the roles, prompts, tools and topology" in result.output
 
-
 def test_init_uses_built_in_team_even_with_an_environment_team(tmp_path, monkeypatch):
     environment_team = _team_file(tmp_path / "environment.yaml", "custom")
     monkeypatch.setenv("OPENCOLLAB_TEAM_FILE", str(environment_team))
@@ -72,7 +69,6 @@ def test_init_uses_built_in_team_even_with_an_environment_team(tmp_path, monkeyp
 
     assert result.exit_code == 0, result.output
     assert load_team_config(path=tmp_path / "team.yaml") == default_team_config()
-
 
 def test_init_quotes_custom_path_and_prints_rich_markup_literally(tmp_path):
     name = "team [red] custom's $(touch marker) `x`.yaml"
@@ -84,7 +80,6 @@ def test_init_quotes_custom_path_and_prints_rich_markup_literally(tmp_path):
     command = next(line for line in result.output.splitlines() if line.startswith("opencollab "))
     assert shlex.split(command) == ["opencollab", "--team-config", name, "--workspace", "."]
     assert not (tmp_path / "marker").exists()
-
 
 @pytest.mark.parametrize("contents", [b"existing user configuration\n", b""], ids=["populated", "empty"])
 def test_init_preserves_existing_file(tmp_path, contents):
@@ -98,7 +93,6 @@ def test_init_preserves_existing_file(tmp_path, contents):
     assert "team.yaml" in result.output
     assert path.read_bytes() == contents
 
-
 def test_init_reports_missing_destination_directory(tmp_path):
     result = CliRunner().invoke(cli_main.app, ["team", "init", "missing/team.yaml"])
 
@@ -106,7 +100,6 @@ def test_init_reports_missing_destination_directory(tmp_path):
     assert "Destination directory does not exist" in result.output
     assert "missing" in result.output
     assert not (tmp_path / "missing").exists()
-
 
 def test_init_preserves_existing_directory(tmp_path):
     path = tmp_path / "team.yaml"
@@ -117,7 +110,6 @@ def test_init_preserves_existing_directory(tmp_path):
     assert result.exit_code == 2, result.output
     assert "Team file already exists" in result.output
     assert path.is_dir()
-
 
 def test_show_displays_built_in_roles_tools_entry_and_topology(tmp_path):
     result = CliRunner().invoke(cli_main.app, ["team", "show"])
@@ -133,7 +125,6 @@ def test_show_displays_built_in_roles_tools_entry_and_topology(tmp_path):
     assert "coder → (no outgoing roles)" in result.output
     assert "tester → (no outgoing roles)" in result.output
     assert not (tmp_path / ".opencollab").exists()
-
 
 @pytest.mark.parametrize("explicit", [False, True], ids=["environment", "explicit-priority"])
 def test_show_uses_explicit_path_before_environment_team(tmp_path, monkeypatch, explicit):
@@ -151,7 +142,6 @@ def test_show_uses_explicit_path_before_environment_team(tmp_path, monkeypatch, 
     assert f"Declared tools for {expected_role} — file_read" in result.output
     assert "analyst" not in result.output
 
-
 def test_show_does_not_discover_conventional_team_files(tmp_path):
     _team_file(tmp_path / "team.yaml", "local")
     configs = tmp_path / "configs"
@@ -163,7 +153,6 @@ def test_show_does_not_discover_conventional_team_files(tmp_path):
     assert result.exit_code == 0, result.output
     assert "Entry role — analyst" in result.output
     assert "Configured roles — analyst, coder, tester" in result.output
-
 
 @pytest.mark.parametrize(
     ("contents", "reason"),
@@ -185,7 +174,6 @@ def test_show_reports_readable_configuration_errors(tmp_path, contents, reason):
     assert reason in result.output
     assert "Traceback" not in result.output
 
-
 def test_show_reports_missing_environment_team(tmp_path, monkeypatch):
     path = tmp_path / "missing.yaml"
     monkeypatch.setenv("OPENCOLLAB_TEAM_FILE", str(path))
@@ -196,7 +184,6 @@ def test_show_reports_missing_environment_team(tmp_path, monkeypatch):
     assert "team config does not exist" in result.output
     assert str(path) in result.output
 
-
 def test_show_prints_selected_path_literally(tmp_path):
     path = _team_file(tmp_path / "[red]team[bold].yaml", "custom")
 
@@ -204,7 +191,6 @@ def test_show_prints_selected_path_literally(tmp_path):
 
     assert result.exit_code == 0, result.output
     assert str(path) in result.output
-
 
 @pytest.mark.parametrize("command", [[], ["init"], ["show"]], ids=["team", "init", "show"])
 def test_team_help_works_without_credentials_or_creating_files(tmp_path, command):

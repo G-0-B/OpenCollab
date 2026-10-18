@@ -1,11 +1,4 @@
-"""BashTool — terminal execution with safety and output truncation.
-
-Ref:
-- kimi-cli: Bash tool with runtime approval
-- opencode: bash tool with permission checking
-- openclaw: exec-safety.ts with sandbox context
-- User feedback: stdout/stderr truncation is critical (npm install can produce 100k chars)
-"""
+"""Shell execution with command safety checks and output truncation."""
 
 from __future__ import annotations
 
@@ -15,10 +8,8 @@ from opencollab.adapters.tools._output import require_positive_int, truncate
 from opencollab.adapters.tools.base import Tool
 from opencollab.application.tool_execution import ToolRuntime
 
-# Max chars to keep from stdout/stderr (ref: user feedback blind spot #1)
 MAX_OUTPUT_CHARS = 8_000
 DEFAULT_TIMEOUT = 120.0
-
 
 def _format_captured_stream(
     text: str,
@@ -42,18 +33,12 @@ def _format_captured_stream(
     tail = captured_tail[-tail_budget:] if tail_budget else ""
     return captured_head[:head_budget] + marker + tail
 
-
-# What a reader can do about a cut result. The marker alone says only that
-# something is missing, which leaves re-running the same command as the obvious
-# next move -- and it produces the same cut. Naming the ways to ask a narrower
-# question makes the second attempt different from the first.
 _TRUNCATION_ADVICE = (
     "note: output above was cut to fit. Re-running this command produces the "
     "same cut. To see a specific part, ask a narrower question instead: pipe "
     "through `head`/`tail`/`sed -n 'A,Bp'`, filter with `grep -n`, or redirect "
     "to a file and read the part you need."
 )
-
 
 class BashTool(Tool):
     """Execute a shell command in the workspace.
@@ -139,7 +124,6 @@ class BashTool(Tool):
                 timed_out=getattr(result, "timed_out", None),
             )
 
-        # Format output with truncation (ref: user blind spot #1)
         stdout = _format_captured_stream(
             result.stdout,
             self.max_output_chars,

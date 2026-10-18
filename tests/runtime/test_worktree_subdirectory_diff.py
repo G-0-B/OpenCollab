@@ -17,7 +17,6 @@ def _git(repository: Path, *arguments: str, input: str | None = None) -> str:
     )
     return result.stdout
 
-
 def _commit(repository: Path) -> None:
     _git(repository, "add", "-A")
     _git(
@@ -25,7 +24,6 @@ def _commit(repository: Path) -> None:
         "-c", "commit.gpgsign=false", "commit", "-qm",
         "test: \u4fdd\u5b58\u6d4b\u8bd5\u5019\u9009",
     )
-
 
 def _repository(tmp_path: Path, monkeypatch) -> Path:
     config = tmp_path / "gitconfig"
@@ -43,7 +41,6 @@ def _repository(tmp_path: Path, monkeypatch) -> Path:
     _git(repository, "init", "-q", "-b", "main")
     _commit(repository)
     return repository
-
 
 @pytest.mark.parametrize(("subdirectory", "target", "committed"), [
     (False, "root new.txt", False),
@@ -84,7 +81,6 @@ async def test_repository_patch_includes_paths_outside_exposed_subdirectory(
         assert (source / target).read_text() == "candidate = True\n"
     finally:
         await env.cleanup()
-
 
 @pytest.mark.parametrize("subdirectory", [False, True])
 async def test_outside_ignored_file_preserves_existing_capture_refusal(

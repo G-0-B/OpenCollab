@@ -9,7 +9,6 @@ class _ReadStub:
     def to_openai_schema(self):
         return {"type": "function", "function": {"name": self.name, "parameters": {}}}
 
-
 class _FakeState:
     def __init__(self, used_tokens=0, scout_ledger=None, messages=None):
         self.used_tokens = used_tokens

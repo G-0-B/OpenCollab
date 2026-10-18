@@ -16,7 +16,6 @@ from arc_light.reports import write_json
 
 pytestmark = pytest.mark.skipif(os.environ.get("ARCBENCH_BROWSER_TESTS") != "1", reason="Separate browser fixture job")
 
-
 def _task_file(workspace):
     import yaml
 
@@ -35,7 +34,6 @@ def _task_file(workspace):
     task = workspace / "task.yaml"
     task.write_text(yaml.safe_dump(requirements))
     return task
-
 
 def test_competition_cli_uses_local_http_and_real_browser(tmp_path):
     from tests.runtime.test_llm_chat_streaming_http import fake_chat_server
@@ -66,7 +64,6 @@ def test_competition_cli_uses_local_http_and_real_browser(tmp_path):
     assert outcome["verification"]["coverage"]["passed"] == 2
     assert len(requests) == 1 and requests[0]["model"] == "deepseek-competition-example"
     assert requests[0]["messages"][0]["content"].startswith("You are a software engineer extending")
-
 
 @pytest.mark.asyncio
 async def test_native_workflow_runs_actual_browser_and_delivery_checks(tmp_path):
@@ -116,7 +113,6 @@ async def test_native_workflow_runs_actual_browser_and_delivery_checks(tmp_path)
     assert result.output["verification"]["coverage"]["expected"] == 2
     assert result.output["verification"]["coverage"]["passed"] == 2
     assert result.tokens == result.output["total_tokens"] == 6
-
 
 def fixture_app(tmp_path, *, names=("alice", "bob"), unknown=False, empty=False):
     from pathlib import Path
@@ -181,7 +177,6 @@ def fixture_app(tmp_path, *, names=("alice", "bob"), unknown=False, empty=False)
     )
     return tmp_path
 
-
 def test_real_browser_same_name_scenarios_and_sqlite_restart(tmp_path, monkeypatch):
     workspace = fixture_app(tmp_path)
     original = database_values(workspace / "backend/app.sqlite")
@@ -200,7 +195,6 @@ def test_real_browser_same_name_scenarios_and_sqlite_restart(tmp_path, monkeypat
     assert next(c for c in report["checks"] if c["step"] == "written_state_restart")["persistence_verified"]
     assert database_values(workspace / "backend/app.sqlite") == original
 
-
 def test_real_500_preserves_independent_business_failure(tmp_path, monkeypatch):
     workspace = fixture_app(tmp_path)
     monkeypatch.setenv("ARC_FIXTURE_FAILURES", "1")
@@ -213,7 +207,6 @@ def test_real_500_preserves_independent_business_failure(tmp_path, monkeypatch):
     assert any(card["name"] == "browser_runtime" for card in frontier)
     assert any("REQ-bob" in card["source_ids"] for card in frontier if card["name"] != "browser_runtime")
 
-
 @pytest.mark.parametrize("unknown,empty", [(True, False), (False, True)])
 def test_real_build_and_browser_cannot_pass_unmapped_or_zero_scenarios(tmp_path, unknown, empty):
     workspace = fixture_app(tmp_path, names=("alice",), unknown=unknown, empty=empty)
@@ -221,7 +214,6 @@ def test_real_build_and_browser_cannot_pass_unmapped_or_zero_scenarios(tmp_path,
     assert next(c for c in report["checks"] if c["step"] == "frontend_build")["ok"]
     assert not report["ok"] and not report["scenario_coverage"]["complete"]
     assert not next(c for c in report["checks"] if c["step"] == "scenario_coverage")["ok"]
-
 
 def test_missing_browser_reports_capability_and_keeps_original_database(tmp_path, monkeypatch):
     workspace = fixture_app(tmp_path, names=("alice",))
@@ -232,14 +224,12 @@ def test_missing_browser_reports_capability_and_keeps_original_database(tmp_path
     assert not report["scenario_coverage"]["complete"]
     assert (workspace / "backend/app.sqlite").read_bytes() == before
 
-
 def test_half_application_reports_missing_package_before_generation(tmp_path):
     workspace = fixture_app(tmp_path, names=("alice",))
     shutil.rmtree(workspace / "frontend")
     report = verify(workspace, timeout=120)
     assert not report["ok"]
     assert not next(check for check in report["checks"] if check["step"] == "frontend_install")["ok"]
-
 
 def test_relative_output_directory_reaches_the_same_browser_contract(tmp_path, monkeypatch):
     from pathlib import Path
@@ -258,7 +248,6 @@ def test_relative_output_directory_reaches_the_same_browser_contract(tmp_path, m
     output = workspace / ".arc/checks/focused"
     assert json.loads((output / "browser-report.json").read_text())["ok"]
     assert json.loads((output / "verification.json").read_text())["ok"]
-
 
 @pytest.mark.parametrize("destructive", [False, True])
 def test_install_lifecycle_runs_in_each_copy_and_keeps_original_data_and_source(tmp_path, destructive):
@@ -313,7 +302,6 @@ def test_install_lifecycle_runs_in_each_copy_and_keeps_original_data_and_source(
         assert after == before
         assert not (modules / "lifecycle-ran").exists()
 
-
 def test_preflight_installs_real_working_dependencies_and_retains_generated_source(tmp_path):
     from arc_light.delivery import run_command
 
@@ -362,7 +350,6 @@ def test_preflight_installs_real_working_dependencies_and_retains_generated_sour
     assert code == 0, text
     assert (workspace / "backend/node_modules/@playwright/test").is_dir()
 
-
 @pytest.mark.parametrize("visitor", [False, True])
 def test_reaction_feedback_count_and_real_reload(tmp_path, visitor):
     workspace = fixture_app(tmp_path, names=("alice",))
@@ -404,7 +391,6 @@ def test_reaction_feedback_count_and_real_reload(tmp_path, visitor):
     assert report["ok"], report
     assert report["scenario_coverage"]["passed"] == 1
     assert report["inherited_snapshot_used"]
-
 
 def test_reaction_scenarios_keep_independent_given_and_reuse_one_build(tmp_path, monkeypatch):
     workspace = fixture_app(tmp_path)
@@ -472,7 +458,6 @@ def test_reaction_scenarios_keep_independent_given_and_reuse_one_build(tmp_path,
     from arc_light.stability import read_history
 
     assert all(row["consecutive_passes"] == 1 for row in read_history(workspace)["checks"].values())
-
 
 def test_filter_duplicate_name_precedes_missing_filter_and_delete_survives_reload(tmp_path):
     workspace = fixture_app(tmp_path, names=("alice",))

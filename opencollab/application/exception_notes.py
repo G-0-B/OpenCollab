@@ -30,5 +30,4 @@ def add_exception_note(error: BaseException, note: str) -> bool:
     append(note)
     return True
 
-
 __all__ = ["add_exception_note"]

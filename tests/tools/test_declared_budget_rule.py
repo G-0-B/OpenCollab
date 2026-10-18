@@ -1,21 +1,6 @@
-"""A declared team divides its tokens by rule, not by reservation.
+"""Declared rosters share a token pool with equal per-agent ceilings.
 
-When the roster is an outcome of the run, the scheduler has no N to divide the
-token pool by, so it reserves as it goes: each agent takes one
-``dynamic_roster_share`` — a quarter of the pool — out of the pool the moment it
-is created, and keeps it whether or not it ever spends a token. Two consequences
-followed. A team could not have more than four agents, because the fourth
-emptied the pool. And an agent that was created and then sat idle still held a
-quarter of the team's tokens away from the agents that were working, so "the
-model never used this role" and "this role spent its allowance" left the same
-trace in the accounts.
-
-``prebuild_team`` seats every declared role before the first model call, so N is
-known at startup and the pool does not have to be divided blind. These tests pin
-what that buys: one shared pool, a per-agent ceiling of ``c * total / N`` with
-``c = PER_AGENT_BUDGET_SHARE``, the same ceiling for agent 0 as for everyone
-else, nothing frozen by an idle agent, and a record whenever that ceiling — and
-not an empty pool — is what refused a turn.
+Idle seats reserve no tokens, and cap refusals remain distinct from pool exhaustion.
 """
 
 from __future__ import annotations
@@ -37,10 +22,8 @@ TOTAL = 600_000
 ROLES = ("lead", "coder", "tester")
 CAP = per_agent_cap(TOTAL, len(ROLES))
 
-
 def run(coro):
     return asyncio.run(coro)
-
 
 class FakeSession:
     """The little a scheduler needs of a session to do budget arithmetic."""
@@ -57,7 +40,6 @@ class FakeSession:
     async def run_loop(self) -> str:
         self.state.set_phase(SessionPhase.DONE)
         return "done"
-
 
 class RecordingFactory:
     """Records the budget every session is built with."""
@@ -76,14 +58,12 @@ class RecordingFactory:
         session.state.aid = aid
         return session
 
-
 class _NoWorktrees:
     async def acquire(self, role):
         return None
 
     async def release(self):
         return None
-
 
 class RecordingTracer:
     def __init__(self) -> None:
@@ -94,7 +74,6 @@ class RecordingTracer:
 
     def payloads(self, step_type: str) -> list[dict[str, Any]]:
         return [payload for name, payload in self.steps if name == step_type]
-
 
 def _scheduler(*, prebuild_team: bool, tracer: RecordingTracer | None = None):
     factory = RecordingFactory()
@@ -113,25 +92,17 @@ def _scheduler(*, prebuild_team: bool, tracer: RecordingTracer | None = None):
     scheduler.register_lead(lead)
     return scheduler, factory
 
-
 def _spend(scheduler: Scheduler, aid: int, tokens: int) -> None:
     scheduler.table.get(aid).state.used_tokens = tokens
-
-
-# --- the rule ----------------------------------------------------------------
-
 
 def test_the_cap_is_the_share_constant_times_an_equal_split():
     scheduler, _ = _scheduler(prebuild_team=True)
     assert scheduler._declared_team_size() == 3
     assert CAP == int(TOTAL * PER_AGENT_BUDGET_SHARE / 3) == 200_000
     assert scheduler._per_agent_cap() == CAP
-    # ``c = 1`` is the strict equal split: the three caps sum to exactly the
-    # pool, so a seat is worth what one agent working alone is given and the
-    # team's extra tokens are reachable only by using another seat.
+    # An equal split gives each seat a solo-sized cap.
     assert CAP == TOTAL // len(ROLES)
     assert CAP * len(ROLES) == TOTAL
-
 
 def test_every_seat_gets_the_same_cap_agent_zero_included():
     """Agent 0's allowance is the rule's, not a privilege of being the root."""
@@ -145,14 +116,8 @@ def test_every_seat_gets_the_same_cap_agent_zero_included():
 
     run(scenario())
 
-
 def test_agent_zero_no_longer_leases_the_whole_pool_for_a_turn():
-    """The privilege itself, and where it survives.
-
-    On the dynamic-roster path agent 0's turn is leased every unreserved token
-    while a teammate is held to one share — there is no N, so there is no cap to
-    hold agent 0 to either. Under a declared roster both take the same lease.
-    """
+    """Dynamic rosters lease agent zero all unreserved tokens because their size is unknown."""
 
     async def scenario():
         declared, _ = _scheduler(prebuild_team=True)
@@ -166,15 +131,7 @@ def test_agent_zero_no_longer_leases_the_whole_pool_for_a_turn():
 
     run(scenario())
 
-
 def test_agent_zero_is_told_the_budget_it_can_actually_spend():
-    """The number in the prompt is the number the scheduler will enforce.
-
-    ``create_lead_session`` used to be handed the team total while the scheduler
-    let agent 0 spend a quarter of it, and the session turns whatever it was
-    given into the ``[Budget: ...]`` line the model reads on every turn. The two
-    have to be one number or the run lies to the model once per turn.
-    """
     scheduler, factory = _scheduler(prebuild_team=True)
     assert factory.lead_budget == CAP == scheduler._per_agent_cap()
 
@@ -190,20 +147,8 @@ def test_agent_zero_is_told_the_budget_it_can_actually_spend():
     )
     assert block["content"] == "[Budget: ~200k/200k tokens left, ~50 steps left.]"
 
-
-# --- what the shared pool buys ----------------------------------------------
-
-
 def test_an_idle_teammate_freezes_nothing_for_the_agent_doing_the_work():
-    """What sharing the pool still buys once ``c`` is 1.
-
-    At ``c = 1`` an agent cannot be leased past ``total / N`` — that ceiling is
-    the equal split itself. What the shared pool still buys is that the two
-    seated agents which never spend a token commit nothing: the team's committed
-    total counts spend, not headcount, so an idle seat and an exhausted one stay
-    distinguishable in the accounts. Under the reservation this replaced, all
-    three seats would have been committed the moment they were created.
-    """
+    """At a share of one, equal ceilings still leave idle seats with zero committed spend."""
 
     async def scenario():
         scheduler, _ = _scheduler(prebuild_team=True)
@@ -218,11 +163,9 @@ def test_an_idle_teammate_freezes_nothing_for_the_agent_doing_the_work():
         grant = scheduler._reserve_turn_lease(0)
         assert grant == CAP - half_a_share == 100_000
         assert scheduler._sessions[0].max_budget_tokens == CAP
-        # Only spend is committed; the two idle seats hold nothing.
         assert scheduler.allocated_tokens == half_a_share
 
     run(scenario())
-
 
 def test_the_cap_still_bounds_the_agent_that_is_working():
     async def scenario():
@@ -230,14 +173,9 @@ def test_the_cap_still_bounds_the_agent_that_is_working():
         await scheduler.ensure_team_prebuilt()
         _spend(scheduler, 0, CAP)
         assert scheduler._reserve_turn_lease(0) == 0
-        # The pool is far from empty — the cap is what stopped it.
         assert scheduler.used_tokens == CAP < TOTAL
 
     run(scenario())
-
-
-# --- the record --------------------------------------------------------------
-
 
 def test_a_turn_the_cap_refused_is_recorded_with_the_pool_beside_it():
     async def scenario():
@@ -267,19 +205,8 @@ def test_a_turn_the_cap_refused_is_recorded_with_the_pool_beside_it():
 
     run(scenario())
 
-
 def test_an_empty_pool_is_not_recorded_as_a_cap_refusal():
-    """The record has to mean one thing: this agent, not the team, ran out.
-
-    With the pool itself spent there is nothing the cap withheld, and a record
-    here would make an exhausted team look like a throttled agent.
-
-    At ``c = 1`` the caps sum to exactly the pool, so the only way to empty it
-    while a seat is still under its own cap is the overspend the rule documents
-    — a turn already in flight when the aggregate ceiling was crossed. That is
-    the state built here: two agents past their caps, the third having spent
-    nothing at all.
-    """
+    """At a share of one, in-flight overspend can exhaust the pool below another seat's cap."""
 
     async def scenario():
         tracer = RecordingTracer()
@@ -290,13 +217,11 @@ def test_an_empty_pool_is_not_recorded_as_a_cap_refusal():
         _spend(scheduler, 0, overspent)
         _spend(scheduler, 1, overspent)
         assert scheduler.used_tokens == TOTAL
-        # The third seat is far under its own cap; the pool is what is gone.
         assert scheduler.table.get(2).state.used_tokens == 0
         assert scheduler._reserve_turn_lease(2) == 0
         assert tracer.payloads("agent_cap_reached") == []
 
     run(scenario())
-
 
 def test_a_failing_tracer_never_overturns_the_allocation():
     class Broken(RecordingTracer):
@@ -312,15 +237,10 @@ def test_a_failing_tracer_never_overturns_the_allocation():
 
     run(scenario())
 
-
-# --- the dynamic roster is untouched ----------------------------------------
-
-
 def test_without_a_declared_roster_the_reservation_rule_still_applies():
     scheduler, factory = _scheduler(prebuild_team=False)
     assert scheduler._per_agent_cap() is None
     assert factory.lead_budget == TOTAL
-    # Agent 0 books a quarter of the pool at registration, exactly as before.
     assert scheduler._turn_lease[0] == dynamic_roster_share(TOTAL) == 150_000
     assert scheduler.allocated_tokens == 150_000
     assert scheduler._entry_agent_takes_the_pool(0) is True

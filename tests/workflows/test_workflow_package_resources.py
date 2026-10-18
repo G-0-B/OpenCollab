@@ -20,10 +20,8 @@ def _import_state():
         dict(workflow_discovery._WORKFLOW_IMPORT_FINDER._package_roots),
     )
 
-
 def _bytecode_contents(directory):
     return {path.relative_to(directory): path.read_bytes() for path in directory.rglob("*.pyc")}
-
 
 def _write_resource_workflow(workspace, owner, value):
     directory = workspace / "workflows"
@@ -55,7 +53,6 @@ def _write_resource_workflow(workspace, owner, value):
     )
     return directory, assets
 
-
 @pytest.mark.parametrize("owner", ["package", "namespace", "root"])
 async def test_sdk_resources_keep_workspace_isolation_and_reload(tmp_path, monkeypatch, owner):
     monkeypatch.delenv("OPENCOLLAB_WORKFLOWS_DIR", raising=False)
@@ -64,7 +61,6 @@ async def test_sdk_resources_keep_workspace_isolation_and_reload(tmp_path, monke
     directory, assets = _write_resource_workflow(first, owner, "ALPHA")
     _write_resource_workflow(second, owner, "BRAVO")
 
-    # The same package and data work through Python's ordinary path finder.
     name, parent = ("workflows", first) if owner == "root" else ("_assets", directory)
     control_spec = importlib.machinery.PathFinder.find_spec(name, [str(parent)])
     control = importlib.util.module_from_spec(control_spec)

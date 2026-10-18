@@ -16,7 +16,6 @@ from tests.support.session_runtime_test_support import FakeToolExecution as Fake
 def run(coro):
     return asyncio.run(coro)
 
-
 def llm_response(content=None, tool_calls=None, total_tokens=5, input_tokens=1, finish_reason="stop"):
     return SimpleNamespace(
         content=content,
@@ -26,10 +25,8 @@ def llm_response(content=None, tool_calls=None, total_tokens=5, input_tokens=1, 
         reasoning=None,
     )
 
-
 def tool_call(call_id="call-1", name="submit_findings", arguments="{}"):
     return {"id": call_id, "type": "function", "function": {"name": name, "arguments": arguments}}
-
 
 class FakeLLM:
     def __init__(self, responses=()):
@@ -47,7 +44,6 @@ class FakeLLM:
         if not self.responses:
             raise AssertionError("unexpected LLM call")
         return self.responses.pop(0)
-
 
 class CapturingToolExecution:
     def __init__(self, agent):
@@ -75,13 +71,11 @@ class CapturingToolExecution:
             )
         return ToolProcessingResult(messages_to_append=messages)
 
-
 class ReadStub:
     name = "file_read"
 
     def to_openai_schema(self):
         return {"type": "function", "function": {"name": self.name, "parameters": {}}}
-
 
 def collect_events():
     events = []
@@ -90,7 +84,6 @@ def collect_events():
         events.append((event.type, copy.deepcopy(event.data)))
 
     return events, EventBus(sink)
-
 
 def build_runner(*, state, agent, llm, event_bus=None, tool_execution=None, **kwargs):
     return SessionRunUseCase(
@@ -101,7 +94,6 @@ def build_runner(*, state, agent, llm, event_bus=None, tool_execution=None, **kw
         tool_execution=tool_execution if tool_execution is not None else FakeToolExecution(),
         **kwargs,
     )
-
 
 def agent_with_submit():
     return Agent(name="scout", system_prompt="s", tools=[ReadStub(), SubmitFindingsTool()])

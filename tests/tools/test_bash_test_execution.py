@@ -37,7 +37,6 @@ async def test_default_tester_runs_native_tests_and_reports_actual_exit(tmp_path
     finally:
         await environment.cleanup()
 
-
 async def test_headless_testing_never_implicitly_grants_host_shell(tmp_path):
     (bash,) = builtin_tools("bash")
     environment = LocalEnvironment(str(tmp_path))
@@ -51,35 +50,17 @@ async def test_headless_testing_never_implicitly_grants_host_shell(tmp_path):
     finally:
         await environment.cleanup()
 
-
 def test_public_composition_rejects_retired_tool():
     with pytest.raises(ValueError, match="unsupported built-in"):
         builtin_tools("run_tests")
-
 
 def test_removed_cli_switch_is_rejected_without_starting_model():
     result = CliRunner().invoke(app, ["--allow-local-child-tests"])
     assert result.exit_code == 2
     assert "No such option" in result.output
 
-
 def test_no_built_in_tool_claims_a_verified_test_result():
-    """The harness has no parser-backed test evidence any more, and says so.
-
-    ``run_tests`` returned a structured GREEN/RED verdict and a set of targets
-    it had actually seen pass, and three integrity controls rested on that:
-    a forged green had to survive a parser, a directory target had to produce a
-    descendant that really passed, and a Go multi-selector was refused before
-    any command ran. None of those checks exists after the removal. What an
-    agent reports about a test run is now prose it wrote after reading shell
-    output, and only the official grader's own run of the hidden tests decides
-    whether a change is correct.
-
-    Pinned as a test because the lapse is invisible otherwise: nothing errors
-    when a model says "all tests pass", and a downstream gate that kept reading
-    ``verified_targets`` would simply find an empty set and could read that as
-    "nothing was verified" or as "nothing needed verifying".
-    """
+    """Shell output provides command results without parser-backed verified_targets."""
     from opencollab.tools import VerificationTool, builtin_tools
 
     tools = builtin_tools(

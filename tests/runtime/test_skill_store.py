@@ -25,22 +25,13 @@ def _write_skill(root: Path, name: str, *, description: str, body: str) -> None:
         encoding="utf-8",
     )
 
-
-# --- NullSkillStore ---------------------------------------------------------
-
-
 def test_null_store_lists_nothing():
     store = NullSkillStore()
     assert store.list_manifests() == ()
 
-
 def test_null_store_body_is_none():
     store = NullSkillStore()
     assert store.get_body("anything") is None
-
-
-# --- FileSkillStore: parsing + retrieval ------------------------------------
-
 
 def test_bundled_sequence_diagram_skill_is_discoverable():
     skills = REPO_ROOT / "skills"
@@ -50,13 +41,11 @@ def test_bundled_sequence_diagram_skill_is_discoverable():
     assert "sequence-diagram" in {manifest.name for manifest in store.list_manifests()}
     assert store.get_body("sequence-diagram") == source.split("---", 2)[2].strip()
 
-
 def test_file_store_parses_frontmatter_into_manifests(tmp_path):
     _write_skill(tmp_path, "alpha", description="Alpha skill.", body="Do alpha things.")
     store = FileSkillStore(tmp_path)
     manifests = store.list_manifests()
     assert manifests == (SkillManifest(name="alpha", description="Alpha skill."),)
-
 
 def test_file_store_lists_all_skills(tmp_path):
     _write_skill(tmp_path, "alpha", description="A.", body="a")
@@ -64,18 +53,15 @@ def test_file_store_lists_all_skills(tmp_path):
     names = {m.name for m in FileSkillStore(tmp_path).list_manifests()}
     assert names == {"alpha", "beta"}
 
-
 def test_file_store_get_body_hit(tmp_path):
     _write_skill(tmp_path, "alpha", description="A.", body="full instructions here")
     store = FileSkillStore(tmp_path)
     assert store.get_body("alpha") == "full instructions here"
 
-
 def test_file_store_get_body_miss_returns_none(tmp_path):
     _write_skill(tmp_path, "alpha", description="A.", body="x")
     store = FileSkillStore(tmp_path)
     assert store.get_body("nonexistent") is None
-
 
 def test_file_store_parses_yaml_frontmatter_scalars(tmp_path):
     skill_dir = tmp_path / "package"
@@ -103,7 +89,6 @@ Run the review.
     )
     assert store.get_body("review:code") == "Run the review."
 
-
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"], ids=["lf", "crlf", "cr"])
 @pytest.mark.parametrize(
     ("description", "expected"),
@@ -127,7 +112,6 @@ def test_file_store_preserves_body_and_yaml_semantics_across_line_endings(
     assert store.list_manifests() == (SkillManifest(name="unicode-body", description=expected),)
     assert store.get_body("unicode-body") == body
 
-
 @pytest.mark.parametrize("separator", ["\u2028", "\u2029", "\u0085"])
 def test_file_store_preserves_yaml_block_scalar_unicode_line_breaks(tmp_path, separator):
     skill_dir = tmp_path / "unicode-description"
@@ -146,7 +130,6 @@ def test_file_store_preserves_yaml_block_scalar_unicode_line_breaks(tmp_path, se
     )
     assert store.get_body("unicode-description") == "Body."
 
-
 def test_file_store_skips_non_mapping_yaml_frontmatter(tmp_path):
     skill_dir = tmp_path / "package"
     skill_dir.mkdir()
@@ -157,27 +140,20 @@ def test_file_store_skips_non_mapping_yaml_frontmatter(tmp_path):
 
     assert FileSkillStore(tmp_path).list_manifests() == ()
 
-
-# --- FileSkillStore: robustness ---------------------------------------------
-
-
 def test_file_store_absent_dir_is_empty(tmp_path):
     store = FileSkillStore(tmp_path / "does-not-exist")
     assert store.list_manifests() == ()
     assert store.get_body("alpha") is None
 
-
 def test_file_store_skips_malformed_without_raising(tmp_path):
-    # A well-formed skill plus a garbage one in a sibling dir.
     _write_skill(tmp_path, "good", description="Good.", body="ok")
     bad_dir = tmp_path / "bad"
     bad_dir.mkdir()
     (bad_dir / "SKILL.md").write_text("not frontmatter at all\njust text", encoding="utf-8")
-    store = FileSkillStore(tmp_path)  # must not raise
+    store = FileSkillStore(tmp_path)
     names = {m.name for m in store.list_manifests()}
     assert names == {"good"}
     assert store.get_body("bad") is None
-
 
 def test_file_store_skips_skill_missing_name(tmp_path):
     d = tmp_path / "noname"
@@ -186,7 +162,6 @@ def test_file_store_skips_skill_missing_name(tmp_path):
     store = FileSkillStore(tmp_path)
     assert store.list_manifests() == ()
 
-
 def test_file_store_skips_unclosed_frontmatter(tmp_path):
     d = tmp_path / "unclosed"
     d.mkdir()
@@ -194,16 +169,11 @@ def test_file_store_skips_unclosed_frontmatter(tmp_path):
     store = FileSkillStore(tmp_path)
     assert store.list_manifests() == ()
 
-
 def test_file_store_skips_dir_without_skill_md(tmp_path):
     (tmp_path / "empty").mkdir()
     _write_skill(tmp_path, "good", description="G.", body="ok")
     store = FileSkillStore(tmp_path)
     assert {m.name for m in store.list_manifests()} == {"good"}
-
-
-# --- FileSkillStore: size cap (single cap site) -----------------------------
-
 
 def test_file_store_rejects_oversized_body_instead_of_returning_partial_instructions(
     tmp_path,
@@ -219,7 +189,6 @@ def test_file_store_rejects_oversized_body_instead_of_returning_partial_instruct
     )
     assert "skill 'huge' rejected" in caplog.text
 
-
 def test_file_store_returns_a_maximum_length_body_verbatim(tmp_path):
     body = "x" * SKILL_BODY_MAX_CHARS
     _write_skill(tmp_path, "maximum", description="Maximum.", body=body)
@@ -227,7 +196,6 @@ def test_file_store_returns_a_maximum_length_body_verbatim(tmp_path):
     store = FileSkillStore(tmp_path)
 
     assert store.get_body("maximum") == body
-
 
 def test_file_store_rejects_large_files_at_a_bounded_read_limit(tmp_path, monkeypatch):
     _write_skill(tmp_path, "huge", description="Huge.", body="x" * 100_000)
@@ -246,12 +214,10 @@ def test_file_store_rejects_large_files_at_a_bounded_read_limit(tmp_path, monkey
     assert observed_limits
     assert max(observed_limits) <= 64 * 1024
 
-
 def test_file_store_does_not_cap_small_body(tmp_path):
     _write_skill(tmp_path, "small", description="S.", body="tiny")
     store = FileSkillStore(tmp_path)
     assert store.get_body("small") == "tiny"
-
 
 @pytest.mark.parametrize("kind", ["fifo", "symlink", "oversized"])
 def test_file_store_skips_unsafe_or_oversized_skill_file(
@@ -276,7 +242,6 @@ def test_file_store_skips_unsafe_or_oversized_skill_file(
 
     assert store.list_manifests() == ()
 
-
 def test_file_store_does_not_follow_symlink_root(tmp_path):
     real = tmp_path / "real"
     real.mkdir()
@@ -287,7 +252,6 @@ def test_file_store_does_not_follow_symlink_root(tmp_path):
     store = FileSkillStore(linked)
 
     assert store.list_manifests() == ()
-
 
 def test_file_store_root_enumeration_is_bounded(tmp_path, monkeypatch):
     for index in range(4):

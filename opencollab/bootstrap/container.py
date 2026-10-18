@@ -1,22 +1,9 @@
-"""Composition root for OpenCollab.
+"""Wire concrete adapters into application use cases.
 
-Wires concrete adapters into the application use cases. This module owns the
-session-construction *core* — the only place ``LLMClient`` is instantiated, so
-``build_session_runtime`` and its model-client wiring live here together (tests
-monkeypatch ``container.LLMClient`` and rely on that). The rest of the
-composition root is split into focused siblings and re-exported here so
-``from opencollab.bootstrap.container import X`` keeps resolving every name:
-
-- ``tool_registry``      — tool-name -> Tool resolution + curated name sets.
-- ``context_builder``    — ``SpawnConfig`` + ``ContextBuilder`` (role -> Agent).
-- ``runtime_context``    — ``RuntimeContext`` + workspace safety policy.
-- ``session_factory``    — ``build_spawn_session`` / ``DefaultSessionFactory`` +
-                           run-folder transcript helpers.
-- ``scheduler_factory``  — ``build_scheduler`` (the CLI and SDK entry point).
-
-``session_factory`` and ``scheduler_factory`` import back from this module, so
-they are re-exported lazily via module ``__getattr__`` (PEP 562) to keep import
-order acyclic regardless of which module is imported first.
+``build_session_runtime`` owns the shared session runtime and LLM client
+construction. Sibling factories remain available through this module.
+Session and scheduler factories import back here, so module ``__getattr__``
+re-exports them lazily to keep imports acyclic.
 """
 
 from __future__ import annotations
@@ -495,17 +482,13 @@ def build_session_runtime(
     run_id: str | None = None,
     run_control: RunControl | None = None,
 ) -> SessionRuntime:
-    """Build a ``SessionRuntime`` with the same construction order
-    ``Session.__init__`` used to perform inline.
+    """Build the shared ``SessionRuntime``.
 
-    ``auto_save_callback`` is the bound method the facade exposes for direct
-    autosave. ``auto_save_prepare_callback`` freezes a payload on the event
-    loop and returns the file-I/O operation run by the subscriber worker.
-    ``seed_system_messages`` retain source-level provenance for layered system
-    context; ``seed_user_messages`` are startup user-context messages appended
-    after them (e.g. a spawned agent's task);
-    ``shaper`` reshapes the message list before each model call; without
-    one, ``context_policy`` (default: the default policy) picks the layers.
+    ``auto_save_callback`` handles direct saves. ``auto_save_prepare_callback``
+    freezes a payload on the event loop and returns the worker's I/O operation.
+    ``seed_system_messages`` retain source provenance. ``seed_user_messages``
+    follow them as startup context, such as a child task. An explicit ``shaper``
+    overrides the layers selected by ``context_policy``.
     """
     # A session may narrow these controls during wind-down. Keep the reusable
     # template intact while retaining the tool objects and their resources.

@@ -15,7 +15,6 @@ from opencollab.patches import git_diff_endpoint, git_header_tokens, patch_entri
 
 _PATCH_GIT_TIMEOUT_SECONDS = 900.0
 
-
 def _directory_patch_path(token: str, side: str, directories: tuple[str, str]) -> str:
     start = int(token.startswith('"'))
     for directory in directories:
@@ -23,7 +22,6 @@ def _directory_patch_path(token: str, side: str, directories: tuple[str, str]) -
         if token.startswith(prefix, start):
             return token[:start] + f"{side}/" + token[start + len(prefix):]
     return token
-
 
 def _directory_patch_bytes(payload: bytes, before: str, after: str) -> bytes:
     directories = (posixpath.basename(before), posixpath.basename(after))
@@ -63,7 +61,6 @@ def _directory_patch_bytes(payload: bytes, before: str, after: str) -> bytes:
                 block[index] = line[:4] + _directory_patch_path(line[4:], side, directories)
     return "".join("".join(block) for block in blocks).encode("utf-8", errors="surrogateescape")
 
-
 def _complete(result: Any, operation: str, allowed: tuple[int, ...] = (0,)) -> str:
     if (
         getattr(result, "returncode", -1) not in allowed
@@ -73,7 +70,6 @@ def _complete(result: Any, operation: str, allowed: tuple[int, ...] = (0,)) -> s
         detail = str(getattr(result, "stderr", "") or "").strip()
         raise RuntimeError(f"{operation} failed: {detail or 'incomplete command result'}")
     return str(getattr(result, "stdout", "") or "")
-
 
 @asynccontextmanager
 async def _patch_temporary(
@@ -118,7 +114,6 @@ async def _patch_temporary(
             except Exception:
                 if not cleanup_best_effort:
                     raise
-
 
 async def _binary_patch_block(
     environment: Any,
@@ -198,7 +193,6 @@ async def _binary_patch_block(
             _complete(await await_owned_operation(environment.exec_cmd(
                 f"rm -rf -- {quoted_directory}", timeout=120,
             ), propagate_cancellation=True), "candidate binary temporary cleanup")
-
 
 async def _complete_patch(
     result: Any,

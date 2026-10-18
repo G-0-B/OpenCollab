@@ -21,11 +21,9 @@ RELEASE_OBSERVATION = {
     "Provision through ordinary idempotent seeds; preserve user-created descriptions and edits.",
 }
 
-
 def scenario_fingerprint(item):
     fields = {key: item.get(key) for key in ("name", "scenario_index", "given", "when", "then")}
     return hashlib.sha256(json.dumps(fields, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
-
 
 def enrich_contract(contract):
     """Return a copy; changed/unknown scenarios never inherit a guessed fixture value."""

@@ -27,7 +27,6 @@ def test_dotenv_error_identifies_file_and_reason(tmp_path, payload, reason):
     assert str(config) in str(error.value)
     assert reason in str(error.value)
 
-
 @pytest.mark.parametrize("command", [[], ["workflow", "run", "duo"]])
 @pytest.mark.parametrize("terminal_width", [80, 240])
 @pytest.mark.parametrize("github_actions", ["", "true"], ids=["local", "github-actions"])

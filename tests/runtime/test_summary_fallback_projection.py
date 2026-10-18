@@ -31,17 +31,14 @@ def projection_history():
         {"role": "tool", "tool_call_id": "read", "content": "recent source"},
     ]
 
-
 def compactor(summarizer, cache_size=8):
     return AutoCompactShaper(
         summarizer=summarizer, summary_cache_size=cache_size,
         trigger_tokens=1_000, target_tokens=500, keep_recent_groups=1,
     )
 
-
 async def shape(shaper, messages, asynchronous):
     return await shaper.ashape(messages) if asynchronous else shaper.shape(messages)
-
 
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize("cache_size", [0, 8])
@@ -81,7 +78,6 @@ async def test_failed_summary_retains_original_projection_then_retries(asynchron
     assert messages == original
     assert len(calls) == (3 if cache_size == 0 else 2)
 
-
 @pytest.mark.parametrize("asynchronous", [False, True])
 async def test_valid_cached_summary_survives_an_intervening_failure(asynchronous):
     calls = []
@@ -105,7 +101,6 @@ async def test_valid_cached_summary_survives_an_intervening_failure(asynchronous
     assert len(calls) == 2
     assert len(shaper._summary_cache) == 1
 
-
 @pytest.mark.parametrize("asynchronous", [False, True])
 async def test_custom_summarizer_without_failure_flag_remains_usable(asynchronous):
     shaper = compactor(lambda _: "Save report-green.txt.", cache_size=0)
@@ -116,11 +111,9 @@ async def test_custom_summarizer_without_failure_flag_remains_usable(asynchronou
     assert result[1]["compacted"]
     assert "report-green.txt" in result[1]["content"]
 
-
 OLD_DISCUSSION = (
     "Previous plan used report-blue.txt. Architecture notes review components, tests, and error handling. " * 100
 )[:8_000]
-
 
 class ReportModel:
     def __init__(self, fail_summary):
@@ -162,7 +155,6 @@ class ReportModel:
                 "name": name, "arguments": json.dumps(arguments),
             }}], usage=usage, finish_reason="tool_calls",
         )
-
 
 @pytest.mark.parametrize("mode", ["failure", "success", "uncompacted"])
 async def test_default_session_keeps_latest_filename_after_four_real_reads(tmp_path, monkeypatch, mode):
@@ -218,7 +210,6 @@ async def test_default_session_keeps_latest_filename_after_four_real_reads(tmp_p
             assert not any(message.get("compacted") for request in model.requests for message in request)
     finally:
         await session.aclose()
-
 
 async def test_failed_summary_leaves_real_overflow_to_the_existing_controlled_stop(monkeypatch):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")

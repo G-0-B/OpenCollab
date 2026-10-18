@@ -9,7 +9,6 @@ from typing import Any
 
 _STRUCTURED_OUTPUT_TOOL = "structured_output"
 
-
 @dataclass(frozen=True)
 class ForcedTextTool:
     """One named tool represented by a Responses JSON Schema text result."""
@@ -17,7 +16,6 @@ class ForcedTextTool:
     name: str
     description: str | None
     schema: dict[str, Any]
-
 
 def forced_text_tool(
     converted_tools: list[dict[str, Any]],
@@ -44,7 +42,6 @@ def forced_text_tool(
         schema=tool["parameters"],
     )
 
-
 def forced_text_format(tool: ForcedTextTool) -> dict[str, Any]:
     """Build the native Responses ``text.format`` JSON Schema payload."""
     result: dict[str, Any] = {
@@ -56,7 +53,6 @@ def forced_text_format(tool: ForcedTextTool) -> dict[str, Any]:
     if tool.description:
         result["description"] = tool.description
     return {"format": result}
-
 
 def project_forced_text_tool(
     tool: ForcedTextTool,
@@ -93,7 +89,6 @@ def project_forced_text_tool(
         "arguments": arguments,
     }
     return tool_call, provider_item
-
 
 __all__ = [
     "ForcedTextTool",

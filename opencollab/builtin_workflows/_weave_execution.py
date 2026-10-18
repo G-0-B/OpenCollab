@@ -18,7 +18,6 @@ class _Proxy:
     def __getattr__(self, name: str) -> Any:
         return getattr(self._delegate, name)
 
-
 class _WriteObserver(_Proxy):
     def __init__(self, delegate: Any, observed: Callable[[str | None], None]) -> None:
         super().__init__(delegate)
@@ -29,7 +28,6 @@ class _WriteObserver(_Proxy):
             self._delegate.record_write(completed=completed, changed=changed, path=path)
         if completed and changed is True:
             self._observed(path)
-
 
 class _ProgressTool(_Proxy):
     def __init__(self, delegate: Any, observed: Callable[[str | None], None]) -> None:
@@ -46,13 +44,11 @@ class _ProgressTool(_Proxy):
             self._observed(None)
         return result
 
-
 def _coding_tools(observed: Callable[[str | None], None]) -> tuple[Any, ...]:
     tools = evidence_tools(
         *profile_tool_names("single2"), headless=False, limits=profile_tool_limits("single2"),
     )
     return tuple(_ProgressTool(tool, observed) for tool in tools)
-
 
 class _CaptureEnvironment(_Proxy):
     def __init__(self, delegate: Any, results: list[Any]) -> None:
@@ -63,7 +59,6 @@ class _CaptureEnvironment(_Proxy):
         result = await self._delegate.exec_cmd(command, timeout=timeout)
         self._results.append(result)
         return result
-
 
 class _CommandProbe(_Proxy):
     def __init__(self) -> None:
@@ -76,7 +71,6 @@ class _CommandProbe(_Proxy):
         captured.environment = _CaptureEnvironment(environment, self.results) if environment is not None else None
         return await self._delegate.execute_with_runtime(params, captured)
 
-
 def _command_spec(value: Any) -> tuple[str, str | None]:
     if isinstance(value, str):
         return value, None
@@ -87,7 +81,6 @@ def _command_spec(value: Any) -> tuple[str, str | None]:
         raise ValueError("a command probe requires command text and nonempty expected_output")
     return command, expected
 
-
 def _verification_mode(command: str) -> bool:
     try:
         tokens = shlex.split(command)
@@ -97,7 +90,6 @@ def _verification_mode(command: str) -> bool:
         token in {"-h", "--help", "--collect-only", "--co", "--version"}
         or token.startswith("--collect-only=") for token in tokens
     ) and tokens[0] not in {"true", ":", "echo", "printf"}
-
 
 async def _verify_commands(ctx: Any, commands: Sequence[Any], seconds: float | None) -> dict[str, Any]:
     deadline = math.inf if seconds is None else time.monotonic() + seconds

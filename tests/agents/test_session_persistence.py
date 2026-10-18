@@ -35,7 +35,6 @@ def test_store_round_trip_preserves_metadata_and_messages(tmp_path) -> None:
     assert document["role"] == "coder"
     assert store.load_messages(str(path), "fallback") == messages
 
-
 def test_store_save_at_exact_utf8_limit_remains_loadable(tmp_path, monkeypatch) -> None:
     path = tmp_path / "boundary.json"
     messages = [{"role": "user", "content": "€" * 37}]
@@ -49,7 +48,6 @@ def test_store_save_at_exact_utf8_limit_remains_loadable(tmp_path, monkeypatch) 
     assert path.read_bytes() == encoded
     assert SessionStore().load_snapshot(str(path), "fallback")["messages"] == messages
 
-
 def test_oversized_save_preserves_previous_snapshot(tmp_path, monkeypatch) -> None:
     path = tmp_path / "state.json"
     store = SessionStore()
@@ -60,7 +58,6 @@ def test_oversized_save_preserves_previous_snapshot(tmp_path, monkeypatch) -> No
         store.save(str(path), [{"role": "user", "content": "€" * 1000}])
     assert path.read_bytes() == original
     assert not list(tmp_path.glob(".state.json.tmp-*"))
-
 
 def test_store_loads_legacy_jsonl_and_empty_fallback(tmp_path) -> None:
     legacy = tmp_path / "legacy.jsonl"
@@ -74,7 +71,6 @@ def test_store_loads_legacy_jsonl_and_empty_fallback(tmp_path) -> None:
     assert SessionStore().load_messages(str(empty), "prompt") == [
         {"role": "system", "content": "prompt"}
     ]
-
 
 def test_store_replays_durable_journal_and_ignores_partial_tail(tmp_path) -> None:
     path = tmp_path / "session.json"
@@ -120,7 +116,6 @@ def test_store_replays_durable_journal_and_ignores_partial_tail(tmp_path) -> Non
     assert resumed["session_state"]["step_count"] == 3
     assert resumed["messages"][-1]["content"] == "step 3"
 
-
 def test_store_replay_ignores_journal_records_covered_by_atomic_base(tmp_path) -> None:
     path = tmp_path / "session.json"
     store = SessionStore()
@@ -162,7 +157,6 @@ def test_store_replay_ignores_journal_records_covered_by_atomic_base(tmp_path) -
         "step 3",
     ]
 
-
 def test_store_rejects_complete_invalid_journal_record(tmp_path) -> None:
     path = tmp_path / "session.json"
     store = SessionStore()
@@ -176,7 +170,6 @@ def test_store_rejects_complete_invalid_journal_record(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="journal record at line 1"):
         store.load_snapshot(str(path), "fallback")
-
 
 @pytest.mark.parametrize(
     ("document", "error"),
@@ -348,7 +341,6 @@ def test_store_rejects_malformed_snapshot_message_shapes(
     with pytest.raises(ValueError, match=error):
         SessionStore().load_snapshot(str(path), "fallback")
 
-
 def test_store_accepts_assistant_tool_call_and_matching_result(tmp_path) -> None:
     path = tmp_path / "tools.json"
     messages = [
@@ -368,7 +360,6 @@ def test_store_accepts_assistant_tool_call_and_matching_result(tmp_path) -> None
     SessionStore().save(str(path), messages)
 
     assert SessionStore().load_messages(str(path), "fallback") == messages
-
 
 def test_store_accepts_provider_content_part_shapes(tmp_path) -> None:
     path = tmp_path / "content-parts.json"
@@ -391,14 +382,12 @@ def test_store_accepts_provider_content_part_shapes(tmp_path) -> None:
 
     assert SessionStore().load_messages(str(path), "fallback") == messages
 
-
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO requires POSIX")
 def test_store_rejects_fifo_without_blocking(tmp_path) -> None:
     path = tmp_path / "snapshot.fifo"
     os.mkfifo(path)
     with pytest.raises(OSError, match="regular file"):
         SessionStore().load_snapshot(str(path), "fallback")
-
 
 def test_store_rejects_symlink_and_oversized_snapshot(tmp_path) -> None:
     target = tmp_path / "target.json"
@@ -412,7 +401,6 @@ def test_store_rejects_symlink_and_oversized_snapshot(tmp_path) -> None:
         handle.truncate(storage_module.MAX_SESSION_SNAPSHOT_BYTES + 1)
     with pytest.raises(ValueError, match="exceeds"):
         SessionStore().load_snapshot(str(huge), "fallback")
-
 
 @pytest.mark.parametrize("method", ["save", "save_manifest"])
 def test_serialization_failure_preserves_previous_file(tmp_path, monkeypatch, method) -> None:
@@ -430,7 +418,6 @@ def test_serialization_failure_preserves_previous_file(tmp_path, monkeypatch, me
             SessionStore().save_manifest(str(path), {"run_id": "new"})
     assert path.read_text(encoding="utf-8") == '{"run_id":"old"}'
 
-
 def test_store_rejects_nonregular_target_and_symlink_parent(tmp_path) -> None:
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -439,7 +426,6 @@ def test_store_rejects_nonregular_target_and_symlink_parent(tmp_path) -> None:
     with pytest.raises(OSError, match="real directory"):
         SessionStore().save_manifest(str(parent / "state.json"), {"run_id": "new"})
     assert list(outside.iterdir()) == []
-
 
 def test_agent_save_path_and_run_directory_are_collision_safe(tmp_path) -> None:
     assert agent_save_path(str(tmp_path), 2, "reviewer") == os.path.join(
@@ -450,7 +436,6 @@ def test_agent_save_path_and_run_directory_are_collision_safe(tmp_path) -> None:
     assert len(set(paths)) == 16
     assert all(os.path.isdir(path) for path in paths)
 
-
 @pytest.mark.parametrize("role", ["../../../escaped", "/absolute", "bad\\role", "line\nbreak", ".."])
 def test_agent_save_path_rejects_unsafe_role(tmp_path, role) -> None:
     run_dir = tmp_path / "run"
@@ -459,7 +444,6 @@ def test_agent_save_path_rejects_unsafe_role(tmp_path, role) -> None:
         agent_save_path(str(run_dir), 1, role)
     assert list(tmp_path.iterdir()) == [run_dir]
 
-
 def test_make_run_dir_rejects_symlinked_state_parent(tmp_path) -> None:
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -467,7 +451,6 @@ def test_make_run_dir_rejects_symlinked_state_parent(tmp_path) -> None:
     with pytest.raises(ValueError, match="real directory"):
         make_run_dir(str(tmp_path))
     assert list(outside.iterdir()) == []
-
 
 def test_message_timestamp_sidecar_keeps_runtime_messages_clean() -> None:
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
@@ -483,10 +466,8 @@ def test_message_timestamp_sidecar_keeps_runtime_messages_clean() -> None:
     ] == state.messages
     assert all("timestamp" in message for message in enriched)
 
-
 def _spawn_cfg() -> SpawnConfig:
     return spawn_config(api_key="test-key")
-
 
 def test_factory_assigns_structured_child_save_path(tmp_path) -> None:
     run_dir = str(tmp_path / "run")
@@ -503,7 +484,6 @@ def test_factory_assigns_structured_child_save_path(tmp_path) -> None:
     assert saved["aid"] == 2
     assert saved["role"] == "coder"
 
-
 class _FakeSession:
     def __init__(self, role: str):
         self.used_tokens = 0
@@ -516,7 +496,6 @@ class _FakeSession:
     async def run_loop(self) -> str:
         return "done"
 
-
 class _FakeLead(_FakeSession):
     def __init__(self):
         super().__init__("lead")
@@ -525,11 +504,9 @@ class _FakeLead(_FakeSession):
         self.max_steps = 100
         self.env = None
 
-
 class _FakeFactory:
     def build_spawn_session(self, *, role, **_kwargs):
         return _FakeSession(role)
-
 
 async def test_manifest_records_parent_child_relationship(tmp_path) -> None:
     path = tmp_path / "run" / "team.json"

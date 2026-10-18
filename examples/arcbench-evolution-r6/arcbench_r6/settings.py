@@ -14,7 +14,6 @@ def _number(values, name, default):
         value = default
     return value if math.isfinite(value) and value > 0 else default
 
-
 @dataclass(frozen=True)
 class Settings:
     budget: int = 16_000_000

@@ -10,7 +10,6 @@ def target_rows(index):
     leaves = [row for row in index if row.get("atomic")]
     return [row for row in leaves if row.get("evolution_change")] or leaves
 
-
 def resource_key(row):
     """Small, inspectable hints about shared implementation, not business/test behavior."""
     name = row.get("name", "").lower()
@@ -42,7 +41,6 @@ def resource_key(row):
         return "repository_navigation"
     # Keep unrelated unknown features focused; explicit dependencies still order them.
     return "feature:" + row["id"]
-
 
 def feature_groups(index):
     from opencollab.builtin_workflows.weave import WeaveGroup, plan_weave_groups
@@ -100,10 +98,8 @@ def feature_groups(index):
         )
     return result
 
-
 def group_weight(group):
     return sum(max(1, row.get("scenario_count", 0)) for row in group["rows"])
-
 
 def source_inventory(workspace):
     result = {}
@@ -124,7 +120,6 @@ def source_inventory(workspace):
             }:
                 result[path.relative_to(workspace).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     return result
-
 
 def affects_prior_groups(changed_files):
     """Shared application paths require checks for all prior requirement groups."""
@@ -148,7 +143,6 @@ def affects_prior_groups(changed_files):
         )
         for path in changed_files
     )
-
 
 def group_prompt(group, progress, directory=".arc/evolution-spec/by-id"):
     listing = "\n".join(
@@ -175,7 +169,6 @@ Prior execution, claims and coordinator evidence (claims are not acceptance):
 Finish with concise changed paths and unfinished IDs. A missing/malformed summary neither
 certifies success nor triggers a repeat implementation pass.
 """
-
 
 def plan_summary(groups):
     return json.loads(json.dumps([{key: value for key, value in group.items() if key != "rows"} for group in groups]))

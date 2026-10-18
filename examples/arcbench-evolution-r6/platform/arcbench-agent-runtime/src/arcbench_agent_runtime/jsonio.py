@@ -10,7 +10,6 @@ def append_jsonl(path: Path, payload: dict[str, Any]) -> None:
     with path.open("a", encoding="utf-8") as output:
         output.write(json.dumps(payload, ensure_ascii=True) + "\n")
 
-
 def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(f"{path.suffix}.tmp")
@@ -18,7 +17,6 @@ def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
         json.dump(payload, output, ensure_ascii=False, indent=2)
         output.write("\n")
     tmp_path.replace(path)
-
 
 def read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
     if not path.exists():

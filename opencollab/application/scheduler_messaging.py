@@ -1,30 +1,12 @@
-"""Inter-agent (teammate) messaging for the Scheduler.
+"""Queue teammate messages as XML-wrapped user turns for the Scheduler.
 
-A teammate message is queued for async delivery and surfaces to the recipient
-as a normal user turn wrapped in an XML envelope. If the recipient is idle it is
-scheduled in the background; if it is running or awaiting delegated work the
-message stays in an out-of-history inbox until the session can safely accept
-another user turn.
+Idle recipients are scheduled immediately. Running recipients and those
+awaiting delegated work retain messages in an inbox until delivery is safe.
+Send and delivery checks record ``message_sent`` or ``message_refused``.
+``restored`` distinguishes restore-time refusals from send-time decisions.
 
-Every decision ``send_message`` takes is recorded: ``message_refused`` for each
-rule that stops a message, ``message_sent`` for one that is queued. Together
-they are the only place a run says how much traffic each declared topology edge
-actually carried, and how much was attempted and stopped.
-
-A message is checked twice, and both gates write the same row. The rules run
-once at send time against the roster the sender sees, and again when the inbox
-drains against whatever roster is live then — a route legal when it was queued
-can be forbidden by the topology a reload rebuilt. The second gate wrote only a
-scheduler event, which lands in ``events.jsonl`` and therefore only in a run
-that opted into one, so by default the message was dropped and the trajectory
-recorded nothing. Both now write ``message_refused``; ``restored`` says which
-gate, so the rows add up on the edge while still separating "the model reached
-for an edge it does not have" from "the reload could no longer route this".
-
-``MessagingMixin`` is composed into ``Scheduler`` and relies on the
-``_sessions`` / ``_tasks`` / ``_locks`` / ``_message_inbox`` maps and the
-``_role_of`` / ``_autosave_session`` / ``emit_scheduler_event`` / ``_drive_agent``
-helpers defined on ``Scheduler``.
+``MessagingMixin`` uses Scheduler session, task, lock and inbox state, plus
+its role, autosave, event and agent-driving helpers.
 """
 
 from __future__ import annotations
@@ -51,36 +33,22 @@ from opencollab.domain.session import SessionPhase
 
 logger = logging.getLogger(__name__)
 
-# A whole lowercase-hex word of git object-id length. Git accepts an
-# abbreviation from seven characters up, and a full object id is forty, so this
-# is every shape a sha can be written in and nothing longer — a sha256 content
-# digest is sixty-four and does not match.
+# Match whole lowercase-hex Git object ids and 7-40 character abbreviations.
+# A 64-character SHA-256 content digest stays outside this pattern.
 _COMMIT_REF_RE = re.compile(r"(?<![0-9A-Za-z])[0-9a-f]{7,40}(?![0-9A-Za-z])")
 
-
 def _commit_refs(*parts: str) -> list[str]:
-    """Every distinct git-object-shaped token in a message, in order.
+    """Return distinct Git-object-shaped tokens in message order.
 
-    Candidates, not confirmed commits: any lowercase-hex word of the right
-    length matches, and the record says so by carrying them next to nothing
-    that claims otherwise. They earn their meaning by being joined against
-    ``worktree_changes.commits``, which lists the shas an agent actually made —
-    a token that matches one of those was a commit, and one that matches none
-    was a hex word.
-
-    This exists because the sha *is* the payload of a git handoff: the teams
-    that hand work over do it by committing and sending the id, so a record of
-    the message that keeps its size and drops its object ids cannot answer
-    whether the work crossed that edge. Both worktrees of a repository can see
-    each other's commits (``git worktree list`` names them), so a tester holding
-    its teammate's sha is not by itself evidence that the teammate sent it.
+    Tokens are candidate references, not validated commits. Join them against
+    ``worktree_changes.commits`` to identify handoffs. Shared Git object access
+    alone does not prove that an agent sent a commit to its teammate.
     """
     seen: dict[str, None] = {}
     for part in parts:
         for match in _COMMIT_REF_RE.finditer(part or ""):
             seen.setdefault(match.group(0), None)
     return list(seen)
-
 
 class MessagingMixin:
     """Queue, format, and drain teammate messages between agents."""
@@ -169,9 +137,7 @@ class MessagingMixin:
                     **observed,
                 )
             inbox = self._message_inbox.get(to_aid, [])
-            # Read once, before the append, so an accepted send and a refused
-            # one describe the same thing: the queue the decision was taken
-            # against.
+            # Accepted and refused sends describe the same queue state before appending.
             observed["inbox_messages"] = len(inbox)
             observed["inbox_bytes"] = self._inbox_size(inbox)
             if observed["inbox_messages"] >= MAX_TEAMMATE_INBOX_MESSAGES:
@@ -265,53 +231,21 @@ class MessagingMixin:
         inbox_bytes: int | None = None,
         restored: bool = False,
     ) -> None:
-        """Record one ``send_message`` outcome. Observation only.
+        """Record a message decision without changing delivery behavior.
 
-        The six rules in ``send_message`` used to leave nothing behind: a model
-        that tried to contact a role the topology forbids, and a collaboration
-        message dropped by inbox backpressure, both ended as a sentence handed
-        back to the model and nothing on disk. The first is the direct
-        observation the role-boundary axis is decided on; the second is read
-        downstream as "this agent did not communicate", which is the opposite of
-        what happened.
+        ``reason`` classifies refusals and is absent for accepted sends. Sender and
+        recipient aids retain the requested identities, while roles resolve through
+        the roster and may be ``None``. ``commit_refs`` contains bounded candidate
+        Git references, with the full count in ``commit_refs_found``.
 
-        ``reason`` is the rule that said no, as a short enumerated token, so
-        refusals are counted by cause rather than parsed out of prose. It is
-        absent from a ``message_sent`` row, which by construction has no cause.
+        Record the bounded summary and payload sizes rather than duplicating the
+        message body. ``content_bytes`` measures the payload, while ``message_bytes``
+        measures its XML envelope against a separate limit. The latter is ``None``
+        when refusal precedes envelope construction. Each reading retains its limit.
 
-        ``from_aid`` / ``from_role`` and ``to_aid`` / ``to_role`` are four
-        separate fields: the aid is what the sender addressed and is always
-        recorded as given, while the role is the roster's answer for that aid
-        and is ``None`` when there is no agent behind it. Two aids and two roles
-        are what let a row be attributed to a declared topology edge.
-
-        ``commit_refs`` is the one thing taken from the message body itself:
-        the git-object-shaped tokens in it, listed rather than summarized. The
-        body is not stored — it is already in the recipient's transcript, and a
-        second prose copy in a file meant for counting would only be a copy that
-        can disagree. What could not be recovered from anywhere countable is the
-        payload of a git handoff, which is a commit id and nothing else, so that
-        is what the row keeps. ``commit_refs_found`` is the untruncated count.
-
-        Sizes are recorded twice over, because the two are limited separately:
-        ``content_bytes`` is the payload the model wrote, and ``message_bytes``
-        is the XML envelope actually measured against
-        ``MAX_TEAMMATE_MESSAGE_BYTES``. The envelope is ``None`` on the branches
-        that refuse before one is built — an honest gap, not a zero. Each limit
-        is recorded beside the reading it bounds, so a row is readable without
-        the constants file that produced it.
-
-        ``restored`` separates the two moments a message can be refused. At send
-        time the rules run against the roster the sender is looking at; on the
-        restore path they run again, against whatever roster came back, and a
-        route that was legal when it was queued can be forbidden by the topology
-        now. Both are the same observation on the same axis and are counted in
-        the same units, so they share a row shape — but a run that lost a
-        message to a reload is not a run whose model reached for a forbidden
-        edge, and one boolean is what keeps the two apart.
-
-        Guarded end to end: a record that cannot be built must never overturn
-        the decision it describes.
+        ``restored`` distinguishes restore-time refusal from the original send
+        checks, since reloaded topology may invalidate a previously queued route.
+        Trace failures are logged without overturning the recorded decision.
         """
         tracer = self._tracer
         if tracer is None:
@@ -615,11 +549,8 @@ class MessagingMixin:
             waiting = self._unanswered.get(aid, {})
             if waiting.get(message.from_aid) == message.message_id:
                 waiting.pop(message.from_aid, None)
-            # The scheduler event alone was invisible: it goes to events.jsonl,
-            # which a run writes only when OPENCOLLAB_EVENTS_FILE is set, so a
-            # default run dropped the message and recorded nothing a reader
-            # would ever see. This row lands in the trajectory every run, in the
-            # same shape as a send-time refusal, so the two can be added up.
+            # The trajectory records refusals even when OPENCOLLAB_EVENTS_FILE is unset.
+            # Its row matches send-time refusals so both can be counted together.
             self._trace_message_decision(
                 "message_refused",
                 reason=reason,

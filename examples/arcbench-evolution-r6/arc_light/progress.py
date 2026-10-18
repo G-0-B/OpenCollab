@@ -55,7 +55,6 @@ class _Progress:
             "This is a reminder, not an acceptance verdict.]"
         )
 
-
 class _ObservedTool:
     def __init__(self, original, progress):
         self.original, self.progress = original, progress
@@ -81,7 +80,6 @@ class _ObservedTool:
         finally:
             if self.progress.observer:
                 self.progress.observer.active_tools.pop(key, None)
-
 
 def monitor_tools(workspace: Path, tools, observer=None):
     progress = _Progress(workspace, observer=observer)

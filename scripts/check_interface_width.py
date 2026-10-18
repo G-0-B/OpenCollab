@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
-"""Report the public top-level surface of every module.
-
-A good split reduces the total number of public names; a split done only to
-satisfy a line ceiling increases it. This measures the thing that matters.
-"""
+"""Report each Python module's public top-level names to assess proposed splits."""
 from __future__ import annotations
 
 import ast
 import sys
 from pathlib import Path
 
-# Set one name above the widest module in the tree, so the ceiling actually
-# bites: a limit nothing can reach is not a gate. Lower it as the tree narrows.
+# Keep the ceiling close to the widest public module as interfaces narrow.
 MAX_WIDTH = 20
 EXEMPT = {"__init__.py", "ports.py"}
-
 
 def width(path: Path) -> int:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -29,7 +23,6 @@ def width(path: Path) -> int:
             )
     return names
 
-
 def main(root: str = "opencollab") -> int:
     failed = False
     for path in sorted(Path(root).rglob("*.py")):
@@ -40,7 +33,6 @@ def main(root: str = "opencollab") -> int:
             print(f"::warning file={path}::public surface is {n} names, limit is {MAX_WIDTH}")
             failed = True
     return 1 if failed else 0
-
 
 if __name__ == "__main__":
     sys.exit(main(*sys.argv[1:]))

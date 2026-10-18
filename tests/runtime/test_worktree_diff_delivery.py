@@ -1,9 +1,4 @@
-"""Worktree-diff delivery to parents.
-
-A finished child whose environment is diff-capable (``DiffCapablePort``) has
-its worktree diff appended to the result the scheduler fills into the parent's
-pending row, so the parent reasons over the child's actual changes.
-"""
+"""Deliver a diff-capable child's actual worktree changes in its parent result."""
 
 from __future__ import annotations
 
@@ -26,16 +21,13 @@ class _DiffEnv:
     async def get_diff(self) -> str:
         return self._diff
 
-
 class _FailingDiffEnv(_DiffEnv):
     async def get_diff(self) -> str:
         raise RuntimeError("diff failed")
 
-
 class _FailingTracer:
     def log_step(self, **kwargs) -> None:
         raise RuntimeError("trace failed")
-
 
 def test_child_worktree_diff_is_delivered_to_parent_pending_row():
     diff = "diff --git a/f.py b/f.py\n+print('hi')"
@@ -73,7 +65,6 @@ def test_child_worktree_diff_is_delivered_to_parent_pending_row():
         "implemented it\n\n[Changes made in worktree]\n```diff\n" + diff + "\n```"
     )
     assert scheduler.table.get(1).result == row.result
-
 
 @pytest.mark.parametrize("failure_site", ["tracer", "event"])
 def test_observability_failure_still_delivers_to_parent(failure_site):
@@ -113,7 +104,6 @@ def test_observability_failure_still_delivers_to_parent(failure_site):
     assert row.status is RowStatus.DONE
     assert row.result == "implemented it"
     assert 1 not in scheduler._spawn_origin
-
 
 def test_worktree_diff_failure_marks_child_failed():
     child = _ChildSession("coder", "implemented it", _FailingDiffEnv(""))

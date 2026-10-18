@@ -8,7 +8,6 @@ from opencollab.adapters._safe_file_common import _normalize_newlines, _split_li
 
 ENV_FILE_WRITE_LIMIT_BYTES = 4 * 1024 * 1024
 
-
 @dataclass(slots=True)
 class ExecResult:
     returncode: int
@@ -21,7 +20,6 @@ class ExecResult:
     timed_out: bool = False
     stdout_bytes: bytes | None = field(default=None, repr=False, compare=False)
 
-
 @dataclass(slots=True)
 class TextFileRange:
     lines: list[str]
@@ -29,7 +27,6 @@ class TextFileRange:
     total_lines: int | None
     has_more: bool
     chars_truncated: bool = False
-
 
 class Environment:
     """Abstract execution environment used by tools and workflows."""
@@ -113,6 +110,5 @@ class Environment:
     async def abort(self) -> None:
         self.revoke()
         await self.cleanup()
-
 
 __all__ = ["ENV_FILE_WRITE_LIMIT_BYTES", "Environment", "ExecResult", "TextFileRange"]

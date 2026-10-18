@@ -29,7 +29,6 @@ TOOLS = [
     }
 ]
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "choice,expected",
@@ -61,7 +60,6 @@ async def test_actual_chat_request_and_input_estimate_agree(choice, expected):
     assert body["messages"][2]["reasoning_content"] == MESSAGES[2]["reasoning_content"]
     assert "thinking" not in body and "enable_thinking" not in body
     assert predicted == estimate_request_tokens(body["messages"], body["tools"])
-
 
 @pytest.mark.asyncio
 async def test_explicit_thinking_disable_is_preserved():

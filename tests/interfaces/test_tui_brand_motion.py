@@ -1,9 +1,4 @@
-"""Unit tests for the pulsing brand dot (adapters/tui/brand_motion).
-
-Proves the dot is animated (its brightness breathes as elapsed seconds advance)
-and that every emitted segment carries an explicit, non-"white" style so the
-TUI's per-glyph chrome walk stays satisfied.
-"""
+"""Brand-dot animation emits explicit styles for the per-glyph chrome renderer."""
 
 from __future__ import annotations
 
@@ -17,38 +12,31 @@ from tests.interfaces.tui_style_support import assert_visible_text_has_non_white
 
 
 def test_pulse_breathes_between_trough_and_peak():
-    trough = pulse_brightness(0.0)   # a breath starts dim
-    peak = pulse_brightness(0.7)     # half of a 1.4s period → brightest
+    trough = pulse_brightness(0.0)
+    peak = pulse_brightness(0.7)
     assert peak > trough
     assert 0.0 <= trough < peak <= 1.0
 
-
 def test_dot_color_changes_as_time_advances():
-    # Brightness breathes, so the shaded colour differs between two elapsed
-    # values a fraction of a period apart — i.e. it animates.
     assert dot_color(0.0) != dot_color(0.7)
-
 
 def test_frame_changes_between_elapsed_values():
     early = PulseDot(show_seconds=False, elapsed=0.0).render()
     later = PulseDot(show_seconds=False, elapsed=0.7).render()
-    assert early.plain == later.plain   # same single glyph
-    assert early.spans != later.spans   # different brightness → it pulsed
-
+    assert early.plain == later.plain
+    assert early.spans != later.spans
 
 def test_renders_a_single_dot():
     text = PulseDot(show_seconds=False, elapsed=0.5).render()
     assert text.plain.strip() == DOT_GLYPH
     _assert_all_non_white(text)
 
-
 def test_every_segment_carries_an_explicit_non_white_style():
     bar = PulseDot("Lead thinking… · step 4", elapsed=3.0)
     text = bar.render()
     _assert_all_non_white(text)
-    assert "(3s)" in text.plain      # live seconds counter, floored to int
+    assert "(3s)" in text.plain
     assert "step 4" in text.plain
-
 
 def test_elapsed_reads_from_injected_clock():
     now = {"t": 100.0}

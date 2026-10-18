@@ -1,11 +1,7 @@
-"""Env-backed ``WorkingTreeProbe`` — answers "did the working tree change?".
+"""Implement ``WorkingTreeProbe`` through the task environment.
 
-The application-layer workflow uses a :class:`~opencollab.application.ports.WorkingTreeProbe`
-to verify that an agent actually edited the tree before declaring success. This
-concrete implementation backs that probe with the task ``Environment``, running
-``git -C <workspace> status --porcelain`` (and ``git diff`` for the optional
-diff). It lives in ``adapters`` because it depends on a concrete environment;
-the workflow only ever sees the abstract port.
+Use ``git status --porcelain`` to detect uncommitted changes and optionally
+capture ``git diff`` for the application workflow.
 """
 
 from __future__ import annotations
@@ -18,7 +14,6 @@ from opencollab.adapters.candidate_workspace import _safe_path
 
 MAX_WORKING_TREE_DIFF_CHARS = 1_000_000
 WORKING_TREE_GIT_TIMEOUT_SECONDS = 900.0
-
 
 def _require_complete_result(
     result: Any,
@@ -40,7 +35,6 @@ def _require_complete_result(
         raise RuntimeError(
             f"{operation} failed with git status {returncode}{suffix}"
         )
-
 
 class EnvWorkingTreeProbe:
     """``WorkingTreeProbe`` backed by an :class:`Environment`.
@@ -72,17 +66,12 @@ class EnvWorkingTreeProbe:
         return bool(result.stdout.strip())
 
     async def changed_excluding(self, paths: Sequence[str]) -> bool:
-        # Empty excludes -> identical to ``changed()`` for ordinary runs.
         if not paths:
             return await self.changed()
-        # Literal exclusions use the exposed workspace. The positive top-level
-        # pathspec retains source changes elsewhere in the same repository.
-        # ``--untracked-files=all``
-        # is required so a NEW injected test file in an otherwise-untracked dir is
-        # listed (and thus excludable) per-file: default porcelain collapses such
-        # a dir to ``?? tests/``, which a file-level exclude can't match, leaking
-        # the injected file back in. With ``=all`` the output is empty iff only
-        # injected files were dirty (drops modified-tracked AND untracked-new).
+        # Literal exclusions use the exposed workspace while the positive top-level
+        # pathspec retains changes elsewhere in the repository.
+        # ``--untracked-files=all`` exposes individual new files so injected-test
+        # exclusions can match them instead of a collapsed untracked directory.
         excludes = " ".join(shlex.quote(f":(exclude,literal){_safe_path(p)}") for p in paths)
         cmd = (
             f"git --no-optional-locks -C {shlex.quote(self._workspace)} status --porcelain "
@@ -176,6 +165,5 @@ class EnvWorkingTreeProbe:
             )
 
         return "\n\n".join(parts)
-
 
 __all__ = ["EnvWorkingTreeProbe"]

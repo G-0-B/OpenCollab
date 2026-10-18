@@ -23,7 +23,6 @@ class _FakeLLM:
     async def close(self):
         return None
 
-
 def test_llm_client_keeps_legacy_positional_context_window(monkeypatch):
     monkeypatch.setattr(
         client_module.openai, "AsyncOpenAI", lambda **_kwargs: SimpleNamespace(base_url="https://api.openai.com/v1"),
@@ -46,7 +45,6 @@ def test_llm_client_keeps_legacy_positional_context_window(monkeypatch):
     assert client.context_window() == 123_456
     assert client.provider_error_time_budget == 0.0
 
-
 def test_agent_new_retry_fields_follow_the_legacy_positional_fields():
     names = [item.name for item in fields(Agent)]
 
@@ -55,7 +53,6 @@ def test_agent_new_retry_fields_follow_the_legacy_positional_fields():
     assert names.index("provider_error_time_budget") < names.index(
         "reasoning_effort_policy"
     )
-
 
 def test_workflow_sessions_and_summarizers_share_one_provider_retry_budget(
     monkeypatch,
@@ -94,7 +91,6 @@ def test_workflow_sessions_and_summarizers_share_one_provider_retry_budget(
     assert client_budgets[0] is client_budgets[1]
     assert summarizer_budgets == client_budgets
     assert clients[0].configuration["max_retries"] == 32
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ["chat", "responses", "anthropic"])

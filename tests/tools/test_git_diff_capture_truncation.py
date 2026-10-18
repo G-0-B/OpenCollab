@@ -15,7 +15,6 @@ from opencollab.application.tool_execution import ToolRuntime
 def _git(repo, *args):
     return subprocess.check_output(["git", *args], cwd=repo, text=True)
 
-
 @pytest.mark.parametrize("mode", ["unstaged", "staged", "untracked"])
 @pytest.mark.parametrize("max_chars", [8000, 2_000_000])
 async def test_large_git_diff_discloses_capture_loss(tmp_path, mode, max_chars):
@@ -49,7 +48,6 @@ async def test_large_git_diff_discloses_capture_loss(tmp_path, mode, max_chars):
     if max_chars == 2_000_000 and mode != "untracked":
         assert "bytes omitted" in result
     assert len(result.partition(":\n")[2]) <= max_chars
-
 
 @pytest.mark.parametrize("dropped_bytes", [0, 271])
 async def test_status_capture_loss_is_visible_and_bounded(dropped_bytes):

@@ -45,7 +45,6 @@ def _hook_bus(workspace):
     bus.subscribe(HookEventSubscriber(ShellHookRunner(config.hooks, workspace=workspace)))
     return bus, events
 
-
 def _write_call(name, index=0):
     return tool_call(
         name=name,
@@ -54,7 +53,6 @@ def _write_call(name, index=0):
         ),
         call_id=f"write-{index}",
     )
-
 
 def _assert_hooks(workspace, events, call_ids):
     for filename, hook_event in (("pre.jsonl", "PreToolUse"), ("post.jsonl", "PostToolUse")):
@@ -73,7 +71,6 @@ def _assert_hooks(workspace, events, call_ids):
         for call_id in call_ids
         for event_type in ("tool_start", "tool_end")
     ]
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("name", ["file_write", "File_Write", "FILE_WRITE"])
@@ -110,7 +107,6 @@ async def test_session_hooks_use_resolved_name_and_keep_original_transcript(tmp_
     assert all(message["content"].startswith("Created/wrote") for message in results)
     _assert_hooks(tmp_path, events, [call["id"] for call in calls])
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("name", ["file_write", "File_Write"])
 async def test_deferred_entry_runs_real_tool_and_configured_hooks(tmp_path, name):
@@ -130,7 +126,6 @@ async def test_deferred_entry_runs_real_tool_and_configured_hooks(tmp_path, name
     assert (tmp_path / "edited-0.txt").read_text() == "written 0"
     assert call == original_call
     _assert_hooks(tmp_path, events, [call["id"]])
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("entry", ["process", "preflight", "deferred"])

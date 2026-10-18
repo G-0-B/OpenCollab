@@ -12,7 +12,6 @@ def _nonnegative_usage_int(value: Any, field: str) -> int:
         raise ValueError(f"provider usage {field} must be a non-negative integer")
     return value
 
-
 def _normalize_completion_usage(usage: Any) -> tuple[int, int]:
     """Validate provider counters atomically and prevent total undercharging."""
     input_tokens = _nonnegative_usage_int(
@@ -33,7 +32,6 @@ def _normalize_completion_usage(usage: Any) -> tuple[int, int]:
     if context_tokens is not None:
         context_tokens = _nonnegative_usage_int(context_tokens, "context_tokens")
     return input_tokens if context_tokens is None else context_tokens, max(reported_total, input_tokens + output_tokens)
-
 
 async def _complete_with_error_usage(
     runner: Any,

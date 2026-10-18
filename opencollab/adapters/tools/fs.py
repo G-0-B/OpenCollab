@@ -1,13 +1,4 @@
-"""File system tools — read, write (str_replace_editor), grep.
-
-Only 3 tools — the minimal set every coding agent needs.
-
-Ref:
-- kimi-cli: ReadFile with line_offset/n_lines, WriteFile with str_replace
-- opencode: read, edit (str_replace), write, glob, grep tools
-- claude-code: Read, Edit (str_replace), Grep, Glob
-- openclaw: wrapToolWorkspaceRootGuard for path safety
-"""
+"""Workspace file reading, writing, and search tools."""
 
 from __future__ import annotations
 
@@ -38,7 +29,6 @@ MAX_GREP_CHARS = 10_000
 OVERWRITE_GUARD_MIN_CHARS = 1_000
 OVERWRITE_GUARD_SHRINK_RATIO = 0.5
 
-
 def _count_overlapping(text: str, needle: str) -> int:
     count = 0
     start = 0
@@ -48,7 +38,6 @@ def _count_overlapping(text: str, needle: str) -> int:
             return count
         count += 1
         start = match + 1
-
 
 class FileReadTool(Tool):
     """Read file content with optional line range."""
@@ -179,15 +168,8 @@ class FileReadTool(Tool):
             )
         return body
 
-
 class FileWriteTool(Tool):
-    """Write to files using str_replace pattern (find-and-replace blocks).
-
-    This is the most token-efficient way for LLMs to edit files — they only
-    need to specify the old text and new text, not rewrite the entire file.
-
-    Ref: opencode edit tool, claude-code Edit tool — str_replace is the standard.
-    """
+    """Write files with ``str_replace`` find-and-replace blocks."""
 
     name = "file_write"
     description = (
@@ -229,11 +211,8 @@ class FileWriteTool(Tool):
     }
 
     def __init__(self, allow_create: bool = True):
-        # ``allow_create=True`` is the reference behavior (both modes available).
-        # When False, the ``create`` / whole-file-overwrite vector is disabled and
-        # only ``str_replace`` edits of existing files are permitted — used by the
-        # enforcement-on coder toolset so the model cannot create new files or
-        # overwrite an existing target wholesale, only edit it in place.
+        # ``allow_create=False`` restricts the coder to ``str_replace`` on existing
+        # files, disabling new files and whole-file replacement.
         self.allow_create = allow_create
 
     async def execute_with_runtime(
@@ -328,10 +307,7 @@ class FileWriteTool(Tool):
         if not old_str:
             return "Error: old_str is required for str_replace mode."
 
-        # A no-op replacement (old_str == new_str) would write the file back
-        # unchanged and report a misleading success — the classic "the edit
-        # silently did nothing" trap. Surface it as an explicit error so the
-        # model knows nothing changed and must supply a real edit.
+        # Reject no-op replacements so a successful receipt always means an edit.
         if new_str == old_str:
             return (
                 f"Error: str_replace was a no-op — old_str and new_str are "
@@ -375,9 +351,7 @@ class FileWriteTool(Tool):
         if newline_style != _MIXED_NEWLINES:
             updated = _restore_newlines(updated, newline_style)
         if updated == current:
-            # Defensive: old_str matched but the resulting content is byte-for-byte
-            # identical (e.g. a degenerate overlap). Report no change rather than a
-            # misleading success.
+            # Reject degenerate replacements that leave the content unchanged.
             return (
                 f"Error: str_replace produced no change in {path} — the file "
                 "content is identical after the replacement."
@@ -388,7 +362,6 @@ class FileWriteTool(Tool):
         if observations is not None:
             observations.record_write(completed=True, changed=True, path=path)
         return f"Replaced in {path}: {len(old_str)} chars → {len(new_str)} chars (content changed)"
-
 
 class GrepTool(Tool):
     """Search file contents using regex patterns."""
@@ -523,11 +496,8 @@ class GrepTool(Tool):
             found = result.stdout.removesuffix("\n").split("\n")
             matches = found[:max_results]
             body = truncate("\n".join(matches), self.max_grep_chars)
-            # A capped list used to look exactly like a complete one. A reader
-            # that saw fifty matches and no more had no way to tell whether the
-            # fiftieth was the last, so "the symbol appears fifty times" and
-            # "the symbol appears at least fifty times" were the same output --
-            # and narrowing the search is only worth doing in the second case.
+            # Mark capped results so callers can distinguish exact counts from lower
+            # bounds and narrow the next search.
             if len(found) > len(matches):
                 body += (
                     f"\n\n... [{len(found) - len(matches)} more matching lines "

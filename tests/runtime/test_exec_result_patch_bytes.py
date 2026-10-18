@@ -14,7 +14,6 @@ from tests.support.docker_env_test_support import CONTAINER_ID, FakeDocker, _pat
 
 _PAYLOAD = b"id,label\n1,caf\xe9\n"
 
-
 async def test_local_command_keeps_patch_stdout_bytes(tmp_path):
     environment = LocalEnvironment(str(tmp_path))
     code = f"import sys; sys.stdout.buffer.write(bytes.fromhex({_PAYLOAD.hex()!r}))"
@@ -26,7 +25,6 @@ async def test_local_command_keeps_patch_stdout_bytes(tmp_path):
         assert result == ExecResult(0, result.stdout, "")
     finally:
         await environment.cleanup()
-
 
 async def test_docker_command_keeps_patch_stdout_bytes(monkeypatch):
     def respond(command, kwargs):

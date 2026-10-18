@@ -22,7 +22,6 @@ from opencollab.domain.scheduler import dynamic_roster_share, split_budget
 def run(coro):
     return asyncio.run(coro)
 
-
 class FakeScheduler:
     def __init__(self):
         self.spawn_calls = []
@@ -30,29 +29,25 @@ class FakeScheduler:
 
     async def spawn(self, parent_aid, role, task, context="", tool_call_id=None):
         self.spawn_calls.append((parent_aid, role, task, context, tool_call_id))
-        return 42  # return a fake aid
+        return 42
 
     def inflight_spawn(self, role, task, *, parent_aid=0, context=""):
-        return None  # never deduped in this fake
+        return None
 
     async def spawn_with_review(self, parent_aid, task, context="", max_iterations=3):
         self.review_calls.append((parent_aid, task, context, max_iterations))
         return f"reviewed {task} [{context}] x{max_iterations}"
 
-
 # split_budget arithmetic — reserve-at-allocation: each live child receives one
 # lead-sized share, clamped to the unallocated remainder.
 
 def test_lead_reserve_is_a_quarter_with_10k_floor():
-    assert dynamic_roster_share(400_000) == 100_000  # total // 4
-    assert dynamic_roster_share(30_000) == 10_000  # max(10_000, 7_500)
-
+    assert dynamic_roster_share(400_000) == 100_000
+    assert dynamic_roster_share(30_000) == 10_000
 
 def test_split_budget_grants_never_oversubscribe_global_pool():
-    # Three live children consume the remaining three quarter-shares. A fourth
-    # is rejected until one reservation is reclaimed.
     total = 400_000
-    allocated = dynamic_roster_share(total)  # 100_000
+    allocated = dynamic_roster_share(total)
     grant_1 = split_budget(total=total, allocated=allocated)
     allocated += grant_1
     grant_2 = split_budget(total=total, allocated=allocated)
@@ -64,11 +59,9 @@ def test_split_budget_grants_never_oversubscribe_global_pool():
     assert allocated == total
     assert grant_4 == 0
 
-
 def test_split_budget_exhausted_pool_grants_zero():
     assert split_budget(total=400_000, allocated=400_000) == 0
     assert split_budget(total=400_000, allocated=420_000) == 0
-
 
 def test_build_spawn_session_wires_environment_safety_policy(tmp_path, monkeypatch):
     from opencollab.bootstrap import container as session_module
@@ -97,7 +90,6 @@ def test_build_spawn_session_wires_environment_safety_policy(tmp_path, monkeypat
     assert isinstance(policy, SandboxInterceptor)
     assert policy.root == str(tmp_path.resolve())
 
-
 def test_build_spawn_session_without_factory_does_not_build_safety_policy(tmp_path, monkeypatch):
     from opencollab.bootstrap import container as session_module
 
@@ -121,7 +113,6 @@ def test_build_spawn_session_without_factory_does_not_build_safety_policy(tmp_pa
     session = build_spawn_session(role="coder", env=env, cfg=cfg, budget=50_000)
 
     assert session.tool_execution.safety_policy is None
-
 
 def test_build_spawn_session_seeds_task_as_first_user_message(tmp_path, monkeypatch):
     from opencollab.bootstrap import container as session_module
@@ -148,10 +139,8 @@ def test_build_spawn_session_seeds_task_as_first_user_message(tmp_path, monkeypa
     assert session.messages[1]["role"] == "user"
     assert "build it" in session.messages[1]["content"]
     assert "ctx" in session.messages[1]["content"]
-    # No task -> no extra user message (lead-style per-turn seeding path).
     bare = build_spawn_session(role="coder", env=env, cfg=cfg, budget=50_000)
     assert [m["role"] for m in bare.messages] == ["system"]
-
 
 def test_spawn_agent_tool_uses_runtime_native_execution():
     scheduler = FakeScheduler()
@@ -167,13 +156,10 @@ def test_spawn_agent_tool_uses_runtime_native_execution():
         )
     )
 
-    # Defers with a DeferredCall carrying the child aid (not a string) so the
-    # deferral path can register a pending row; the tool_call_id is threaded
-    # through for completion routing.
+    # The DeferredCall carries the child aid and tool_call_id for completion routing.
     assert result == DeferredCall(ref=42)
     assert scheduler.spawn_calls == [(0, "coder", "implement", "ctx", "call-7")]
     assert "execute" not in SpawnAgentTool.__dict__
-
 
 def test_spawn_with_review_tool_uses_runtime_native_execution():
     scheduler = FakeScheduler()
@@ -191,7 +177,6 @@ def test_spawn_with_review_tool_uses_runtime_native_execution():
     assert scheduler.review_calls == [(0, "change code", "ctx", 2)]
     assert "execute" not in SpawnWithReviewTool.__dict__
     assert tool.disable_outer_timeout is True
-
 
 @pytest.mark.parametrize("value", [0, 4, -1, True, 1.5, "3"])
 def test_spawn_with_review_rejects_invalid_iteration_caps(value):
@@ -213,14 +198,12 @@ def test_spawn_with_review_rejects_invalid_iteration_caps(value):
     assert result.startswith("Not started:")
     assert scheduler.review_calls == []
 
-
 def test_scheduler_modules_do_not_import_bootstrap_safety():
     scheduler_source = inspect.getsource(scheduler_mod)
     spawn_source = inspect.getsource(spawn_mod)
 
     assert "opencollab.bootstrap.safety" not in scheduler_source
     assert "opencollab.bootstrap.safety" not in spawn_source
-
 
 def test_scheduler_public_module_uses_plain_module_semantics():
     assert type(scheduler_mod) is types.ModuleType

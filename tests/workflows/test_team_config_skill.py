@@ -39,7 +39,6 @@ pytestmark = pytest.mark.skipif(
     shutil.which("sh") is None, reason="POSIX sh required to run build.sh"
 )
 
-
 def _build(src: Path, out: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["sh", str(BUILD_SH), str(src), str(out)],
@@ -47,13 +46,11 @@ def _build(src: Path, out: Path) -> subprocess.CompletedProcess:
         text=True,
     )
 
-
 def _island_yaml(html: str) -> str:
     m = _ISLAND.search(html)
     assert m, "team.yaml data island not found in output HTML"
     # Decode the raw-text transport once, as the browser renderer does.
     return m.group(1).replace("&lt;", "<").replace("&amp;", "&")
-
 
 def test_skill_files_present() -> None:
     for name in (
@@ -68,7 +65,6 @@ def test_skill_files_present() -> None:
     ):
         assert (SKILL_DIR / name).is_file(), f"missing skill file: {name}"
 
-
 def test_vendored_js_yaml_is_patched_and_keeps_upstream_license() -> None:
     source = JS_YAML.read_bytes()
     license_text = JS_YAML_LICENSE.read_bytes()
@@ -78,31 +74,25 @@ def test_vendored_js_yaml_is_patched_and_keeps_upstream_license() -> None:
     assert b'"__proto__"===t?Object.defineProperty' in source
     assert hashlib.sha256(license_text).hexdigest() == _JS_YAML_LICENSE_SHA256
 
-
 def test_build_produces_self_contained_blueprint(tmp_path: Path) -> None:
     out = tmp_path / "bp.html"
     proc = _build(TEMPLATE, out)
     assert proc.returncode == 0, proc.stderr
     html = out.read_text(encoding="utf-8")
 
-    # exactly three script closes: yaml island, vendored js-yaml, renderer.
     assert html.count("</script>") == 3
-    # self-contained: the parser is inlined, and nothing is fetched over the wire.
     assert "js-yaml 4.1.1" in html
     assert JS_YAML_LICENSE.read_text(encoding="utf-8") in html
     assert "/* js-yaml license notice\n" in html
     assert "\n*/\n/*! js-yaml 4.1.1" in html
     assert "<!-- js-yaml license notice" not in html
     assert "OpenCollab Team Blueprint" in html
-    # no external subresource loads (the SVG xmlns URI is a constant, not a fetch).
     assert 'src="http' not in html
     assert 'href="http' not in html
     assert "@import" not in html
-    # the embedded YAML round-trips to exactly the source structure.
     assert yaml.safe_load(_island_yaml(html)) == yaml.safe_load(
         TEMPLATE.read_text(encoding="utf-8")
     )
-
 
 def test_build_embeds_syntax_valid_javascript(tmp_path: Path) -> None:
     node = shutil.which("node")
@@ -131,7 +121,6 @@ def test_build_embeds_syntax_valid_javascript(tmp_path: Path) -> None:
             f"generated JavaScript block {index} is invalid:\n{checked.stderr}"
         )
 
-
 def test_build_neutralizes_script_close(tmp_path: Path) -> None:
     src = tmp_path / "tricky.yaml"
     src.write_text(
@@ -153,20 +142,16 @@ def test_build_neutralizes_script_close(tmp_path: Path) -> None:
     assert proc.returncode == 0, proc.stderr
     html = out.read_text(encoding="utf-8")
 
-    # HTML script end-tags are case-insensitive: only the 3 real closes (island,
-    # js-yaml, renderer) may remain; the </script></SCRIPT> in the prompt must be
-    # neutralized in BOTH cases so a browser can't close the island early.
+    # Neutralize both script end-tag cases so prompt text cannot close the YAML island.
     real_closes = re.findall(r"</[ \t]*script", html, re.IGNORECASE)
     assert len(real_closes) == 3, real_closes
-    assert "&lt;/script>" in html  # guard applied
+    assert "&lt;/script>" in html
     assert "&lt;/SCRIPT>" in html
-    # The island stays contained and the complete source data survives decoding.
     parsed = yaml.safe_load(_island_yaml(html))
     assert parsed == yaml.safe_load(src.read_text(encoding="utf-8"))
     assert parsed["entry"] == "lead"
     assert set(parsed["roles"]) == {"lead", "worker"}
     assert parsed["topology"] == {"lead": ["worker"]}
-
 
 def test_build_usage_errors(tmp_path: Path) -> None:
     missing_arg = subprocess.run(["sh", str(BUILD_SH)], capture_output=True, text=True)
@@ -178,7 +163,6 @@ def test_build_usage_errors(tmp_path: Path) -> None:
         text=True,
     )
     assert absent.returncode == 1
-
 
 @pytest.mark.parametrize("alias", ["same-path", "symlink", "hardlink"])
 def test_build_rejects_output_aliasing_input(tmp_path: Path, alias: str) -> None:
@@ -210,7 +194,6 @@ def test_build_rejects_output_aliasing_input(tmp_path: Path, alias: str) -> None
     assert src.read_bytes() == original
     assert out.read_bytes() == original
 
-
 def test_build_can_replace_independent_output(tmp_path: Path) -> None:
     src = tmp_path / "team.yaml"
     original = "roles:\n  lead:\n    prompt: Generate the page.\n    tools: []\n"
@@ -223,7 +206,6 @@ def test_build_can_replace_independent_output(tmp_path: Path) -> None:
     assert proc.returncode == 0, proc.stderr
     assert src.read_text(encoding="utf-8") == original
     assert yaml.safe_load(_island_yaml(out.read_text(encoding="utf-8"))) == yaml.safe_load(original)
-
 
 @pytest.mark.parametrize(
     "cfg", ["team.example.yaml", "team.collab.yaml"]
@@ -238,7 +220,6 @@ def test_shipped_team_configs_render(cfg: str, tmp_path: Path) -> None:
     assert yaml.safe_load(_island_yaml(html)) == yaml.safe_load(
         src.read_text(encoding="utf-8")
     )
-
 
 def test_template_is_valid_per_real_loader() -> None:
     """The shipped template must load under OpenCollab's actual team-config
@@ -255,7 +236,6 @@ def test_template_is_valid_per_real_loader() -> None:
         assert role.prompt, f"role {name} has an empty prompt"
         unknown = set(role.tools) - KNOWN_TOOL_NAMES
         assert not unknown, f"role {name} names unknown tools: {sorted(unknown)}"
-    # every topology endpoint the template wires is a declared role.
     for src, dsts in team.topology.edges.items():
         assert src in team.roles
         for dst in dsts:

@@ -19,7 +19,6 @@ except ModuleNotFoundError as exc:  # pragma: no cover - exercised before argume
         'fontTools is required; run with `uv run --no-project --with "fonttools==4.59.2" python ...`'
     ) from exc
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ASSET_DIR = REPO_ROOT / "assets"
 DEFAULT_BOLD_FONT = Path("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf")
@@ -56,19 +55,16 @@ MARK = """    <circle cx="256" cy="256" r="160" fill="none" stroke="url(#g)" str
     <circle cx="161.95" cy="385.44" r="45" fill="#5556EC"/>
     <circle cx="103.83" cy="206.56" r="45" fill="#7C3AED"/>"""
 
-
 @dataclass(frozen=True)
 class FontSpec:
     path: Path
     style: str
     sha256: str
 
-
 @dataclass(frozen=True)
 class TextOutline:
     path: str
     advance: float
-
 
 EXPECTED_FONTS = {
     "Bold": "3973aa5054fb467dd5627245d3dc82e37bf16fe075756156a570455871351582",
@@ -84,7 +80,6 @@ GUIDELINE_STYLES = {
 
 TEXT_STYLE_PREFIXES = ("text {", ".label {", ".body {", ".small {", ".micro {")
 
-
 def _font_name(font: TTFont, name_id: int) -> str:
     candidates = [record for record in font["name"].names if record.nameID == name_id]
     preferred = sorted(candidates, key=lambda record: (record.platformID != 3, record.langID != 0x409))
@@ -94,7 +89,6 @@ def _font_name(font: TTFont, name_id: int) -> str:
         except UnicodeDecodeError:
             continue
     raise ValueError(f"font is missing name table entry {name_id}")
-
 
 def _load_font(spec: FontSpec) -> TTFont:
     if not spec.path.is_file():
@@ -115,7 +109,6 @@ def _load_font(spec: FontSpec) -> TTFont:
         raise ValueError(f"unexpected font metadata for {spec.path}: {metadata!r}")
     return font
 
-
 def _kerning(font: TTFont) -> dict[tuple[str, str], int]:
     values: dict[tuple[str, str], int] = {}
     if "kern" not in font:
@@ -123,7 +116,6 @@ def _kerning(font: TTFont) -> dict[tuple[str, str], int]:
     for table in font["kern"].kernTables:
         values.update(table.kernTable)
     return values
-
 
 def _outline(font: TTFont, text: str, *, letter_spacing: float = 0.0) -> TextOutline:
     glyph_set = font.getGlyphSet()
@@ -148,10 +140,8 @@ def _outline(font: TTFont, text: str, *, letter_spacing: float = 0.0) -> TextOut
 
     return TextOutline(path=pen.getCommands(), advance=x)
 
-
 def _path(outline: TextOutline, *, x: str, y: str, scale: str, fill: str) -> str:
     return f'  <path d="{outline.path}" transform="translate({x} {y}) scale({scale} -{scale})" fill="{fill}"/>'
-
 
 def _svg_start(view_box: str, title: str, description: str) -> str:
     return (
@@ -161,10 +151,8 @@ def _svg_start(view_box: str, title: str, description: str) -> str:
         f'  <desc id="desc">{description}</desc>'
     )
 
-
 def _mark_group(transform: str) -> str:
     return f'  <g transform="{transform}">\n{MARK}\n  </g>'
-
 
 def _render_assets(wordmark: TextOutline, tagline: TextOutline) -> dict[Path, str]:
     horizontal = "\n".join(
@@ -216,11 +204,9 @@ def _render_assets(wordmark: TextOutline, tagline: TextOutline) -> dict[Path, st
         ASSET_DIR / "banner-dark.svg": banner,
     }
 
-
 def _format_number(value: float) -> str:
     rendered = f"{value:.10f}".rstrip("0").rstrip(".")
     return "0" if rendered == "-0" else rendered
-
 
 def _guideline_text_path(element: ElementTree.Element, *, bold: TTFont, regular: TTFont) -> ElementTree.Element:
     attributes = dict(element.attrib)
@@ -266,7 +252,6 @@ def _guideline_text_path(element: ElementTree.Element, *, bold: TTFont, regular:
     path.tail = element.tail
     return path
 
-
 def _render_brand_board(wordmark: TextOutline, *, bold: TTFont, regular: TTFont) -> tuple[Path, str]:
     path = ASSET_DIR / "brand-guidelines.svg"
     template_path = ASSET_DIR / "brand-guidelines.svg.in"
@@ -296,7 +281,6 @@ def _render_brand_board(wordmark: TextOutline, *, bold: TTFont, regular: TTFont)
     ElementTree.indent(tree, space="  ")
     return path, ElementTree.tostring(root, encoding="unicode", short_empty_elements=True) + "\n"
 
-
 def _write_or_check(outputs: dict[Path, str], *, check: bool) -> int:
     stale: list[Path] = []
     for path, rendered in outputs.items():
@@ -317,14 +301,12 @@ def _write_or_check(outputs: dict[Path, str], *, check: bool) -> int:
         print(f"generated: {path.relative_to(REPO_ROOT)}")
     return 0
 
-
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bold-font", type=Path, default=DEFAULT_BOLD_FONT)
     parser.add_argument("--regular-font", type=Path, default=DEFAULT_REGULAR_FONT)
     parser.add_argument("--check", action="store_true", help="fail when generated assets differ from tracked files")
     return parser.parse_args()
-
 
 def main() -> int:
     args = _parse_args()
@@ -336,7 +318,6 @@ def main() -> int:
     board_path, board = _render_brand_board(wordmark, bold=bold, regular=regular)
     outputs[board_path] = board
     return _write_or_check(outputs, check=args.check)
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

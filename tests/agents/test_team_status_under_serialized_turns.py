@@ -1,23 +1,4 @@
-"""What ``team_status`` and ``submit`` tell an agent when turns are serialized.
-
-Under ``serialize_turns`` exactly one agent runs at a time, and a teammate that
-has been messaged cannot start until the agent now running ends its turn. Two
-texts used to say otherwise:
-
-* ``team_status`` printed ``busy`` for every aid whose driver task existed and
-  had not finished. A messaged teammate's task exists at once and then waits on
-  the team gate, so the sender was shown its teammate as busy while that
-  teammate could not run until the sender itself stopped. 09-25, gpt-5.6-luna
-  on the s2dual plain card: the Adopter read ``coder_a — busy``, waited by
-  polling and sleeping inside its own turn, and in 29 of 36 runs no Coder ran
-  before the Adopter's budget was gone.
-* ``submit`` said only "your work on this task is finished". An agent waiting
-  on a teammate is not finished, so read literally it is not the way to wait,
-  although ending the turn is the only way a serialized teammate gets to run.
-
-The tests pin the roster field that tells the two states apart, the label it
-prints as, and the waiting sentence in ``submit``.
-"""
+"""Serialized teammates stay queued until the running agent ends its turn."""
 
 from __future__ import annotations
 
@@ -34,7 +15,6 @@ from tests.support.scheduler_awaiting_test_support import (
 )
 
 GATE_TIMEOUT_SECONDS = 30.0
-
 
 def _snapshot_inside_first_turn(*, serialize_turns: bool) -> dict[str, dict]:
     """Roster as seen from inside whichever teammate runs first, by role."""
@@ -73,16 +53,14 @@ def _snapshot_inside_first_turn(*, serialize_turns: bool) -> dict[str, dict]:
     assert asyncio.run(scenario()) == "final: coder, tester"
     return seen
 
-
 def test_a_teammate_waiting_for_the_turn_is_marked_queued_not_the_one_running():
     seen = _snapshot_inside_first_turn(serialize_turns=True)
     running = next(e for e in seen.values() if e["me"])
     waiting = next(e for e in seen.values() if not e["me"] and e["role"] != "lead")
 
-    assert waiting["busy"] is True          # its driver task exists ...
-    assert waiting["turn_queued"] is True   # ... but it cannot run yet
+    assert waiting["busy"] is True
+    assert waiting["turn_queued"] is True
     assert running["turn_queued"] is False
-
 
 def test_the_manifest_roster_does_not_carry_the_display_field():
     """team_snapshot is also written to the team manifest; it stays as it was."""
@@ -107,13 +85,11 @@ def test_the_manifest_roster_does_not_carry_the_display_field():
     asyncio.run(scenario())
     assert seen and all("turn_queued" not in e for e in seen)
 
-
 def test_nothing_is_queued_when_turns_run_concurrently():
     seen = _snapshot_inside_first_turn(serialize_turns=False)
 
     assert set(seen) == {"lead", "coder", "tester"}
     assert all(e["turn_queued"] is False for e in seen.values())
-
 
 class _Roster:
     def __init__(self, entries):
@@ -122,11 +98,9 @@ class _Roster:
     def team_snapshot(self):
         return self._entries
 
-
 def _render(entries) -> str:
     tool = TeamStatusTool(_Roster(entries))
     return asyncio.run(tool.execute_with_runtime({}, runtime=None))
-
 
 def test_team_status_prints_a_queued_teammate_as_waiting_for_the_turn():
     out = _render([
@@ -141,20 +115,17 @@ def test_team_status_prints_a_queued_teammate_as_waiting_for_the_turn():
     assert "busy" not in coder
     assert "queued" in coder and "ends its turn" in coder
 
-
 def test_team_status_is_unchanged_for_a_roster_without_the_field():
     out = _render([{"aid": 1, "role": "coder_a", "parent_aid": 0, "phase": "idle", "busy": True}])
 
     assert out.splitlines()[1].endswith("— busy")
 
-
 def test_submit_says_it_is_also_how_to_wait_for_a_teammate():
     text = SubmitTool.description
 
-    assert "finished" in text                          # the original meaning stays
-    assert "waiting" in text and "teammate" in text    # and waiting is named
+    assert "finished" in text
+    assert "waiting" in text and "teammate" in text
     assert "reopens your turn" in text
-
 
 def test_team_status_run_by_the_running_agent_shows_its_teammate_queued():
     """End to end: the tool reads the scheduler's display rows, not the manifest roster."""

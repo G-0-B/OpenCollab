@@ -10,7 +10,6 @@ from opencollab.application.exception_notes import add_exception_note
 
 T = TypeVar("T")
 
-
 async def await_owned_operation(
     awaitable: Awaitable[T],
     *,
@@ -40,7 +39,6 @@ async def await_owned_operation(
         raise cancellation
     return result
 
-
 class CallerTimeoutError(asyncio.TimeoutError):
     """Raised only when this helper's caller-supplied deadline expires.
 
@@ -48,7 +46,6 @@ class CallerTimeoutError(asyncio.TimeoutError):
     Keeping the caller deadline distinct lets orchestration report transport
     failures accurately instead of labelling every timeout as a workflow wall.
     """
-
 
 async def force_task_terminal(
     task: asyncio.Future[object],
@@ -97,7 +94,6 @@ async def force_task_terminal(
             pass
     return task.done()
 
-
 async def cancel_tasks_and_wait(
     tasks: Iterable[asyncio.Future[object]],
     *,
@@ -110,7 +106,6 @@ async def cancel_tasks_and_wait(
     if pending:
         _done, pending = await asyncio.wait(pending, timeout=timeout)
     return pending
-
 
 async def abandon_on_timeout(
     awaitable: Awaitable[T],
@@ -162,13 +157,11 @@ async def abandon_on_timeout(
     task.add_done_callback(late_result_handler or consume_task_result)
     raise timeout_error_type
 
-
 def consume_task_result(task: asyncio.Future) -> None:
     try:
         task.result()
     except BaseException:
         pass
-
 
 def run_with_bounded_shutdown(
     awaitable: Awaitable[T],

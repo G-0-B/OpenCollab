@@ -206,8 +206,6 @@ async def test_run_workflow_writes_orchestration_signals(monkeypatch, tmp_path):
     assert result == "ok"
     path = os.path.join(save_dir, "orchestration.jsonl")
     assert os.path.exists(path)
-    # The legacy single flat trajectory.jsonl is gone — signals live in
-    # orchestration.jsonl, per-role conversations in <seq>_<role>.json.
     assert not os.path.exists(os.path.join(save_dir, "trajectory.jsonl"))
     with open(path) as f:
         types = [json.loads(line)["type"] for line in f if line.strip()]

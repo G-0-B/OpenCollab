@@ -15,7 +15,6 @@ class ToolFacts:
     changed_paths: tuple[str, ...] = ()
     submitted_summary: str | None = None
 
-
 class ToolFactsCollector:
     """Owned by one invocation; observations after close cannot affect its result."""
 

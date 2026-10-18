@@ -125,7 +125,6 @@ def test_cleanup_drains_queued_autosaves_before_final_snapshot(tmp_path):
         saved = json.load(handle)
     assert saved["messages"][-1]["content"] == "latest state"
 
-
 def test_cleanup_surfaces_final_session_snapshot_failure(tmp_path):
     error = OSError("final snapshot failed")
 
@@ -150,7 +149,6 @@ def test_cleanup_surfaces_final_session_snapshot_failure(tmp_path):
     ) as caught:
         run(scheduler.cleanup())
     assert caught.value.__cause__ is error
-
 
 def test_cleanup_reports_nonquiescent_autosave_before_late_release(tmp_path):
     started = threading.Event()
@@ -214,7 +212,6 @@ def test_cleanup_reports_nonquiescent_autosave_before_late_release(tmp_path):
     with open(save_path, encoding="utf-8") as handle:
         assert json.load(handle)["messages"][-1]["content"] == "late-old"
 
-
 def test_cleanup_surfaces_sticky_subscriber_persistence_error(tmp_path):
     error = OSError("background snapshot failed")
 
@@ -255,7 +252,6 @@ def test_cleanup_surfaces_sticky_subscriber_persistence_error(tmp_path):
         assert caught.value.__cause__ is error
 
     run(scenario())
-
 
 def test_cleanup_bounds_blocking_final_snapshot_and_keeps_owner_visible(tmp_path):
     started = threading.Event()
@@ -301,7 +297,6 @@ def test_cleanup_bounds_blocking_final_snapshot_and_keeps_owner_visible(tmp_path
     with open(save_path, encoding="utf-8") as handle:
         assert json.load(handle)["messages"][-1]["content"] == "latest"
 
-
 def test_cleanup_surfaces_sticky_manifest_failure_after_later_success():
     scheduler, _ = _build_scheduler(None, {})
     error = OSError("first manifest failed")
@@ -324,7 +319,6 @@ def test_cleanup_surfaces_sticky_manifest_failure_after_later_success():
         run(scheduler.cleanup())
     assert caught.value.__cause__ is error
 
-
 def test_cleanup_surfaces_final_manifest_failure():
     scheduler, _ = _build_scheduler(None, {})
     error = OSError("final manifest failed")
@@ -339,7 +333,6 @@ def test_cleanup_surfaces_final_manifest_failure():
     ) as caught:
         run(scheduler.cleanup())
     assert caught.value.__cause__ is error
-
 
 def test_cleanup_bounds_blocking_final_manifest_and_keeps_owner_visible():
     scheduler, _ = _build_scheduler(None, {})
@@ -369,7 +362,6 @@ def test_cleanup_bounds_blocking_final_manifest_and_keeps_owner_visible():
         await asyncio.gather(*pending, return_exceptions=True)
 
     run(scenario())
-
 
 def test_team_cleanup_tracks_abandoned_provider_task_until_exit():
     class CancellationResistantLLM:
@@ -435,7 +427,6 @@ def test_team_cleanup_tracks_abandoned_provider_task_until_exit():
 
     run(scenario())
 
-
 def test_spawn_with_review_emits_review_lifecycle_around_spawns(monkeypatch):
     scheduler, events = _build_scheduler(
         monkeypatch,
@@ -451,13 +442,11 @@ def test_spawn_with_review_emits_review_lifecycle_around_spawns(monkeypatch):
     assert "implemented X" in result
 
     seq = _scheduler_events(events)
-    # review_started → coder spawn → agent_completed → reviewer spawn → agent_completed → review_completed
     types = [e.type for e in seq]
     assert "review_started" in types
     assert "review_completed" in types
     assert "agent_spawned" in types
     assert "agent_completed" in types
-
 
 def test_spawn_with_review_iterates_when_reviewer_fails(monkeypatch):
     scheduler, events = _build_scheduler(
@@ -478,7 +467,6 @@ def test_spawn_with_review_iterates_when_reviewer_fails(monkeypatch):
 
     seq = _scheduler_events(events)
     review_loops = [e for e in seq if e.type in ("review_started", "review_completed")]
-    # 2 iterations × (review_started + review_completed)
     assert [e.type for e in review_loops] == [
         "review_started",
         "review_completed",
@@ -495,7 +483,6 @@ def test_spawn_with_review_iterates_when_reviewer_fails(monkeypatch):
     assert "v1 impl" in second_coder_task
     assert "Reapply the previous implementation" in second_coder_task
 
-
 def test_spawn_with_review_retains_final_reviewer_feedback(monkeypatch):
     scheduler, _ = _build_scheduler(
         monkeypatch,
@@ -509,7 +496,6 @@ def test_spawn_with_review_retains_final_reviewer_feedback(monkeypatch):
 
     assert "final implementation" in result
     assert "Last reviewer feedback:\nCritical race remains.\nVERDICT: FAIL" in result
-
 
 def test_spawn_with_review_returns_artifact_when_reviewer_spawn_fails(monkeypatch):
     scheduler, events = _build_scheduler(
@@ -536,7 +522,6 @@ def test_spawn_with_review_returns_artifact_when_reviewer_spawn_fails(monkeypatc
         if event.type.startswith("review_")
     ]
     assert review_events == ["review_started", "review_completed"]
-
 
 @pytest.mark.parametrize("failure_mode", ["wait", "terminal"])
 def test_spawn_with_review_retains_prior_artifact_when_next_coder_is_empty(
@@ -576,7 +561,6 @@ def test_spawn_with_review_retains_prior_artifact_when_next_coder_is_empty(
     assert "Last implementation:\nbest first implementation" in result
     assert "Last reviewer feedback:\nNeeds another fix.\nVERDICT: FAIL" in result
 
-
 def test_spawn_with_review_passes_context_and_constraints_to_reviewer(monkeypatch):
     scheduler, _ = _build_scheduler(
         monkeypatch,
@@ -601,7 +585,6 @@ def test_spawn_with_review_passes_context_and_constraints_to_reviewer(monkeypatc
     assert f"Required context:\n{context}" in reviewer_task
     assert "Artifact to review:\nimplemented parser" in reviewer_task
 
-
 def test_review_verdict_uses_only_the_final_nonempty_line():
     quoted_then_failed = (
         "The prompt mentioned VERDICT: PASS.\n"
@@ -615,7 +598,6 @@ def test_review_verdict_uses_only_the_final_nonempty_line():
     assert ReviewVerdict.parse("Looks good.\nVERDICT: PASS?\n").passed is False
     assert ReviewVerdict.parse("Looks good.\nVERDICT: PASS...\n").passed is False
     assert ReviewVerdict.parse("VERDICT: PASS\nTrailing prose").passed is False
-
 
 def test_spawn_with_review_ignores_review_event_sink_failures(monkeypatch):
     factory = _FakeSessionFactory(
@@ -636,7 +618,6 @@ def test_spawn_with_review_ignores_review_event_sink_failures(monkeypatch):
     result = run(scheduler.spawn_with_review(0, "write fn"))
 
     assert "PASSED after 1 iteration" in result
-
 
 def test_spawn_with_review_restores_parent_turn_budget(monkeypatch):
     scheduler, _ = _build_scheduler(
@@ -659,7 +640,6 @@ def test_spawn_with_review_restores_parent_turn_budget(monkeypatch):
 
     assert "PASSED after 1 iteration" in run(scenario())
 
-
 def test_external_spawn_with_review_preserves_seed_for_later_spawn(monkeypatch):
     scheduler, _ = _build_scheduler(
         monkeypatch,
@@ -678,14 +658,12 @@ def test_external_spawn_with_review_preserves_seed_for_later_spawn(monkeypatch):
 
     run(scenario())
 
-
 def test_spawn_does_not_emit_session_tool_events(monkeypatch):
     """Scheduler.spawn must not re-use session_runtime tool_start/tool_end semantics."""
     scheduler, events = _build_scheduler(monkeypatch, {"coder": ["ok"]})
 
     run(_spawn_and_settle(scheduler, 0, "coder", "x"))
 
-    # Every event from scheduler orchestration must be a SchedulerEvent now.
     types = [getattr(e, "type", None) for e in events]
     assert "tool_start" not in types
     assert "tool_end" not in types

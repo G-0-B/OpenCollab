@@ -16,7 +16,6 @@ from tests.runtime.test_llm_chat_streaming import FakeClient, chunk, usage_chunk
 
 USAGE = {"prompt_tokens": 100, "completion_tokens": 100, "total_tokens": 200}
 
-
 def completion(content, calls, finish, reasoning=None):
     result = ChatCompletion.model_validate({
         "id": "chatcmpl-session", "object": "chat.completion", "created": 1, "model": "deepseek-flash",
@@ -30,12 +29,10 @@ def completion(content, calls, finish, reasoning=None):
     result.choices[0].finish_reason = finish
     return result
 
-
 def finish_chunk(finish):
     result = chunk(finish_reason="stop")
     result.choices[0].finish_reason = finish
     return result
-
 
 async def session_with_wire(tmp_path, wire, *, stream, tools, thinking=False, retries=0):
     client = LLMClient(model="deepseek-flash", api_key="unused", max_retries=retries, stream_chat=stream)
@@ -51,7 +48,6 @@ async def session_with_wire(tmp_path, wire, *, stream, tools, thinking=False, re
     )
     await session.add_user_message("inspect the file")
     return session
-
 
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("retries", [0, 1])
@@ -77,7 +73,6 @@ async def test_provider_limit_retains_usage_text_and_stops_partial_tool(tmp_path
     assert not (tmp_path / "app.py").exists()
     assert all(stream.closed for stream in wire.streams)
 
-
 @pytest.mark.parametrize("delta", [
     {"index": 0, "function": {"arguments": '{"path":'}},
     {"index": 0, "id": "write-1", "function": {"name": "file_", "arguments": "{"}},
@@ -94,7 +89,6 @@ async def test_provider_limit_can_interrupt_tool_identity(tmp_path, delta):
     assert len(wire.calls) == 1
     assert all(stream.closed for stream in wire.streams)
 
-
 async def test_provider_limit_without_usage_keeps_missing_usage_failure(tmp_path):
     wire = FakeClient([[
         chunk(delta={"tool_calls": [{"index": 0, "function": {"arguments": "{"}}]}),
@@ -107,7 +101,6 @@ async def test_provider_limit_without_usage_keeps_missing_usage_failure(tmp_path
     assert session.used_tokens == 0
     assert len(wire.calls) == 1
     assert all(stream.closed for stream in wire.streams)
-
 
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("thinking", [False, True])

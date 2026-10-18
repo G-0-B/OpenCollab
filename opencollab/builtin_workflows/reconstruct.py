@@ -1,31 +1,15 @@
-"""Reconstruct a hidden program from its input/output behaviour.
+"""Reconstruct a hidden program with FromIO's active-exploration protocol.
 
-The workflow runs the active-exploration protocol of the FromIO paper
-(arXiv 2605.15334, Section 4.6, ``run_active_dio_agent.py``): the workflow,
-not the agent, decides when the hidden program is queried and how many inputs
-each batch holds (``initial_batch``, then ``batch_step`` more per batch); a
-batch is requested only after the current candidate passes every observed
-example (a "promotion"); ``early_stop`` consecutive promotions end the task;
-the agent proposes the inputs and the workflow validates them (exact count,
-no repeats, accepted by the oracle) and retries a rejected proposal. One
-coding-agent session replaces one DIO-Agent evolution iteration, and the
-final program is the archived candidate with the best stage score on the
-final example set.
+Query ``initial_batch`` inputs, then request larger batches after candidates pass
+the observed examples, increasing by ``batch_step`` per promotion. ``early_stop``
+consecutive promotions end the task. The workflow validates proposed input counts,
+uniqueness and oracle acceptance. The final example set scores archived candidates.
 
-Four optional disciplines borrow rea's verification rules: part of every
-batch may come from a hypothesis-independent input generator
-(``random_share``); a promotion may be withheld until the observed inputs
-cover the structural case categories (``coverage_gate``); a pass produced by
-memorised inputs or by an over-complex program may need more evidence
-(``memorisation_gate``, ``complexity_gate``); proposed inputs outside the
-task's numeric range may be rejected (``domain_check``).
-
-The benchmark binding is a :class:`ReconstructionTask`: how to query the
-hidden program, how to run a candidate, which tools the coding agent gets.
-Workflow arguments must stay JSON-serializable, so ``args["task"]`` is a
-handle: either the token returned by :func:`register_task` (SDK callers in
-the same process) or a ``module:callable`` factory that builds the task from
-``args["task_args"]`` (CLI callers).
+Optional controls add independent random inputs, structural coverage, memorization
+and complexity checks, or numeric domain validation. ``ReconstructionTask`` binds
+the oracle, candidate runner and tools. JSON arguments carry either a single-use
+``register_task`` token or a ``module:callable`` factory plus ``task_args``.
+See FromIO, arXiv 2605.15334, Section 4.6.
 """
 
 from __future__ import annotations
@@ -169,12 +153,10 @@ _TOKEN_PREFIX = "reconstruct-task:"
 
 
 def register_task(task: ReconstructionTask) -> str:
-    """Register a task built in this process; the returned token goes into ``args["task"]``.
+    """Register an in-process task and return a single-use ``args["task"]`` token.
 
-    Workflow arguments are recorded with the run's artifacts and must be
-    JSON-serializable, so live objects (oracle functions, Docker-backed
-    evaluators, tools) travel through this registry instead. A token is
-    consumed by the workflow that resolves it.
+    The registry carries live oracle, evaluator and tool objects while workflow
+    arguments remain JSON-serializable.
     """
     if not isinstance(task, ReconstructionTask):
         raise TypeError("register_task expects a ReconstructionTask")

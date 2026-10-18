@@ -46,7 +46,6 @@ async def run(ctx, args):
                              "origin": str(location), "located": True}
     assert not list(directory.rglob("*.pyc"))
 
-
 async def test_relative_workflow_path_keeps_location_after_directory_change(tmp_path, monkeypatch):
     directory = tmp_path / "workflows"
     directory.mkdir()

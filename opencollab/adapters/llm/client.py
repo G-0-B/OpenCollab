@@ -48,7 +48,6 @@ _NATIVE_OPENAI_HOSTS = {
 
 _ledger_lock = threading.Lock()
 
-
 async def _record_api_usage_async(**kwargs: Any) -> None:
     def _locked_record() -> None:
         with _ledger_lock:
@@ -59,13 +58,11 @@ async def _record_api_usage_async(**kwargs: Any) -> None:
     except Exception:
         return
 
-
 class LLMClient:
-    """Provider-agnostic LLM client. Uses OpenAI SDK which works with any
-    compatible endpoint (OpenAI, DeepSeek, Together, Ollama, vLLM, etc.).
+    """Client for OpenAI-compatible endpoints and native Anthropic requests.
 
-    For Anthropic: set provider="anthropic" to use the dedicated Anthropic
-    SDK path (history is converted from OpenAI format per request).
+    Set ``provider="anthropic"`` for the Anthropic SDK path, which converts
+    OpenAI-format history per request.
     """
 
     def __init__(
@@ -111,8 +108,6 @@ class LLMClient:
         )
         self.first_event_timeout = first_event_timeout
         self.stream_idle_timeout = stream_idle_timeout
-        # Chat-completions streaming, OFF by default. When off,
-        # ``complete_openai`` builds the same request body it always has.
         self.stream_chat = bool(stream_chat)
         self.provider_error_time_budget = provider_error_time_budget
         self._retry_budget_explicit = provider_retry_budget is not None
@@ -282,9 +277,7 @@ class LLMClient:
             if self._retry_budget_explicit
             else _scoped_native_retry_budget(self.provider_retry_budget)
         )
-        # One timer per call, installed here and not in any provider module:
-        # every arm reaches its provider through this one method, so the
-        # record cannot be present on one arm's path and absent from another's.
+        # Measure here so every provider path records the call timing.
         with recording() as first_token:
             try:
                 if self._anthropic:
@@ -351,11 +344,8 @@ class LLMClient:
                 try:
                     response.transport_timing = transport_timing
                 except (AttributeError, TypeError):
-                    # A provider that returned something other than
-                    # ``LLMResponse`` (a stub, a slotted object) must not have a
-                    # successful completion turned into a failure by an
-                    # observability field. The usage ledger below still records
-                    # the timing for such a call.
+                    # Custom provider responses may reject new attributes. The usage ledger
+                    # still records their timing.
                     pass
                 await _record_api_usage_async(
                     provider=self.provider,

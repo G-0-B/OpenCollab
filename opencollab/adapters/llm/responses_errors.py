@@ -25,10 +25,8 @@ _TRANSIENT_RESPONSE_MESSAGES = (
     "upstream http/2 stream failed",
 )
 
-
 class ResponsesProtocolError(RuntimeError):
     """The Responses endpoint returned an incomplete or invalid event sequence."""
-
 
 class ResponsesTerminalEventError(ResponsesProtocolError):
     """A typed terminal event preserved its provider error identity."""
@@ -47,14 +45,11 @@ class ResponsesTerminalEventError(ResponsesProtocolError):
         self.param = param
         self.body = {"error": {"code": code, "message": message, "param": param}}
 
-
 class ResponsesEmptyOutputError(ResponsesProtocolError, TransientEmptyOutputError):
     """A completed Responses request contained no usable assistant output."""
 
-
 class ResponsesStreamInterruptedError(ResponsesProtocolError, TransientProviderError):
     """A Responses stream ended without its required terminal event."""
-
 
 class ResponsesTransientEventError(ResponsesTerminalEventError, TransientProviderError):
     """A typed Responses error identified a temporary provider failure."""

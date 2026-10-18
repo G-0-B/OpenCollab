@@ -38,7 +38,6 @@ STRUCTURED_SCHEMA = {
     "required": ["answer"], "additionalProperties": False,
 }
 
-
 def _response(body, spec):
     kind = spec.get("kind", "answer")
     items = [] if kind in {"filter", "empty", "failed"} else [message_item(spec.get("text", "ok"))]
@@ -55,7 +54,6 @@ def _response(body, spec):
         "output": items, "usage": spec.get("usage", KNOWN_USAGE),
     }
 
-
 def _payload(body, spec):
     response = _response(body, spec)
     if not body["stream"]:
@@ -65,7 +63,6 @@ def _payload(body, spec):
     terminal = {"completed": "response.completed", "failed": "response.failed", "incomplete": "response.incomplete"}
     events.append({"type": terminal[response["status"]], "sequence_number": len(events), "response": response})
     return "text/event-stream", "".join("data: " + json.dumps(event) + "\n\n" for event in events).encode()
-
 
 @pytest.fixture
 def local_responses_server():
@@ -101,7 +98,6 @@ def local_responses_server():
         server.server_close()
         thread.join()
 
-
 @pytest.fixture
 def usage_log(monkeypatch, tmp_path):
     path = tmp_path / "usage.jsonl"
@@ -111,10 +107,8 @@ def usage_log(monkeypatch, tmp_path):
     monkeypatch.setattr(retry.random, "uniform", lambda _lo, _hi: 0.0)
     return path
 
-
 def _records(path):
     return [json.loads(line) for line in Path(path).read_text().splitlines()]
-
 
 @pytest.fixture
 def trajectory(tmp_path):
@@ -124,11 +118,9 @@ def trajectory(tmp_path):
     finally:
         tracer.close()
 
-
 def _llm_records(tracer):
     tracer.flush()
     return [record for record in _records(tracer.path) if record["type"] == "llm_call"]
-
 
 def _client(model, base_url, *, retries=0):
     return LLMClient(
@@ -137,10 +129,8 @@ def _client(model, base_url, *, retries=0):
         first_event_timeout=None, request_timeout=None,
     )
 
-
 def _agent(model="gpt-4o"):
     return Agent(name="reader", system_prompt="Reply briefly", model=model, wire_protocol="responses")
-
 
 async def test_ordinary_success_usage_is_charged_once(local_responses_server, usage_log, trajectory):
     base_url, requests = local_responses_server([{}])
@@ -160,7 +150,6 @@ async def test_ordinary_success_usage_is_charged_once(local_responses_server, us
     assert len(calls) == 1
     assert calls[0]["payload"]["usage"]["total_tokens"] == 37
     assert "status" not in calls[0]["payload"]
-
 
 @pytest.mark.parametrize("model", ["gpt-4o", "o1-pro"])
 @pytest.mark.parametrize("kind", ["filter", "failed"])
@@ -206,7 +195,6 @@ async def test_reported_terminal_error_usage_reaches_session_and_ledger(
     }
     assert calls[0]["metrics"]["tokens"] == 37
 
-
 @pytest.mark.parametrize("model", ["gpt-4o", "o1-pro"])
 async def test_invalid_function_json_retains_terminal_usage(model, local_responses_server, usage_log):
     base_url, requests = local_responses_server([{"function_arguments": '{"answer":4'}])
@@ -227,7 +215,6 @@ async def test_invalid_function_json_retains_terminal_usage(model, local_respons
     assert records[0]["error"]["type"] == "ResponsesProtocolError"
     assert records[0]["usage"]["total_tokens"] == 37
     assert records[0]["usage"]["estimated"] is False
-
 
 @pytest.mark.parametrize("model", ["gpt-4o", "o1-pro"])
 @pytest.mark.parametrize("malformed", [False, True])
@@ -275,7 +262,6 @@ async def test_public_structured_correction_accounts_for_every_request(
     assert [record["usage"]["total_tokens"] for record in records] == ([37, 23] if malformed else [37])
     assert all(record["usage"]["estimated"] is False for record in records)
 
-
 @pytest.mark.parametrize("model", ["gpt-4o", "o1-pro"])
 @pytest.mark.parametrize("first_kind", ["empty", "failed"])
 @pytest.mark.parametrize("recover", [False, True])
@@ -305,7 +291,6 @@ async def test_retry_usage_is_charged_once_with_final_request_context(
     assert records[0]["usage"]["total_tokens"] == 74
     assert records[0]["usage"]["raw_usage"]["attempts"] == [KNOWN_USAGE, KNOWN_USAGE]
 
-
 async def test_retry_cost_can_exhaust_session_budget(local_responses_server, usage_log):
     usage = {**KNOWN_USAGE, "input_tokens": 600, "output_tokens": 300, "total_tokens": 900}
     base_url, requests = local_responses_server([{"kind": "empty", "usage": usage}, {"usage": usage}])
@@ -321,7 +306,6 @@ async def test_retry_cost_can_exhaust_session_budget(local_responses_server, usa
     records = _records(usage_log)
     assert len(records) == 1
     assert records[0]["usage"]["total_tokens"] == 1800
-
 
 @pytest.mark.parametrize("recover", [False, True])
 async def test_unknown_failure_usage_is_retained_as_unknown(recover, local_responses_server, usage_log, trajectory):
@@ -347,7 +331,6 @@ async def test_unknown_failure_usage_is_retained_as_unknown(recover, local_respo
         assert record["usage"]["raw_usage"]["attempts"] == [None, KNOWN_USAGE]
     assert len(_llm_records(trajectory)) == int(recover)
 
-
 @pytest.mark.parametrize("reported", [{"input_tokens": 30}, {"input_tokens": 30, "output_tokens": 0}])
 async def test_partial_and_zero_failure_counts_use_only_reported_tokens(reported, local_responses_server, usage_log):
     base_url, _requests = local_responses_server([{"kind": "filter", "usage": reported}])
@@ -361,7 +344,6 @@ async def test_partial_and_zero_failure_counts_use_only_reported_tokens(reported
     assert record["usage"]["raw_usage"] == reported
     assert record["usage"]["output_tokens"] == 0
     assert record["usage"]["estimated"] is ("output_tokens" not in reported)
-
 
 @pytest.mark.parametrize("failed_summary", [False, True])
 async def test_summary_attempts_and_answer_are_each_charged_once(
@@ -391,12 +373,10 @@ async def test_summary_attempts_and_answer_are_each_charged_once(
     assert calls[0]["payload"]["request_tool_choice"] is None
     assert calls[0]["payload"].get("status") == ("error" if failed_summary else None)
 
-
 async def _drain(session):
     while session.pending_cleanup_tasks:
         await asyncio.gather(*session.pending_cleanup_tasks, return_exceptions=True)
         await asyncio.sleep(0)
-
 
 @pytest.mark.parametrize("summary", [False, True])
 @pytest.mark.parametrize("trigger", ["cancel", "timeout"])
@@ -474,7 +454,6 @@ async def test_late_sdk_terminal_usage_is_saved_once(
             await asyncio.gather(turn, return_exceptions=True)
             await _drain(session)
 
-
 @pytest.mark.parametrize("trace", [False, True])
 async def test_error_trace_preserves_original_exception_and_persisted_usage(tmp_path, monkeypatch, trace, trajectory):
     monkeypatch.delenv("OPENCOLLAB_API_USAGE_LOG", raising=False)
@@ -516,7 +495,6 @@ async def test_error_trace_preserves_original_exception_and_persisted_usage(tmp_
         assert failed_calls[0]["transport_timing"] == error.transport_timing
         assert failed_calls[0]["usage"]["raw_usage"] == KNOWN_USAGE
 
-
 async def test_cancellation_during_retry_retains_previous_terminal_usage(
     monkeypatch, local_responses_server, usage_log,
 ):
@@ -545,7 +523,6 @@ async def test_cancellation_during_retry_retains_previous_terminal_usage(
     assert records[0]["status"] == "error"
     assert records[0]["error"]["type"] == "CancelledError"
     assert records[0]["usage"]["total_tokens"] == 37
-
 
 @pytest.mark.parametrize("kind", ["filter", "answer"])
 async def test_cancellation_during_ledger_write_does_not_duplicate_usage(

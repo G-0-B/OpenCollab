@@ -24,7 +24,6 @@ def _runner(environment, spec, workspace):
     scheduler = SimpleNamespace(agent_environment=lambda aid: environment if aid == 1 else None)
     return ShellHookRunner((spec,), scheduler=scheduler, workspace=workspace)
 
-
 async def test_tool_hook_uses_container_exec_and_delivers_stdin_env(monkeypatch, tmp_path):
     remote_files = tmp_path / "container files"
     remote_files.mkdir()
@@ -69,7 +68,6 @@ async def test_tool_hook_uses_container_exec_and_delivers_stdin_env(monkeypatch,
     assert [call[0][1] for call in fake.calls] == ["inspect", "exec"]
     assert not (remote_files / "unexpected").exists()
 
-
 async def test_container_hook_timeout_recovers_inner_group_before_next_hook(monkeypatch, tmp_path, caplog):
     calls = 0
 
@@ -96,7 +94,6 @@ async def test_container_hook_timeout_recovers_inner_group_before_next_hook(monk
     assert "timed out after 0.50s" in caplog.text
     assert runner.cleanup_quiesced and not environment.revoked
 
-
 async def test_tool_hook_cleanup_failure_is_retained(tmp_path):
     async def fail(command, timeout):
         raise ProcessCleanupError("command group survived cleanup")
@@ -108,7 +105,6 @@ async def test_tool_hook_cleanup_failure_is_retained(tmp_path):
         await runner.fire("PostToolUse", {"hook_event_name": "PostToolUse", "tool": "file_write", "aid": 1})
     assert not runner.cleanup_quiesced
     assert isinstance(runner.cleanup_error, ProcessCleanupError)
-
 
 @pytest.mark.parametrize("ending", ["exit 3", "sleep 60; printf unexpected >> sequence.txt"])
 async def test_local_hook_exit_and_timeout_finish_before_next_hook(tmp_path, caplog, ending):
@@ -126,14 +122,12 @@ async def test_local_hook_exit_and_timeout_finish_before_next_hook(tmp_path, cap
     finally:
         await environment.cleanup()
 
-
 async def test_unknown_tool_source_skips_command_and_logs(tmp_path, caplog):
     spec = HookSpec(event="PostToolUse", action_type="command", command="touch unexpected")
     runner = _runner(None, spec, tmp_path)
     assert (await runner.fire("PostToolUse", {"hook_event_name": "PostToolUse", "tool": "file_write", "aid": 5})).allow
     assert "environment unavailable for aid 5" in caplog.text
     assert not (tmp_path / "unexpected").exists()
-
 
 async def test_registered_environment_is_unavailable_after_cleanup(tmp_path):
     team = tmp_path / "team.yaml"

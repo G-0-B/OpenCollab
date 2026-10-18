@@ -23,7 +23,6 @@ _TOOL_MARKUP = (
     '<|tool_call_argument_begin|>{"path":"facts.txt"}<|tool_call_end|><|tool_calls_section_end|>'
 )
 
-
 def _reply(stream, content, refusal, finish_reason, *, reasoning=None, tool_calls=None, usage=_USAGE):
     common = {"id": "chatcmpl-refusal", "created": 1, "model": "gpt-4o"}
     if not stream:
@@ -61,7 +60,6 @@ def _reply(stream, content, refusal, finish_reason, *, reasoning=None, tool_call
     body = "".join(f"data: {json.dumps(frame)}\n\n" for frame in frames) + "data: [DONE]\n\n"
     return httpx.Response(200, headers={"Content-Type": "text/event-stream"}, content=body.encode())
 
-
 async def _client(stream, handler):
     client = LLMClient(model="gpt-4o", api_key="unused", max_retries=0, stream_chat=stream)  # pragma: allowlist secret
     await client._openai.close()
@@ -72,7 +70,6 @@ async def _client(stream, handler):
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     )
     return client
-
 
 async def _run_reply(tmp_path, stream, content, refusal, finish_reason="stop"):
     requests = []
@@ -97,7 +94,6 @@ async def _run_reply(tmp_path, stream, content, refusal, finish_reason="stop"):
     finally:
         await client.close()
 
-
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
 @pytest.mark.parametrize("content", [None, "", " \t\n"], ids=["absent", "empty", "whitespace"])
 async def test_refusal_only_reply_is_returned_and_persisted_once(tmp_path, stream, content):
@@ -110,7 +106,6 @@ async def test_refusal_only_reply_is_returned_and_persisted_once(tmp_path, strea
     assert history[-1]["role"] == "assistant"
     assert history[-1]["content"] == _REFUSAL
 
-
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
 @pytest.mark.parametrize("refusal", [None, _REFUSAL], ids=["content", "mixed"])
 async def test_visible_content_keeps_precedence_over_refusal(tmp_path, stream, refusal):
@@ -122,7 +117,6 @@ async def test_visible_content_keeps_precedence_over_refusal(tmp_path, stream, r
     assert history[-1]["role"] == "assistant"
     assert history[-1]["content"] == _ANSWER
 
-
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
 async def test_empty_content_filter_reply_completes_without_empty_stop_retry(tmp_path, stream):
     result, requests, _history = await _run_reply(tmp_path, stream, None, None, "content_filter")
@@ -131,7 +125,6 @@ async def test_empty_content_filter_reply_completes_without_empty_stop_retry(tmp
     assert result.status == "completed"
     assert result.tokens == 20
     assert len(requests) == 1
-
 
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
 @pytest.mark.parametrize(
@@ -167,7 +160,6 @@ async def test_refusal_stays_text_while_explicit_content_and_structured_calls_ke
     assert response.usage.total_tokens == 20
     assert len(requests) == 1
 
-
 @pytest.mark.parametrize(("stream", "usage"), [
     (False, None),
     (False, {"prompt_tokens": 13, "completion_tokens": 0, "total_tokens": 13}),
@@ -196,7 +188,6 @@ async def test_refusal_output_estimate_matches_the_same_visible_content(stream, 
     assert refused.usage.output_tokens == ordinary.usage.output_tokens == mixed.usage.output_tokens
     assert refused.usage.output_tokens > 10
 
-
 @pytest.mark.parametrize("usage", [None, {"prompt_tokens": 13, "completion_tokens": 0, "total_tokens": 13}])
 async def test_streamed_refusal_still_requires_reported_usage(usage):
     async def handler(_request):
@@ -208,7 +199,6 @@ async def test_streamed_refusal_still_requires_reported_usage(usage):
             await client.complete([{"role": "user", "content": "Explain the available alternative."}])
     finally:
         await client.close()
-
 
 async def test_estimation_preserves_the_original_refusal_payload():
     from opencollab.adapters.llm._chat_response import _estimate_output_tokens

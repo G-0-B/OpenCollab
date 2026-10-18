@@ -43,7 +43,6 @@ def test_spawn_emits_agent_spawned_then_completed(monkeypatch):
     assert "latency" in completed.data
     assert isinstance(completed.data["latency"], float)
 
-
 def test_spawn_autosaves_parent_tool_call(monkeypatch, tmp_path):
     scheduler, _ = _build_scheduler(monkeypatch, {"analyst": ["done"]})
     lead = scheduler.lead_session
@@ -70,7 +69,6 @@ def test_spawn_autosaves_parent_tool_call(monkeypatch, tmp_path):
     with open(lead.auto_save_path) as f:
         saved = json.load(f)
     assert saved["messages"][-1]["tool_calls"][0]["function"]["name"] == "spawn_agent"
-
 
 def test_spawn_lifecycle_slow_autosave_keeps_event_loop_responsive(tmp_path):
     started = threading.Event()
@@ -99,7 +97,6 @@ def test_spawn_lifecycle_slow_autosave_keeps_event_loop_responsive(tmp_path):
         await scheduler.cleanup()
 
     run(scenario())
-
 
 def test_message_queue_slow_autosave_keeps_event_loop_responsive(tmp_path):
     started = threading.Event()
@@ -141,7 +138,6 @@ def test_message_queue_slow_autosave_keeps_event_loop_responsive(tmp_path):
         await scheduler.cleanup()
 
     run(scenario())
-
 
 def test_cleanup_autosaves_live_sessions(monkeypatch, tmp_path):
     scheduler, _ = _build_scheduler(monkeypatch, {})

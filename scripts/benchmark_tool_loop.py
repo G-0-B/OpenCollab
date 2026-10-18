@@ -30,10 +30,8 @@ def _parser():
     parser.add_argument("--child", action="store_true", help=argparse.SUPPRESS)
     return parser
 
-
 def _percentile(values, quantile):
     return sorted(values)[max(0, math.ceil(len(values) * quantile) - 1)]
-
 
 async def _measure(name, setup, iterations, *, tool_count=1, read_module=None):
     await setup(warmup=True)
@@ -94,7 +92,6 @@ async def _measure(name, setup, iterations, *, tool_count=1, read_module=None):
         "observed_target_read_bytes": target_read_bytes,
         "loop_blocks": blocks,
     }
-
 
 async def _run_child(args):
     source = args.source.resolve()
@@ -296,7 +293,6 @@ async def _run_child(args):
         "scenarios": results,
     }
 
-
 def _run_parent(args):
     sources = [args.source] + ([args.compare] if args.compare is not None else [])
     runs = []
@@ -315,7 +311,6 @@ def _run_parent(args):
             runs.append(run)
     return {"measurement_version": 1, "runs": runs}
 
-
 def main():
     args = _parser().parse_args()
     if min(args.iterations, args.tool_iterations, args.repeats) < 1 or args.max_write_bytes < 0:
@@ -328,7 +323,6 @@ def main():
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(encoded, encoding="utf-8")
         print(f"Measurements saved to {args.output}")
-
 
 if __name__ == "__main__":
     main()

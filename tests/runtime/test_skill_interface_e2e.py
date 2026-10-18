@@ -1,13 +1,4 @@
-"""Headline end-to-end test for the P1 skill interface.
-
-Wires a real ``FileSkillStore`` (from a tmp skills/ dir) through ``ContextBuilder``
-for a role granted ``use_skill``, and asserts:
-  1. the catalog text appears in the assembled system prompt, and
-  2. invoking the bound ``UseSkillTool`` with a catalog name returns that
-     skill's body.
-
-No shipping config is touched — the role/team are constructed in-test.
-"""
+"""Exercise FileSkillStore through ContextBuilder and the bound UseSkillTool."""
 
 from __future__ import annotations
 
@@ -28,7 +19,6 @@ from opencollab.domain.team import Topology
 def run(coro):
     return asyncio.run(coro)
 
-
 def _write_skill(root, name, *, description, body):
     skill_dir = root / name
     skill_dir.mkdir(parents=True, exist_ok=True)
@@ -36,7 +26,6 @@ def _write_skill(root, name, *, description, body):
         f"---\nname: {name}\ndescription: {description}\n---\n{body}\n",
         encoding="utf-8",
     )
-
 
 def _cfg():
     return SpawnConfig(
@@ -50,7 +39,6 @@ def _cfg():
         permission_policy=None,
     )
 
-
 def _team():
     return TeamConfig(
         roles={
@@ -62,7 +50,6 @@ def _team():
         },
         topology=Topology(),
     )
-
 
 def test_skill_catalog_in_system_prompt_and_body_retrievable(tmp_path):
     skills_root = tmp_path / "skills"
@@ -80,31 +67,24 @@ def test_skill_catalog_in_system_prompt_and_body_retrievable(tmp_path):
 
     builder = ContextBuilder(_team(), _cfg(), skill_store=store)
 
-    # 1. Catalog appears in the assembled system prompt.
     agent = builder.build_agent("specialist")
     assert "Specialist base prompt." in agent.system_prompt
     assert "debug-flaky-tests" in agent.system_prompt
     assert "Systematically root-cause flaky tests." in agent.system_prompt
     assert "use_skill" in agent.system_prompt
 
-    # 2. The bound dispatcher returns the skill's full body.
     use_skill = next(t for t in agent.tools if t.name == "use_skill")
     assert isinstance(use_skill, UseSkillTool)
     runtime = ToolRuntime(environment=None, safety_policy=None, permission_policy=None)
     body = run(use_skill.execute_with_runtime({"name": "debug-flaky-tests"}, runtime))
     assert body == "1. Run the test 100 times. 2. Bisect. 3. Stabilize."
 
-
 def test_no_skills_dir_is_unchanged_behavior(tmp_path):
-    # A workspace without a skills/ dir → NullSkillStore → no catalog, and the
-    # role still resolves its other tools (use_skill simply offers nothing).
     store = build_skill_store(str(tmp_path))
     builder = ContextBuilder(_team(), _cfg(), skill_store=store)
     agent = builder.build_agent("specialist")
     assert "Specialist base prompt." in agent.system_prompt
-    # No catalog header injected.
     assert "## Skills" not in agent.system_prompt
-
 
 def test_session_factory_refreshes_skill_catalog_for_each_new_session(tmp_path):
     factory = DefaultSessionFactory(

@@ -53,7 +53,6 @@ async def test_stream_text_requires_matching_completed_output():
     assert parsed.provider_model == "gpt-fake"
     assert stream.closed is True
 
-
 @pytest.mark.asyncio
 async def test_stream_tolerates_keepalive_events_between_content():
     # OpenAI emits content-free keepalive events while a model reasons for
@@ -98,7 +97,6 @@ async def test_terminal_mismatch_remains_strict_by_default():
     with pytest.raises(ResponsesProtocolError, match="terminal Responses output"):
         _parse_stream(state, [{"role": "user", "content": "answer"}], "gpt-fake")
 
-
 @pytest.mark.asyncio
 async def test_compatibility_mode_keeps_validated_streamed_output_on_terminal_mismatch(
     monkeypatch,
@@ -129,7 +127,6 @@ async def test_compatibility_mode_keeps_validated_streamed_output_on_terminal_mi
     assert parsed.content == "streamed"
     assert parsed.provider_items == [streamed]
 
-
 @pytest.mark.asyncio
 async def test_stream_aggregates_multiple_tool_calls_and_validates_arguments():
     first = function_item("call_1", "read_file", '{"path":"a.py"}')
@@ -155,7 +152,6 @@ async def test_stream_aggregates_multiple_tool_calls_and_validates_arguments():
     assert [call["id"] for call in parsed.tool_calls] == ["call_1", "call_2"]
     assert parsed.finish_reason == "tool_calls"
 
-
 @pytest.mark.asyncio
 async def test_stream_orders_completed_items_by_output_index():
     first = function_item("call_1", "read_file", '{"path":"a.py"}')
@@ -174,14 +170,12 @@ async def test_stream_orders_completed_items_by_output_index():
     assert parsed.usage.input_tokens == 120
     assert parsed.usage.output_tokens == 30
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("index", [None, -1, True, 1.5])
 async def test_stream_rejects_invalid_output_index(index):
     stream = FakeStream([ns(type="response.output_item.done", output_index=index, item=message_item("OK"))])
     with pytest.raises(ResponsesProtocolError, match="output_index"):
         await _consume_stream(stream, 1, 1)
-
 
 @pytest.mark.asyncio
 async def test_stream_rejects_duplicate_output_index():
@@ -191,7 +185,6 @@ async def test_stream_rejects_duplicate_output_index():
     ])
     with pytest.raises(ResponsesProtocolError, match="duplicate.*output_index"):
         await _consume_stream(stream, 1, 1)
-
 
 @pytest.mark.asyncio
 async def test_stream_keeps_terminal_identity_validation_after_reordering():
@@ -206,7 +199,6 @@ async def test_stream_keeps_terminal_identity_validation_after_reordering():
     with pytest.raises(ResponsesProtocolError, match="terminal Responses output"):
         _parse_stream(state, [{"role": "user", "content": "Read both"}], "gpt-fake")
 
-
 @pytest.mark.asyncio
 async def test_stream_rejects_duplicate_call_id():
     call = function_item("duplicate", "read_file", "{}")
@@ -219,7 +211,6 @@ async def test_stream_rejects_duplicate_call_id():
 
     with pytest.raises(ResponsesProtocolError, match="duplicate function_call"):
         await _consume_stream(stream, 1, 1)
-
 
 @pytest.mark.asyncio
 async def test_stream_rejects_missing_completion_and_unknown_events():
@@ -240,7 +231,6 @@ async def test_stream_rejects_missing_completion_and_unknown_events():
             1,
             1,
         )
-
 
 @pytest.mark.asyncio
 async def test_transient_stream_failure_reissues_without_replaying_partial_items():
@@ -302,7 +292,6 @@ async def test_transient_stream_failure_reissues_without_replaying_partial_items
     assert result.content == "recovered"
     assert result.tool_calls == []
 
-
 @pytest.mark.asyncio
 async def test_clean_premature_eof_retries_and_discards_partial_items(monkeypatch):
     calls = 0
@@ -349,7 +338,6 @@ async def test_clean_premature_eof_retries_and_discards_partial_items(monkeypatc
     assert result.content == "recovered"
     assert result.tool_calls == []
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stream", [True, False])
 async def test_completed_empty_output_retries_entire_request(monkeypatch, stream):
@@ -395,7 +383,6 @@ async def test_completed_empty_output_retries_entire_request(monkeypatch, stream
     assert calls == 2
     assert result.content == "recovered"
 
-
 @pytest.mark.asyncio
 async def test_completed_empty_output_exhausts_retry_budget(monkeypatch):
     calls = 0
@@ -427,7 +414,6 @@ async def test_completed_empty_output_exhausts_retry_budget(monkeypatch):
 
     assert calls == 3
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "response,match",
@@ -449,7 +435,6 @@ async def test_stream_rejects_invalid_completed_terminal(response, match):
     )
     with pytest.raises(ResponsesProtocolError, match=match):
         await _consume_stream(stream, 1, 1, "gpt-fake")
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
@@ -474,7 +459,6 @@ async def test_stream_rejects_invalid_completed_terminal(response, match):
 async def test_terminal_error_events_report_nested_response_details(event, match):
     with pytest.raises(ResponsesProtocolError, match=match):
         await _consume_stream(FakeStream([event]), 1, 1, "gpt-fake")
-
 
 @pytest.mark.asyncio
 async def test_typed_transient_error_event_retries_request(monkeypatch):
@@ -519,7 +503,6 @@ async def test_typed_transient_error_event_retries_request(monkeypatch):
     assert calls == 2
     assert result.content == "recovered"
 
-
 @pytest.mark.asyncio
 async def test_stream_accepts_provider_resolved_model_alias():
     item = message_item("done")
@@ -542,7 +525,6 @@ async def test_stream_accepts_provider_resolved_model_alias():
 
     assert parsed.provider_model == "other-model"
 
-
 @pytest.mark.asyncio
 async def test_stream_rejects_final_output_drift():
     streamed = message_item("streamed")
@@ -564,7 +546,6 @@ async def test_stream_rejects_final_output_drift():
     with pytest.raises(ResponsesProtocolError, match="disagrees with streamed"):
         _parse_stream(state, [{"role": "user", "content": "work"}], "gpt-fake")
 
-
 @pytest.mark.asyncio
 async def test_stream_cancellation_closes_transport():
     stream = FakeStream([ns(type="response.created")], delays=[10])
@@ -574,7 +555,6 @@ async def test_stream_cancellation_closes_transport():
     with pytest.raises(asyncio.CancelledError):
         await task
     assert stream.closed is True
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("trust_streamed_output", [False, True])
@@ -605,7 +585,6 @@ async def test_stream_rejects_bad_json_after_terminal_and_incomplete_argument_fr
             1,
         )
 
-
 @pytest.mark.asyncio
 async def test_bad_function_json_still_requires_a_terminal_event_before_idle_timeout():
     bad = function_item("bad", "read_file", "{")
@@ -617,7 +596,6 @@ async def test_bad_function_json_still_requires_a_terminal_event_before_idle_tim
         await _consume_stream(stream, 1, 0.001)
     assert stream.closed is True
     assert getattr(captured.value, "usage", None) is None
-
 
 @pytest.mark.asyncio
 async def test_stream_has_distinct_first_event_and_idle_timeouts():
@@ -636,7 +614,6 @@ async def test_stream_has_distinct_first_event_and_idle_timeouts():
             1,
             0.001,
         )
-
 
 @pytest.mark.asyncio
 async def test_first_event_timeout_includes_waiting_for_response_headers():
@@ -666,15 +643,11 @@ async def test_first_event_timeout_includes_waiting_for_response_headers():
 
     assert create_cancelled is True
 
-
 @pytest.mark.asyncio
 async def test_response_header_timeout_retries_the_same_request(monkeypatch):
     calls = 0
 
-    # The first-event budget is spent by attempt 1 *and* re-imposed on attempt 2,
-    # which has to create its stream and yield its first event inside whatever is
-    # left of it. Keep the budget far above the microseconds that costs: a value
-    # small enough to be interesting on attempt 1 is a coin flip on attempt 2.
+    # The first-event deadline must leave attempt 2 enough time to create its stream and yield.
     first_event_timeout = 0.25
 
     async def skip_delay(_seconds):
@@ -715,7 +688,6 @@ async def test_response_header_timeout_retries_the_same_request(monkeypatch):
     assert calls == 2
     assert result.content == "OK"
 
-
 @pytest.mark.asyncio
 async def test_round_deadline_cancels_and_closes_stream():
     class WaitingStream(FakeStream):
@@ -753,7 +725,6 @@ async def test_round_deadline_cancels_and_closes_stream():
     assert stream.cancelled is True
     assert stream.closed is True
 
-
 def test_item_replay_binds_function_call_output_to_original_call_id():
     reasoning = {
         "id": "rs_1",
@@ -790,7 +761,6 @@ def test_item_replay_binds_function_call_output_to_original_call_id():
     assert reasoning in items
     assert function in items
 
-
 @pytest.mark.parametrize(
     "messages,match",
     [
@@ -816,7 +786,6 @@ def test_item_replay_rejects_orphan_and_duplicate_call_ids(messages, match):
     with pytest.raises(ResponsesProtocolError, match=match):
         _messages_to_input(messages)
 
-
 def test_item_replay_rejects_tool_call_identity_drift():
     messages = [
         {
@@ -833,7 +802,6 @@ def test_item_replay_rejects_tool_call_identity_drift():
     ]
     with pytest.raises(ResponsesProtocolError, match="response_items disagree"):
         _messages_to_input(messages)
-
 
 def test_prompt_cache_key_is_stable_within_one_run_and_isolated_between_runs():
     messages = [

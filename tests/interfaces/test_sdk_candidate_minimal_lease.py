@@ -37,7 +37,6 @@ class _MinimalLease:
         self.cleanups += 1
         await self._delegate.cleanup()
 
-
 class _MinimalCandidates(EnvCandidateWorkspace):
     def __init__(self, environment, failure):
         super().__init__(environment)
@@ -55,7 +54,6 @@ class _MinimalCandidates(EnvCandidateWorkspace):
         if self.failure == "source_read" and self.source_reads == 2:
             raise OSError("temporary source export failure")
         return await super().source_diff(exclude_paths)
-
 
 class _WritingModel:
     def __init__(self, content, *, mutate=None):
@@ -79,7 +77,6 @@ class _WritingModel:
                 self.mutate()
         return LLMResponse(content="done", usage=Usage(4, 2), finish_reason="stop")
 
-
 @pytest.fixture
 def repository(tmp_path):
     root = tmp_path / "source"
@@ -93,7 +90,6 @@ def repository(tmp_path):
     ):
         subprocess.run(["git", *arguments], cwd=root, check=True, capture_output=True)
     return root
-
 
 @pytest.mark.parametrize("entry", ["agent", "workflow"])
 @pytest.mark.parametrize("failure", ["capture", "source_read", "source_changed", "none"])
@@ -154,7 +150,6 @@ async def test_public_minimal_candidate_lease_retains_failed_exports(repository,
         for lease in backend.leases:
             await lease.cleanup()
         await environment.cleanup()
-
 
 @pytest.mark.parametrize("capture_error", [False, True])
 async def test_public_minimal_lease_survives_child_cleanup_failure(repository, monkeypatch, capture_error):

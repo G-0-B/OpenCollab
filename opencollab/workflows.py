@@ -116,5 +116,4 @@ class WorkflowContext(Protocol):
 
     def time_low(self) -> bool: ...
 
-
 __all__ = ["CandidateRun", "WorkflowAgentResult", "WorkflowContext", "workflow"]

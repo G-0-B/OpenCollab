@@ -60,6 +60,5 @@ def main() -> None:
         "package": str(package), "commands": results,
     }, indent=2))
 
-
 if __name__ == "__main__":
     main()

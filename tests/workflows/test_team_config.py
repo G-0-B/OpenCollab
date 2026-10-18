@@ -41,7 +41,6 @@ topology:
   coder: [reviewer]
 """
 
-
 def _write_team(tmp_path, monkeypatch, yaml_text=TEAM_YAML, coder_prompt="Coder prompt."):
     configs = tmp_path / "configs"
     configs.mkdir()
@@ -51,27 +50,18 @@ def _write_team(tmp_path, monkeypatch, yaml_text=TEAM_YAML, coder_prompt="Coder 
     (prompts / "coder.md").write_text(coder_prompt)
     monkeypatch.setenv("OPENCOLLAB_TEAM_FILE", str(configs / "team.yaml"))
 
-
 def test_default_prompts_load_from_packaged_files():
-    # The built-in defaults are data files under bootstrap/prompts/; guard that
-    # they load (non-empty, correct identity) so a packaging regression fails here
-    # rather than silently shipping an empty system prompt.
+    # Load the packaged default prompts to catch empty or missing resources.
     assert DEFAULT_ANALYST_PROMPT.startswith("You are OpenCollab's Analyst, agent 0")
     assert DEFAULT_CODER_PROMPT.startswith("You are OpenCollab's Coder.")
     assert DEFAULT_TESTER_PROMPT.startswith("You are OpenCollab's Tester.")
     assert DEFAULT_ROLE_PROMPT.startswith("You are an OpenCollab specialist agent.")
 
-
 def test_analyst_prompt_has_anti_thrash_recon_strategy():
-    # The per-read distill rule lives in the file_read tool description (universal
-    # across all workflows/teams). The entry role's prompt keeps only the
-    # entry-specific strategy: stop reading once notes cover the task, and leave
-    # the rest to the Coder. Regression for the 90-read/0-write stall
-    # (session 2026-06-21T20-28-41), carried over from the retired lead prompt.
+    # The entry strategy stops reading once notes cover the task and delegates the remaining work.
     assert "thrash" in DEFAULT_ANALYST_PROMPT
     assert "STOP reading" in DEFAULT_ANALYST_PROMPT
-    assert "spawn_agent" in DEFAULT_ANALYST_PROMPT  # delegate rather than read on
-
+    assert "spawn_agent" in DEFAULT_ANALYST_PROMPT
 
 def test_default_team_is_self_collaboration_over_a_closed_topology(monkeypatch):
     monkeypatch.delenv("OPENCOLLAB_TEAM_FILE", raising=False)
@@ -83,15 +73,11 @@ def test_default_team_is_self_collaboration_over_a_closed_topology(monkeypatch):
     assert cfg.topology.allow_all is False
     assert cfg.topology.allows("analyst", "coder")
     assert cfg.topology.allows("analyst", "tester")
-    # Closed: no ad-hoc role, and neither specialist may delegate onward.
     assert not cfg.topology.allows("analyst", "any-custom-role")
     assert not cfg.topology.allows("coder", "tester")
     assert not cfg.topology.allows("tester", "coder")
 
-
 def test_default_team_divides_labour_by_capability(monkeypatch):
-    # The role split is enforced by the toolset, not by prompt wording: neither
-    # the Analyst nor the Tester can write, and only the Analyst can delegate.
     monkeypatch.delenv("OPENCOLLAB_TEAM_FILE", raising=False)
     cfg = default_team_config()
     writing = {"apply_patch", "file_write"}
@@ -101,7 +87,6 @@ def test_default_team_divides_labour_by_capability(monkeypatch):
     for specialist in ("coder", "tester"):
         assert not COORDINATION_TOOL_NAMES & set(cfg.roles[specialist].tools)
     assert "spawn_agent" in cfg.roles["analyst"].tools
-
 
 def test_load_team_ignores_conventional_workspace_file(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENCOLLAB_TEAM_FILE", raising=False)
@@ -115,11 +100,9 @@ def test_load_team_ignores_conventional_workspace_file(tmp_path, monkeypatch):
 
     cfg = load_team_config(str(tmp_path))
 
-    # The conventional filename is ignored, so the built-in default stands.
     assert set(cfg.roles) == {"analyst", "coder", "tester"}
     assert cfg.entry == "analyst"
     assert resolve_team_file(str(tmp_path)) is None
-
 
 def test_load_team_accepts_explicit_path_without_environment(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENCOLLAB_TEAM_FILE", raising=False)
@@ -133,7 +116,6 @@ def test_load_team_accepts_explicit_path_without_environment(tmp_path, monkeypat
 
     assert set(cfg.roles) == {"captain"}
     assert cfg.entry == "captain"
-
 
 def test_explicit_path_takes_precedence_over_environment(tmp_path, monkeypatch):
     environment_config = tmp_path / "environment-team.yaml"
@@ -153,14 +135,12 @@ def test_explicit_path_takes_precedence_over_environment(tmp_path, monkeypatch):
     assert set(cfg.roles) == {"argument"}
     assert cfg.entry == "argument"
 
-
 def test_load_team_rejects_missing_explicit_environment_path(tmp_path, monkeypatch):
     missing = tmp_path / "missing-team.yaml"
     monkeypatch.setenv("OPENCOLLAB_TEAM_FILE", str(missing))
 
     with pytest.raises(ValueError, match="team config does not exist"):
         load_team_config(str(tmp_path))
-
 
 def test_load_team_roundtrip_roles_and_topology(tmp_path, monkeypatch):
     _write_team(tmp_path, monkeypatch)
@@ -173,7 +153,6 @@ def test_load_team_roundtrip_roles_and_topology(tmp_path, monkeypatch):
     assert cfg.topology.allows("lead", "coder")
     assert cfg.topology.allows("coder", "reviewer")
     assert not cfg.topology.allows("lead", "reviewer")
-
 
 @pytest.mark.parametrize(
     ("yaml_text", "key", "line"),
@@ -211,7 +190,6 @@ def test_team_config_rejects_duplicate_explicit_yaml_keys(tmp_path, yaml_text, k
 
     assert repr(key) in str(caught.value)
     assert f"line {line}, column " in str(caught.value)
-
 
 @pytest.mark.parametrize(
     ("yaml_text", "role", "prompt", "model", "tools"),
@@ -269,7 +247,6 @@ def test_team_config_preserves_yaml_merge_overrides(
     assert cfg.roles[role].model == model
     assert cfg.roles[role].tools == tools
 
-
 def test_team_config_accepts_json_compatible_yaml(tmp_path):
     config = tmp_path / "team.yaml"
     config.write_text(
@@ -290,15 +267,11 @@ def test_team_config_accepts_json_compatible_yaml(tmp_path):
     assert cfg.roles["lead"].tools == ["file_read"]
     assert cfg.topology.allows("lead", "worker")
 
-
 def test_role_temperature_defaults_to_none_when_unset(tmp_path, monkeypatch):
-    # TEAM_YAML declares no temperature for either role → both stay None so the
-    # ContextBuilder falls back to the global OpenCollabConfig default.
     _write_team(tmp_path, monkeypatch)
     cfg = load_team_config(str(tmp_path))
     assert cfg.roles["lead"].temperature is None
     assert cfg.roles["coder"].temperature is None
-
 
 def test_role_temperature_override_is_parsed(tmp_path, monkeypatch):
     yaml_text = """\
@@ -321,7 +294,6 @@ topology:
     assert cfg.roles["lead"].temperature == 0.0
     assert cfg.roles["coder"].temperature == 0.9
 
-
 @pytest.mark.parametrize("temperature", ["-0.1", "2.1", ".nan", ".inf", "-.inf"])
 def test_role_temperature_rejects_invalid_values(tmp_path, temperature):
     config = tmp_path / "team.yaml"
@@ -335,7 +307,6 @@ def test_role_temperature_rejects_invalid_values(tmp_path, temperature):
 
     with pytest.raises(Exception, match="temperature"):
         load_team_config(str(tmp_path), path=config)
-
 
 def test_role_thinking_params_reject_yaml_native_dates(tmp_path):
     config = tmp_path / "team.yaml"
@@ -368,35 +339,27 @@ def test_role_temperature_rejects_yaml_booleans(
     with pytest.raises(Exception, match="must not be a boolean"):
         load_team_config(str(tmp_path))
 
-
 def test_prompt_file_is_resolved_relative_to_team_file(tmp_path, monkeypatch):
     _write_team(tmp_path, monkeypatch, coder_prompt="Resolved coder body.")
     cfg = load_team_config(str(tmp_path))
     assert cfg.roles["coder"].prompt == "Resolved coder body."
-
 
 def test_unknown_role_falls_back_to_generic_spec(tmp_path, monkeypatch):
     _write_team(tmp_path, monkeypatch)
     cfg = load_team_config(str(tmp_path))
     fallback = cfg.role_for("totally-new-role")
     assert isinstance(fallback, RoleConfig)
-    # Ad-hoc roles get the registry-derived worker bundle: no coordination tools
-    # (they must not fan out further) and no skill dispatch.
     assert fallback.tools == list(BASE_TOOL_NAMES)
     assert "spawn_agent" not in fallback.tools
     assert "use_skill" not in fallback.tools
-
 
 def test_default_team_entry_is_analyst(monkeypatch):
     monkeypatch.delenv("OPENCOLLAB_TEAM_FILE", raising=False)
     assert default_team_config().entry == "analyst"
 
-
 def test_entry_prefers_lead_role_when_unset(tmp_path, monkeypatch):
-    # TEAM_YAML declares lead + coder with no explicit entry → lead wins.
     _write_team(tmp_path, monkeypatch)
     assert load_team_config(str(tmp_path)).entry == "lead"
-
 
 def test_entry_prefers_case_normalized_lead_role_when_unset(tmp_path):
     config = tmp_path / "team.yaml"
@@ -410,7 +373,6 @@ def test_entry_prefers_case_normalized_lead_role_when_unset(tmp_path):
     )
 
     assert load_team_config(str(tmp_path), path=config).entry == "Lead"
-
 
 def test_entry_falls_back_to_first_role_without_lead(tmp_path, monkeypatch):
     yaml_text = """\
@@ -428,7 +390,6 @@ topology:
 """
     _write_team(tmp_path, monkeypatch, yaml_text=yaml_text)
     assert load_team_config(str(tmp_path)).entry == "analyst"
-
 
 def test_explicit_entry_is_respected(tmp_path, monkeypatch):
     yaml_text = """\
@@ -448,7 +409,6 @@ topology:
     _write_team(tmp_path, monkeypatch, yaml_text=yaml_text)
     assert load_team_config(str(tmp_path)).entry == "coder"
 
-
 def test_explicit_entry_naming_undeclared_role_raises(tmp_path, monkeypatch):
     yaml_text = """\
 entry: nope
@@ -462,7 +422,6 @@ roles:
     with pytest.raises(ValueError, match="entry role 'nope'"):
         load_team_config(str(tmp_path))
 
-
 def test_missing_prompt_and_prompt_file_raises(tmp_path, monkeypatch):
     bad = """\
 roles:
@@ -475,7 +434,6 @@ roles:
     monkeypatch.setenv("OPENCOLLAB_TEAM_FILE", str(configs / "team.yaml"))
     with pytest.raises(ValueError, match="prompt"):
         load_team_config(str(tmp_path))
-
 
 @pytest.mark.parametrize(
     "yaml_text",
@@ -491,7 +449,6 @@ def test_team_config_rejects_blank_prompt_or_model(tmp_path, yaml_text):
     with pytest.raises(Exception, match="role (prompt|model) must not be blank"):
         load_team_config(str(tmp_path), path=config)
 
-
 @pytest.mark.parametrize(
     "yaml_text",
     [
@@ -505,7 +462,6 @@ def test_team_config_rejects_unknown_keys(tmp_path, monkeypatch, yaml_text):
 
     with pytest.raises(Exception, match="rolse|modle"):
         load_team_config(str(tmp_path), path=config)
-
 
 @pytest.mark.parametrize("kind", ["fifo", "symlink", "oversized"])
 def test_team_config_rejects_unsafe_or_oversized_input(tmp_path, monkeypatch, kind):
@@ -524,7 +480,6 @@ def test_team_config_rejects_unsafe_or_oversized_input(tmp_path, monkeypatch, ki
     with pytest.raises(ValueError, match="team config"):
         load_team_config(str(tmp_path))
 
-
 def test_role_prompt_file_cannot_escape_team_directory(tmp_path, monkeypatch):
     outside = tmp_path / "outside.md"
     outside.write_text("outside", encoding="utf-8")
@@ -539,7 +494,6 @@ def test_role_prompt_file_cannot_escape_team_directory(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match="escapes team directory"):
         load_team_config(str(tmp_path))
-
 
 @pytest.mark.parametrize("kind", ["symlink", "oversized"])
 def test_role_prompt_file_rejects_unsafe_or_oversized_input(
@@ -566,7 +520,6 @@ def test_role_prompt_file_rejects_unsafe_or_oversized_input(
     with pytest.raises(ValueError, match="cannot be read safely"):
         load_team_config(str(tmp_path))
 
-
 @pytest.mark.parametrize(
     "yaml_text",
     [
@@ -585,7 +538,6 @@ def test_team_config_rejects_unsafe_role_identity(tmp_path, monkeypatch, yaml_te
     with pytest.raises(ValueError, match="role"):
         load_team_config(str(tmp_path))
 
-
 def test_team_config_rejects_casefold_role_collision(tmp_path, monkeypatch):
     yaml_text = (
         "roles:\n"
@@ -599,7 +551,6 @@ def test_team_config_rejects_casefold_role_collision(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match="collide"):
         load_team_config(str(tmp_path))
-
 
 def test_team_config_rejects_unicode_normalization_role_collision(
     tmp_path,
@@ -620,7 +571,6 @@ def test_team_config_rejects_unicode_normalization_role_collision(
     with pytest.raises(ValueError, match="collide"):
         load_team_config(str(tmp_path))
 
-
 def test_programmatic_team_config_rejects_casefold_role_collision():
     role = RoleConfig(prompt="role", tools=[])
 
@@ -630,7 +580,6 @@ def test_programmatic_team_config_rejects_casefold_role_collision():
             topology=Topology(allow_all=True),
             entry="Coder",
         )
-
 
 def test_programmatic_team_config_rejects_casefold_topology_source_collision():
     lead = RoleConfig(prompt="lead", tools=[])
@@ -647,7 +596,6 @@ def test_programmatic_team_config_rejects_casefold_topology_source_collision():
             entry="lead",
         )
 
-
 def test_programmatic_team_config_uses_one_casefold_identity():
     coder = RoleConfig(prompt="coder prompt", tools=[])
     reviewer = RoleConfig(prompt="reviewer prompt", tools=[])
@@ -661,7 +609,6 @@ def test_programmatic_team_config_uses_one_casefold_identity():
     assert team.role_for("coder") is coder
     assert team.role_for("CODER") is coder
     assert team.topology.allows("CODER", "REVIEWER") is True
-
 
 def test_a_team_file_passed_positionally_is_refused_not_silently_ignored(tmp_path):
     """The first parameter is a workspace, so a team file there is discarded.
@@ -683,7 +630,6 @@ def test_a_team_file_passed_positionally_is_refused_not_silently_ignored(tmp_pat
         load_team_config(str(team_file))
 
     assert load_team_config(path=str(team_file)).entry == "solo"
-
 
 def test_a_workspace_directory_still_yields_the_built_in_team(tmp_path):
     """Only a team file misroutes; a directory is the parameter's real use."""

@@ -26,5 +26,4 @@ class SkillManifest:
     name: str          # unique invocation key, e.g. "debug-flaky-tests"
     description: str    # one-liner shown in the catalog
 
-
 __all__ = ["SkillManifest"]

@@ -36,7 +36,6 @@ async def test_failed_group_cancel_stops_but_retains_workspace(monkeypatch):
     await env.cleanup()
     assert fake.calls[-1][0] == ("docker", "rm", "-f", "--", CONTAINER_ID)
 
-
 async def test_abort_retains_container_and_backing_until_cleanup(monkeypatch):
     class Backing:
         cleaned = False
@@ -59,7 +58,6 @@ async def test_abort_retains_container_and_backing_until_cleanup(monkeypatch):
     assert backing.cleaned
     assert env._container_id is None
 
-
 async def test_failed_container_stop_never_claims_recovered_timeout(monkeypatch):
     def respond(command, _kwargs):
         if command[1] == "run":
@@ -76,7 +74,6 @@ async def test_failed_container_stop_never_claims_recovered_timeout(monkeypatch)
         await env.exec_cmd("sleep 60", timeout=0.01)
     assert env.revoked and env._container_id == CONTAINER_ID
     assert not any(call[0][1] == "rm" for call in fake.calls)
-
 
 async def test_quiesced_command_timeout_keeps_same_container_usable(monkeypatch):
     timed_out = False
@@ -102,7 +99,6 @@ async def test_quiesced_command_timeout_keeps_same_container_usable(monkeypatch)
     assert (await env.exec_cmd("git diff")).stdout == "preserved patch"
     assert env._container_id == CONTAINER_ID
     assert not any(call[0][1] in {"stop", "rm"} for call in fake.calls)
-
 
 async def test_caller_cancellation_retains_owned_container(monkeypatch):
     started = asyncio.Event()

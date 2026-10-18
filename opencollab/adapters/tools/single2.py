@@ -10,7 +10,6 @@ from opencollab.adapters.tools.git_diff import GitDiffTool
 
 SINGLE2_BASH_OUTPUT_CHARS = 10_000
 
-
 def build_single2_tools(*, headless: bool = True) -> tuple[Tool, ...]:
     """Return the six source-compatible tools in their evaluated order."""
     return (
@@ -24,6 +23,5 @@ def build_single2_tools(*, headless: bool = True) -> tuple[Tool, ...]:
         GitDiffTool(),
         GrepTool(),
     )
-
 
 __all__ = ["SINGLE2_BASH_OUTPUT_CHARS", "build_single2_tools"]

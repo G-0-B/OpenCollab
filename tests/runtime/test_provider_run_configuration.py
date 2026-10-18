@@ -29,12 +29,10 @@ def test_output_limit_retains_content_usage_and_output_limit_disposition():
     assert result.provider_model == response.model
     assert result.usage.total_tokens > 0
 
-
 @pytest.mark.parametrize("enabled,expected", [("0", 120), ("1", None), ("true", None)])
 def test_explicit_unbounded_candidate_budget(monkeypatch, enabled, expected):
     monkeypatch.setenv("OPENCOLLAB_UNBOUNDED_LIMITS", enabled)
     assert _candidate_budget_total(120) == expected
-
 
 @pytest.mark.asyncio
 async def test_uncapped_transient_retry_remains_cancellable_and_delay_is_bounded(monkeypatch):
@@ -61,7 +59,6 @@ async def test_uncapped_transient_retry_remains_cancellable_and_delay_is_bounded
 
     with pytest.raises(asyncio.CancelledError):
         await with_retry(cancelled_request, max_retries=None)
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("fail_cancel_trace", [False, True])
@@ -94,7 +91,6 @@ async def test_cancelled_model_request_has_matching_start_and_cancel_records(fai
     assert lifecycle[0]["payload"]["response_session_id"] == lifecycle[1]["payload"]["response_session_id"]
     assert lifecycle[0]["payload"]["session_step"] == lifecycle[1]["payload"]["session_step"] == 1
 
-
 def test_public_model_client_uses_effective_transport_configuration(monkeypatch, tmp_path):
     captured = []
     monkeypatch.setattr(inspection, "LLMClient", lambda **kwargs: captured.append(kwargs) or object())
@@ -120,7 +116,6 @@ def test_public_model_client_uses_effective_transport_configuration(monkeypatch,
     assert captured[0]["wire_protocol"] == "responses"
     assert client.configuration["context_window"] == 200000
     assert "api_key" not in client.configuration
-
 
 def test_public_snapshot_reader_delegates_journal_replay(monkeypatch, tmp_path):
     captured = []

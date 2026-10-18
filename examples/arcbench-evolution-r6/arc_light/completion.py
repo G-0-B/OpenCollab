@@ -30,11 +30,9 @@ def completion_targets(result, index, ledger=None):
     focus = [row["id"] for row in index if row["atomic"] and row.get("evolution_change")]
     return focus or [row["id"] for row in index if row["atomic"]], "interrupted or missing usable completion summary"
 
-
 def scenario_key(item):
     """Use the original requirement ID and scenario ordinal as the domain identity."""
     return f"{item['requirement_id']}:scenario_{item['scenario_index'] + 1}"
-
 
 def scenario_coverage(expected, checks, *, requirements_without_scenarios=()):
     """Account for every requested public scenario, including unmapped adapters."""

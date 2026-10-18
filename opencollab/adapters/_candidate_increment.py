@@ -20,7 +20,6 @@ def _safe_path(value: str) -> str:
         raise ValueError("candidate preserve path escapes the repository")
     return normalized
 
-
 async def _apply_increment(
     environment: Any, workspace: str, patch: str,
     preserve_paths: Sequence[str] = (), *, repository: bool = True, strict: bool = False,

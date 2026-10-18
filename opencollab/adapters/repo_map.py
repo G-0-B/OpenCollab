@@ -58,12 +58,10 @@ ROOT_PRIORITY_FILES = frozenset(
 MAP_HEADER = "## Repository layout"
 _TRUNCATED_MARKER = "... (repository map truncated; traversal budget reached)"
 
-
 def _keep(name: str, *, is_directory: bool = False) -> bool:
     if is_directory and name in SKIP_DIR_NAMES:
         return False
     return not name.startswith(".") or name in VISIBLE_DOT_NAMES
-
 
 def _keep_relative_path(path: str) -> bool:
     parts = [part for part in path.split("/") if part and part != "."]
@@ -71,7 +69,6 @@ def _keep_relative_path(path: str) -> bool:
         _keep(part, is_directory=index < len(parts) - 1)
         for index, part in enumerate(parts)
     )
-
 
 def _render_bounded_lines(lines: list[str], max_chars: int) -> str:
     if isinstance(max_chars, bool) or not isinstance(max_chars, int) or max_chars <= 0:
@@ -102,7 +99,6 @@ def _render_bounded_lines(lines: list[str], max_chars: int) -> str:
     if len(marker) > max_chars:
         return ""
     return "\n".join([*selected, marker])
-
 
 def build_repo_map(
     workspace: str,
@@ -144,7 +140,6 @@ def build_repo_map(
         return ""
     return _render_map(budget.lines, max_chars=max_chars, truncated=budget.truncated)
 
-
 @dataclass(slots=True)
 class _WalkBudget:
     max_depth: int
@@ -172,13 +167,11 @@ class _WalkBudget:
         self.body_chars += separator + len(line)
         return True
 
-
 def _render_map(lines: list[str], *, max_chars: int, truncated: bool) -> str:
     rendered_lines = list(lines)
     if truncated:
         rendered_lines.append(_TRUNCATED_MARKER)
     return f"{MAP_HEADER}\n\n" + _render_bounded_lines(rendered_lines, max_chars)
-
 
 def _walk(path: str, depth: int, budget: _WalkBudget) -> None:
     if budget.truncated:
@@ -327,7 +320,6 @@ def _walk(path: str, depth: int, budget: _WalkBudget) -> None:
     if omission_line is not None:
         budget.append(omission_line)
 
-
 async def build_repo_map_via_env(
     env: Environment,
     *,
@@ -372,24 +364,9 @@ async def build_repo_map_via_env(
         'mkfifo "$repo_map_fifo" || exit 70\n'
         f'{find_cmd} >"$repo_map_fifo" 2>"$repo_map_err" &\n'
         "repo_map_find_pid=$!\n"
-        # Shallowest paths first, and only then alphabetical. Cutting the
-        # listing to a budget is only defensible if what survives the cut is
-        # the top of the tree; ``find`` emits its own traversal order, which is
-        # neither sorted nor stable, so taking the first N of it kept an
-        # arbitrary sample. On django-11292 that sample was 300 paths out of
-        # thousands and did not contain ``django/`` at all -- the whole source
-        # tree the task was about -- while listing ``js_tests/`` and ``tests/``
-        # in detail. Sorting afterwards, which is what used to happen, only
-        # made an arbitrary sample look like a systematic one.
-        #
-        # The ordering runs here rather than after transport because the cut
-        # has to happen before the listing crosses the wire: a whole repository
-        # of paths would hit the command's own output cap and come back
-        # truncated, which this function reports as no map at all.
-        #
-        # ``awk`` pads the depth to a fixed width so a plain byte sort orders
-        # by depth first, and ``sort`` drains the pipe, so ``find`` finishes
-        # normally instead of dying of SIGPIPE.
+        # Order by depth and then name before the transport cap so the map retains
+        # the top of the tree. ``awk`` pads depths for byte sorting. ``sort`` drains
+        # the pipe so ``find`` can finish without SIGPIPE.
         "repo_map_order() {\n"
         "  awk -F/ '{ printf \"%03d\\t%s\\n\", NF, $0 }' \\\n"
         '    | LC_ALL=C sort | cut -f2-\n'
@@ -402,13 +379,8 @@ async def build_repo_map_via_env(
         'if [ "$repo_map_head_status" -ne 0 ]; then\n'
         '  exit "$repo_map_head_status"\n'
         "fi\n"
-        # A partial traversal must not be presented as a complete map, and
-        # ``find`` can write a diagnostic without the caller being able to see
-        # whose it was: the shell around this script writes to the same stream.
-        # Under a command prefix the environment runs a *login* shell, whose
-        # profile scripts print there on every single command, so "the process
-        # wrote to stderr" says nothing about the listing. This says it here,
-        # where find's own stream is still separate from everyone else's.
+        # Capture ``find`` diagnostics separately because login-shell profiles can
+        # also write to stderr. A partial traversal cannot supply a complete map.
         'if [ -s "$repo_map_err" ]; then\n'
         "  exit 71\n"
         "fi\n"
@@ -421,10 +393,8 @@ async def build_repo_map_via_env(
         result = await env.exec_cmd(cmd)
     except Exception:
         return ""
-    # Deliberately not ``result.stderr``: see the ``repo_map_err`` guard in the
-    # script above. Everything that makes this listing untrustworthy -- find
-    # failed, find complained, the listing was cut off in transport -- reaches
-    # here as a non-zero status or a truncation flag.
+    # The script reports find failures, find diagnostics, and transport
+    # truncation independently of unrelated shell stderr.
     if result.returncode != 0 or result.stdout_truncated:
         return ""
     paths = sorted(
@@ -434,8 +404,7 @@ async def build_repo_map_via_env(
             if line.strip() and line.strip() != "."
             and _keep_relative_path(line)
         ),
-        # The same order the shell applied, restated here so the invariant
-        # survives a change on either side: shallowest first, then alphabetical.
+        # Keep the same depth/name order as the shell listing.
         key=lambda path: (path.count("/"), path),
     )
     if not paths:
@@ -446,7 +415,6 @@ async def build_repo_map_via_env(
         max_chars=max_chars,
         truncated=truncated,
     )
-
 
 __all__ = [
     "MAP_HEADER",

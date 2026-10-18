@@ -30,7 +30,6 @@ async def _initialize_source_available_submodules(
         active_sources=set(),
     )
 
-
 class _SourceSubmoduleTree:
     def __init__(
         self, git_in: Callable[..., Awaitable[ExecResult]], *,

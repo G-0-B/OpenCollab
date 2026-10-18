@@ -26,7 +26,6 @@ def source_environments(monkeypatch):
     monkeypatch.setattr(wiring, "LocalEnvironment", RecordedEnvironment)
     return environments
 
-
 @pytest.mark.parametrize("ending", ["success", "error", "cancel"])
 async def test_owned_source_closes_after_workflow_exit(tmp_path, source_environments, ending):
     started = asyncio.Event()
@@ -61,7 +60,6 @@ async def test_owned_source_closes_after_workflow_exit(tmp_path, source_environm
         for environment in source_environments:
             await environment.cleanup()
 
-
 async def test_repeated_default_workflows_release_every_source(tmp_path, source_environments):
     async def workflow(ctx, args):
         return "done"
@@ -77,7 +75,6 @@ async def test_repeated_default_workflows_release_every_source(tmp_path, source_
     finally:
         for environment in source_environments:
             await environment.cleanup()
-
 
 async def test_supplied_source_environment_remains_owned_by_caller(tmp_path, source_environments):
     environment = LocalEnvironment(str(tmp_path))
@@ -97,7 +94,6 @@ async def test_supplied_source_environment_remains_owned_by_caller(tmp_path, sou
     finally:
         await environment.cleanup()
 
-
 @pytest.mark.parametrize("kwargs", [{"max_concurrency": 0}, {"task_concurrency": 0}])
 async def test_invalid_context_configuration_opens_no_source(tmp_path, source_environments, kwargs):
     try:
@@ -109,7 +105,6 @@ async def test_invalid_context_configuration_opens_no_source(tmp_path, source_en
     finally:
         for environment in source_environments:
             await environment.cleanup()
-
 
 async def test_source_cleanup_is_idempotent(tmp_path, source_environments):
     ctx = wiring.build_workflow_context(

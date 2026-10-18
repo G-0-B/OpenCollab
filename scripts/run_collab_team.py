@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 """Run the reusable collaborating team (`configs/team.collab.yaml`) on a workspace.
 
-The team file needs a prebuilt roster: all three roles seated before the first
-model call, and no `spawn_agent` anywhere. The `opencollab` CLI has no flag for
-that, so this script is the script route -- it passes `prebuild_team=True` and
-cannot be pointed at a run that would silently seat the Analyst alone.
+All roles are seated before the first model call with ``prebuild_team=True``.
+Model, provider and credentials use normal config resolution; ``--model`` overrides it.
 
     scripts/run_collab_team.py --workspace ./repo --prompt "fix the failing test"
     scripts/run_collab_team.py --workspace ./repo --prompt-file issue.md --budget 2000000
-
-Everything else (model, provider, key, base URL) comes from the usual
-environment/config resolution; --model overrides it for one run.
 """
 
 from __future__ import annotations
@@ -32,19 +27,12 @@ from opencollab.teams import declared_role_budgets  # noqa: E402
 DEFAULT_CONFIG = REPO_ROOT / "configs" / "team.collab.yaml"
 DEFAULT_POOL = 1_000_000
 
-#: Inherited by every agent's shell (the subprocess runner passes ``env=None``).
-#: A teammate's worktree whose changes cannot be read refuses to be cleaned up,
-#: and that failure is raised after the work is finished -- the team delivers a
-#: correct answer and the run still reports ``failed``. ``.pytest_cache/`` is
-#: enough to cause it: pytest writes a ``.gitignore`` inside it saying ``*``, so
-#: the directory ignores itself, and ignored files cannot appear in patch
-#: evidence. Both settings are overridable: an explicit value in the caller's
-#: environment wins.
+#: Inherited by agent shells. Ignored pytest/bytecode artifacts can block
+#: worktree evidence capture and cleanup. Explicit caller values take precedence.
 TEST_ARTIFACT_ENV = {
     "PYTEST_ADDOPTS": "-p no:cacheprovider",
     "PYTHONDONTWRITEBYTECODE": "1",
 }
-
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -87,12 +75,10 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     return parser.parse_args(argv)
 
-
 def _task_text(args: argparse.Namespace) -> str:
     if args.prompt is not None:
         return args.prompt
     return Path(args.prompt_file).read_text(encoding="utf-8")
-
 
 def _handoff_summary(result: RunResult[str]) -> str:
     """Summarize seats, lead steps, and recorded message attempts by role.
@@ -122,7 +108,6 @@ def _handoff_summary(result: RunResult[str]) -> str:
         parts.append("message attempts: " + ", ".join(f"{r}={n}" for r, n in sorted(attempts.items())))
     return " ".join(parts)
 
-
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     for name, value in TEST_ARTIFACT_ENV.items():
@@ -141,8 +126,6 @@ def main(argv: list[str] | None = None) -> int:
             timeout=args.timeout,
             max_steps=args.max_steps,
             artifacts=args.artifacts,
-            # Seat the whole roster before its first turn. Worktrees and
-            # serialization use the documented defaults unless overridden.
             prebuild_team=True,
             use_worktrees=not args.no_worktrees,
             serialize_turns=not args.concurrent,
@@ -156,7 +139,6 @@ def main(argv: list[str] | None = None) -> int:
         file=sys.stderr,
     )
     return 0 if result.ok else 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

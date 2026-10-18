@@ -51,7 +51,6 @@ async def test_candidate_delivers_actual_script_mode(tmp_path, filemode, initial
             await lease.cleanup()
         await environment.cleanup()
 
-
 @pytest.mark.parametrize("filemode", [False, True])
 @pytest.mark.parametrize("mode", [0o644, 0o755])
 @pytest.mark.parametrize("edit_content", [False, True])
@@ -119,7 +118,6 @@ async def test_public_candidate_rename_preserves_script_mode(tmp_path, filemode,
     assert candidate_paths and all(not path.exists() for path in candidate_paths)
     assert _git(repo, "worktree", "list", "--porcelain").count("worktree ") == 1
 
-
 @pytest.mark.parametrize("filemode", [False, True])
 @pytest.mark.parametrize("invalid_patch", [False, True])
 async def test_source_rename_restoration_and_rollback_preserve_executable(tmp_path, filemode, invalid_patch):
@@ -154,7 +152,6 @@ async def test_source_rename_restoration_and_rollback_preserve_executable(tmp_pa
         assert (repo / ".git" / "config").read_bytes() == config
     finally:
         await environment.cleanup()
-
 
 @pytest.mark.parametrize("filemode", [False, True])
 @pytest.mark.parametrize("initial,target", [(0o644, 0o755), (0o755, 0o644)])

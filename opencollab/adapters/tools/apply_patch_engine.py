@@ -1,8 +1,6 @@
-"""The diff engine behind ``apply_patch`` — pure text-to-text functions.
+"""Pure text-to-text diff application for ``apply_patch``.
 
-Both modes build the full new file in memory and report failure without
-side effects, so the calling tool can stay all-or-nothing. Independently
-unit-testable: no I/O, no tool plumbing.
+Build the full result or report failure before the caller writes anything.
 """
 
 from __future__ import annotations
@@ -19,30 +17,21 @@ _BARE_HUNK_RE = re.compile(r"^@@[ \t]*(?:@@[ \t]*)?$")
 _NEWLINE_RE = re.compile(r"\r\n|\r|\n")
 _MIXED_NEWLINES = "mixed"
 
-
-# ---------------------------------------------------------------------------
-# Line helpers — split/join while preserving a trailing-newline flag.
-# ---------------------------------------------------------------------------
-
-
 def _detect_newline_style(text: str) -> str:
     styles = set(_NEWLINE_RE.findall(text))
     if len(styles) > 1:
         return _MIXED_NEWLINES
     return next(iter(styles), "\n")
 
-
 def _restore_newlines(text: str, style: str) -> str:
     if style == "\n":
         return text
     return text.replace("\n", style)
 
-
 def _join_lines(lines: list[str], ended_nl: bool) -> str:
     if not lines:
         return ""
     return "\n".join(lines) + ("\n" if ended_nl else "")
-
 
 def _summary(path: str, mode: str, before: str, after: str) -> str:
     before_n = len(_split_lines(_normalize_newlines(before))[0])
@@ -51,12 +40,6 @@ def _summary(path: str, mode: str, before: str, after: str) -> str:
         f"Applied {mode} to {path}: {before_n} -> {after_n} lines "
         f"({len(before)} -> {len(after)} chars)"
     )
-
-
-# ---------------------------------------------------------------------------
-# line_replace mode
-# ---------------------------------------------------------------------------
-
 
 def _locate_expected(lines: list[str], expected: str, *, line_count: int) -> list[tuple[int, int]]:
     """Locate exact text, preserving blank lines and one optional terminator."""
@@ -73,7 +56,6 @@ def _locate_expected(lines: list[str], expected: str, *, line_count: int) -> lis
         for start in range(len(lines) - len(block) + 1)
         if lines[start:start + len(block)] == block
     ]
-
 
 def _apply_line_replace(
     source: str, params: dict[str, Any], *, notes: list[str] | None = None
@@ -163,12 +145,6 @@ def _apply_line_replace(
     updated = _join_lines(result, ended_nl if result else False)
     return prefix + _restore_newlines(updated, newline_style), ""
 
-
-# ---------------------------------------------------------------------------
-# unified_diff mode
-# ---------------------------------------------------------------------------
-
-
 def _parse_hunks(patch: str, *, normalize_hunks: bool = False) -> tuple[list[dict] | None, str]:
     """Parse and structurally validate ``@@`` hunks from a unified diff."""
     hunks: list[dict] = []
@@ -208,7 +184,6 @@ def _parse_hunks(patch: str, *, normalize_hunks: bool = False) -> tuple[list[dic
             hunks.append(cur)
             continue
         if cur is None:
-            # Lines before the first @@ (e.g. ---/+++ headers) are ignored.
             continue
         if raw == "":
             return None, f"hunk on patch line {line_number} has an untagged blank line."
@@ -236,7 +211,6 @@ def _parse_hunks(patch: str, *, normalize_hunks: bool = False) -> tuple[list[dic
         return None, err
     return hunks, ""
 
-
 def _validate_hunk_counts(hunk: dict, *, normalize_hunks: bool = False) -> str:
     """Return an error unless hunk body counts match its header exactly."""
     old_count = sum(line[0] in " -" for line in hunk["lines"])
@@ -254,7 +228,6 @@ def _validate_hunk_counts(hunk: dict, *, normalize_hunks: bool = False) -> str:
             f"{new_count} new lines."
         )
     return ""
-
 
 def _find_block(
     src_lines: list[str], old_block: list[str], expected_idx: int, min_idx: int
@@ -286,7 +259,6 @@ def _find_block(
             if distance == 0:
                 break
     return best_start
-
 
 def _apply_unified_diff(
     source: str, patch: str, *, normalize_hunks: bool = False

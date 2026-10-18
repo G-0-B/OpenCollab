@@ -27,7 +27,6 @@ class DomainEvent(Protocol):
     type: str
     data: dict[str, Any]
 
-
 SessionEventType = Literal[
     "text_delta",
     "tool_start",
@@ -41,14 +40,12 @@ SessionEventType = Literal[
     "user_message_appended",
 ]
 
-
 @dataclass
 class SessionRuntimeEvent:
     """Event emitted by the session run loop and its collaborators."""
 
     type: str
     data: dict[str, Any] = field(default_factory=dict)
-
 
 SchedulerEventType = Literal[
     "agent_spawned",
@@ -63,14 +60,12 @@ SchedulerEventType = Literal[
     "review_completed",
 ]
 
-
 @dataclass
 class SchedulerEvent:
     """Event emitted by scheduler orchestration (spawn, review loop)."""
 
     type: str
     data: dict[str, Any] = field(default_factory=dict)
-
 
 __all__ = [
     "DomainEvent",

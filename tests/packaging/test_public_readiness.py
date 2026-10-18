@@ -37,7 +37,6 @@ _ACTION_REF = re.compile(r"^\s*(?:-\s+)?uses:\s+([^#\s]+)", re.MULTILINE)
 _FULL_GIT_SHA = re.compile(r"[0-9a-f]{40}")
 _LOCALIZED_README = re.compile(r"README\.[a-z]{2}(?:-[A-Z]{2})?\.md")
 
-
 def _repository_files() -> list[Path]:
     completed = subprocess.run(
         ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
@@ -51,14 +50,12 @@ def _repository_files() -> list[Path]:
         if entry and (_REPO_ROOT / entry.decode()).is_file()
     ]
 
-
 def _public_text_files() -> list[Path]:
     return [
         path
         for path in _repository_files()
         if path.name != "LICENSE" and (path.suffix in _PUBLIC_TEXT_SUFFIXES or path.name in _PUBLIC_TEXT_NAMES)
     ]
-
 
 def test_public_text_is_english_and_uses_canonical_project_names() -> None:
     stale_owner = "Yihong" + "Dong/OpenCollab"
@@ -83,14 +80,12 @@ def test_public_text_is_english_and_uses_canonical_project_names() -> None:
 
     assert not findings, "\n".join(findings)
 
-
 def test_readme_points_to_the_canonical_evaluation_guide() -> None:
     readme = (_REPO_ROOT / "README.md").read_text(encoding="utf-8")
     eval_name = "OpenCollab" + "-Eval"
     canonical = f"https://github.com/RISE-X-Lab/{eval_name}#readme"
 
     assert f"[{eval_name} README]({canonical})" in readme
-
 
 def test_distribution_metadata_points_to_the_canonical_repository() -> None:
     pyproject = (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
@@ -102,7 +97,6 @@ def test_distribution_metadata_points_to_the_canonical_repository() -> None:
     assert f'Repository = "{canonical}"' in pyproject
     assert f'Issues = "{canonical}/issues"' in pyproject
 
-
 def test_secret_baseline_is_fully_audited() -> None:
     baseline = json.loads((_REPO_ROOT / ".secrets.baseline").read_text(encoding="utf-8"))
     findings = [finding for path_findings in baseline["results"].values() for finding in path_findings]
@@ -111,7 +105,6 @@ def test_secret_baseline_is_fully_audited() -> None:
     assert baseline["plugins_used"]
     assert findings
     assert all(finding.get("is_secret") is False for finding in findings)
-
 
 def test_workflow_actions_are_immutable_and_checkout_drops_credentials() -> None:
     workflow_files = sorted((_REPO_ROOT / ".github/workflows").glob("*.yml"))

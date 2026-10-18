@@ -18,29 +18,15 @@ from opencollab.domain.tools import (
 
 DEFAULT_MAX_TOKENS_PER_STEP = 8_192
 
-
 @dataclass
 class Agent:
-    """A stateless agent definition. Reusable across multiple Sessions.
+    """A stateless agent definition reusable across sessions.
 
-    Attributes:
-        name: Human-readable identifier (e.g., "lead", "coder", "reviewer").
-        system_prompt: The system prompt that defines this agent's behavior.
-        tools: List of Tool instances this agent is allowed to use.
-        model: LLM model identifier (e.g., "claude-sonnet-4-20250514").
-        provider: LLM provider ("openai", "anthropic", or any OpenAI-compatible).
-        api_key: Override API key for this agent (defaults to env var).
-        base_url: Override base URL (for proxies, local models, etc.).
-        max_tokens_per_step: Max output tokens per LLM call.
-        temperature: Sampling temperature.
-        top_p: Nucleus-sampling top_p (``None`` keeps the provider default, so
-            the request is unchanged; an explicit 0..1 value sends the knob).
-        thinking: Enable provider "thinking"/reasoning passthrough (default off).
-        thinking_params: Provider-native thinking protocol. An explicit
-            protocol also supplies the native switch when ``thinking`` is off.
-        tool_choice: Optional override for the provider ``tool_choice`` (e.g.
-            ``"required"`` to force a tool call). ``None`` keeps the provider
-            default ("auto") — every ordinary agent leaves this unset.
+    ``api_key`` overrides environment credentials. ``base_url`` overrides the
+    provider endpoint. ``top_p=None`` keeps provider defaults, while an explicit
+    value in 0..1 sends the sampling control.
+    ``thinking_params`` supplies the native reasoning switch even when
+    ``thinking`` is off. ``tool_choice=None`` leaves the provider's default choice.
     """
 
     name: str
@@ -65,10 +51,8 @@ class Agent:
     llm_max_retries: int = 3
     provider_error_time_budget: float = 0.0
     reasoning_effort_policy: str = "configured"
-    # Consume chat completions as a stream. OFF by default: streaming is the
-    # only way some endpoints return reasoning text, but it also changes the
-    # request body, so it stays opt-in and per-run. Appended last so the
-    # legacy positional field order is untouched.
+    # Some endpoints expose reasoning only when streamed. Keep streaming opt-in
+    # because it changes the request body.
     llm_stream_chat: bool = False
     # Direct Agent callers supply their own protocol. Bootstrap marks the
     # compatibility default separately to preserve ordinary request shapes.

@@ -34,11 +34,7 @@ class ScriptedSession:
         return await step(self)
 
 def suspend_spawning(specs):
-    """Build a step that spawns one child per spec and suspends.
-
-    ``specs`` is a list of (role, task, tool_call_id). Adds a PENDING row per
-    spawn referencing the child aid, then transitions to AWAITING_EVENTS.
-    """
+    """Spawn each (role, task, tool_call_id) spec, add its pending row, and suspend."""
 
     async def step(sess: ScriptedSession) -> str:
         for order, (role, task, tcid) in enumerate(specs):

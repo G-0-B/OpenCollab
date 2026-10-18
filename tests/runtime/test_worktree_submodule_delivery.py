@@ -24,11 +24,9 @@ async def _acquire(source, tmp_path, monkeypatch, backend):
     assert initialized.returncode == 0, initialized.stderr
     return pool, env
 
-
 def _remove_retained(source, env):
     git(source, "worktree", "remove", "--force", "--force", env.workspace)
     git(source, "update-ref", "-d", f"refs/heads/{env._branch}", env._base_commit)
-
 
 @pytest.mark.parametrize("backend", ["local", "container"])
 @pytest.mark.parametrize("nested", [False, True])
@@ -98,7 +96,6 @@ async def test_unpatchable_module_changes_survive_capture_and_cleanup(
     finally:
         _remove_retained(source, env)
 
-
 @pytest.mark.parametrize("backend", ["local", "container"])
 async def test_parent_commit_of_module_gitlink_retains_module_objects(
     worktree_transport, tmp_path, monkeypatch, backend,
@@ -123,7 +120,6 @@ async def test_parent_commit_of_module_gitlink_retains_module_objects(
         assert (source / module_path / "source.py").read_text() == "value = 1\n"
     finally:
         _remove_retained(source, env)
-
 
 @pytest.mark.parametrize("backend", ["local", "container"])
 async def test_clean_modules_and_parent_patch_export_and_cleanup(

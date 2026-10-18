@@ -15,7 +15,6 @@ _COPYRIGHT_NOTICE = b"Copyright (c) 2026 Yihong Dong, Zhenhua Xu, Kai Gong, and 
 # Canonical body from SPDX license-list-data v3.28.0, text/MulanPSL-2.0.txt.
 _MULAN_PSL_2_SHA256 = "eb7a1d713eb919b146787629e22e4c975cb701f529a65d4d7e0fcd417558bf1c"
 
-
 def test_release_metadata_keeps_versions_aligned_and_includes_license() -> None:
     pyproject = (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     changelog = (_REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
@@ -35,7 +34,6 @@ def test_release_metadata_keeps_versions_aligned_and_includes_license() -> None:
     assert hashlib.sha256(license_body).hexdigest() == _MULAN_PSL_2_SHA256
     assert not (_PACKAGE_ROOT / "LICENSE").exists()
 
-
 def test_release_notices_preserve_historical_and_third_party_terms() -> None:
     notice = (_REPO_ROOT / "NOTICE").read_text(encoding="utf-8")
     normalized_notice = " ".join(notice.split())
@@ -50,7 +48,6 @@ def test_release_notices_preserve_historical_and_third_party_terms() -> None:
     assert "js-yaml 4.1.1" in third_party
     assert js_yaml_license in third_party
 
-
 def test_readme_advertises_the_distribution_license() -> None:
     readme = (_REPO_ROOT / "README.md").read_text(encoding="utf-8")
 
@@ -61,13 +58,11 @@ def test_readme_advertises_the_distribution_license() -> None:
         "(https://github.com/RISE-X-Lab/OpenCollab/blob/main/LICENSE)"
     ) in readme
 
-
 def test_distribution_does_not_claim_package_wide_typing() -> None:
     pyproject = (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
     assert '"Typing :: Typed"' not in pyproject
     assert not (_PACKAGE_ROOT / "py.typed").exists()
-
 
 def test_anthropic_requirement_keeps_the_supported_sdk_range() -> None:
     pyproject = (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
@@ -87,7 +82,6 @@ def test_anthropic_requirement_keeps_the_supported_sdk_range() -> None:
     assert "1.12.1" in requirement.specifier
     assert "2.0.0" not in requirement.specifier
 
-
 def test_typer_requirement_starts_with_click_83_boolean_flag_support() -> None:
     pyproject = (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     declaration = next(
@@ -101,7 +95,6 @@ def test_typer_requirement_starts_with_click_83_boolean_flag_support() -> None:
     assert "0.17.4" not in requirement.specifier
     assert "0.18.0" in requirement.specifier
     assert "0.27.2" in requirement.specifier
-
 
 def test_prompt_toolkit_requirement_keeps_task_based_cpr_waits() -> None:
     pyproject = (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")

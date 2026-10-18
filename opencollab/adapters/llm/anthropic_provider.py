@@ -36,7 +36,6 @@ _ANTHROPIC_VERSION_RE = re.compile(
     r"(?P<major>\d+)(?:-(?P<minor>\d+))?(?:-|$)"
 )
 
-
 def _anthropic_model_version(model: str) -> tuple[str, int, int] | None:
     leaf = model.strip().lower().rsplit("/", 1)[-1]
     # Strip the snapshot date before reading version components.
@@ -50,7 +49,6 @@ def _anthropic_model_version(model: str) -> tuple[str, int, int] | None:
         int(match.group("minor") or 0),
     )
 
-
 def _anthropic_requires_default_sampling(model: str) -> bool:
     """Whether a known native Claude model rejects non-default sampling."""
     leaf = model.strip().lower().rsplit("/", 1)[-1]
@@ -62,7 +60,6 @@ def _anthropic_requires_default_sampling(model: str) -> bool:
     _, major, minor = version
     return major >= 5 or (major == 4 and minor >= 7)
 
-
 def _anthropic_checks_thinking_prefix(model: str) -> bool:
     version = _anthropic_model_version(model)
     if version is None:
@@ -71,14 +68,12 @@ def _anthropic_checks_thinking_prefix(model: str) -> bool:
     return ((family == "fable" and (major, minor) >= (5, 1))
             or (family in {"opus", "sonnet", "haiku"} and (major, minor) >= (5, 5)))
 
-
 def _anthropic_defaults_to_thinking(model: str) -> bool:
     leaf = model.strip().lower().rsplit("/", 1)[-1]
     if leaf.startswith("claude-mythos-preview"):
         return True
     version = _anthropic_model_version(model)
     return version is not None and version[1] >= 5
-
 
 def _anthropic_thinking_is_always_on(model: str) -> bool:
     leaf = model.strip().lower().rsplit("/", 1)[-1]
@@ -90,7 +85,6 @@ def _anthropic_thinking_is_always_on(model: str) -> bool:
         and version[0] in {"fable", "mythos"}
         and version[1] >= 5
     )
-
 
 def _validate_anthropic_thinking_mode(model: str, thinking_type: str) -> None:
     """Reject mode and native-model combinations known to return HTTP 400."""
@@ -105,7 +99,6 @@ def _validate_anthropic_thinking_mode(model: str, thinking_type: str) -> None:
         _, major, minor = version
         if major < 4 or (major == 4 and minor < 6):
             raise ValueError(f"Anthropic model {model!r} does not support adaptive thinking")
-
 
 def _anthropic_tool_choice(
     tool_choice: NormalizedToolChoice | None,
@@ -125,7 +118,6 @@ def _anthropic_tool_choice(
     if tool_choice.mode == "auto":
         return {"type": "auto"}
     return {"type": "tool", "name": tool_choice.name}
-
 
 def _anthropic_thinking_kwargs(
     thinking_params: dict | None,
@@ -210,14 +202,12 @@ def _anthropic_thinking_kwargs(
         request["output_config"] = copy.deepcopy(output_config)
     return request
 
-
 def _validate_anthropic_output_format(value: Any) -> None:
     """Validate the JSON-schema output format accepted by Anthropic."""
     if not isinstance(value, dict) or set(value) != {"type", "schema"}:
         raise ValueError("Anthropic output_config.format requires type and schema")
     if value["type"] != "json_schema" or not isinstance(value["schema"], dict):
         raise ValueError("Anthropic output_config.format must contain a JSON schema")
-
 
 def _minimum_output_tokens(
     model: str, *, max_output_tokens: int, thinking: bool, thinking_params: dict | None,
@@ -230,7 +220,6 @@ def _minimum_output_tokens(
     if config["type"] == "enabled" and model_capabilities(model).requires_anthropic_thinking_budget:
         return config["budget_tokens"] + 1
     return 1
-
 
 def _merge_anthropic_reasoning_effort(
     request: dict[str, Any],
@@ -250,7 +239,6 @@ def _merge_anthropic_reasoning_effort(
     output_config["effort"] = reasoning_effort
     request["output_config"] = output_config
 
-
 def _estimate_request_tokens(messages: list[dict], tools: list[dict] | None) -> int:
     """Reserve the native input projection with the shared framing allowances."""
     system_parts, anthropic_messages = convert_to_anthropic_messages(messages)
@@ -261,7 +249,6 @@ def _estimate_request_tokens(messages: list[dict], tools: list[dict] | None) -> 
         anthropic_messages.insert(0, {"role": "system", "content": "\n\n".join(system_parts)})
     converted_tools = [_convert_tool(tool) for tool in normalize_function_tools(tools)]
     return estimate_request_tokens(anthropic_messages, converted_tools)
-
 
 def _build_request_kwargs(
     model: str,
@@ -318,8 +305,6 @@ def _build_request_kwargs(
     # Claude 4 accepts at most one of temperature and top_p.
     if not thinking and not default_sampling_only and (top_p is None or not claude_4_sampling):
         kwargs["temperature"] = temperature
-    # Nucleus sampling rides along ONLY when explicitly set; when None the key is
-    # omitted so the request is byte-for-byte identical to today's behavior.
     if thinking and top_p is not None:
         sampling_claude_4 = (
             version is not None
@@ -360,7 +345,6 @@ def _build_request_kwargs(
     kwargs.update(thinking_kwargs)
     return kwargs
 
-
 def _convert_tool(tool: dict) -> dict:
     """Convert an OpenAI function-tool definition to Anthropic's schema."""
     func = tool["function"]
@@ -372,7 +356,6 @@ def _convert_tool(tool: dict) -> dict:
     if "strict" in func:
         converted["strict"] = func["strict"]
     return converted
-
 
 async def complete_anthropic(
     client: Any,
@@ -404,9 +387,7 @@ async def complete_anthropic(
     )
 
     async def request_once() -> Any:
-        # The Anthropic path is not streamed, so there is no first token to
-        # time; the wrapper exists only to put that fact, and the attempt's
-        # start, on the record.
+        # Record the non-streamed attempt's start and unavailable first-token timing.
         begin_attempt(streamed=False, unavailable_reason=NOT_STREAMED)
         create = client.messages.create
         return await create(**_sdk_sampling_kwargs(create, kwargs))
@@ -417,7 +398,6 @@ async def complete_anthropic(
         retry_time_budget=provider_error_time_budget,
     )
     return _parse_response(resp)
-
 
 def _sdk_sampling_kwargs(create: Any, kwargs: dict[str, Any]) -> dict[str, Any]:
     """Preserve supported sampling on SDKs that moved it to extra_body."""
@@ -434,7 +414,6 @@ def _sdk_sampling_kwargs(create: Any, kwargs: dict[str, Any]) -> dict[str, Any]:
         **{name: value for name, value in kwargs.items() if name not in moved},
         "extra_body": {**kwargs.get("extra_body", {}), **moved},
     }
-
 
 def _parse_response(resp: Any) -> LLMResponse:
     content = ""
@@ -481,11 +460,9 @@ def _parse_response(resp: Any) -> LLMResponse:
         ),
     )
 
-
 def _text_or_empty(value: Any) -> str:
     """Normalize nullable text fields emitted by compatible gateways."""
     return value if isinstance(value, str) else ""
-
 
 def _serialize_content_block(block: Any) -> dict[str, Any]:
     """Return a JSON-safe Anthropic block for an unchanged later request."""
@@ -519,7 +496,6 @@ def _serialize_content_block(block: Any) -> dict[str, Any]:
         "input": copy.deepcopy(block.input),
     }
 
-
 def _parse_usage(usage: Any) -> Usage:
     """Build a corrected ``Usage`` from an Anthropic usage object.
 
@@ -551,12 +527,6 @@ def _parse_usage(usage: Any) -> Usage:
             "output_tokens_details": output_details,
         },
     )
-
-
-# ---------------------------------------------------------------------------
-# OpenAI-format → Anthropic-format message conversion
-# ---------------------------------------------------------------------------
-
 
 def convert_to_anthropic_messages(messages: list[dict]) -> tuple[list[str], list[dict]]:
     """Convert OpenAI-format message history to Anthropic format.
@@ -616,7 +586,6 @@ def convert_to_anthropic_messages(messages: list[dict]) -> tuple[list[str], list
 
     return system_parts, anthropic_messages
 
-
 def _normalize_openai_content(
     content: Any,
     *,
@@ -649,7 +618,6 @@ def _normalize_openai_content(
         normalized.append({"type": "text", "text": text})
     return normalized
 
-
 def _convert_assistant_content(message: dict, *, message_index: int) -> list[dict]:
     """Build Anthropic content blocks (text + tool_use) from an assistant message."""
     provider_state = message.get("provider_state")
@@ -666,7 +634,6 @@ def _convert_assistant_content(message: dict, *, message_index: int) -> list[dic
     for tool_call in message.get("tool_calls") or []:
         content_blocks.append(_convert_tool_call(tool_call, message_index=message_index))
     return content_blocks
-
 
 def _convert_tool_call(tool_call: dict, *, message_index: int) -> dict:
     """Convert one OpenAI tool call to an Anthropic tool_use block."""
@@ -692,7 +659,6 @@ def _convert_tool_call(tool_call: dict, *, message_index: int) -> dict:
         "name": name,
         "input": tool_input,
     }
-
 
 def _append_tool_result(anthropic_messages: list[dict], message: dict) -> None:
     """Append a tool result, merging consecutive results into one user message."""

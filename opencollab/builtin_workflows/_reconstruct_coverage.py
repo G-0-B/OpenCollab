@@ -1,10 +1,7 @@
-"""Structural case coverage of the inputs a reconstruction has observed.
+"""Track structural coverage of reconstruction inputs.
 
-Modelled on rea's obligation ledger: an obligation closes only when the
-fixtures cover the required case kinds. The kinds here are semantics-free
-structural properties of JSON-like inputs (length buckets, zero, negatives,
-repeats, and the analogous properties for numbers, pairs, strings and point
-sets), so they can be demanded from the agent without hinting at the rule.
+Length, sign, repetition and container categories identify missing cases
+without revealing the hidden program's rule.
 """
 
 from __future__ import annotations

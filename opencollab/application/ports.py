@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     from opencollab.application.scheduler_types import LaunchSpec
     from opencollab.application.tool_execution import DeferredCall, ToolRuntime
 
-
 class EnvironmentPort(Protocol):
     workspace: str
     host_workspace: str | None
@@ -56,7 +55,6 @@ class EnvironmentPort(Protocol):
     async def cleanup(self) -> None:
         ...
 
-
 @runtime_checkable
 class DiffCapablePort(Protocol):
     """An environment that can report its accumulated changes as a diff.
@@ -68,14 +66,12 @@ class DiffCapablePort(Protocol):
     async def get_diff(self) -> str:
         ...
 
-
 @runtime_checkable
 class CapturedChangesDiffPort(Protocol):
     """Optional increment between two complete, previously captured diffs."""
 
     async def diff_captured(self, before_patch: str, after_patch: str) -> str:
         ...
-
 
 @runtime_checkable
 class RecoverableChangesPort(Protocol):
@@ -89,7 +85,6 @@ class RecoverableChangesPort(Protocol):
     def recovery_location(self) -> str | None:
         """The retained workspace location, if a full export is still pending."""
         ...
-
 
 @runtime_checkable
 class WorkingTreeProbe(Protocol):
@@ -107,7 +102,6 @@ class WorkingTreeProbe(Protocol):
         """True when the working tree has uncommitted changes."""
         ...
 
-
 class CandidateWorkspaceLeasePort(Protocol):
     """One isolated candidate worktree owned by a workflow call."""
 
@@ -116,7 +110,6 @@ class CandidateWorkspaceLeasePort(Protocol):
     async def diff(self, exclude_paths: Sequence[str] = ()) -> str: ...
 
     async def cleanup(self) -> None: ...
-
 
 class CandidateWorkspacePort(Protocol):
     """Creates isolated candidates and transactionally adopts one patch."""
@@ -142,7 +135,6 @@ class CandidateWorkspacePort(Protocol):
         """Complete current-tree evidence, or raise when it cannot be proven."""
         ...
 
-
 class SafetyPolicyPort(Protocol):
     def check_path(self, target_path: str) -> str:
         ...
@@ -160,14 +152,11 @@ class SafetyPolicyPort(Protocol):
     ) -> Awaitable[None]:
         ...
 
-
 SafetyPolicyFactory = Callable[[Any], SafetyPolicyPort | None]
-
 
 class PermissionPort(Protocol):
     async def confirm(self, prompt: str) -> bool:
         ...
-
 
 class AskUserPort(Protocol):
     """Free-text human input for the ``ask_user`` tool.
@@ -182,11 +171,9 @@ class AskUserPort(Protocol):
     async def ask(self, question: str) -> str:
         ...
 
-
 class EventPublisherPort(Protocol):
     async def emit(self, event: Any) -> None:
         ...
-
 
 class ShaperPort(Protocol):
     """Reshapes the message list just before a model call.
@@ -201,7 +188,6 @@ class ShaperPort(Protocol):
     def shape(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         ...
 
-
 class HookPort(Protocol):
     """Runs the hooks bound to a lifecycle event.
 
@@ -214,7 +200,6 @@ class HookPort(Protocol):
 
     async def fire(self, event_name: str, payload: dict[str, Any]) -> HookOutcome:
         ...
-
 
 class ToolPort(Protocol):
     """A callable tool: JSON Schema input, string result. A deferrable tool
@@ -238,14 +223,12 @@ class ToolPort(Protocol):
     ) -> "str | DeferredCall":
         ...
 
-
 class VerificationScopedToolPort(Protocol):
     """Optional tool capability for evidence owned by one candidate call."""
 
     def fork_verification_scope(self, scope: dict[object, Any]) -> ToolPort:
         """Fork observations while sharing the call's scope with sibling tools."""
         ...
-
 
 class SkillStorePort(Protocol):
     """Discovery + retrieval of skill packages. The reserved plug-point for skills.
@@ -263,7 +246,6 @@ class SkillStorePort(Protocol):
     def get_body(self, name: str) -> str | None:
         """Full instruction body for ``name``, or ``None`` if unknown."""
         ...
-
 
 class SessionFactoryPort(Protocol):
     """Factory the scheduler uses to build sessions.
@@ -306,7 +288,6 @@ class SessionFactoryPort(Protocol):
         the scheduler via ``Session.apply_launch``.
         """
         ...
-
 
 class WorkflowSessionFactoryPort(Protocol):
     """Factory the workflow engine uses to build one-shot agent sessions.
@@ -361,7 +342,6 @@ class WorkflowSessionFactoryPort(Protocol):
         also have to clean up after it.
         """
         ...
-
 
 class SchedulerPort(Protocol):
     """Port for the scheduler — called by tools to spawn agents."""
@@ -427,7 +407,6 @@ class SchedulerPort(Protocol):
         """Read-only roster: one dict per agent (aid, role, parent_aid, phase, busy)."""
         ...
 
-
 class CompletionUsage(Protocol):
     """Token accounting attached to a completion."""
 
@@ -438,7 +417,6 @@ class CompletionUsage(Protocol):
     @property
     def total_tokens(self) -> int:
         ...
-
 
 class CompletionResponse(Protocol):
     """Structural contract for one LLM completion result.
@@ -492,7 +470,6 @@ class CompletionResponse(Protocol):
         """
         ...
 
-
 class LLMPort(Protocol):
     """LLM client surface used by the session run loop and compaction."""
 
@@ -512,7 +489,6 @@ class LLMPort(Protocol):
     ) -> CompletionResponse:
         ...
 
-
 @runtime_checkable
 class ThinkingPrefixPort(Protocol):
     """Optional native-thinking constraint on client-side history edits."""
@@ -520,7 +496,6 @@ class ThinkingPrefixPort(Protocol):
     @property
     def requires_thinking_prefix(self) -> bool:
         ...
-
 
 @runtime_checkable
 class RequestTokenEstimatorPort(Protocol):
@@ -536,7 +511,6 @@ class RequestTokenEstimatorPort(Protocol):
     ) -> int:
         ...
 
-
 @runtime_checkable
 class ContextTokenEstimatorPort(Protocol):
     """Optional additive sizing of the selected provider's message projection."""
@@ -549,7 +523,6 @@ class ContextTokenEstimatorPort(Protocol):
         thinking_params: dict[str, Any] | None = None,
     ) -> int:
         ...
-
 
 @runtime_checkable
 class RequestOutputRequirementPort(Protocol):
@@ -568,7 +541,6 @@ class RequestOutputRequirementPort(Protocol):
         Invalid configuration raises its ordinary configuration error.
         """
         ...
-
 
 class SessionStorePort(Protocol):
     """Message persistence surface (structured JSON per agent)."""
@@ -592,7 +564,6 @@ class SessionStorePort(Protocol):
     def save_manifest(self, path: str, manifest: dict[str, Any]) -> None:
         ...
 
-
 @runtime_checkable
 class SnapshotStorePort(Protocol):
     """Optional complete-session snapshot reader."""
@@ -603,7 +574,6 @@ class SnapshotStorePort(Protocol):
         system_prompt: str,
     ) -> dict[str, Any]:
         ...
-
 
 @runtime_checkable
 class JournalSnapshotStorePort(Protocol):
@@ -635,7 +605,6 @@ class JournalSnapshotStorePort(Protocol):
     ) -> None:
         ...
 
-
 class TracePort(Protocol):
     """Trajectory recorder surface."""
 
@@ -652,10 +621,7 @@ class TracePort(Protocol):
     def flush(self) -> None:
         ...
 
-
-# Callable that estimates a token cost for a messages list.
 TokenEstimatorPort = Callable[[list[dict[str, Any]]], int]
-
 
 class WorktreePoolPort(Protocol):
     """Per-spawn worktree environment lifecycle."""

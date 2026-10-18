@@ -50,7 +50,6 @@ def _response(response_id: str, *, include_usage: bool = True) -> dict[str, Any]
         "metadata": {},
     }
 
-
 def _item_event(item: dict[str, Any], index: int) -> dict[str, Any]:
     return {
         "type": "response.output_item.done",
@@ -58,7 +57,6 @@ def _item_event(item: dict[str, Any], index: int) -> dict[str, Any]:
         "output_index": index,
         "item": item,
     }
-
 
 def _completed_event(
     response_id: str,
@@ -73,14 +71,8 @@ def _completed_event(
         "response": {**_response(response_id, include_usage=include_usage), "output": output},
     }
 
-
-# These tests assert what the client puts on the wire and what it makes of the
-# reply, never how fast a local server answers. The timeouts are here to fail a
-# hang, so they sit far above the round trip: a five-second round deadline is
-# reachable on a loaded single-core runner, and reports a correct request as a
-# protocol error.
+# Generous deadlines distinguish protocol hangs from slow local HTTP round trips.
 HANG_GUARD_SECONDS = 60
-
 
 @contextmanager
 def fake_responses_server(
@@ -124,7 +116,6 @@ def fake_responses_server(
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
-
 
 @pytest.mark.asyncio
 async def test_real_http_stream_replays_reasoning_function_call_and_output(monkeypatch):
@@ -225,7 +216,6 @@ async def test_real_http_stream_replays_reasoning_function_call_and_output(monke
         "output": "42",
     }
 
-
 @pytest.mark.asyncio
 async def test_real_http_missing_usage_estimates_encrypted_replay_and_registered_tools():
     reasoning = {
@@ -319,7 +309,6 @@ async def test_real_http_missing_usage_estimates_encrypted_replay_and_registered
         request["tools"],
         prefer_response_items=True,
     )
-
 
 @pytest.mark.asyncio
 async def test_real_http_deepseek_named_tool_uses_json_schema_text_binding():

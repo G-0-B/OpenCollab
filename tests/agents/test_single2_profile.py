@@ -34,7 +34,6 @@ class ReplyLLM:
             usage=Usage(4, 2),
         )
 
-
 def test_single2_prompt_obeys_task_permissions_and_preserves_validation():
     assert "only as needed for the task and within granted permissions" in SINGLE2_SYSTEM_PROMPT
     assert "Keep existing tests unchanged unless the task explicitly requests a test change" in SINGLE2_SYSTEM_PROMPT
@@ -44,14 +43,12 @@ def test_single2_prompt_obeys_task_permissions_and_preserves_validation():
     assert "Follow the runtime's tool and network permissions" in SINGLE2_SYSTEM_PROMPT
     assert "A final response without tool calls ends the agent session." in SINGLE2_SYSTEM_PROMPT
 
-
 def test_single2_prompt_keeps_caller_owned_submission_and_required_services():
     assert "If the runtime captures a working-tree patch" in SINGLE2_SYSTEM_PROMPT
     assert "leave the changes for the caller to capture, commit, and submit" in SINGLE2_SYSTEM_PROMPT
     assert "only when the task or runtime explicitly requires you to do so" in SINGLE2_SYSTEM_PROMPT
     assert "When the runtime assigns these steps to the caller, leave them to the caller" in SINGLE2_SYSTEM_PROMPT
     assert "Preserve files and running services required for delivery" in SINGLE2_SYSTEM_PROMPT
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("task_prompt", [
@@ -131,7 +128,6 @@ async def test_default_base_and_single2_use_the_same_model_configuration(
         for actual, other in zip(sessions["omitted"].agent.tools, sessions["single2"].agent.tools, strict=True)
     )
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("profile", [None, "base", "single2"])
 async def test_selected_profile_explicit_limits_survive_unbounded_environment(
@@ -167,7 +163,6 @@ async def test_selected_profile_explicit_limits_survive_unbounded_environment(
     assert session.runner.max_budget_tokens == 1_000_000_000_000
     assert session.runner.max_steps == 1_000_000_000_000
 
-
 @pytest.mark.asyncio
 async def test_default_agent_keeps_unbounded_environment_semantics(
     tmp_path,
@@ -197,7 +192,6 @@ async def test_default_agent_keeps_unbounded_environment_semantics(
     assert sessions[0].max_budget_tokens is None
     assert sessions[0].max_steps is None
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("profile", [None, "base", "single2"])
 async def test_explicit_tools_and_system_prompt_customize_selected_profile(tmp_path, monkeypatch, profile):
@@ -223,7 +217,6 @@ async def test_explicit_tools_and_system_prompt_customize_selected_profile(tmp_p
     assert llm.calls[0][0][0] == {"role": "system", "content": "Follow this task-specific instruction"}
     assert [tool["function"]["name"] for tool in llm.calls[0][1]] == ["file_read"]
 
-
 @pytest.mark.asyncio
 async def test_programmatic_standalone_omitted_profile_uses_base(tmp_path, monkeypatch):
     sessions = []
@@ -246,18 +239,15 @@ async def test_programmatic_standalone_omitted_profile_uses_base(tmp_path, monke
     assert sessions[0].agent.system_prompt == SINGLE2_SYSTEM_PROMPT
     assert sessions[0].agent.tools[0].require_process_isolation is True
 
-
 @pytest.mark.parametrize("name", [None, "base", " Base ", "default", "single", "single2", "Single2"])
 def test_public_profile_name_resolves_to_the_base_implementation(name):
     assert BASE_PROFILE == "single2"
     assert resolve_profile_name(name) == "single2"
 
-
 @pytest.mark.parametrize("name", ["unknown", "", 1, False])
 def test_public_profile_name_rejects_invalid_names(name):
     with pytest.raises(ValueError, match="profile"):
         resolve_profile_name(name)
-
 
 @pytest.mark.asyncio
 async def test_new_named_factory_and_base_mapping_select_the_new_implementation(tmp_path, monkeypatch):
@@ -301,7 +291,6 @@ async def test_new_named_factory_and_base_mapping_select_the_new_implementation(
     assert all(resolve_profile_name(name) == "future" for name in (None, "base", "default", "single"))
     assert resolve_profile_name("single2") == "single2"
 
-
 def test_single2_shaper_preserves_the_tail_without_changing_default():
     value = "HEAD" + "a" * 25_000 + "LAST FAILURE"
     messages = [{"role": "tool", "tool_call_id": "c", "content": value}]
@@ -317,7 +306,6 @@ def test_single2_shaper_preserves_the_tail_without_changing_default():
     assert len(single2) == 16_000
     assert messages[0]["content"] == value
 
-
 @pytest.mark.asyncio
 async def test_invalid_profile_is_rejected_before_execution(tmp_path):
     client = OpenCollab(tmp_path)
@@ -325,7 +313,6 @@ async def test_invalid_profile_is_rejected_before_execution(tmp_path):
         await client.agent("test", profile="unknown")
     with pytest.raises(ValueError, match="profile"):
         await client.agent2("test", profile="default")
-
 
 def test_profile_is_fresh_and_has_no_mutable_tool_instances():
     first = resolve_agent_profile("single2")

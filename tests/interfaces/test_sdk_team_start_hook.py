@@ -43,7 +43,6 @@ class _Model:
         return llm_response(content="startup marker available" if any("INITIALIZED" in result for result in results)
                             else "startup marker missing")
 
-
 def _team(tmp_path, *, start_ending="success", child=False):
     record = 'printf "%s %s\\n" "$OPENCOLLAB_HOOK_EVENT" "$OPENCOLLAB_AID" >> lifecycle.txt'
     first = record
@@ -66,7 +65,6 @@ def _team(tmp_path, *, start_ending="success", child=False):
     )
     return path
 
-
 @pytest.mark.parametrize("start_ending", ["success", "error", "timeout"])
 async def test_public_team_start_initializes_before_file_read(tmp_path, monkeypatch, start_ending):
     monkeypatch.setattr(container, "LLMClient", _Model)
@@ -82,7 +80,6 @@ async def test_public_team_start_initializes_before_file_read(tmp_path, monkeypa
     assert (tmp_path / "lifecycle.txt").read_text().splitlines() == ["SessionStart 0", "Stop 0"]
     assert any("INITIALIZED" in message.get("content", "") for message in _Model.requests[-1]
                if message["role"] == "tool")
-
 
 async def test_new_and_restored_lead_instances_fire_once_at_actual_start(tmp_path, monkeypatch):
     monkeypatch.setattr(container, "LLMClient", _Model)
@@ -121,7 +118,6 @@ async def test_new_and_restored_lead_instances_fire_once_at_actual_start(tmp_pat
     assert (tmp_path / "lifecycle.txt").read_text().splitlines() == [
         "SessionStart 0", "Stop 0", "Stop 0", "SessionStart 0", "Stop 0", "Stop 0",
     ]
-
 
 async def test_child_start_and_subagent_stop_keep_their_existing_semantics(tmp_path, monkeypatch):
     monkeypatch.setattr(container, "LLMClient", _Model)

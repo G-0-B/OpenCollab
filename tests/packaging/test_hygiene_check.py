@@ -15,12 +15,7 @@ _REPO_ROOT = REPO_ROOT
 _SCRIPT = _REPO_ROOT / "scripts" / "check_added_files.py"
 _FIXTURE_COMMIT = "test: \u8c03\u6574\u4e34\u65f6\u6d4b\u8bd5\u6587\u4ef6"
 
-# The line ceiling was demoted from a hard gate to a hint on 2026-08-27: module
-# size predicts little on its own, and splitting a file to satisfy a number
-# widens its public interface. The four tests below still pin every detection
-# path — a new module, a grown one, a renamed one, and the complete-tree run —
-# and now also pin that each is reported as a warning without failing the run.
-
+# Cover new, grown, renamed, and complete-tree module detection as warnings.
 
 def _repository(tmp_path: Path) -> tuple[Path, str]:
     repository = tmp_path / "repository"
@@ -32,7 +27,6 @@ def _repository(tmp_path: Path) -> tuple[Path, str]:
     _git(repository, "add", "base.txt")
     _git(repository, "commit", "-m", "base")
     return repository, _git(repository, "rev-parse", "HEAD")
-
 
 def _run(
     repository: Path,
@@ -48,7 +42,6 @@ def _run(
         text=True,
     )
 
-
 def test_hygiene_rejects_oversized_file_with_newline_name(tmp_path):
     repository, base = _repository(tmp_path)
     name = "oversized\nartifact.bin"
@@ -61,7 +54,6 @@ def test_hygiene_rejects_oversized_file_with_newline_name(tmp_path):
     assert result.returncode == 1
     assert "oversized%0Aartifact.bin" in result.stdout
     assert "512001 bytes" in result.stdout
-
 
 def test_hygiene_accepts_small_files_with_git_legal_special_names(tmp_path):
     repository, base = _repository(tmp_path)
@@ -84,7 +76,6 @@ def test_hygiene_accepts_small_files_with_git_legal_special_names(tmp_path):
 
     assert result.returncode == 0
     assert "checks passed" in result.stdout
-
 
 @pytest.mark.parametrize("committed_size", [10, 512_001])
 @pytest.mark.parametrize("checkout", ["base", "modified", "missing", "symlink"])
@@ -115,7 +106,6 @@ def test_hygiene_measures_committed_bytes_with_a_different_worktree(
     else:
         assert "checks passed" in result.stdout
 
-
 @pytest.mark.parametrize("mode", ["symlink", "submodule"])
 def test_hygiene_uses_committed_file_type_with_a_regular_worktree(tmp_path, mode):
     repository, base = _repository(tmp_path)
@@ -135,7 +125,6 @@ def test_hygiene_uses_committed_file_type_with_a_regular_worktree(tmp_path, mode
 
     assert result.returncode == 0
     assert "checks passed" in result.stdout
-
 
 @pytest.mark.parametrize("mode", ["symlink", "submodule"])
 @pytest.mark.parametrize("content", ["small", "oversized", "python"])
@@ -172,7 +161,6 @@ def test_hygiene_checks_a_link_replaced_by_a_regular_file(tmp_path, mode, conten
     else:
         assert "checks passed" in result.stdout
 
-
 @pytest.mark.parametrize("mode", ["symlink", "submodule"])
 def test_hygiene_accepts_a_regular_file_replaced_by_a_link(tmp_path, mode):
     repository, seed = _repository(tmp_path)
@@ -197,7 +185,6 @@ def test_hygiene_accepts_a_regular_file_replaced_by_a_link(tmp_path, mode):
     assert result.returncode == 0
     assert "checks passed" in result.stdout
 
-
 @pytest.mark.parametrize("size", [10, 512_001])
 def test_hygiene_accepts_an_executable_bit_change_without_growth(tmp_path, size):
     repository, _seed = _repository(tmp_path)
@@ -216,7 +203,6 @@ def test_hygiene_accepts_an_executable_bit_change_without_growth(tmp_path, size)
     assert result.returncode == 0
     assert "checks passed" in result.stdout
 
-
 def test_hygiene_measures_committed_executable_bytes(tmp_path):
     repository, base = _repository(tmp_path)
     target = repository / "artifact.bin"
@@ -231,7 +217,6 @@ def test_hygiene_measures_committed_executable_bytes(tmp_path):
 
     assert result.returncode == 1
     assert "512001 bytes" in result.stdout
-
 
 @pytest.mark.parametrize("diff_relative", ["false", "true"])
 def test_hygiene_checks_the_complete_change_from_a_subdirectory(tmp_path, diff_relative):
@@ -253,7 +238,6 @@ def test_hygiene_checks_the_complete_change_from_a_subdirectory(tmp_path, diff_r
     assert "file=nested/module.py" in result.stdout
     assert "801 lines" in result.stdout
 
-
 def test_hygiene_warns_about_a_python_module_over_line_limit(tmp_path):
     repository, base = _repository(tmp_path)
     (repository / "large.py").write_text("pass\n" * 801, encoding="utf-8")
@@ -266,13 +250,11 @@ def test_hygiene_warns_about_a_python_module_over_line_limit(tmp_path):
     assert "::warning" in result.stdout
     assert "801 lines" in result.stdout
 
-
 def _committed_module(repository: Path, name: str, lines: int) -> str:
     (repository / name).write_text("pass\n" * lines, encoding="utf-8")
     _git(repository, "add", name)
     _git(repository, "commit", "-m", f"write {name}")
     return _git(repository, "rev-parse", "HEAD")
-
 
 @pytest.mark.parametrize("checkout", ["base", "modified", "missing"])
 def test_hygiene_measures_committed_python_lines_with_a_different_worktree(tmp_path, checkout):
@@ -293,7 +275,6 @@ def test_hygiene_measures_committed_python_lines_with_a_different_worktree(tmp_p
     assert "801 lines" in result.stdout
     assert "grown past the limit by this change" in result.stdout
 
-
 def test_hygiene_warns_about_a_change_that_grows_a_module_past_the_line_limit(tmp_path):
     repository, _base = _repository(tmp_path)
     base = _committed_module(repository, "module.py", 700)
@@ -306,7 +287,6 @@ def test_hygiene_warns_about_a_change_that_grows_a_module_past_the_line_limit(tm
     assert "801 lines" in result.stdout
     assert "grown past the limit by this change" in result.stdout
 
-
 def test_hygiene_accepts_a_change_that_keeps_a_module_under_the_line_limit(tmp_path):
     repository, _base = _repository(tmp_path)
     base = _committed_module(repository, "module.py", 700)
@@ -316,7 +296,6 @@ def test_hygiene_accepts_a_change_that_keeps_a_module_under_the_line_limit(tmp_p
 
     assert result.returncode == 0
     assert "checks passed" in result.stdout
-
 
 def test_hygiene_leaves_a_module_that_was_already_oversized_to_the_main_tree_check(tmp_path):
     repository, _base = _repository(tmp_path)
@@ -328,7 +307,6 @@ def test_hygiene_leaves_a_module_that_was_already_oversized_to_the_main_tree_che
     assert result.returncode == 0
     assert "checks passed" in result.stdout
 
-
 def test_hygiene_still_reports_an_already_oversized_module_on_the_complete_tree(tmp_path):
     repository, _base = _repository(tmp_path)
     _committed_module(repository, "module.py", 900)
@@ -339,7 +317,6 @@ def test_hygiene_still_reports_an_already_oversized_module_on_the_complete_tree(
     assert result.returncode == 0
     assert "::warning" in result.stdout
     assert "900 lines" in result.stdout
-
 
 def test_hygiene_rejects_a_change_that_grows_a_file_past_the_byte_limit(tmp_path):
     repository, _base = _repository(tmp_path)
@@ -356,7 +333,6 @@ def test_hygiene_rejects_a_change_that_grows_a_file_past_the_byte_limit(tmp_path
     assert result.returncode == 1
     assert "512001 bytes" in result.stdout
     assert "grown past the limit by this change" in result.stdout
-
 
 def test_hygiene_leaves_already_oversized_bytes_to_the_complete_tree_check(tmp_path):
     repository, _base = _repository(tmp_path)
@@ -380,7 +356,6 @@ def test_hygiene_leaves_already_oversized_bytes_to_the_complete_tree_check(tmp_p
     assert tree_result.returncode == 1
     assert "512010 bytes" in tree_result.stdout
 
-
 def test_hygiene_measures_a_module_renamed_and_grown_in_one_step(tmp_path):
     repository, _base = _repository(tmp_path)
     base = _committed_module(repository, "module.py", 700)
@@ -395,7 +370,6 @@ def test_hygiene_measures_a_module_renamed_and_grown_in_one_step(tmp_path):
     assert "::warning" in result.stdout
     assert "801 lines" in result.stdout
 
-
 def test_hygiene_fails_when_git_diff_cannot_be_computed(tmp_path):
     repository, _base = _repository(tmp_path)
 
@@ -403,7 +377,6 @@ def test_hygiene_fails_when_git_diff_cannot_be_computed(tmp_path):
 
     assert result.returncode == 2
     assert "git diff failed" in result.stderr
-
 
 def test_hygiene_checks_a_complete_root_tree(tmp_path):
     repository, _base = _repository(tmp_path)
@@ -413,7 +386,6 @@ def test_hygiene_checks_a_complete_root_tree(tmp_path):
 
     assert result.returncode == 0
     assert "checks passed" in result.stdout
-
 
 def test_hygiene_rejects_an_empty_complete_tree(tmp_path):
     repository, base = _repository(tmp_path)

@@ -45,11 +45,8 @@ from opencollab.domain.tools import LoopDetection, ToolProcessingResult
 
 logger = logging.getLogger(__name__)
 
-
-# Loop detection (ref: opencode doom_loop detection — 3 identical calls)
 MAX_SIMILAR_CALLS = 3
 MAX_TOOL_CALLS_PER_BATCH = 32
-
 
 def _require_positive_finite_timeout(value: Any, *, name: str) -> float:
     if isinstance(value, bool):
@@ -62,16 +59,14 @@ def _require_positive_finite_timeout(value: Any, *, name: str) -> float:
         raise ValueError(f"{name} must be a finite positive number")
     return timeout
 
-# File reads share a repeat counter only for the same path AND line range.
-# Pagination can legitimately read many sections of a large file, including
-# several sections in one batch. Keep the existing, more lenient read threshold
-# for revisits to each range, including cycles across several ranges.
+# Loop detection follows the OpenCode doom_loop approach.
+# Count repeated reads per path and line range so legitimate pagination
+# keeps the more lenient read threshold.
 _RANGED_READ_TOOLS = frozenset({"file_read"})
 MAX_SAME_FILE_READS = 8
 
-# Read-only vs edit tools, for the reads-without-write steering signal. Reads
-# accumulate ``reads_since_last_edit``; a successful write zeroes it. bash is
-# excluded (it can read OR write — counting it would misfire both ways).
+# Exclude bash from read/write steering because it can do either.
+# Successful writes reset the accumulated read count.
 _READ_TOOLS = frozenset({"file_read", "grep"})
 _WRITE_TOOLS = frozenset({"file_write", "apply_patch"})
 # A tool result is an error (not a real edit/read) when it starts with one of
@@ -82,40 +77,23 @@ TERMINAL_CAPTURE_SKIP_MESSAGE = (
     "Skipped: terminal structured output accepted earlier in this batch."
 )
 
-# Information-gain sensor (STEP 1). Each EXECUTED tool result is classified as
-# informative vs low-yield so later brakes can key on information GAIN, not raw
-# tokens. Low-yield = an exact duplicate (same result CONTENT hash OR same
-# normalized (tool, args) call hash seen before — novelty is the PRIMARY
-# signal), an empty/zero-byte read, or a "No matches found"-class result. Keying
-# on the content/call HASH (not the literal "No matches" string) means a model
-# re-reading a known file to dodge a string match still scores zero gain. Novelty
-# itself is decided by SessionState (it owns the seen-hash memory); this module
-# only computes the two cheap, stateless inputs below. STEP 1 adds NO braking —
-# behavior gating lives in a later step; here the counters are observational.
-#
-# "No matches"-class markers, matched case-insensitively at the start of the
-# stripped output. A SECONDARY refinement catching a FIRST-occurrence no-result
-# that would otherwise look novel; the grep tool emits
-# "No matches found for pattern: ...".
+# SessionState tracks content and normalized-call novelty. Repeated calls,
+# repeated content, empty reads, and no-match results supply zero information gain.
+# Match no-result prefixes too, since their first occurrence has a novel hash.
+# These signals are observational here and feed the later progress brakes.
 _NO_MATCH_MARKERS = (
     "no matches found",
     "no files found",
     "no results found",
 )
 
-
 def _result_content_hash(output: str) -> str:
     """Stable hash of a tool result's content, for novelty detection."""
     return hashlib.md5((output or "").encode()).hexdigest()
 
-
-# Evidence ledger (STEP 2). The harness records one compact card per executed
-# scout tool call, built purely from the (tool, args, output) envelope. ``target``
-# is the thing the call examined (a file path, a grep pattern, a bash command);
-# ``snippet`` is a short, single-lined slice of the result so the planner /
-# dead-scout synthesizer sees WHAT was found without re-reading the raw transcript.
+# Record a compact tool/target/snippet card per executed call so salvage can
+# recover gathered evidence without re-reading the entire transcript.
 _LEDGER_SNIPPET_CHARS = 240
-
 
 def _card_target(tool_name: str, args: dict) -> str:
     """The salient subject of a tool call for the evidence ledger, off the args
@@ -133,12 +111,10 @@ def _card_target(tool_name: str, args: dict) -> str:
     path = args.get("path")
     return str(path) if path else json.dumps(args, default=str, sort_keys=True)[:_LEDGER_SNIPPET_CHARS]
 
-
 def _card_snippet(output: str) -> str:
     """A short, whitespace-collapsed slice of a tool result for the ledger card."""
     norm = " ".join((output or "").split())
     return norm[:_LEDGER_SNIPPET_CHARS]
-
 
 def _intrinsic_low_yield(tool_name: str, output: str) -> bool:
     """Low-yield regardless of novelty: an empty read or a 'No matches'-class
@@ -155,7 +131,6 @@ def _intrinsic_low_yield(tool_name: str, output: str) -> bool:
             return True
     return False
 
-
 def _first_shell_word(text: str) -> str:
     """The first word of ``text``, stopping at a shell operator or separator."""
     if not text:
@@ -167,7 +142,6 @@ def _first_shell_word(text: str) -> str:
         return next(iter(lexer), "")
     except ValueError:
         return ""
-
 
 def _has_unquoted_output_redirect(command: str) -> bool:
     quote: str | None = None
@@ -222,7 +196,6 @@ def _has_unquoted_output_redirect(command: str) -> bool:
             continue
         return True
     return False
-
 
 def _bash_likely_mutates(args: dict) -> bool:
     """Conservatively classify shell commands that write to the workspace.
@@ -306,7 +279,6 @@ def _bash_likely_mutates(args: dict) -> bool:
         index = end
     return False
 
-
 _PREFLIGHT_ERROR_CODES = (
     ("Error: unknown tool ", "unknown_tool"),
     ("Error: invalid JSON arguments", "invalid_json_args"),
@@ -315,7 +287,6 @@ _PREFLIGHT_ERROR_CODES = (
     ("duplicate tool_call id", "duplicate_tool_call_id"),
     ("batch has ", "batch_too_large"),
 )
-
 
 def _preflight_error_code(error: str) -> str:
     """Name a ``preflight_tool_batch`` message with the trace code ``process`` uses."""
@@ -326,14 +297,12 @@ def _preflight_error_code(error: str) -> str:
             return code
     return "malformed_call"
 
-
 class CallbackPermissionPolicy:
     def __init__(self, confirm_fn: Callable[[str], Awaitable[bool]]):
         self._confirm_fn = confirm_fn
 
     async def confirm(self, prompt: str) -> bool:
         return await self._confirm_fn(prompt)
-
 
 class ToolExecutionUseCase(ToolExecutionRuntimeMixin):
     def __init__(
@@ -539,9 +508,6 @@ class ToolExecutionUseCase(ToolExecutionRuntimeMixin):
             # The full result is persisted; a per-tool-result budget shaper caps
             # what the model sees at call time (see application.shaping).
 
-            # Closed-loop steering signal: a successful read accumulates the
-            # reads-without-write counter; a successful edit resets it (recorded on
-            # the result; applied to state by ToolProcessingResult.apply_to).
             effect_unknown = facts.observed and facts.content_changed is None
             if tool_name in _READ_TOOLS and tool_succeeded:
                 result.reads_executed += 1
@@ -561,11 +527,8 @@ class ToolExecutionUseCase(ToolExecutionRuntimeMixin):
                 result.write_succeeded = True
                 result.read_write_signals.append("write")
 
-            # Information-gain sensor (STEP 1): record this result's novelty
-            # signals for the caller to fold into SessionState's counters. The
-            # call hash (including the read range) and the content hash both
-            # gate novelty; an empty read / "No matches"-class result is
-            # intrinsically low-yield. Observational — no behavior change here.
+            # Include both the read range and content in novelty signals. Empty and
+            # no-match results stay low-yield even on their first occurrence.
             result.evidence_signals.append(
                 (
                     result_key,
@@ -575,11 +538,8 @@ class ToolExecutionUseCase(ToolExecutionRuntimeMixin):
                 )
             )
             result.evidence_neutral.append(effect_unknown)
-            # STEP 2 evidence ledger: the index-aligned raw card (tool/target/
-            # snippet). Its outcome (hit | NO-MATCH | duplicate) is decided at fold
-            # time from the SAME novelty signals above, so capture cannot disagree
-            # with the sensor. Always recorded (durable capture floor), like the
-            # STEP 1 signals — purely observational here.
+            # Capture raw cards in signal order. Folding decides the outcome using the
+            # same novelty memory, so the evidence ledger agrees with the sensor.
             result.evidence_cards.append(
                 {
                     "tool": tool_name,
@@ -613,9 +573,7 @@ class ToolExecutionUseCase(ToolExecutionRuntimeMixin):
             if getattr(tool, "terminal_capture_accepted", False) or submitted:
                 result.terminal_capture_accepted = True
                 if submitted:
-                    # The turn is over, so nothing the model asked for after
-                    # this can run -- same reason a structured capture ends the
-                    # batch, one step further out.
+                    # A terminal turn rejects the remaining calls in its tool batch.
                     result.turn_submitted = True
                     result.submitted_summary = facts.submitted_summary
                 for skipped in tool_calls[index + 1 :]:
@@ -779,14 +737,8 @@ class ToolExecutionUseCase(ToolExecutionRuntimeMixin):
         ).hexdigest()
 
     def count_recent_similar_calls(self, recent_call_hashes: list[str], call_hash: str) -> int:
-        # Count identical calls across the WHOLE per-turn window (already capped at
-        # MAX_CALL_HASH_WINDOW and reset each turn), not just the last few. A model
-        # thrashing in a multi-call CYCLE — read A,B,C,…,A,B,C,… because cleared
-        # tool outputs forced re-reads — repeats each hash only once per cycle
-        # (10-17 calls apart in observed 100-step stalls), so the old last-6 slice
-        # never saw three of them and the loop ran to the step cap. Scanning the
-        # full window catches cyclic re-reads, not only back-to-back spam.
-        # (ref: opencode doom_loop)
+        # Scan the full per-turn window to catch cyclic reads separated by many calls.
+        # A short suffix misses repeated A,B,C,... cycles and lets them reach the step cap.
         return sum(1 for h in recent_call_hashes if h == call_hash)
 
     def find_tool(self, tool_name: str):

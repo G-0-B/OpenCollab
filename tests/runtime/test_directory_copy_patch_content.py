@@ -41,7 +41,6 @@ async def test_directory_copy_followup_preserves_paths_and_hunk_contents(tmp_pat
         await coder.get_diff()
         await pool.release()
 
-
 async def test_directory_copy_followup_preserves_legacy_bytes_and_file_metadata(tmp_path):
     source = tmp_path / "plain"
     source.mkdir()

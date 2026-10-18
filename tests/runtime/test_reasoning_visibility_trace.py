@@ -21,7 +21,6 @@ def test_llm_trace_marks_billed_reasoning_that_was_withheld(reasoning):
     assert payload["usage"]["reasoning_tokens"] == 135
     assert "reasoning" not in payload
 
-
 @pytest.mark.parametrize("reasoning_tokens", [None, 0])
 def test_llm_trace_preserves_shape_for_unbilled_reasoning(reasoning_tokens):
     response = llm_response(content="answer")
@@ -34,7 +33,6 @@ def test_llm_trace_preserves_shape_for_unbilled_reasoning(reasoning_tokens):
     payload = next(step["payload"] for step in tracer.steps if step["step_type"] == "llm_call")
     assert "reasoning" not in payload
     assert "reasoning_withheld" not in payload
-
 
 def test_llm_trace_preserves_returned_reasoning():
     response = llm_response(content="answer", reasoning="thoughts")

@@ -12,7 +12,6 @@ def tool_call(call_id="call-1", name="fake_tool", arguments='{"value": 1}'):
         "function": {"name": name, "arguments": arguments},
     }
 
-
 class FakeToolExecution:
     def __init__(self, result=None):
         self.calls = []
@@ -21,7 +20,6 @@ class FakeToolExecution:
     async def process(self, tool_calls):
         self.calls.append(copy.deepcopy(tool_calls))
         return self.result
-
 
 class FakeTracer:
     def __init__(self):

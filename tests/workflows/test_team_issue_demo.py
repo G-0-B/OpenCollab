@@ -9,7 +9,6 @@ from tests.support.paths import REPO_ROOT
 
 DEMO_ROOT = REPO_ROOT / "examples" / "team-issue"
 
-
 def test_demo_team_has_three_roles_with_analyst_entry():
     team = load_team_config(path=DEMO_ROOT / "team.yaml")
 
@@ -21,7 +20,6 @@ def test_demo_team_has_three_roles_with_analyst_entry():
     assert team.topology.allows("analyst", "coder")
     assert team.topology.allows("analyst", "tester")
     assert not team.topology.allows("coder", "tester")
-
 
 def test_demo_fixture_starts_with_one_actionable_failure(tmp_path):
     workspace = tmp_path / "workspace"
@@ -40,7 +38,6 @@ def test_demo_fixture_starts_with_one_actionable_failure(tmp_path):
     assert "1 failed, 2 passed" in output
     assert "test_collapses_mixed_unicode_whitespace" in output
 
-
 def test_demo_launcher_uses_explicit_team_shared_workspace_and_tui_hold():
     launcher = (REPO_ROOT / "scripts" / "demo_team_issue.sh").read_text(encoding="utf-8")
 
@@ -49,7 +46,6 @@ def test_demo_launcher_uses_explicit_team_shared_workspace_and_tui_hold():
     assert "--no-worktrees" in launcher
     assert "--allow-local-child-tests" not in launcher
     assert "--hold" in launcher
-
 
 async def _native_child_test(scheduler, role, workspace):
     from opencollab.adapters.env import LocalEnvironment
@@ -74,7 +70,6 @@ async def _native_child_test(scheduler, role, workspace):
     finally:
         await session.aclose()
         await environment.cleanup()
-
 
 async def test_dynamic_demo_roles_execute_fixture_after_explicit_host_shell_opt_in(tmp_path):
     from opencollab.bootstrap import build_runtime_context, build_scheduler
@@ -107,7 +102,6 @@ async def test_dynamic_demo_roles_execute_fixture_after_explicit_host_shell_opt_
     finally:
         await scheduler.cleanup()
 
-
 async def test_dynamic_demo_roles_require_isolation_without_opt_in(tmp_path):
     from opencollab.bootstrap import build_runtime_context, build_scheduler
 
@@ -134,7 +128,6 @@ async def test_dynamic_demo_roles_require_isolation_without_opt_in(tmp_path):
         assert not (workspace / "executed").exists()
     finally:
         await scheduler.cleanup()
-
 
 def test_demo_requires_explicit_authorization_before_starting():
     result = subprocess.run(

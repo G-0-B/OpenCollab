@@ -19,7 +19,6 @@ from tests.support.duo_test_support import Context, candidate, decision
 def with_diff(value):
     return CandidateRun(label="candidate", output="finished", diff=value, test_records=(), verified_targets=())
 
-
 @pytest.mark.asyncio
 async def test_all_text_and_binary_bytes_are_retained_with_exact_index_ranges(tmp_path):
     patch = (
@@ -47,7 +46,6 @@ async def test_all_text_and_binary_bytes_are_retained_with_exact_index_ranges(tm
     assert "".join(chunks) == patch
     assert files.directory.exists()
 
-
 @pytest.mark.asyncio
 async def test_tool_reads_registered_evidence_only_and_bounds_each_response(tmp_path):
     files = CandidateEvidenceFiles(tmp_path)
@@ -66,7 +64,6 @@ async def test_tool_reads_registered_evidence_only_and_bounds_each_response(tmp_
         assert "error" in out and "PRIVATE TEST CONTENT" not in json.dumps(out)
     assert secret.read_text() == "PRIVATE TEST CONTENT"
     assert "command" not in tool.parameters["properties"]
-
 
 class ReadingContext(Context):
     def __init__(self, **kwargs):
@@ -92,7 +89,6 @@ class ReadingContext(Context):
             assert "diff --git " in content["content"]
         return self.result
 
-
 @pytest.mark.asyncio
 async def test_real_oversize_trigger_is_moved_to_files_and_remains_readable(tmp_path):
     large = "diff --git a/index.lz4 b/index.lz4\nGIT binary patch\nliteral 11000000\n" + "B" * 11_000_000
@@ -112,7 +108,6 @@ async def test_real_oversize_trigger_is_moved_to_files_and_remains_readable(tmp_
     assert len(result["content"]) == 32768 and result["next_offset"] == len(large) - 7232
     assert (ctx.evidence_directories[0] / "B/candidate.diff").read_bytes() == large.encode()
 
-
 @pytest.mark.asyncio
 async def test_duo_uses_file_evidence_and_retains_the_actual_selected_candidate(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENCOLLAB_EXTERNAL_PROVIDER_ISOLATION", "1")
@@ -129,7 +124,6 @@ async def test_duo_uses_file_evidence_and_retains_the_actual_selected_candidate(
     assert report["candidate_report"] == "Public repair completed"
     assert report["report_is_model_supplied"] is True
 
-
 @pytest.mark.asyncio
 async def test_duo_defaults_to_b_when_original_evidence_validation_fails(tmp_path):
     ctx = ReadingContext(result=decision("unsupported claim without original changed path"))
@@ -139,7 +133,6 @@ async def test_duo_defaults_to_b_when_original_evidence_validation_fails(tmp_pat
     assert result["winner"] == "B"
     assert result["selection_reason"] == "contract-evidence-insufficient-default-b"
     assert len(ctx.selector_calls) == 2
-
 
 @pytest.mark.asyncio
 async def test_small_inline_comparison_retains_complete_diffs_and_shared_public_records(tmp_path):
@@ -189,7 +182,6 @@ async def test_small_inline_comparison_retains_complete_diffs_and_shared_public_
         assert inline["candidate_report"] == source.output["coder_output"]
         assert inline["report_is_model_supplied"] is True
 
-
 @pytest.mark.parametrize("paged", [False, True])
 async def test_adjudication_retains_post_test_edits_in_individual_and_shared_evidence(tmp_path, monkeypatch, paged):
     if paged:
@@ -229,7 +221,6 @@ async def test_adjudication_retains_post_test_edits_in_individual_and_shared_evi
             "exit_code": 0, "verified": True, "applicability": "unknown", "post_test_edits": ["src/handler.py"],
         }
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("large_field", ["candidate_report", "public_test_records"])
 async def test_inline_limit_includes_reports_and_individual_public_records(tmp_path, large_field):
@@ -265,7 +256,6 @@ async def test_inline_limit_includes_reports_and_individual_public_records(tmp_p
     saved = json.loads("".join(chunks))
     assert saved[large_field] == output["coder_output" if large_field == "candidate_report" else large_field]
 
-
 @pytest.mark.asyncio
 async def test_inline_size_uses_utf8_bytes_and_complete_large_evidence_stays_readable(tmp_path):
     a = candidate("A", "a")
@@ -291,7 +281,6 @@ async def test_inline_size_uses_utf8_bytes_and_complete_large_evidence_stays_rea
             break
         offset = page["next_offset"]
     assert "".join(chunks) == b.diff
-
 
 @pytest.mark.asyncio
 async def test_identical_candidates_skip_judge_and_concurrent_runs_keep_separate_files(tmp_path):

@@ -27,10 +27,8 @@ def test_closed_observations_keep_only_paths_that_actually_changed():
     assert facts.changed_paths == ("changed.py",)
     assert observations.close() == facts
 
-
 def runtime(env, observations):
     return SimpleNamespace(environment=env, safety_policy=None, confirm_fn=lambda: None, observations=observations)
-
 
 @pytest.mark.parametrize(("command", "timeout", "code", "timed_out"), [
     ("cp missing-source target", 2, 1, False),
@@ -57,7 +55,6 @@ async def test_bash_records_real_exit_and_timeout(tmp_path, command, timeout, co
     finally:
         await env.cleanup()
 
-
 async def test_bash_evidence_preserves_observations_and_output(tmp_path):
     env = LocalEnvironment(str(tmp_path))
     observations = ToolFactsCollector()
@@ -69,7 +66,6 @@ async def test_bash_evidence_preserves_observations_and_output(tmp_path):
         assert observations.close().exit_code == 7
     finally:
         await env.cleanup()
-
 
 async def test_shared_bash_instance_keeps_concurrent_call_facts_separate(tmp_path):
     env = LocalEnvironment(str(tmp_path))
@@ -85,7 +81,6 @@ async def test_shared_bash_instance_keeps_concurrent_call_facts_separate(tmp_pat
         assert second.close().exit_code == 7
     finally:
         await env.cleanup()
-
 
 @pytest.mark.parametrize("overwrite", [False, True])
 @pytest.mark.parametrize(("before", "content", "changed"), [
@@ -117,7 +112,6 @@ async def test_create_reports_content_effect_without_skipping_physical_write(
     finally:
         await env.cleanup()
 
-
 async def test_existing_before_is_reused_and_legacy_overwrite_stays_unknown():
     class CountingEnvironment(FakeRemoteEnv):
         def __init__(self):
@@ -148,7 +142,6 @@ async def test_existing_before_is_reused_and_legacy_overwrite_stays_unknown():
     assert facts.write_completed is True and facts.content_changed is None
     assert (env.reads, env.writes) == (1, 2)
 
-
 @pytest.mark.parametrize(("tool", "params"), [
     (FileWriteTool(), {"mode": "str_replace", "old_str": "old", "new_str": "new"}),
     (ApplyPatchTool(), {"mode": "line_replace", "start_line": 1, "end_line": 1, "new_str": "new\n"}),
@@ -162,7 +155,6 @@ async def test_targeted_edit_reports_success_after_write(tool, params):
     assert facts.write_completed is True and facts.content_changed is True
     assert facts.changed_paths == ("f.txt",)
     assert env.files["f.txt"] == "new\n"
-
 
 async def test_write_failure_after_side_effect_leaves_effect_unknown():
     class PartialEnvironment(FakeRemoteEnv):
@@ -180,7 +172,6 @@ async def test_write_failure_after_side_effect_leaves_effect_unknown():
     assert env.files["f.txt"] == "new"
     assert facts.write_completed is False and facts.content_changed is None
 
-
 async def test_noop_replacement_keeps_existing_rejection_and_known_no_write():
     observations = ToolFactsCollector()
     output = await FileWriteTool().execute_with_runtime(
@@ -190,7 +181,6 @@ async def test_noop_replacement_keeps_existing_rejection_and_known_no_write():
     facts = observations.close()
     assert output.startswith("Error:")
     assert facts.write_completed is False and facts.content_changed is False
-
 
 @pytest.mark.parametrize("name,params", [
     ("file_write", {"path": "module.py", "mode": "str_replace", "old_str": "old", "new_str": "new"}),

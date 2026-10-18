@@ -1,23 +1,11 @@
-"""Robust edit tool — unified-diff and line-range edits.
+"""Apply unified diffs or line-range edits to a single file.
 
-``file_write``'s ``str_replace`` mode fails whenever the model's quoted text
-doesn't byte-match the file (stray whitespace, a duplicated line, a slightly
-stale copy). This tool gives the agent two more forgiving — but still
-all-or-nothing — ways to edit:
+``unified_diff`` locates hunks by context and removed content, tolerating
+line-number drift. ``line_replace`` replaces a 1-based inclusive range with
+an optional ``expected_str`` check for stale content.
 
-- ``unified_diff``: apply a standard ``@@`` unified diff. Hunks are located by
-  *content* (context + removed lines), tolerating line-number drift, so a diff
-  generated against a slightly different revision still lands.
-- ``line_replace``: replace an explicit 1-based inclusive line range with new
-  text, with an optional ``expected_str`` guard that aborts on a stale range.
-
-Both modes build the full new file in memory and only write if the *entire*
-edit applies; a failure returns a clear error and touches nothing — never a
-silent partial apply.
-
-Ref:
-- claude-code Edit / apply_patch: content-anchored hunks beat exact str match.
-- opencode edit tool: str_replace is the baseline; this is the fallback.
+Both modes build the full result before writing. Any failed hunk or range
+leaves the file unchanged.
 """
 
 from __future__ import annotations
@@ -35,12 +23,9 @@ from opencollab.application.tool_execution import ToolRuntime
 
 
 class ApplyPatchTool(Tool):
-    """Apply a unified diff or a line-range replacement to a single file.
+    """Apply a unified diff or line-range replacement to a single file.
 
-    Prefer this over ``file_write`` str_replace when an edit keeps failing to
-    match (whitespace differences, duplicate lines, drifted line numbers). The
-    edit is applied atomically: if any hunk or range can't be placed cleanly,
-    nothing is written and a clear error is returned.
+    Write only after every hunk or range applies successfully.
     """
 
     name = "apply_patch"

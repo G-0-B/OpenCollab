@@ -44,7 +44,6 @@ async def test_bootstrap_deadline_cancels_owner_without_aborting_injected_enviro
     assert not environment.revoked
     assert environment.abort_calls == 0
 
-
 @pytest.mark.asyncio
 async def test_caller_cancellation_rejects_lingering_workflow_owner(monkeypatch):
     started = asyncio.Event()
@@ -99,7 +98,6 @@ async def test_bootstrap_deadline_does_not_require_caller_environment_abort(monk
     assert not environment.revoked
     assert environment.abort_calls == 0
 
-
 @pytest.mark.asyncio
 async def test_bootstrap_deadline_aborts_explicitly_owned_environment(monkeypatch):
     environment = _InjectedEnvironment()
@@ -120,7 +118,6 @@ async def test_bootstrap_deadline_aborts_explicitly_owned_environment(monkeypatc
         )
     assert environment.revoked
     assert environment.abort_calls == 1
-
 
 @pytest.mark.asyncio
 async def test_bootstrap_deadline_preserves_inner_cleanup_failure(monkeypatch):
@@ -170,7 +167,6 @@ async def test_bootstrap_preserves_inner_timeout(monkeypatch):
             deadline_monotonic=asyncio.get_running_loop().time() + 1,
         )
     assert captured.value is inner
-
 
 @pytest.mark.asyncio
 async def test_bootstrap_deadline_preserves_finalized_session_metrics(

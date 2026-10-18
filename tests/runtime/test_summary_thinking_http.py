@@ -25,7 +25,6 @@ def isolate_configuration(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
 
-
 def destination_history():
     return [
         {"role": "system", "content": "Follow the latest destination selected by the user."},
@@ -40,13 +39,11 @@ def destination_history():
         {"role": "user", "content": "Report the chosen destination from our earlier conversation."},
     ]
 
-
 def native_client(model):
     return LLMClient(
         model=model, provider="anthropic", api_key="controlled-test",  # pragma: allowlist secret
         base_url="https://controlled.invalid/v1", max_retries=0, context_window=40_000,
     )
-
 
 @pytest.mark.parametrize("borrowed", [False, True])
 @pytest.mark.parametrize("model,effort", [
@@ -110,7 +107,6 @@ async def test_restored_session_summary_preserves_latest_revision(monkeypatch, t
             assert client._closed is False
             await client.close()
 
-
 @pytest.mark.parametrize("borrowed", [False, True])
 @pytest.mark.parametrize("model,params,output_budget,minimum", [
     ("claude-fable-5-1", {"thinking": {"type": "adaptive", "display": "omitted"}}, 0, 1),
@@ -158,7 +154,6 @@ async def test_always_on_summary_respects_finite_budget(monkeypatch, tmp_path, b
         if client is not None:
             await client.close()
 
-
 async def test_standalone_always_on_summary_defaults_to_adaptive(monkeypatch):
     requests = []
 
@@ -176,7 +171,6 @@ async def test_standalone_always_on_summary_defaults_to_adaptive(monkeypatch):
         assert requests[0]["thinking"] == {"type": "adaptive"}
         assert agent.thinking_params == {}
         assert client._closed is False
-
 
 async def test_summary_budget_uses_explicit_native_thinking_params(monkeypatch, tmp_path):
     requests = []
@@ -214,7 +208,6 @@ async def test_summary_budget_uses_explicit_native_thinking_params(monkeypatch, 
         finally:
             await session.aclose()
 
-
 @pytest.mark.parametrize("thinking", [False, True])
 async def test_ordinary_completion_trace_preserves_configured_thinking(monkeypatch, tmp_path, thinking):
     requests = []
@@ -244,7 +237,6 @@ async def test_ordinary_completion_trace_preserves_configured_thinking(monkeypat
         assert session.used_tokens == calls[0]["usage"]["total_tokens"] == 4
     finally:
         await session.aclose()
-
 
 @pytest.mark.parametrize("model,thinking", [("claude-sonnet-4-6", False), ("claude-fable-5-1", True)])
 async def test_late_summary_trace_keeps_resolved_thinking(monkeypatch, tmp_path, model, thinking):

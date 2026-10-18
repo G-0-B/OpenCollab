@@ -41,7 +41,6 @@ def diagnostic_config(monkeypatch, tmp_path):
 
     return configure
 
-
 @pytest.mark.parametrize("mode", [
     "plain", "always_on", "adaptive", "manual", "chat", "responses",
     "chat_default", "responses_default", "responses_implicit",
@@ -84,7 +83,6 @@ async def test_diagnostic_native_request_keeps_reasoning(monkeypatch, diagnostic
     output_limit = body.get("max_tokens", body.get("max_output_tokens", body.get("max_completion_tokens")))
     assert output_limit == (1025 if mode == "manual" else 256)
 
-
 @pytest.mark.parametrize("provider", ["openai", "responses"])
 async def test_explicit_compatible_protocol_still_turns_thinking_off(
     monkeypatch, diagnostic_config, tmp_path, provider,
@@ -101,7 +99,6 @@ async def test_explicit_compatible_protocol_still_turns_thinking_off(
     install_sdk_transport(monkeypatch, "openai", handler)
     assert await request_completion("connect once", workspace=tmp_path) == "connected"
     assert len(requests) == 1 and requests[0]["enable_thinking"] is False
-
 
 @pytest.mark.parametrize("maximum", [512, 1024])
 async def test_invalid_manual_budget_fails_without_http(monkeypatch, diagnostic_config, tmp_path, maximum):

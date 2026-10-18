@@ -73,13 +73,11 @@ _ANNOTATION_KEYWORDS = frozenset({
 
 _SUPPORTED_KEYWORDS = _VALIDATION_KEYWORDS | _ANNOTATION_KEYWORDS | {"$schema"}
 
-
 def validate_schema(schema: Any) -> list[str]:
     """Return deterministic errors for unsupported or malformed schema nodes."""
     errors: list[str] = []
     _validate_schema(schema, "$schema", errors)
     return errors
-
 
 def validate(value: Any, schema: dict[str, Any]) -> list[str]:
     """Validate ``value`` against ``schema``; return a list of error strings.
@@ -92,7 +90,6 @@ def validate(value: Any, schema: dict[str, Any]) -> list[str]:
         return errors
     _validate(value, schema, "$", errors)
     return errors
-
 
 def _validate_schema(schema: Any, path: str, errors: list[str]) -> None:
     if not isinstance(schema, dict):
@@ -173,11 +170,9 @@ def _validate_schema(schema: Any, path: str, errors: list[str]) -> None:
             for index, branch in enumerate(one_of):
                 _validate_schema(branch, f"{path}.oneOf[{index}]", errors)
 
-
 def _validate_nonnegative_integer(value: Any, path: str, errors: list[str]) -> None:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         errors.append(f"{path}: must be a non-negative integer")
-
 
 def _validate(value: Any, schema: dict[str, Any], path: str, errors: list[str]) -> None:
     expected_type = schema.get("type")
@@ -217,7 +212,6 @@ def _validate(value: Any, schema: dict[str, Any], path: str, errors: list[str]) 
     elif isinstance(value, list):
         _validate_array(value, schema, path, errors)
 
-
 def _validate_object(
     value: dict[str, Any], schema: dict[str, Any], path: str, errors: list[str]
 ) -> None:
@@ -243,7 +237,6 @@ def _validate_object(
                 errors,
             )
 
-
 def _validate_array(
     value: list[Any], schema: dict[str, Any], path: str, errors: list[str]
 ) -> None:
@@ -259,7 +252,6 @@ def _validate_array(
     for index, item in enumerate(value):
         _validate(item, item_schema, f"{path}[{index}]", errors)
 
-
 def _validate_string(value: str, schema: dict[str, Any], path: str, errors: list[str]) -> None:
     min_length = schema.get("minLength")
     if min_length is not None and len(value) < min_length:
@@ -271,7 +263,6 @@ def _validate_string(value: str, schema: dict[str, Any], path: str, errors: list
     if pattern is not None and re.search(pattern, value) is None:
         errors.append(f"{path}: must match pattern {pattern!r}")
 
-
 def _validate_number(value: int | float, schema: dict[str, Any], path: str, errors: list[str]) -> None:
     minimum = schema.get("minimum")
     if minimum is not None and value < minimum:
@@ -280,14 +271,12 @@ def _validate_number(value: int | float, schema: dict[str, Any], path: str, erro
     if maximum is not None and value > maximum:
         errors.append(f"{path}: must be <= {maximum}")
 
-
 def _is_number(value: Any) -> bool:
     return (
         isinstance(value, (int, float))
         and not isinstance(value, bool)
         and (isinstance(value, int) or math.isfinite(value))
     )
-
 
 def _json_equal(left: Any, right: Any) -> bool:
     """Return JSON-Schema equality without Python's bool/int aliasing."""
@@ -315,7 +304,6 @@ def _json_equal(left: Any, right: Any) -> bool:
         )
     return type(left) is type(right) and left == right
 
-
 def _check_type(value: Any, expected_type: Any) -> bool:
     # JSON Schema allows ``type`` to be a list of names meaning "any of these".
     if isinstance(expected_type, Sequence) and not isinstance(expected_type, str):
@@ -324,7 +312,6 @@ def _check_type(value: Any, expected_type: Any) -> bool:
     if check is None:
         return False
     return check(value)
-
 
 def _type_name(value: Any) -> str:
     if isinstance(value, bool):
@@ -342,6 +329,5 @@ def _type_name(value: Any) -> str:
     if value is None:
         return "null"
     return type(value).__name__
-
 
 __all__ = ["validate", "validate_schema"]

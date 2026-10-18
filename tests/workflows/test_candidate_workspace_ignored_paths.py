@@ -60,7 +60,6 @@ async def test_candidate_new_ignore_rule_preserves_source_draft_changes(
     finally:
         await lease.cleanup()
 
-
 @pytest.mark.parametrize("commit_file", [False, True])
 @pytest.mark.asyncio
 async def test_candidate_captures_new_force_added_ignored_file(tmp_path: Path, commit_file: bool) -> None:
@@ -91,7 +90,6 @@ async def test_candidate_captures_new_force_added_ignored_file(tmp_path: Path, c
         assert _git(repo, "ls-files", "--stage") == source_index
     finally:
         await lease.cleanup()
-
 
 @pytest.mark.parametrize("original_is_directory", [False, True])
 @pytest.mark.parametrize("restore_original", [False, True])

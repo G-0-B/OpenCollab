@@ -21,10 +21,8 @@ import re
 class TransientProviderError(RuntimeError):
     """A provider failure for which repeating the same request can succeed."""
 
-
 class TransientEmptyOutputError(TransientProviderError):
     """A provider completed a request without usable model output."""
-
 
 class StreamedUsageUnavailableError(RuntimeError):
     """A completed chat stream carried no usable token accounting.
@@ -63,7 +61,6 @@ _INPUT_STRING_PARAM = re.compile(
     r"|messages\[(?:\d+|\*)\]\.content(?:\[(?:\d+|\*)\])?(?:\.(?:text|input_text))?)"
 )
 
-
 def _oversized_input_string(error: Exception) -> bool:
     param = getattr(error, "param", None)
     body = getattr(error, "body", None)
@@ -81,7 +78,6 @@ def _oversized_input_string(error: Exception) -> bool:
     )
     return any(_INPUT_STRING_PARAM.fullmatch(path) for path in paths)
 
-
 def _status_of(error: Exception) -> int | None:
     """Best-effort HTTP status for ``error`` (direct attr or on ``.response``)."""
     status = getattr(error, "status_code", None)
@@ -93,7 +89,6 @@ def _status_of(error: Exception) -> int | None:
         if isinstance(resp_status, int):
             return resp_status
     return None
-
 
 def _error_code_of(error: Exception) -> str:
     """Best-effort provider error ``code`` string, lowercased (e.g. OpenAI's
@@ -112,7 +107,6 @@ def _error_code_of(error: Exception) -> str:
             if isinstance(inner_code, str):
                 return inner_code.lower()
     return ""
-
 
 def is_context_overflow_error(error: Exception) -> bool:
     """Whether ``error`` is a context-window overflow (prompt too large).

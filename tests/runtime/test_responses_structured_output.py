@@ -61,7 +61,6 @@ def test_request_maps_instructions_tools_reasoning_and_sampling():
     assert kwargs["top_p"] == 0.95
     assert kwargs["max_output_tokens"] == 32768
 
-
 @pytest.mark.parametrize("model", ["deepseek-v4-flash", "deepseek-v4-flash-0731"])
 def test_deepseek_flash_binds_structured_output_with_json_schema(model):
     schema = {
@@ -99,7 +98,6 @@ def test_deepseek_flash_binds_structured_output_with_json_schema(model):
         }
     }
 
-
 @pytest.mark.parametrize("model", ["k3", "kimi-for-coding"])
 def test_models_without_verified_json_schema_support_keep_auto_tool_choice(model):
     kwargs = _build_request_kwargs(
@@ -121,7 +119,6 @@ def test_models_without_verified_json_schema_support_keep_auto_tool_choice(model
     assert kwargs["tool_choice"] == "auto"
     assert "text" not in kwargs
 
-
 def test_deepseek_flash_auto_multi_tool_request_is_unchanged():
     tools = [
         {
@@ -142,7 +139,6 @@ def test_deepseek_flash_auto_multi_tool_request_is_unchanged():
     assert [tool["name"] for tool in kwargs["tools"]] == ["read_file", "grep"]
     assert kwargs["tool_choice"] == "auto"
     assert "text" not in kwargs
-
 
 def test_deepseek_flash_other_named_single_tool_keeps_legacy_auto_fallback():
     kwargs = _build_request_kwargs(
@@ -167,7 +163,6 @@ def test_deepseek_flash_other_named_single_tool_keeps_legacy_auto_fallback():
     assert kwargs["tool_choice"] == "auto"
     assert kwargs["tools"][0]["name"] == "submit_findings"
     assert "text" not in kwargs
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stream", [True, False])
@@ -226,7 +221,6 @@ async def test_json_schema_text_projects_to_valid_structured_output_tool_call(st
     capture = StructuredOutputTool(schema)
     await capture.execute_with_runtime(arguments, None)  # type: ignore[arg-type]
     assert capture.captured == {"status": "ok"}
-
 
 @pytest.mark.asyncio
 async def test_json_schema_text_rejects_filtered_incomplete_response():

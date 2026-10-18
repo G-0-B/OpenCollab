@@ -22,7 +22,6 @@ def llm_response(content=None, tool_calls=None, input_tokens=1, output_tokens=1,
         finish_reason=finish_reason,
     )
 
-
 class FakeLLMClient:
     def __init__(self, responses=()):
         self.responses = list(responses)
@@ -114,7 +113,6 @@ class FakeTool:
         if self.exc:
             raise self.exc
         return self.result(args) if callable(self.result) else self.result
-
 
 def event_collector():
     events = []

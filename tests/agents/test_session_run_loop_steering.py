@@ -31,7 +31,6 @@ class _ProviderRequestError(Exception):
         self.status_code = status_code
         self.body = body
 
-
 class _RaisingFakeLLM(FakeLLM):
     async def complete(self, *args, **kwargs):
         response = await super().complete(*args, **kwargs)
@@ -39,9 +38,7 @@ class _RaisingFakeLLM(FakeLLM):
             raise response
         return response
 
-
 def test_steering_status_line_built_from_budget_and_steps():
-    # 120k of 500k used -> 380k left; 40 - 10 steps -> ~30 left.
     msg, override, _level = build_steering_block(
         used_tokens=120_000, max_budget_tokens=500_000, step_count=10, max_steps=40,
         reads=0, has_write=True, has_structured_output=False, structured_override=None,
@@ -52,8 +49,7 @@ def test_steering_status_line_built_from_budget_and_steps():
     assert "~30 steps left" in msg["content"]
 
 def test_steering_status_only_when_reads_are_low():
-    # The status block is ALWAYS built; on a fresh post-user turn reads is ~0 so
-    # only the status line comes back (no write nudge).
+    # A fresh user turn has no reads to trigger a write nudge.
     msg, override, _level = build_steering_block(
         used_tokens=10_000, max_budget_tokens=100_000, step_count=1, max_steps=20,
         reads=0, has_write=True, has_structured_output=False, structured_override=None,
@@ -61,7 +57,7 @@ def test_steering_status_only_when_reads_are_low():
     assert override is None
     assert msg["role"] == "user"
     assert "tokens left" in msg["content"]
-    assert "without" not in msg["content"]  # status-line only, no read nudge
+    assert "without" not in msg["content"]
 
 def test_steering_no_write_nudge_for_readonly_session():
     # A scout/tester/planner has no write tool — the write nudge would be nonsense,
@@ -75,8 +71,6 @@ def test_steering_no_write_nudge_for_readonly_session():
     assert msg["content"].startswith("[Budget:")
 
 def test_steering_hard_rung_forces_tool_choice_through_run_loop():
-    # End-to-end: a write-capable session at the hard read threshold must send
-    # tool_choice="required" to the provider through the real _complete path.
     state = SessionState(
         messages=[{"role": "tool", "content": "prev"}],
         used_tokens=1_000,
@@ -120,7 +114,6 @@ def test_steering_structured_hard_rung_forces_structured_output():
 
     assert runner.state.phase.value == "stopped"
 
-
 def test_dual_contract_forces_write_before_structured_submission():
     state = SessionState(
         messages=[{"role": "tool", "content": "prev"}],
@@ -145,7 +138,6 @@ def test_dual_contract_forces_write_before_structured_submission():
     assert llm.calls[0]["tool_choice"] == "required"
 
     assert runner.state.phase.value == "stopped"
-
 
 def test_dual_contract_forces_structured_submission_after_write():
     state = SessionState(
@@ -178,7 +170,6 @@ def test_dual_contract_forces_structured_submission_after_write():
 
     assert runner.state.phase.value == "stopped"
 
-
 def test_unrelated_bad_request_does_not_retry_forced_choice():
     error = _ProviderRequestError(
         "invalid tools schema: required field is missing",
@@ -194,7 +185,6 @@ def test_unrelated_bad_request_does_not_retry_forced_choice():
 
     assert captured.value is error
     assert [call["tool_choice"] for call in llm.calls] == ["required"]
-
 
 @pytest.mark.parametrize(
     "message",
@@ -216,7 +206,6 @@ def test_request_echo_does_not_misclassify_tool_choice_rejection(message):
 
     assert captured.value is error
     assert [call["tool_choice"] for call in llm.calls] == ["required"]
-
 
 def test_structured_tool_choice_path_takes_precedence_over_generic_text():
     llm = _RaisingFakeLLM(
@@ -241,7 +230,6 @@ def test_structured_tool_choice_path_takes_precedence_over_generic_text():
     assert run(runner.run_loop()) == "done"
     assert [call["tool_choice"] for call in llm.calls] == ["required", "auto"]
 
-
 def test_structured_unrelated_param_blocks_tool_choice_text_fallback():
     error = _ProviderRequestError(
         "tool_choice is not supported in request echo; invalid temperature",
@@ -263,7 +251,6 @@ def test_structured_unrelated_param_blocks_tool_choice_text_fallback():
 
     assert captured.value is error
     assert [call["tool_choice"] for call in llm.calls] == ["required"]
-
 
 @pytest.mark.parametrize(
     ("message", "code", "selector"),
@@ -301,7 +288,6 @@ def test_empty_structured_selector_uses_explicit_tool_choice_rejection(
     assert run(runner.run_loop()) == "done"
     assert [call["tool_choice"] for call in llm.calls] == ["required", "auto"]
 
-
 def test_unrelated_structured_selector_blocks_conflicting_tool_choice_code():
     error = _ProviderRequestError(
         "tool_choice is not supported",
@@ -324,7 +310,6 @@ def test_unrelated_structured_selector_blocks_conflicting_tool_choice_code():
     assert captured.value is error
     assert [call["tool_choice"] for call in llm.calls] == ["required"]
 
-
 def test_explicit_tool_choice_rejection_retries_once_with_auto():
     llm = _RaisingFakeLLM(
         [
@@ -341,7 +326,6 @@ def test_explicit_tool_choice_rejection_retries_once_with_auto():
 
     assert run(runner.run_loop()) == "done"
     assert [call["tool_choice"] for call in llm.calls] == ["required", "auto"]
-
 
 def test_failed_tool_choice_fallback_preserves_original_error():
     original = _ProviderRequestError(
@@ -362,7 +346,6 @@ def test_failed_tool_choice_fallback_preserves_original_error():
 
     assert captured.value is original
     assert captured.value.__cause__ is fallback
-
 
 def test_steering_hard_rung_blocks_read_tool_call_before_execution():
     state = SessionState(
@@ -447,9 +430,7 @@ def test_steering_hard_rung_executes_allowed_write_from_mixed_batch():
     assert state.turn.has_landed_write is True
 
 def test_steering_reaches_provider_and_is_persisted():
-    # The steering block is SENT to the model AND persisted to state.messages, so
-    # the budget the model saw is saved to the transcript. History ends on a user
-    # turn, so the block is folded into it IN PLACE (no extra message).
+    # A trailing user turn receives the steering block in place and persists it.
     state = SessionState(
         messages=[
             {"role": "system", "content": "sys"},
@@ -465,14 +446,11 @@ def test_steering_reaches_provider_and_is_persisted():
 
     sent = llm.calls[0]["messages"]
     assert any(m["role"] == "user" and "Budget:" in (m.get("content") or "") for m in sent)
-    # Persisted by folding into the user turn — no new message added.
     assert any("Budget:" in (m.get("content") or "") for m in state.messages)
     assert "go" in state.messages[1]["content"] and "Budget:" in state.messages[1]["content"]
 
 def test_steering_folds_into_last_user_message_no_double_user():
-    # When the shaped history ENDS WITH A USER message (the default chat/team path:
-    # the lead answers right after the user speaks), the status must still reach the
-    # model — folded into that user message, not appended as a second user turn.
+    # A trailing user message must absorb status to preserve role alternation.
     state = SessionState(
         messages=[
             {"role": "system", "content": "sys"},
@@ -487,20 +465,15 @@ def test_steering_folds_into_last_user_message_no_double_user():
     run(runner.call_llm(runner.build_tool_schemas()))
 
     sent = llm.calls[0]["messages"]
-    # (a) the outgoing prompt's LAST message is the user turn carrying the status.
     assert sent[-1]["role"] == "user"
-    assert "fix the bug" in sent[-1]["content"]  # original content preserved
-    assert "tokens left" in sent[-1]["content"]  # status folded in
-    # (b) no two consecutive user messages (Anthropic's alternation contract).
+    assert "fix the bug" in sent[-1]["content"]
+    assert "tokens left" in sent[-1]["content"]
     assert _no_consecutive_same_role(sent)
-    # (c) state.messages IS updated — the budget is persisted into the user turn,
-    #     preserving its original text.
     assert "fix the bug" in state.messages[-1]["content"]
     assert "tokens left" in state.messages[-1]["content"]
 
 def test_steering_folds_into_list_content_user_message():
-    # Provider content-parts form: the fold appends a text part as a NEW list and
-    # persists it into state.messages (the original ``parts`` list is left intact).
+    # Content parts receive a new list so folding leaves the caller's list intact.
     parts = [{"type": "text", "text": "fix the bug"}]
     state = SessionState(
         messages=[
@@ -519,19 +492,13 @@ def test_steering_folds_into_list_content_user_message():
     assert sent_last["role"] == "user"
     assert isinstance(sent_last["content"], list)
     assert any("tokens left" in p.get("text", "") for p in sent_last["content"])
-    # state.messages list-content now carries the persisted budget part (the new
-    # list does not mutate the caller's original ``parts`` object).
     assert len(state.messages[-1]["content"]) == 2
     assert state.messages[-1]["content"][0] == {"type": "text", "text": "fix the bug"}
     assert any("tokens left" in p.get("text", "") for p in state.messages[-1]["content"])
-    assert parts == [{"type": "text", "text": "fix the bug"}]  # original untouched
+    assert parts == [{"type": "text", "text": "fix the bug"}]
 
 def test_steering_block_ephemeral_on_continuation_step():
-    # On a continuation step (history ends with a tool message, not a user turn)
-    # the steering block (status + hard write-nudge) reaches the provider in the
-    # shaped copy, but stays OUT of the persisted state.messages — there is no
-    # user turn to fold it into, and a standalone block would pollute the
-    # transcript / break role alternation.
+    # After a tool message, steering stays in the shaped copy to preserve transcript role alternation.
     tracer = FakeTracer()
     runner, state = _steering_runner(READS_NUDGE_HARD, tracer=tracer)
     run(runner.call_llm(runner.build_tool_schemas()))
@@ -539,6 +506,5 @@ def test_steering_block_ephemeral_on_continuation_step():
     sent = runner.llm.calls[0]["messages"]
     assert any("STOP reading" in (m.get("content") or "") for m in sent)
     assert any("Budget:" in (m.get("content") or "") for m in sent)
-    # Not persisted: the model saw it, the transcript did not gain it.
     assert not any("STOP reading" in (m.get("content") or "") for m in state.messages)
     assert not any("Budget:" in (m.get("content") or "") for m in state.messages)

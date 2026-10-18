@@ -1,9 +1,4 @@
-"""The declaration a prebuilt run opens with names each seat's model.
-
-``assigned.topology_nodes`` already said who was seated, with which tools and
-under what shell; it did not say which model each seat ran, so a team whose
-roles override ``model:`` could not be read back from its own record.
-"""
+"""The prebuilt topology declaration records each seat's resolved model."""
 
 from __future__ import annotations
 
@@ -19,7 +14,6 @@ TEAM = (
     "  coder:\n    prompt: hi\n    tools: [message_agent]\n"
     "topology:\n  lead: [coder]\n  coder: [lead]\n"
 )
-
 
 async def test_each_declared_node_names_its_model(tmp_path) -> None:
     team_file = tmp_path / "team.yaml"

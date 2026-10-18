@@ -61,7 +61,6 @@ async def test_inspection_sampling_defaults_match_sdk_chat_request(
     assert snapshot["reasoning_request_fields"] is reasoning
     assert request[snapshot["max_output_token_field"]] == 123
 
-
 @pytest.mark.parametrize("model", ["gpt-5.1", "gpt-5.2", "gpt-5.4"])
 async def test_inspection_defaults_are_separate_from_call_reasoning_effort(tmp_path, monkeypatch, model):
     requests = []
@@ -88,7 +87,6 @@ async def test_inspection_defaults_are_separate_from_call_reasoning_effort(tmp_p
     assert snapshot["sends_temperature"] is True
     assert snapshot["sends_top_p"] is True
 
-
 def test_model_inspection_reports_main_luna_settings_without_a_client():
     snapshot = inspect_model_runtime("gateway/gpt-5.6-luna")
     assert snapshot["capabilities"]["context_window"] == 1_048_576
@@ -99,7 +97,6 @@ def test_model_inspection_reports_main_luna_settings_without_a_client():
     assert snapshot["sends_temperature"] is False
     assert snapshot["sends_top_p"] is False
     assert snapshot["pricing_mode"] == "unset"
-
 
 def test_model_inspection_classifies_local_sample_exceptions():
     snapshot = inspect_model_runtime(
@@ -117,7 +114,6 @@ def test_model_inspection_classifies_local_sample_exceptions():
     assert snapshot["history"]["from"] == "fixed_default"
     assert snapshot["overflow"] == {"context": True, "metadata": False}
     assert snapshot["retry"] == {"saturation": True, "application": False, "auth": False}
-
 
 def test_profile_default_tools_follow_base_single2_composition():
     assert profile_tool_names("Base") == profile_tool_names("single2")

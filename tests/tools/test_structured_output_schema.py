@@ -17,18 +17,15 @@ def test_validate_valid_object():
     }
     assert validate({"name": "ada", "age": 36}, schema) == []
 
-
 def test_validate_missing_required():
     schema = {"type": "object", "required": ["name"], "properties": {}}
     errors = validate({}, schema)
     assert any("name" in e for e in errors)
 
-
 def test_validate_wrong_type():
     schema = {"type": "object", "properties": {"age": {"type": "integer"}}}
     errors = validate({"age": "old"}, schema)
     assert any("age" in e for e in errors)
-
 
 def test_validate_enum_violation():
     schema = {
@@ -39,17 +36,14 @@ def test_validate_enum_violation():
     errors = validate({"color": "blue"}, schema)
     assert any("color" in e for e in errors)
 
-
 @pytest.mark.parametrize("enum", ["abc", 3, {"x": 1}, [], [float("nan")]])
 def test_validate_schema_rejects_malformed_enum(enum):
     errors = validate_schema({"type": "string", "enum": enum})
     assert any("enum" in error for error in errors)
 
-
 def test_validate_schema_accepts_nonempty_json_enum():
     schema = {"enum": ["red", 3, None, {"kind": "nested"}, ["x"]]}
     assert validate_schema(schema) == []
-
 
 def test_validate_schema_accepts_annotations_without_weakening_constraints():
     schema = {
@@ -75,7 +69,6 @@ def test_validate_schema_accepts_annotations_without_weakening_constraints():
     assert validate({"email": "not-checked-as-a-format"}, schema) == []
     assert validate({}, schema) == ["$.email: required property is missing"]
 
-
 def test_validate_schema_rejects_nested_dialect_declaration():
     errors = validate_schema({
         "type": "object",
@@ -90,7 +83,6 @@ def test_validate_schema_rejects_nested_dialect_declaration():
     assert errors == [
         "$schema.properties.value.$schema: dialect declaration is only allowed at the root"
     ]
-
 
 def test_validate_nested_object_and_array():
     schema = {
@@ -110,10 +102,8 @@ def test_validate_nested_object_and_array():
     assert validate({"items": [{"id": 1}, {"id": 2}]}, schema) == []
     errors = validate({"items": [{"id": 1}, {"id": "two"}]}, schema)
     assert errors
-    # missing required inside a nested array item
     errors2 = validate({"items": [{}]}, schema)
     assert errors2
-
 
 def test_validate_boolean_and_number():
     schema = {
@@ -121,45 +111,37 @@ def test_validate_boolean_and_number():
         "properties": {"ok": {"type": "boolean"}, "ratio": {"type": "number"}},
     }
     assert validate({"ok": True, "ratio": 0.5}, schema) == []
-    assert validate({"ok": True, "ratio": 3}, schema) == []  # int is a number
-    assert validate({"ok": 1, "ratio": 0.5}, schema)  # bool!=int slot here
-
+    assert validate({"ok": True, "ratio": 3}, schema) == []
+    assert validate({"ok": 1, "ratio": 0.5}, schema)
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
 def test_validate_rejects_non_finite_json_numbers(value):
     assert validate(value, {"type": "number"})
-
 
 def test_validate_rejects_unknown_schema_types_even_when_value_matches():
     errors = validate("anything", {"type": "mystery"})
     assert errors
     assert "unsupported schema type" in errors[0]
 
-
 def test_validate_integer_rejects_bool():
     schema = {"type": "object", "properties": {"n": {"type": "integer"}}}
     assert validate({"n": 5}, schema) == []
     assert validate({"n": True}, schema)
-
 
 def test_validate_top_level_array():
     schema = {"type": "array", "items": {"type": "string"}}
     assert validate(["a", "b"], schema) == []
     assert validate(["a", 2], schema)
 
-
 def test_validate_union_type_list():
-    # JSON Schema permits ``type`` to be a list ("any of these"). A union type
-    # must not raise (unhashable list) and must accept any listed member.
+    # A list-valued JSON Schema type accepts any listed member.
     schema = {
         "type": "object",
         "properties": {"x": {"type": ["string", "null"]}},
     }
     assert validate({"x": "hi"}, schema) == []
     assert validate({"x": None}, schema) == []
-    # a value matching none of the union members is rejected, not crashed
     assert validate({"x": 7}, schema)
-
 
 def test_validate_nullable_object_enforces_object_constraints():
     schema = {
@@ -175,7 +157,6 @@ def test_validate_nullable_object_enforces_object_constraints():
     assert validate({"x": "wrong"}, schema)
     assert validate({"x": 1, "extra": True}, schema)
 
-
 def test_validate_nullable_array_enforces_array_constraints():
     schema = {
         "type": ["array", "null"],
@@ -190,12 +171,6 @@ def test_validate_nullable_array_enforces_array_constraints():
     assert validate([1], schema)
     assert validate([1, 2, 3], schema)
 
-
-# --------------------------------------------------------------------------- #
-# StructuredOutputTool
-# --------------------------------------------------------------------------- #
-
-
 @pytest.mark.asyncio
 async def test_tool_captures_valid_payload():
     schema = {"type": "object", "required": ["x"], "properties": {"x": {"type": "integer"}}}
@@ -207,7 +182,6 @@ async def test_tool_captures_valid_payload():
     assert tool.captured == {"x": 7}
     assert isinstance(result, str) and result
 
-
 @pytest.mark.asyncio
 async def test_tool_returns_errors_on_invalid_payload():
     schema = {"type": "object", "required": ["x"], "properties": {"x": {"type": "integer"}}}
@@ -216,8 +190,7 @@ async def test_tool_returns_errors_on_invalid_payload():
     result = await tool.execute_with_runtime({"x": "nope"}, _runtime())
 
     assert tool.captured is None
-    assert "x" in result  # error string mentions the offending field
-
+    assert "x" in result
 
 @pytest.mark.asyncio
 async def test_tool_schema_surface():
@@ -227,9 +200,7 @@ async def test_tool_schema_surface():
     assert isinstance(tool.description, str) and tool.description
     openai = tool.to_openai_schema()
     assert openai["function"]["name"] == "structured_output"
-    # the tool's parameters expose the caller's schema as the input shape
     assert openai["function"]["parameters"] == schema
-
 
 @pytest.mark.parametrize(
     "schema",
@@ -243,7 +214,6 @@ async def test_tool_schema_surface():
 def test_tool_rejects_non_object_top_level_schema(schema):
     with pytest.raises(ValueError, match="top-level type must be 'object'"):
         StructuredOutputTool(schema)
-
 
 @pytest.mark.parametrize(
     ("schema", "value", "error_fragment"),
@@ -282,16 +252,13 @@ def test_validate_union_type_still_applies_container_constraints(
     assert any(error_fragment in error for error in errors)
     assert validate(None, schema) == []
 
-
 @pytest.mark.parametrize("value", [1, 1.0, -0.0])
 def test_validate_integer_accepts_mathematically_integral_numbers(value):
     assert validate(value, {"type": "integer"}) == []
 
-
 @pytest.mark.parametrize("value", [1.5, True, False])
 def test_validate_integer_rejects_non_integral_or_boolean_values(value):
     assert validate(value, {"type": "integer"})
-
 
 def test_validate_large_json_integer_without_float_coercion():
     value = int("1" + "0" * 400) + 1
@@ -304,12 +271,10 @@ def test_validate_large_json_integer_without_float_coercion():
     assert validate(value, {"type": "integer", "enum": [value]}) == []
     assert validate(value, {"type": "integer", "enum": [value - 1]})
 
-
 def test_validate_schema_rejects_unsupported_multiple_of_assertion():
     assert validate_schema({"type": "number", "multipleOf": 3}) == [
         "$schema.multipleOf: unsupported schema keyword"
     ]
-
 
 @pytest.mark.parametrize(
     ("value", "enum", "matches"),
@@ -326,8 +291,3 @@ def test_validate_schema_rejects_unsupported_multiple_of_assertion():
 def test_validate_enum_uses_json_type_aware_equality(value, enum, matches):
     errors = validate(value, {"enum": enum})
     assert (errors == []) is matches
-
-
-# --------------------------------------------------------------------------- #
-# agent(schema=...)
-# --------------------------------------------------------------------------- #

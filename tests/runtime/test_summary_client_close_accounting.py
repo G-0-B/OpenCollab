@@ -75,7 +75,6 @@ def test_returned_summary_usage_survives_cancellation_during_owned_client_close(
     assert calls[0]["tokens"] == 7_600
     assert calls[0]["payload"]["purpose"] == "summary"
 
-
 def test_returned_summary_usage_survives_owned_client_close_failure(monkeypatch):
     clients = []
 
@@ -100,7 +99,6 @@ def test_returned_summary_usage_survives_owned_client_close_failure(monkeypatch)
     assert session.used_tokens == 7_610
     assert len(clients[1].calls) == 1
     assert session.pending_cleanup_tasks == ()
-
 
 def test_late_summary_usage_is_charged_once_before_owned_client_close_finishes(monkeypatch):
     clients = []

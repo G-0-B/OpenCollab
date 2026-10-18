@@ -19,10 +19,8 @@ class _ReadFileOnly:
     async def read_file(self, path):
         return self.content
 
-
 class _DefaultRangeEnvironment(_ReadFileOnly, Environment):
     pass
-
 
 class _ReadFileOnlyLocalEnvironment:
     local_filesystem = True
@@ -32,10 +30,8 @@ class _ReadFileOnlyLocalEnvironment:
         self.read_file = environment.read_file
         self.write_file = environment.write_file
 
-
 class _DefaultRangeLocalEnvironment(_ReadFileOnlyLocalEnvironment, Environment):
     pass
-
 
 def _runtime(tmp_path, content, backend):
     if backend == "local":
@@ -47,11 +43,9 @@ def _runtime(tmp_path, content, backend):
         environment = _ReadFileOnly(content)
     return ToolRuntime(environment=environment, safety_policy=None, permission_policy=None)
 
-
 async def _cleanup(runtime):
     if isinstance(runtime.environment, LocalEnvironment):
         await runtime.environment.cleanup()
-
 
 def _rows(result):
     return [
@@ -60,12 +54,10 @@ def _rows(result):
         if (match := re.fullmatch(r"(\d+)\t(.*)", line))
     ]
 
-
 def _displayed_body(result):
     body = result.split("\n", 1)[1]
     footer = re.search(r"\n\.\.\. (?:line \d+ was|(?:\d+ )?more lines below)", body)
     return body[:footer.start()] if footer else body
-
 
 def test_long_single_line_read_explains_character_cut_without_next_line(tmp_path):
     (tmp_path / "minified.js").write_text("x" * 200, encoding="utf-8")
@@ -78,7 +70,6 @@ def test_long_single_line_read_explains_character_cut_without_next_line(tmp_path
     assert "more lines below" not in result
     assert "offset=2" not in result
 
-
 def test_complete_line_window_keeps_working_line_pagination(tmp_path):
     (tmp_path / "lines.txt").write_text("first\nsecond\nthird\n", encoding="utf-8")
     runtime = ToolRuntime(environment=LocalEnvironment(str(tmp_path)), safety_policy=None, permission_policy=None)
@@ -90,7 +81,6 @@ def test_complete_line_window_keeps_working_line_pagination(tmp_path):
     assert "offset=2" in first
     assert "2\tsecond" in second
     assert "offset=3" in second
-
 
 @pytest.mark.parametrize("backend", ["local", "default_range", "read_file_only"])
 async def test_numbered_pages_deliver_every_line_without_exceeding_output_budget(tmp_path, backend):
@@ -114,7 +104,6 @@ async def test_numbered_pages_deliver_every_line_without_exceeding_output_budget
     finally:
         await _cleanup(runtime)
 
-
 @pytest.mark.parametrize("backend", ["local", "default_range", "read_file_only"])
 @pytest.mark.parametrize(("offset", "budget"), [(8, 16), (98, 20), (998, 24)])
 async def test_pagination_accounts_for_growing_line_numbers(tmp_path, backend, offset, budget):
@@ -129,7 +118,6 @@ async def test_pagination_accounts_for_growing_line_numbers(tmp_path, backend, o
         assert len(_displayed_body(result)) <= budget
     finally:
         await _cleanup(runtime)
-
 
 @pytest.mark.parametrize("backend", ["local", "default_range", "read_file_only"])
 async def test_pagination_keeps_unterminated_final_line_at_exact_output_boundary(tmp_path, backend):
@@ -151,7 +139,6 @@ async def test_pagination_keeps_unterminated_final_line_at_exact_output_boundary
     finally:
         await _cleanup(runtime)
 
-
 @pytest.mark.parametrize("backend", ["local", "default_range", "read_file_only"])
 async def test_partial_later_line_is_read_again_before_character_truncation(tmp_path, backend):
     runtime = _runtime(tmp_path, "a\n" + "x" * 200, backend)
@@ -170,7 +157,6 @@ async def test_partial_later_line_is_read_again_before_character_truncation(tmp_
     finally:
         await _cleanup(runtime)
 
-
 @pytest.mark.parametrize("backend", ["local", "default_range", "read_file_only"])
 async def test_single_line_truncation_includes_its_line_number_budget(tmp_path, backend):
     runtime = _runtime(tmp_path, "x" * 100, backend)
@@ -181,7 +167,6 @@ async def test_single_line_truncation_includes_its_line_number_budget(tmp_path, 
         assert len(_displayed_body(result)) <= 100
     finally:
         await _cleanup(runtime)
-
 
 @pytest.mark.parametrize("backend", [_DefaultRangeLocalEnvironment, _ReadFileOnlyLocalEnvironment])
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])

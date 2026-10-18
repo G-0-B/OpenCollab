@@ -1,12 +1,7 @@
-"""Structural tests for the domain layer's published shape.
+"""Concrete tool adapters and application ports satisfy the domain ToolSpec.
 
-The dependency rule itself (nothing inward may import outward) is enforced by
-``lint-imports`` against the contracts in ``.importlinter``, which walks the
-real import graph and therefore also catches indirect edges and cycles. What
-stays here is the part an import graph cannot check: that the concrete tool
-adapter and the application-layer port still satisfy the domain's ``ToolSpec``.
+Import direction is checked separately by lint-imports.
 """
-
 
 def test_tool_base_satisfies_tool_spec():
     from opencollab.adapters.tools.base import Tool
@@ -17,7 +12,6 @@ def test_tool_base_satisfies_tool_spec():
     assert isinstance(instance.description, str)
     assert isinstance(instance.parameters, dict)
     assert callable(instance.to_openai_schema)
-
 
 def test_tool_port_carries_tool_spec_schema_surface():
     from opencollab.application.ports import ToolPort

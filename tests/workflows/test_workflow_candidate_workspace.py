@@ -27,7 +27,6 @@ def _git(repo: Path, *args: str) -> str:
         text=True,
     ).stdout
 
-
 def _repository(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -38,7 +37,6 @@ def _repository(tmp_path: Path) -> Path:
     _git(repo, "add", "source.py")
     _git(repo, "commit", "-m", "initial")
     return repo
-
 
 class _RecordingDiffEnvironment:
     def __init__(self) -> None:
@@ -52,14 +50,12 @@ class _RecordingDiffEnvironment:
         self.timeouts.append(timeout)
         return self.results.pop(0)
 
-
 @pytest.mark.asyncio
 async def test_candidate_source_diff_uses_pre_model_workspace_timeout() -> None:
     environment = _RecordingDiffEnvironment()
 
     assert await _raw_diff_at(environment, "/app") == ""
     assert environment.timeouts == [CANDIDATE_WORKSPACE_GIT_TIMEOUT_SECONDS] * 2
-
 
 class _EditingSession:
     used_tokens = 7
@@ -79,7 +75,6 @@ class _EditingSession:
             raise RuntimeError("role failed after writing")
         return "done"
 
-
 class _Factory:
     def __init__(self, fallback: Any, *, fail: bool = False, ignore_override: bool = False):
         self.fallback = fallback
@@ -93,7 +88,6 @@ class _Factory:
             environment = self.fallback
         self.environments.append(environment)
         return _EditingSession(environment, fail=self.fail)
-
 
 @pytest.mark.asyncio
 async def test_candidate_agent_writes_only_candidate_worktree(tmp_path: Path) -> None:
@@ -112,7 +106,6 @@ async def test_candidate_agent_writes_only_candidate_worktree(tmp_path: Path) ->
     assert (repo / "source.py").read_text() == "value = 1\n"
     assert factory.environments[0].workspace != str(repo)
 
-
 @pytest.mark.asyncio
 async def test_candidate_agent_preserves_partial_diff_after_role_error(tmp_path: Path) -> None:
     repo = _repository(tmp_path)
@@ -128,7 +121,6 @@ async def test_candidate_agent_preserves_partial_diff_after_role_error(tmp_path:
     assert candidate.output is None
     assert "value = 2" in candidate.diff
     assert (repo / "source.py").read_text() == "value = 1\n"
-
 
 @pytest.mark.asyncio
 async def test_candidate_workflow_binds_nested_agent_to_candidate(tmp_path: Path) -> None:
@@ -154,7 +146,6 @@ async def test_candidate_workflow_binds_nested_agent_to_candidate(tmp_path: Path
     assert "value = 2" in candidate.diff
     assert (repo / "source.py").read_text() == "value = 1\n"
     assert factory.environments[0].workspace != str(repo)
-
 
 @pytest.mark.asyncio
 async def test_source_worktree_leak_is_preserved_and_reported(tmp_path: Path, monkeypatch) -> None:
@@ -187,7 +178,6 @@ async def test_source_worktree_leak_is_preserved_and_reported(tmp_path: Path, mo
         for lease in leases:
             await lease.cleanup()
 
-
 @pytest.mark.asyncio
 async def test_base_environment_captures_relative_untracked_candidate_diff(
     tmp_path: Path,
@@ -204,7 +194,6 @@ async def test_base_environment_captures_relative_untracked_candidate_diff(
 
     assert "b/new_file.py" in diff
     assert lease.candidate_workspace not in diff
-
 
 @pytest.mark.parametrize("nested_wrapper", [False, True])
 @pytest.mark.asyncio
@@ -270,7 +259,6 @@ async def test_candidate_isolated_role_reads_current_candidate_and_owns_cleanup(
     await factory.release_isolated_envs()
     assert base.revoked is False
 
-
 @pytest.mark.parametrize("source_edit", [False, True])
 @pytest.mark.asyncio
 async def test_candidate_source_changed_honors_excluded_paths(tmp_path, source_edit):
@@ -289,7 +277,6 @@ async def test_candidate_source_changed_honors_excluded_paths(tmp_path, source_e
     candidate = await parent.candidate_workflow(nested, {}, label="candidate")
     assert candidate.output == {"all": True, "source": source_edit}
     assert "generated_test.py" in candidate.diff
-
 
 @pytest.mark.parametrize("failure_kind", ["close", "cleanup"])
 @pytest.mark.asyncio
@@ -364,7 +351,6 @@ async def test_candidate_isolation_cleanup_failure_keeps_budget_and_other_resour
         assert factory._candidate_isolation_leases == []
     assert len(_git(repo, "worktree", "list", "--porcelain").split("worktree ")) == 2
 
-
 @pytest.mark.parametrize("nested_wrapper", [False, True])
 @pytest.mark.asyncio
 async def test_candidate_isolation_rejects_legacy_factory_before_allocating(tmp_path, nested_wrapper):
@@ -386,7 +372,6 @@ async def test_candidate_isolation_rejects_legacy_factory_before_allocating(tmp_
     assert parent.agent_failures[0]["exception_type"] == "TypeError"
     assert legacy.handed_out == []
     assert base.revoked is False
-
 
 @pytest.mark.asyncio
 async def test_candidate_capture_includes_committed_and_uncommitted_edits(tmp_path):
@@ -411,7 +396,6 @@ async def test_candidate_capture_includes_committed_and_uncommitted_edits(tmp_pa
     finally:
         await lease.cleanup()
 
-
 @pytest.mark.parametrize("name", [
     "protected.txt", "protected file.txt", "protected_\u6570\u636e.txt", "protected\tfile.txt",
 ])
@@ -433,7 +417,6 @@ async def test_candidate_adoption_preserves_git_quoted_file_paths(tmp_path, name
         assert protected.read_text() == "protected = True\n"
     finally:
         await lease.cleanup()
-
 
 @pytest.mark.asyncio
 async def test_candidate_cleanup_preserves_cancellation_without_add_note(tmp_path, monkeypatch):
@@ -469,7 +452,6 @@ async def test_candidate_cleanup_preserves_cancellation_without_add_note(tmp_pat
     assert parent.tokens_spent() == 7
     assert parent.tokens_remaining() == 93
     assert parent.budget._leases == []
-
 
 @pytest.mark.asyncio
 async def test_candidate_rejects_old_factory_without_releasing_other_owner(tmp_path, monkeypatch):
@@ -528,7 +510,6 @@ async def test_candidate_rejects_old_factory_without_releasing_other_owner(tmp_p
         await factory.release_isolated_envs()
     assert base.revoked is False
 
-
 @pytest.mark.parametrize("names", [
     ("source.txt", "target.txt"),
     ("source file.txt", "target file.txt"),
@@ -561,7 +542,6 @@ async def test_candidate_rename_preserves_both_endpoints(tmp_path, names, preser
             assert not (repo / target_name).exists()
     finally:
         await lease.cleanup()
-
 
 @pytest.mark.asyncio
 async def test_dirty_source_enters_candidate_and_only_candidate_increment_is_adopted(tmp_path):
@@ -599,7 +579,6 @@ async def test_dirty_source_enters_candidate_and_only_candidate_increment_is_ado
     finally:
         await lease.cleanup()
 
-
 @pytest.mark.asyncio
 async def test_candidate_adoption_keeps_unrelated_dirty_source_and_preserved_paths(tmp_path):
     repo = _repository(tmp_path)
@@ -618,7 +597,6 @@ async def test_candidate_adoption_keeps_unrelated_dirty_source_and_preserved_pat
         assert (repo / "draft.txt").read_text() == "private draft\n"
     finally:
         await lease.cleanup()
-
 
 @pytest.mark.asyncio
 async def test_candidate_adoption_conflict_preserves_all_source_files_and_index(tmp_path):
@@ -642,7 +620,6 @@ async def test_candidate_adoption_conflict_preserves_all_source_files_and_index(
     finally:
         await lease.cleanup()
 
-
 @pytest.mark.asyncio
 async def test_candidate_adoption_preserves_edit_arriving_during_apply(tmp_path, monkeypatch):
     repo = _repository(tmp_path)
@@ -664,7 +641,6 @@ async def test_candidate_adoption_preserves_edit_arriving_during_apply(tmp_path,
         assert (repo / "new-user-note.txt").read_text() == "concurrent note\n"
     finally:
         await lease.cleanup()
-
 
 @pytest.mark.asyncio
 async def test_candidate_workflow_source_drift_preserves_current_source_and_candidate(tmp_path, monkeypatch):
@@ -701,7 +677,6 @@ async def test_candidate_workflow_source_drift_preserves_current_source_and_cand
     finally:
         for lease in leases:
             await lease.cleanup()
-
 
 @pytest.mark.asyncio
 async def test_dirty_candidate_capture_uses_contents_after_index_reset_and_commit(tmp_path):

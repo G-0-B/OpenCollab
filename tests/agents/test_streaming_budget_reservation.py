@@ -28,13 +28,11 @@ def _reasoning_heavy_messages(reasoning_chars: int = 600_000):
         {"role": "user", "content": "Continue."},
     ]
 
-
 def _without_reasoning_content(messages):
     return [
         {key: value for key, value in message.items() if key != "reasoning_content"}
         for message in messages
     ]
-
 
 def test_reservation_without_reasoning_equals_reservation_of_stripped_history():
     """An explicit omission prices the same payload as stripped history."""
@@ -48,14 +46,11 @@ def test_reservation_without_reasoning_equals_reservation_of_stripped_history():
     assert dropped == estimate_request_tokens(
         stripped, keep_reasoning_content=False
     )
-    # Not a marginal correction: recorded reasoning was the bulk of the input.
     assert kept > 3 * dropped
 
-    # Same contract for the per-message half the shaping layers call.
     assert estimate_request_message_tokens(
         messages, keep_reasoning_content=False
     ) == estimate_request_message_tokens(stripped)
-
 
 def test_reservation_default_still_counts_reasoning_content():
     """Generic estimates include all supplied continuation fields."""
@@ -66,7 +61,6 @@ def test_reservation_default_still_counts_reasoning_content():
     assert estimate_request_message_tokens(
         messages
     ) > estimate_request_message_tokens(stripped)
-
 
 def test_responses_native_items_are_estimated_additively_and_survive_reasoning_policy():
     from opencollab.adapters.llm.client import LLMClient
@@ -116,7 +110,6 @@ def test_responses_native_items_are_estimated_additively_and_survive_reasoning_p
         messages, prefer_response_items=True
     )
 
-
 def test_responses_precedence_keeps_system_and_tool_payloads_ahead_of_native_items():
     from opencollab.adapters.llm.responses_provider import _messages_to_input
 
@@ -148,7 +141,6 @@ def test_responses_precedence_keeps_system_and_tool_payloads_ahead_of_native_ite
         prefer_response_items=True,
     )
 
-
 @pytest.mark.parametrize("native_replay", ["absent", "empty", "present"])
 def test_responses_developer_precedence_matches_adapter_replay_order(native_replay):
     from opencollab.adapters.llm.responses_provider import _messages_to_input
@@ -179,7 +171,6 @@ def test_responses_developer_precedence_matches_adapter_replay_order(native_repl
         assert items == [{"role": "developer", "content": developer["content"]}]
         assert estimated == estimate_request_message_tokens([developer])
 
-
 def test_chat_restore_with_empty_responses_items_counts_large_content():
     messages = [{"role": "assistant", "content": "c" * 60_000, "response_items": []}]
     content_only = [{"role": "assistant", "content": "c" * 60_000}]
@@ -195,7 +186,6 @@ def test_chat_restore_with_empty_responses_items_counts_large_content():
         messages, prefer_response_items=True
     )
 
-
 def test_responses_native_items_activate_history_compaction_estimate():
     from opencollab.application.shaping.pipeline import approx_messages_tokens
 
@@ -210,7 +200,6 @@ def test_responses_native_items_activate_history_compaction_estimate():
     ]
 
     assert approx_messages_tokens(with_native) > approx_messages_tokens(base) + 10_000
-
 
 def test_chat_restored_large_content_with_empty_native_items_triggers_history_sizing():
     from opencollab.application.shaping import AutoCompactShaper
@@ -235,7 +224,6 @@ def test_chat_restored_large_content_with_empty_native_items_triggers_history_si
         keep_recent_groups=1,
     )
     assert shaper.shape(history) is not history
-
 
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("thinking", [False, True])
@@ -267,7 +255,6 @@ async def test_session_output_reservation_matches_actual_thinking_request(tmp_pa
     assert request["max_tokens"] == budget - reserved
     assistant = next(message for message in request["messages"] if message["role"] == "assistant")
     assert ("reasoning_content" in assistant) is thinking
-
 
 @pytest.mark.parametrize("stream", [False, True])
 @pytest.mark.parametrize("thinking", [False, True])

@@ -108,7 +108,6 @@ async def test_cancelled_collection_stops_owned_writers_before_return(
             running.cancel()
         await asyncio.gather(running, *workers, return_exceptions=True)
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["parallel", "pipeline"])
 @pytest.mark.parametrize("nested", [False, True])

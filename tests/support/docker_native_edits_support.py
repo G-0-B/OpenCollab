@@ -80,7 +80,6 @@ class LocalDockerTransport:
                     pass
         return ProcessResult(proc.returncode, out, err)
 
-
 def docker_environment(workspace: Path, transport: LocalDockerTransport, *, container_id=None):
     env = DockerEnvironment(
         workspace=str(workspace),
@@ -90,7 +89,6 @@ def docker_environment(workspace: Path, transport: LocalDockerTransport, *, cont
     )
     transport.attach(env)
     return env
-
 
 def edit_call(mode: str, path: str, index: int) -> tuple[object, dict]:
     name = "alpha" if index == 0 else "beta"
@@ -107,7 +105,6 @@ def edit_call(mode: str, path: str, index: int) -> tuple[object, dict]:
         "path": path, "mode": "line_replace", "start_line": index + 1, "end_line": index + 1,
         "expected_str": f"{name} = 1", "new_str": f"{name} = 2",
     }
-
 
 async def workflow_edits(
     workspace: Path, monkeypatch, modes, *, backend="docker", parallel=True, separate=False, relative=(False, False),
@@ -144,7 +141,6 @@ async def workflow_edits(
     )
     ctx = WorkflowContext(factory, budget_total=None, max_concurrency=2)
     try:
-        # Keep the public default isolation=False and run two real sessions.
         jobs = [
             lambda: ctx.agent("edit alpha", tools=[actions[0][0]]),
             lambda: ctx.agent("edit beta", tools=[actions[1][0]]),

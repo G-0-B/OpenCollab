@@ -22,16 +22,13 @@ WIRE_PROTOCOLS = frozenset({CHAT_COMPLETIONS, RESPONSES})
 # request to the wrong SDK with the wrong API key.
 _ANTHROPIC_NEAR_MISSES = frozenset({"anthropics", "claude", "claude-ai", "anthropic-ai"})
 
-
 def normalize_provider(provider: str | None) -> str:
     """Lower-case, whitespace-trimmed provider id (``"openai"`` when empty)."""
     return (provider or "openai").strip().lower()
 
-
 def is_anthropic(provider: str | None) -> bool:
     """Whether ``provider`` selects the native Anthropic SDK path."""
     return normalize_provider(provider) == ANTHROPIC
-
 
 def normalize_wire_protocol(value: str | None) -> str:
     """Return a validated wire protocol identifier."""
@@ -41,11 +38,9 @@ def normalize_wire_protocol(value: str | None) -> str:
         raise ValueError(f"unsupported LLM wire protocol {value!r}; expected one of {choices}")
     return normalized
 
-
 def required_env_key(provider: str | None) -> str:
     """The provider-specific API-key env var checked for a missing key."""
     return "ANTHROPIC_API_KEY" if is_anthropic(provider) else "OPENAI_API_KEY"
-
 
 def warn_provider_near_miss(provider: str | None) -> None:
     """Warn when ``provider`` resembles Anthropic but won't take that path."""

@@ -22,7 +22,6 @@ async def test_revoked_environment_does_not_build_another_session(structured):
         await ctx.agent("must not execute", schema={"type": "object"} if structured else None)
     assert factory.builds == []
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("collection", ["parallel", "pipeline"])
 async def test_collection_stops_dispatch_after_environment_revocation(collection):
@@ -51,7 +50,6 @@ async def test_collection_stops_dispatch_after_environment_revocation(collection
     assert ctx._semaphore._value == 1
     assert ctx._task_semaphore._value == 1
 
-
 @pytest.mark.asyncio
 async def test_queued_agent_rechecks_environment_after_waiting_for_slot():
     entered = asyncio.Event()
@@ -78,14 +76,12 @@ async def test_queued_agent_rechecks_environment_after_waiting_for_slot():
     assert ctx._semaphore._value == 1
     assert ctx.budget.remaining() == 100_000
 
-
 def test_real_factory_reports_shared_environment_revocation():
     env = SimpleNamespace(revoked=False)
     factory = WorkflowSessionFactory(model="test-model", provider="openai", api_key=None, base_url=None, env=env)
     assert factory.environment_revoked is False
     env.revoked = True
     assert factory.environment_revoked is True
-
 
 @pytest.mark.asyncio
 async def test_revocation_during_a_tool_stops_the_same_session_before_another_model_call():

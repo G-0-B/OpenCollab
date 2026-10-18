@@ -1,9 +1,4 @@
-"""Contract checks for GrepTool: the command it builds and how it fails.
-
-Split out of ``test_tool_runtime_contract.py``. These pin the search command
-(option termination, hidden-path inclusion, the ERE fallback used when rg is
-missing) and keep backend failures from being reported as an empty result.
-"""
+"""Search command construction and backend failures through the tool runtime."""
 
 from __future__ import annotations
 
@@ -15,10 +10,6 @@ from opencollab.adapters.tools.fs import GrepTool
 from opencollab.application.tool_execution import ToolRuntime
 from tests.support.tool_runtime_test_support import FakeEnv, SpySafetyPolicy, run
 
-# ---------------------------------------------------------------------------
-# GrepTool
-# ---------------------------------------------------------------------------
-
 
 def test_grep_tool_requires_environment():
     runtime = ToolRuntime(environment=None, safety_policy=None, permission_policy=None)
@@ -26,7 +17,6 @@ def test_grep_tool_requires_environment():
     result = run(GrepTool().execute_with_runtime({"pattern": "needle"}, runtime))
 
     assert result == "Error: no execution environment available."
-
 
 def test_grep_tool_routes_search_path_through_safety_policy():
     env = FakeEnv(stdout="src/app.py:1:needle\n")
@@ -48,7 +38,6 @@ def test_grep_tool_routes_search_path_through_safety_policy():
     assert "../outside" in cmd
     assert timeout == 30
 
-
 def test_grep_tool_rejects_non_integer_max_results_before_exec():
     env = FakeEnv(stdout="src/app.py:1:needle\n")
     runtime = ToolRuntime(environment=env, safety_policy=None, permission_policy=None)
@@ -62,7 +51,6 @@ def test_grep_tool_rejects_non_integer_max_results_before_exec():
 
     assert result == "Error: max_results must be an integer."
     assert env.exec_calls == []
-
 
 def test_grep_tool_applies_max_results_globally():
     env = FakeEnv(
@@ -82,14 +70,11 @@ def test_grep_tool_applies_max_results_globally():
         "src/file_0.py:1:needle",
         "src/file_1.py:1:needle",
     ]
-    # The cap has to be visible. Two matches out of six and two matches out of
-    # two used to be the same output, so "the symbol appears twice" could not be
-    # told from "the symbol appears at least twice".
+    # A visible cap distinguishes exact match counts from truncated results.
     assert lines[2:] == [
         "... [4 more matching lines not shown; raise max_results, or narrow "
         "the search with path or glob] ..."
     ]
-
 
 def test_grep_tool_says_nothing_extra_when_nothing_was_capped():
     env = FakeEnv(
@@ -109,7 +94,6 @@ def test_grep_tool_says_nothing_extra_when_nothing_was_capped():
         "src/file_1.py:1:needle",
     ]
 
-
 def test_grep_tool_does_not_fallback_after_normal_rg_no_match():
     class NoMatchEnv(FakeEnv):
         async def exec_cmd(self, cmd: str, timeout: float = 120.0):
@@ -124,7 +108,6 @@ def test_grep_tool_does_not_fallback_after_normal_rg_no_match():
     assert result == "No matches found for pattern: absent"
     assert len(env.exec_calls) == 1
     assert "grep -r" not in env.exec_calls[0][0]
-
 
 @pytest.mark.parametrize(
     ("returncode", "stderr", "expected"),
@@ -156,7 +139,6 @@ def test_grep_tool_reports_backend_failures(returncode, stderr, expected):
     assert "No matches" not in result
     assert "2>/dev/null" not in env.exec_calls[0][0]
 
-
 def test_grep_tool_includes_hidden_project_paths_with_noise_exclusions():
     env = FakeEnv(stdout=".github/workflows/ci.yml:1:needle\n")
     runtime = ToolRuntime(environment=env, safety_policy=None, permission_policy=None)
@@ -169,7 +151,6 @@ def test_grep_tool_includes_hidden_project_paths_with_noise_exclusions():
     assert "-g '!.git/**'" in command
     assert "-g '!.venv/**'" in command
     assert "-g '!.opencollab/**'" in command
-
 
 def test_grep_tool_terminates_options_before_pattern_and_path():
     env = FakeEnv(stdout="")
@@ -186,14 +167,8 @@ def test_grep_tool_terminates_options_before_pattern_and_path():
     assert "rg -n --hidden" in cmd
     assert "-- '--pre=touch pwned' --debug" in cmd
 
-
 def test_grep_tool_fallback_uses_ere_and_skips_session_dir():
-    # When rg is missing from PATH the command falls back to grep. That fallback
-    # MUST use -E (ERE) so `a|b|c` alternation works — plain `grep -rn` is BRE,
-    # where `|` is a literal char and an alternation pattern silently matches
-    # nothing. It must also skip .opencollab so it can't "match" its own logged
-    # pattern strings instead of real source. (Regression: a 100-step run stalled
-    # because every alternation grep returned "No matches found".)
+    # The grep fallback needs ERE alternation and must exclude logged patterns in .opencollab.
     class MissingRgEnv(FakeEnv):
         async def exec_cmd(self, cmd: str, timeout: float = 120.0):
             self.exec_calls.append((cmd, timeout))
@@ -213,6 +188,6 @@ def test_grep_tool_fallback_uses_ere_and_skips_session_dir():
     assert len(env.exec_calls) == 2
     cmd, _ = env.exec_calls[1]
     assert cmd.startswith("grep -rEn")
-    assert " grep -rn " not in cmd  # the buggy BRE fallback must be gone
+    assert " grep -rn " not in cmd
     assert "--exclude-dir=.opencollab" in cmd
 

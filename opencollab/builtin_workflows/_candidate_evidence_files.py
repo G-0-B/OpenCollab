@@ -108,7 +108,6 @@ class CandidateEvidenceFiles:
             "eof": end == total,
         }
 
-
 class ReadCandidateEvidence:
     """Read registered evidence only, with no shell or candidate mutation access."""
 

@@ -1,19 +1,4 @@
-"""Finishing a turn is how a sender waits for a teammate's answer.
-
-``message_agent`` returns as soon as the message is queued, so a sender that
-wants the answer has to do something in the meantime. The tool now tells it
-that ending the turn is a real option; these tests are why that sentence is
-true. A finished sender is reopened when the reply arrives, and the team turn
-does not return while an inbox still holds a message.
-
-The alternative -- keeping the sender alive on ``team_status`` polls until the
-answer lands -- costs one full provider call per poll, which is the same
-resource the run is measured in. That is worth pinning against regression: the
-mechanism lives in two places that know nothing about each other (the phase FSM
-allows DONE -> IDLE; the quiescence predicate refuses to call a team finished
-while a message is undelivered), and either one alone would make the sentence
-false.
-"""
+"""A finished sender reopens on reply, and queued messages prevent team quiescence."""
 
 from __future__ import annotations
 
@@ -38,7 +23,6 @@ def _seat_coder(scheduler, coder: ScriptedSession, aid: int = 1) -> None:
     )
     scheduler._sessions[aid] = coder
 
-
 def _hand_off_then_finish(step_result: str):
     async def step(sess: ScriptedSession) -> str:
         await sess.scheduler.send_message(0, 1, "implement", "please write the fix")
@@ -48,7 +32,6 @@ def _hand_off_then_finish(step_result: str):
 
     return step
 
-
 def _reply_then_finish(sha: str):
     async def step(sess: ScriptedSession) -> str:
         await sess.scheduler.send_message(1, 0, "done", f"committed {sha}")
@@ -57,7 +40,6 @@ def _reply_then_finish(sha: str):
         return "sent the sha"
 
     return step
-
 
 def _land_what_arrived():
     async def step(sess: ScriptedSession) -> str:
@@ -70,7 +52,6 @@ def _land_what_arrived():
 
     return step
 
-
 def test_a_finished_sender_is_reopened_by_its_teammate_s_reply():
     lead = ScriptedSession("analyst", [_hand_off_then_finish("handed off"), _land_what_arrived()])
     coder = ScriptedSession("coder", [_reply_then_finish("6b5c529")])
@@ -79,12 +60,9 @@ def test_a_finished_sender_is_reopened_by_its_teammate_s_reply():
 
     answer = run(scheduler.run("fix the bug"))
 
-    # The lead reached DONE once with nothing but a handoff to show, and the
-    # reply put it back to work. Both halves matter: the answer is the one it
-    # produced after the message, not the one it finished on.
+    # The reply must reopen the lead after its initial handoff-only completion.
     assert answer == "landed 6b5c529"
     assert lead._steps == []
-
 
 def test_the_team_turn_does_not_end_while_a_message_is_undelivered():
     lead = ScriptedSession("analyst", [terminal("done on my own")])
@@ -100,9 +78,7 @@ def test_the_team_turn_does_not_end_while_a_message_is_undelivered():
 
     assert not scheduler._quiescent()
 
-
 @pytest.mark.parametrize("promise", ["reopens your turn", "finishing is how"])
 def test_the_delivery_note_says_finishing_is_a_way_to_wait(promise: str):
-    # A sender cannot discover this by trying: the failure mode of not knowing
-    # it is burning the budget on polls, which looks like ordinary work.
+    # The tool description must prevent budget-consuming polling.
     assert promise in _DELIVERY_NOTE

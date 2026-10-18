@@ -34,7 +34,6 @@ def test_manual_thinking_uses_configured_budget():
     assert kwargs["max_tokens"] == 32_768
     assert "temperature" not in kwargs
 
-
 def test_adaptive_thinking_forwards_effort():
     params = {
         "thinking": {"type": "adaptive", "display": "summarized"},
@@ -61,7 +60,6 @@ def test_adaptive_thinking_forwards_effort():
     assert kwargs["output_config"] == params["output_config"]
     assert "temperature" not in kwargs
 
-
 def test_manual_thinking_uses_auto_for_forced_tool_choice():
     kwargs = build_anthropic_kwargs(
         "claude-sonnet-4-5",
@@ -78,7 +76,6 @@ def test_manual_thinking_uses_auto_for_forced_tool_choice():
 
     assert kwargs["tool_choice"] == {"type": "auto"}
 
-
 def test_adaptive_thinking_keeps_forced_tool_choice():
     kwargs = build_anthropic_kwargs(
         "claude-sonnet-4-7",
@@ -91,7 +88,6 @@ def test_adaptive_thinking_keeps_forced_tool_choice():
     )
 
     assert kwargs["tool_choice"] == {"type": "any"}
-
 
 @pytest.mark.parametrize(
     ("params", "error"),
@@ -163,7 +159,6 @@ def test_thinking_rejects_invalid_or_ignored_parameters(params, error):
             max_output_tokens=8192,
         )
 
-
 def test_thinking_off_keeps_sampling_and_ignores_thinking_params():
     kwargs = build_anthropic_kwargs(
         "model",
@@ -177,7 +172,6 @@ def test_thinking_off_keeps_sampling_and_ignores_thinking_params():
     assert kwargs["temperature"] == 0.2
     assert "thinking" not in kwargs
 
-
 def test_thinking_rejects_explicit_top_p():
     with pytest.raises(ValueError, match="provider-default top_p"):
         build_anthropic_kwargs(
@@ -189,7 +183,6 @@ def test_thinking_rejects_explicit_top_p():
             thinking_params={"thinking": {"type": "adaptive"}},
             top_p=0.95,
         )
-
 
 def test_tool_round_preserves_all_anthropic_content_in_order():
     blocks = [
@@ -225,7 +218,6 @@ def test_tool_round_preserves_all_anthropic_content_in_order():
             {"type": "tool_result", "tool_use_id": "call-1", "content": "passed"}
         ],
     }
-
 
 def test_non_thinking_tool_round_preserves_interleaved_content_in_order():
     blocks = [

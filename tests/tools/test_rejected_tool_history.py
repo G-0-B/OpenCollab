@@ -23,7 +23,6 @@ def messages(arguments, error="Error: invalid JSON arguments: malformed"):
         {"role": "tool", "tool_call_id": "call-1", "content": error},
     ]
 
-
 @pytest.mark.parametrize(
     "arguments", ['{"command": "' + "x" * 100_000, json.dumps(["x" * 100_000])], ids=["malformed", "nonobject"]
 )
@@ -43,16 +42,13 @@ def test_rejected_arguments_shrink_both_provider_representations(arguments):
     assert [x["type"] for x in projected] == ["function_call", "function_call_output"]
     assert projected[0]["call_id"] == projected[1]["call_id"] == "call-1"
 
-
 def test_large_valid_arguments_remain_exact_even_if_tool_output_mentions_json_error():
     source = messages(json.dumps({"command": "x" * 100_000}))
     assert PerToolResultBudgetShaper().shape(source) == source
 
-
 def test_pending_malformed_call_is_not_modified_before_a_tool_result():
     source = messages('{"command":"' + "x" * 100_000)[:1]
     assert PerToolResultBudgetShaper().shape(source) == source
-
 
 def test_reused_call_id_does_not_change_an_earlier_unrejected_call():
     first = messages('{"command":"' + "a" * 100_000, "tool transport failed")

@@ -20,6 +20,5 @@ def test_truncation_count_matches_source_characters_actually_removed(label, size
     assert int(match.group(1)) == len(text) - len(kept)
     assert len(result) <= cap
 
-
 def test_truncation_leaves_exactly_fitting_output_unchanged():
     assert truncate("α" * 50, 50) == "α" * 50

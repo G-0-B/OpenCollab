@@ -31,7 +31,6 @@ def _git(repo, *args, check: bool = True) -> subprocess.CompletedProcess[str]:
         text=True,
     )
 
-
 def _repo(path):
     path.mkdir()
     _git(path, "init", "-q")
@@ -42,10 +41,8 @@ def _repo(path):
     _git(path, "commit", "-qm", "base")
     return path
 
-
 def _branch_exists(repo, branch: str) -> bool:
     return _git(repo, "show-ref", "--verify", f"refs/heads/{branch}", check=False).returncode == 0
-
 
 class _OneShotAsyncBarrier:
     """Release all waiters once the expected parties have arrived."""
@@ -61,7 +58,6 @@ class _OneShotAsyncBarrier:
             self._released.set()
         await self._released.wait()
 
-
 async def test_pool_without_worktrees_returns_local_environment(tmp_path) -> None:
     pool = WorktreePool(str(tmp_path), use_worktrees=False)
     env = await pool.acquire("coder")
@@ -75,7 +71,6 @@ async def test_pool_without_worktrees_returns_local_environment(tmp_path) -> Non
     assert pool._envs == []
     assert env.revoked is True
     assert not os.path.exists(temporary)
-
 
 async def test_pool_retains_failed_local_cleanup_for_retry(
     tmp_path, monkeypatch
@@ -103,13 +98,11 @@ async def test_pool_retains_failed_local_cleanup_for_retry(
     await pool.release_env(env)
     assert pool._envs == []
 
-
 async def test_pool_rejects_unsafe_role_before_creating_workspace(tmp_path) -> None:
     pool = WorktreePool(str(tmp_path), use_worktrees=True)
     with pytest.raises(ValueError, match="role"):
         await pool.acquire("../../../outside")
     assert list(tmp_path.iterdir()) == []
-
 
 async def test_non_git_source_uses_independent_directory_copy(tmp_path) -> None:
     source = tmp_path / "plain"
@@ -125,7 +118,6 @@ async def test_non_git_source_uses_independent_directory_copy(tmp_path) -> None:
     assert "child" in await env.get_diff()
     await env.cleanup()
     assert not os.path.exists(workspace)
-
 
 async def test_concurrent_setup_reuses_one_worktree(tmp_path, monkeypatch) -> None:
     source = tmp_path / "plain"
@@ -169,7 +161,6 @@ async def test_concurrent_setup_reuses_one_worktree(tmp_path, monkeypatch) -> No
     assert copy_count == 1
     assert outcomes == [env.workspace, env.workspace]
 
-
 async def test_non_git_copy_does_not_block_event_loop(tmp_path, monkeypatch) -> None:
     source = tmp_path / "plain"
     source.mkdir()
@@ -197,7 +188,6 @@ async def test_non_git_copy_does_not_block_event_loop(tmp_path, monkeypatch) -> 
     await owner
     await env.cleanup()
 
-
 async def test_non_git_cleanup_does_not_block_event_loop(tmp_path, monkeypatch) -> None:
     source = tmp_path / "plain"
     source.mkdir()
@@ -224,7 +214,6 @@ async def test_non_git_cleanup_does_not_block_event_loop(tmp_path, monkeypatch) 
         timer.cancel()
     await owner
 
-
 async def test_non_git_copy_preserves_file_and_directory_symlinks(tmp_path) -> None:
     source = tmp_path / "plain"
     outside = tmp_path / "outside"
@@ -244,7 +233,6 @@ async def test_non_git_copy_preserves_file_and_directory_symlinks(tmp_path) -> N
     with pytest.raises(OSError):
         await env.read_file("dir-link/secret.txt")
     await env.cleanup()
-
 
 async def test_non_git_copy_exports_changes_before_cleanup(tmp_path) -> None:
     source = tmp_path / "plain"
@@ -272,7 +260,6 @@ async def test_non_git_copy_exports_changes_before_cleanup(tmp_path) -> None:
     await env.cleanup()
     assert not os.path.exists(workspace)
 
-
 async def test_git_worktree_reports_committed_and_untracked_changes(tmp_path) -> None:
     source = _repo(tmp_path / "repo")
     branch = "opencollab-test-diff"
@@ -288,7 +275,6 @@ async def test_git_worktree_reports_committed_and_untracked_changes(tmp_path) ->
     await env.cleanup()
     assert not os.path.exists(workspace)
     assert not _branch_exists(source, branch)
-
 
 async def test_git_worktree_rejects_dirty_source_snapshot(tmp_path) -> None:
     source = _repo(tmp_path / "repo")
@@ -317,7 +303,6 @@ async def test_git_worktree_rejects_dirty_source_snapshot(tmp_path) -> None:
     assert "deleted.txt" in detail
     assert not _branch_exists(source, branch)
 
-
 async def test_git_worktree_preserves_ignored_output_until_recovered(
     tmp_path,
 ) -> None:
@@ -342,7 +327,6 @@ async def test_git_worktree_preserves_ignored_output_until_recovered(
     await env.cleanup()
     assert not workspace.exists()
 
-
 async def test_git_worktree_preserves_oversized_diff_until_recovered(
     tmp_path,
 ) -> None:
@@ -363,7 +347,6 @@ async def test_git_worktree_preserves_oversized_diff_until_recovered(
     await env.cleanup()
     assert not workspace.exists()
 
-
 async def test_git_worktree_preserves_nested_source_workspace(tmp_path) -> None:
     source = _repo(tmp_path / "repo")
     nested = source / "packages" / "worker"
@@ -382,7 +365,6 @@ async def test_git_worktree_preserves_nested_source_workspace(tmp_path) -> None:
     assert (nested / "module.py").read_text(encoding="utf-8") == "VALUE = 1\n"
     assert "packages/worker/module.py" in await env.get_diff()
     await env.cleanup()
-
 
 async def test_git_worktree_initializes_source_available_submodules(tmp_path) -> None:
     dependency = _repo(tmp_path / "dependency")
@@ -407,7 +389,6 @@ async def test_git_worktree_initializes_source_available_submodules(tmp_path) ->
         encoding="utf-8"
     ) == "base\n"
     await env.cleanup()
-
 
 async def test_git_worktree_maps_nested_submodules_to_initialized_source(
     tmp_path,
@@ -482,7 +463,6 @@ async def test_git_worktree_maps_nested_submodules_to_initialized_source(
     ).read_text(encoding="utf-8") == "base\n"
     await env.cleanup()
 
-
 async def test_git_worktree_rejects_truncated_patch_evidence(tmp_path) -> None:
     source = _repo(tmp_path / "repo")
     env = WorktreeEnvironment(str(source), branch_name="truncated-diff")
@@ -501,7 +481,6 @@ async def test_git_worktree_rejects_truncated_patch_evidence(tmp_path) -> None:
     env._local_env.exec_cmd = real_exec
     assert await env.get_diff() == ""
     await env.cleanup()
-
 
 async def test_git_worktree_reports_returncode_when_diff_has_no_stderr(tmp_path) -> None:
     source = _repo(tmp_path / "repo")
@@ -522,7 +501,6 @@ async def test_git_worktree_reports_returncode_when_diff_has_no_stderr(tmp_path)
     assert await env.get_diff() == ""
     await env.cleanup()
 
-
 async def test_existing_branch_is_preserved_when_setup_fails(tmp_path) -> None:
     source = _repo(tmp_path / "repo")
     branch = "existing"
@@ -531,7 +509,6 @@ async def test_existing_branch_is_preserved_when_setup_fails(tmp_path) -> None:
     with pytest.raises(RuntimeError, match="already exists"):
         await env.setup()
     assert _branch_exists(source, branch)
-
 
 async def test_failed_worktree_add_removes_unregistered_directory(tmp_path, monkeypatch) -> None:
     source = _repo(tmp_path / "repo")
@@ -548,7 +525,6 @@ async def test_failed_worktree_add_removes_unregistered_directory(tmp_path, monk
         await env.setup()
     assert env._worktree_dir is None
     assert not _branch_exists(source, "failed-add")
-
 
 async def test_concurrent_same_branch_setup_preserves_winner_after_loser_cleanup(tmp_path, monkeypatch) -> None:
     source = _repo(tmp_path / "repo")
@@ -586,7 +562,6 @@ async def test_concurrent_same_branch_setup_preserves_winner_after_loser_cleanup
     await winner.cleanup()
     assert not _branch_exists(source, branch)
 
-
 async def test_worktree_cleanup_preserves_externally_advanced_owned_branch(tmp_path) -> None:
     source = _repo(tmp_path / "repo")
     branch = "externally-advanced"
@@ -602,7 +577,6 @@ async def test_worktree_cleanup_preserves_externally_advanced_owned_branch(tmp_p
     assert not os.path.exists(workspace)
     assert _branch_exists(source, branch)
     assert _git(source, "rev-parse", branch).stdout.strip() == advanced
-
 
 async def test_worktree_cleanup_stops_when_local_environment_is_not_quiescent(
     tmp_path,
@@ -637,7 +611,6 @@ async def test_worktree_cleanup_stops_when_local_environment_is_not_quiescent(
     monkeypatch.setattr(local_env, "cleanup", real_cleanup)
     await env.cleanup()
     assert not os.path.exists(workspace)
-
 
 async def test_double_cancellation_cannot_interrupt_setup_cleanup(tmp_path, monkeypatch) -> None:
     source = tmp_path / "source"
@@ -675,7 +648,6 @@ async def test_double_cancellation_cannot_interrupt_setup_cleanup(tmp_path, monk
         await owner
     assert cleanup_done.is_set()
 
-
 async def test_pool_releases_all_owned_worktrees(tmp_path) -> None:
     source = _repo(tmp_path / "repo")
     pool = WorktreePool(str(source), use_worktrees=True)
@@ -686,7 +658,6 @@ async def test_pool_releases_all_owned_worktrees(tmp_path) -> None:
     await pool.release()
     assert pool._envs == []
     assert all(not os.path.exists(path) for path in workspaces)
-
 
 async def test_pool_keeps_failed_cleanup_for_retry(tmp_path, monkeypatch) -> None:
     class FailingEnvironment:
@@ -705,7 +676,6 @@ async def test_pool_keeps_failed_cleanup_for_retry(tmp_path, monkeypatch) -> Non
     with pytest.raises(OSError, match="retry state retained"):
         await pool.release()
     assert pool._envs == [env]
-
 
 async def test_pool_release_waits_for_and_invalidates_inflight_acquire(tmp_path, monkeypatch) -> None:
     setup_started = asyncio.Event()
@@ -739,7 +709,6 @@ async def test_pool_release_waits_for_and_invalidates_inflight_acquire(tmp_path,
     assert cleaned.is_set()
     assert pool._envs == []
 
-
 async def test_pool_retries_cleanup_after_failed_setup_cleanup(tmp_path, monkeypatch) -> None:
     class PartiallyCreatedEnvironment:
         def __init__(self, *_args, **_kwargs):
@@ -762,7 +731,6 @@ async def test_pool_retries_cleanup_after_failed_setup_cleanup(tmp_path, monkeyp
 
     await pool.release()
     assert pool._envs == []
-
 
 async def test_pool_finishes_cleanup_before_forwarding_cancellation(tmp_path, monkeypatch) -> None:
     release = asyncio.Event()
@@ -793,14 +761,8 @@ async def test_pool_finishes_cleanup_before_forwarding_cancellation(tmp_path, mo
         await owner
     assert cleaned.is_set()
 
-
 async def test_pool_isolates_inside_the_container_the_run_was_given(tmp_path) -> None:
-    """A repository that exists only in a container is worked on there.
-
-    Reaching it from the host would take a bind mount, and a harness that reads
-    a run's result out of a bounded container archive is exactly one that cannot
-    allow a mount -- so the isolation has to be built on the far side.
-    """
+    """A bounded container archive requires worktree isolation inside the supplied environment."""
     base = DockerWorkspaceEnvironment(container_id="d" * 64, repo_root="/testbed")
     pool = WorktreePool(str(tmp_path), use_worktrees=True, base_environment=base)
 
@@ -811,7 +773,6 @@ async def test_pool_isolates_inside_the_container_the_run_was_given(tmp_path) ->
     assert env.workspace == "/tmp/opencollab-worktrees/opencollab-coder-1234abcd"
     # Outside the repository root, so it never lands in the harness's archive.
     assert not env.workspace.startswith("/testbed/")
-
 
 async def test_pool_isolates_inside_a_supplied_host_workspace(tmp_path) -> None:
     """A supplied host environment is still where its agents' worktrees come from."""
@@ -824,15 +785,10 @@ async def test_pool_isolates_inside_a_supplied_host_workspace(tmp_path) -> None:
     assert isinstance(env, WorktreeEnvironment)
     assert env.source_workspace == os.path.realpath(str(elsewhere))
 
-
 async def test_pool_without_worktrees_hands_back_the_supplied_environment(
     tmp_path,
 ) -> None:
-    """Isolation off means every agent works where the run works.
-
-    The shared environment is the caller's, so the pool does not take it over
-    for cleanup: releasing the pool must not close something it was lent.
-    """
+    """The shared environment is borrowed, so releasing the pool must preserve its lifetime."""
     base = LocalEnvironment(str(tmp_path))
     pool = WorktreePool(str(tmp_path), use_worktrees=False, base_environment=base)
 
@@ -842,7 +798,6 @@ async def test_pool_without_worktrees_hands_back_the_supplied_environment(
     assert first is base and second is base
     await pool.release()
     assert not base.revoked
-
 
 async def test_pool_refuses_to_isolate_an_environment_it_cannot_split(tmp_path) -> None:
     """Better a named refusal than agents silently sharing one workspace."""
@@ -855,7 +810,6 @@ async def test_pool_refuses_to_isolate_an_environment_it_cannot_split(tmp_path) 
 
     with pytest.raises(TypeError, match="worktree isolation is not available"):
         await pool.acquire("coder")
-
 
 @pytest.mark.parametrize("workspace", ["/app", "/tmp"])
 async def test_container_worktree_can_start_as_an_unprivileged_image_user(monkeypatch, workspace):

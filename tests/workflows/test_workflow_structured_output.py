@@ -1,12 +1,4 @@
-"""Tests for workflow structured output (phase 2).
-
-Covers the stdlib JSON-schema validator, the pure ``StructuredOutputTool``
-(capture on valid / error-list on invalid), and ``WorkflowContext.agent``'s
-``schema=`` path: a free-exploration first pass, a forced-commit corrective
-pass (a fresh single-tool session pinned to a named-function ``tool_choice``)
-when the first pass answers in free text, returns a dict on capture, yields
-``None`` when both passes miss, and counts both passes' tokens in the budget.
-"""
+"""Workflow schema capture validates output and retries missed captures with a single tool."""
 
 from __future__ import annotations
 
@@ -26,15 +18,10 @@ from opencollab.application.workflow import (
 from tests.support.structured_output_test_support import NamedTool as _NamedTool
 from tests.support.structured_output_test_support import runtime as _runtime
 
-# --------------------------------------------------------------------------- #
-# validator
-# --------------------------------------------------------------------------- #
-
 
 class FakeState:
     def __init__(self) -> None:
         self.messages: list[dict[str, Any]] = []
-
 
 class _Cursor:
     """Shared payload cursor across the sessions a single agent(schema=) call
@@ -54,23 +41,12 @@ class _Cursor:
         self.idx += 1
         return payload
 
-
 class CapturingSession:
-    """Session whose run_loop calls structured_output with a scripted payload.
+    """Call structured_output with successive scripted payloads from a shared cursor.
 
-    Draws successive payloads from a shared ``_Cursor`` and invokes the injected
-    StructuredOutputTool with each, simulating the model self-correcting.
-
-    Models the real ``Session.run_loop`` DONE short-circuit (session_run.py):
-    once a turn finishes, a bare re-run does NOT re-invoke the tool — it just
-    returns the prior answer. Only an intervening ``add_user_message`` (which
-    resets DONE -> IDLE) lets the next run_loop produce a fresh payload.
-
-    ``max_rounds`` models the post-capture runaway seen live: a single
-    run_loop keeps issuing rounds (the model re-calling the tool) until the
-    round cap — or until the engine's ``cancel_event`` is set, mirroring the
-    real precheck gate that stops the loop before the next LLM call. Each
-    round costs ``tokens_each``.
+    A DONE session reuses its answer until add_user_message resets it.
+    max_rounds models runaway capture calls, while cancel_event stops the next round.
+    Each round costs tokens_each.
     """
 
     def __init__(
@@ -93,9 +69,7 @@ class CapturingSession:
 
     @property
     def messages(self) -> list[dict[str, Any]]:
-        # Mirrors the real ``Session.messages`` property (getter -> state.messages,
-        # setter -> replace) so the engine can carry first-pass exploration into
-        # the corrective session.
+        # Mirror Session.messages so exploration can carry into the corrective session.
         return self.state.messages
 
     @messages.setter
@@ -110,7 +84,7 @@ class CapturingSession:
 
     async def add_user_message(self, content: str) -> None:
         self.state.messages.append({"role": "user", "content": content})
-        self._done = False  # reset_for_user_turn -> resume_to_idle (DONE -> IDLE)
+        self._done = False
 
     async def run_loop(self, cancel_event: Any = None) -> str:
         self.run_count += 1
@@ -135,9 +109,7 @@ class CapturingSession:
     def used_tokens(self) -> int:
         return self._tokens_each * self.rounds
 
-
 _NO_CALL = object()
-
 
 class ScriptedFactory:
     """Builds CapturingSessions sharing one payload cursor, recording builds.
@@ -185,7 +157,6 @@ class ScriptedFactory:
             self.session = session
         return session
 
-
 class TransientFailureFactory(ScriptedFactory):
     """First structured session raises; the single corrective session captures."""
 
@@ -198,9 +169,7 @@ class TransientFailureFactory(ScriptedFactory):
             session.run_loop = fail_once
         return session
 
-
 SCHEMA = {"type": "object", "required": ["x"], "properties": {"x": {"type": "integer"}}}
-
 
 @pytest.mark.asyncio
 async def test_agent_schema_returns_dict_on_capture():
@@ -210,28 +179,21 @@ async def test_agent_schema_returns_dict_on_capture():
     result = await ctx.agent("give me x", schema=SCHEMA)
 
     assert result == {"x": 42}
-    # the structured-output tool was injected into the session toolset
     tools = factory.builds[0]["tools"]
     assert any(isinstance(t, StructuredOutputTool) for t in tools)
-    # only one run_loop needed
     assert factory.session.run_count == 1
-
 
 @pytest.mark.asyncio
 async def test_agent_schema_retries_once_then_succeeds():
-    # first (free) pass produces an invalid payload; the forced corrective pass
-    # (a second session) lands a valid one.
     factory = ScriptedFactory(payloads=[{"x": "bad"}, {"x": 9}])
     ctx = WorkflowContext(factory)
 
     result = await ctx.agent("give me x", schema=SCHEMA)
 
     assert result == {"x": 9}
-    # two sessions built: free exploration, then forced commit.
     assert len(factory.sessions) == 2
     assert factory.sessions[0].run_count == 1
     assert factory.sessions[1].run_count == 1
-
 
 @pytest.mark.asyncio
 async def test_agent_schema_retries_once_after_transient_first_pass_error():
@@ -244,7 +206,6 @@ async def test_agent_schema_retries_once_after_transient_first_pass_error():
     assert len(factory.sessions) == 2
     assert ctx.agent_failures[0]["exception_type"] == "OSError"
 
-
 @pytest.mark.asyncio
 async def test_agent_schema_returns_none_after_failed_retry():
     factory = ScriptedFactory(payloads=[{"x": "bad"}, {"x": "still bad"}])
@@ -253,8 +214,7 @@ async def test_agent_schema_returns_none_after_failed_retry():
     result = await ctx.agent("give me x", schema=SCHEMA)
 
     assert result is None
-    assert len(factory.sessions) == 2  # exactly one corrective retry session
-
+    assert len(factory.sessions) == 2
 
 @pytest.mark.asyncio
 async def test_structured_context_overflow_returns_without_second_request():
@@ -279,10 +239,8 @@ async def test_structured_context_overflow_returns_without_second_request():
     assert result is None
     assert len(factory.sessions) == 1
 
-
 @pytest.mark.asyncio
 async def test_agent_schema_no_call_at_all_returns_none():
-    # model never calls structured_output on either pass -> None after retry
     factory = ScriptedFactory(payloads=[_NO_CALL, _NO_CALL])
     ctx = WorkflowContext(factory)
 
@@ -291,19 +249,15 @@ async def test_agent_schema_no_call_at_all_returns_none():
     assert result is None
     assert len(factory.sessions) == 2
 
-
 @pytest.mark.asyncio
 async def test_agent_schema_retry_tokens_counted_in_budget():
-    # both runs invalid (tokens still spent), 100 tokens per run -> 200 total
     factory = ScriptedFactory(payloads=[{"x": "bad"}, {"x": "bad"}], tokens_each=100)
     ctx = WorkflowContext(factory, budget_total=10_000)
 
     result = await ctx.agent("give me x", schema=SCHEMA)
 
     assert result is None
-    # two run_loops -> 2 * 100 tokens counted
     assert ctx.budget.spent() == 200
-
 
 @pytest.mark.asyncio
 async def test_agent_schema_capture_stops_runaway_session():
@@ -319,9 +273,8 @@ async def test_agent_schema_capture_stops_runaway_session():
     result = await ctx.agent("give me x", schema=SCHEMA)
 
     assert result == {"x": 1}
-    assert factory.session.rounds == 1  # post-capture rounds never ran
-    assert ctx.budget.spent() == 100  # not 500
-
+    assert factory.session.rounds == 1
+    assert ctx.budget.spent() == 100
 
 @pytest.mark.asyncio
 async def test_agent_schema_run_loop_receives_set_cancel_event():
@@ -333,8 +286,7 @@ async def test_agent_schema_run_loop_receives_set_cancel_event():
     assert len(factory.session.cancel_events) == 1
     event = factory.session.cancel_events[0]
     assert event is not None
-    assert event.is_set()  # set by the capture
-
+    assert event.is_set()
 
 @pytest.mark.asyncio
 async def test_agent_schema_self_correction_stops_at_capture():
@@ -351,7 +303,6 @@ async def test_agent_schema_self_correction_stops_at_capture():
     assert factory.session.rounds == 2
     assert ctx.budget.spent() == 200
 
-
 @pytest.mark.asyncio
 async def test_agent_schema_appends_instruction_to_prompt():
     factory = ScriptedFactory(payloads=[{"x": 1}])
@@ -363,31 +314,22 @@ async def test_agent_schema_appends_instruction_to_prompt():
     assert "base prompt" in seeded
     assert "structured_output" in seeded
 
-
-# --------------------------------------------------------------------------- #
-# forced corrective commit (free-text stop -> tool_choice="required" retry)
-# --------------------------------------------------------------------------- #
-
-
 @pytest.mark.asyncio
 async def test_agent_schema_free_text_stop_triggers_forced_retry():
     """(a) The first pass ends with content + no structured_output call (the
     free-text stop seen live under tool_choice=auto + thinking). The forced
     corrective pass then lands a valid payload, so the call returns the dict."""
-    # first pass: model answers in free text (no tool call); retry: valid commit
     factory = ScriptedFactory(payloads=[_NO_CALL, {"x": 7}])
     ctx = WorkflowContext(factory)
 
     result = await ctx.agent("give me x", schema=SCHEMA, tools=[object()])
 
-    assert result == {"x": 7}  # not None — the forced retry rescued it
+    assert result == {"x": 7}
     assert len(factory.sessions) == 2
-    # the corrective turn carries an explicit MUST-call / no-prose instruction
     corrective_prompt = factory.builds[1]["prompt"]
     assert "MUST call" in corrective_prompt
     assert "prose" in corrective_prompt
     assert "structured_output" in corrective_prompt
-
 
 @pytest.mark.asyncio
 async def test_agent_schema_first_pass_capture_skips_forced_retry():
@@ -399,10 +341,8 @@ async def test_agent_schema_first_pass_capture_skips_forced_retry():
     result = await ctx.agent("give me x", schema=SCHEMA)
 
     assert result == {"x": 5}
-    assert len(factory.sessions) == 1  # no forced retry session
-    # the lone session ran the free first pass with no forced tool_choice
+    assert len(factory.sessions) == 1
     assert factory.builds[0]["tool_choice"] is None
-
 
 @pytest.mark.asyncio
 async def test_forced_retry_session_is_single_tool_and_required():
@@ -410,7 +350,6 @@ async def test_forced_retry_session_is_single_tool_and_required():
     and a toolset of exactly [capture_tool] (so "required" can only resolve to
     structured_output), while the first pass keeps free exploration."""
     extra_tool = object()
-    # first pass misses, forcing the corrective build; payload there is irrelevant
     factory = ScriptedFactory(payloads=[_NO_CALL, _NO_CALL])
     ctx = WorkflowContext(factory)
 
@@ -419,13 +358,11 @@ async def test_forced_retry_session_is_single_tool_and_required():
     assert len(factory.builds) == 2
     first, corrective = factory.builds
 
-    # first pass: free exploration — full toolset, no forced tool_choice
     assert first["tool_choice"] is None
     first_tools = list(first["tools"])
     assert extra_tool in first_tools
     assert any(isinstance(t, StructuredOutputTool) for t in first_tools)
 
-    # corrective pass: forced single-tool commit with a named-function choice
     assert corrective["tool_choice"] == {
         "type": "function",
         "function": {"name": "structured_output"},
@@ -433,11 +370,9 @@ async def test_forced_retry_session_is_single_tool_and_required():
     corrective_tools = list(corrective["tools"])
     assert len(corrective_tools) == 1
     assert isinstance(corrective_tools[0], StructuredOutputTool)
-    # the SAME capture tool instance is reused so its capture/event stay live
     assert corrective_tools[0] is next(
         t for t in first_tools if isinstance(t, StructuredOutputTool)
     )
-
 
 @pytest.mark.asyncio
 async def test_forced_retry_carries_first_pass_exploration():
@@ -448,10 +383,7 @@ async def test_forced_retry_carries_first_pass_exploration():
     factory = ScriptedFactory(payloads=[_NO_CALL, {"x": 7}])
     ctx = WorkflowContext(factory)
 
-    # First pass explores: seed a couple of tool-result messages onto the first
-    # session before it answers in free text and triggers the corrective build.
-    # CapturingSession.add_user_message appends the seeded prompt on pass 1, so
-    # we inject the "exploration" directly into its message list.
+    # Seed exploration directly because add_user_message also appends the first-pass prompt.
     original_build = factory.build_workflow_session
     exploration = [
         {"role": "assistant", "content": "let me grep"},
@@ -460,7 +392,7 @@ async def test_forced_retry_carries_first_pass_exploration():
 
     def build_with_exploration(**kwargs: Any) -> CapturingSession:
         session = original_build(**kwargs)
-        if len(factory.sessions) == 1:  # the first (exploration) session
+        if len(factory.sessions) == 1:
             session.state.messages.extend(exploration)
         return session
 
@@ -471,44 +403,25 @@ async def test_forced_retry_carries_first_pass_exploration():
     assert result == {"x": 7}
     assert len(factory.sessions) == 2
     corrective = factory.sessions[1]
-    # the first pass's exploration is present in the corrective session...
     assert exploration[0] in corrective.messages
     assert exploration[1] in corrective.messages
-    # ...alongside its own retry message (added after the carry-over).
     assert any(
         m.get("role") == "user" and "structured_output" in str(m.get("content", ""))
         for m in corrective.messages
     )
-    # carry-over is an independent list copy: the corrective session's appends
-    # did not mutate the first session's history length.
-    assert len(factory.sessions[0].messages) == len(exploration) + 1  # +seeded prompt
-
+    assert len(factory.sessions[0].messages) == len(exploration) + 1
 
 @pytest.mark.asyncio
 async def test_structured_agent_inherits_the_run_wide_reasoning_setting():
-    """PART 3: neither session a schema= call builds may pin ``thinking`` — both
-    pass ``None`` so the run-wide reasoning default reaches them.
-
-    These two sessions used to force ``thinking=False``, on the theory that
-    reasoning makes a model answer in free text instead of calling the capture
-    tool. Pinning it meant a run that declared a reasoning setting silently did
-    not apply it to any schema-bound agent, so two arms of the same experiment
-    ran under different reasoning settings while reporting the same
-    configuration -- and the trajectory recorded the difference as
-    ``reasoning_effort_policy: suppressed`` on one side only. The behaviour that
-    justified pinning is a property of an endpoint, not of this code path, and
-    belongs to whoever chooses the run-wide default.
-    """
-    # First pass misses (_NO_CALL) so the corrective commit session is also built.
+    """Both schema sessions inherit the run-wide reasoning setting."""
     factory = ScriptedFactory(payloads=[_NO_CALL, {"x": 7}])
     ctx = WorkflowContext(factory)
 
     await ctx.agent("give me x", schema=SCHEMA, tools=[object()])
 
     assert len(factory.builds) == 2
-    assert factory.builds[0]["thinking"] is None  # free-exploration pass
-    assert factory.builds[1]["thinking"] is None  # corrective commit
-
+    assert factory.builds[0]["thinking"] is None
+    assert factory.builds[1]["thinking"] is None
 
 @pytest.mark.asyncio
 async def test_schema_and_plain_agents_agree_on_the_reasoning_setting():
@@ -524,7 +437,6 @@ async def test_schema_and_plain_agents_agree_on_the_reasoning_setting():
 
     assert schema_factory.builds[0]["thinking"] == plain_factory.builds[0]["thinking"]
 
-
 @pytest.mark.asyncio
 async def test_non_structured_agent_leaves_thinking_default():
     """A plain (non-schema) agent call must NOT force thinking off — it leaves
@@ -535,7 +447,6 @@ async def test_non_structured_agent_leaves_thinking_default():
     await ctx.agent("just do it")
 
     assert factory.builds[0]["thinking"] is None
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
@@ -556,7 +467,6 @@ async def test_agent_rejects_reserved_external_tool_before_build(reserved_name):
 
     assert factory.builds == []
 
-
 @pytest.mark.asyncio
 async def test_agent_rejects_normalized_duplicate_tools_before_build():
     factory = ScriptedFactory(payloads=[])
@@ -570,15 +480,8 @@ async def test_agent_rejects_normalized_duplicate_tools_before_build():
 
     assert factory.builds == []
 
-
-# --------------------------------------------------------------------------- #
-# wall-clock deadline (time_low / seconds_left)
-# --------------------------------------------------------------------------- #
-
-
 def test_time_low_true_when_within_margin():
     factory = ScriptedFactory(payloads=[])
-    # Deadline only 10s out, margin 120s -> already "low".
     ctx = WorkflowContext(
         factory,
         deadline_monotonic=time.monotonic() + 10.0,
@@ -587,10 +490,8 @@ def test_time_low_true_when_within_margin():
     assert ctx.time_low() is True
     assert ctx.seconds_left() <= 10.0
 
-
 def test_time_low_false_when_ample_time():
     factory = ScriptedFactory(payloads=[])
-    # Deadline far out (1000s) with the default 120s margin -> not low.
     ctx = WorkflowContext(
         factory,
         deadline_monotonic=time.monotonic() + 1000.0,
@@ -599,14 +500,11 @@ def test_time_low_false_when_ample_time():
     assert ctx.time_low() is False
     assert ctx.seconds_left() > 120.0
 
-
 def test_time_low_false_unbounded():
-    # No deadline wired (CLI / tests) -> never low, seconds_left is infinite.
     factory = ScriptedFactory(payloads=[])
     ctx = WorkflowContext(factory)
     assert ctx.time_low() is False
     assert ctx.seconds_left() == float("inf")
-
 
 @pytest.mark.asyncio
 async def test_forced_retry_keys_off_empty_capture_not_prose():
@@ -620,8 +518,7 @@ async def test_forced_retry_keys_off_empty_capture_not_prose():
     result = await ctx.agent("give me x", schema=SCHEMA, tools=[object()])
 
     assert result == {"x": 11}
-    assert len(factory.sessions) == 1  # no corrective session built
-
+    assert len(factory.sessions) == 1
 
 def test_schema_satisfied_predicate():
     """(d) Unit-pin the minimal acceptance check that decides a real miss.
@@ -634,12 +531,10 @@ def test_schema_satisfied_predicate():
 
     schema = {"type": "object", "required": ["x"], "properties": {"x": {"type": "integer"}}}
     assert _schema_satisfied({"x": 1}, schema) is True
-    assert _schema_satisfied({}, schema) is False  # missing required key -> miss
-    assert _schema_satisfied(None, schema) is False  # no capture -> miss
+    assert _schema_satisfied({}, schema) is False
+    assert _schema_satisfied(None, schema) is False
     assert _schema_satisfied("not a dict", schema) is False
-    # no required keys: any captured dict (even {}) is an accepted commit
     assert _schema_satisfied({}, {"type": "object"}) is True
-
 
 def test_structured_retry_carries_history_through_declared_state_port():
     prior_messages = [
@@ -653,20 +548,10 @@ def test_structured_retry_carries_history_through_declared_state_port():
     assert retry.state.messages == prior_messages
     assert retry.state.messages is not prior_messages
 
-
 def test_forced_commit_retry_window_is_the_caller_s_remaining_time():
-    """B4, restated after the merge removed the fixed cap.
+    """A fixed retry cap can expire before the provider emits its first streamed event.
 
-    A 60s window used to cancel the corrective pass before it made a call:
-    ``complete_openai`` waits ``first_event_timeout`` (180s) for the first
-    streamed event, so a retry deadline below that can expire while the
-    provider is still on its first reasoning turn — observed once as
-    sympy-20438, whose forced commit issued zero LLM calls and ended
-    ``cancelled``. This branch raised the cap to 180s; main removed the cap
-    instead, so the corrective pass now inherits the caller's whole remaining
-    role time and only a caller deadline can shorten it. Both fixes close B4;
-    this pins the one that survived, and keeps the provider number in view so
-    a future cap cannot silently reintroduce a window below it.
+    The corrective pass therefore inherits the caller's remaining role time.
     """
     from opencollab.adapters.llm import openai_provider
     from opencollab.application.workflow_structured import _structured_retry_timeout
@@ -676,8 +561,6 @@ def test_forced_commit_retry_window_is_the_caller_s_remaining_time():
     ).parameters["first_event_timeout"].default
     assert provider_first_event_timeout == 180.0
 
-    # No caller deadline -> no window at all, rather than a fixed default.
     assert _structured_retry_timeout(None) is None
-    # With a deadline the caller's remaining time is the window, uncapped.
     assert _structured_retry_timeout(90.0) == 90.0
     assert _structured_retry_timeout(600.0) == 600.0

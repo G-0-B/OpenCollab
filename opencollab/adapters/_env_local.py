@@ -45,7 +45,6 @@ T = TypeVar("T")
 read_regular_bytes = read_regular_bytes_at
 write_regular_bytes_atomic = write_regular_bytes_atomic_at
 
-
 class LocalEnvironment(Environment):
     """Execute commands and bounded file operations in one host workspace."""
 
@@ -320,6 +319,5 @@ class LocalEnvironment(Environment):
             raise process_failure
         if file_failure is not None:
             raise file_failure
-
 
 __all__ = ["LocalEnvironment"]

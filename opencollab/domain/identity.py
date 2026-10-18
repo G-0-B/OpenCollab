@@ -9,7 +9,6 @@ import unicodedata
 MAX_ROLE_IDENTITY_BYTES = 128
 _ROLE_SLUG_MAX_CHARS = 32
 
-
 def validate_role_identity(value: object) -> str:
     """Return one normalized role identity or reject ambiguous/path-like input."""
     if not isinstance(value, str):
@@ -37,10 +36,8 @@ def validate_role_identity(value: object) -> str:
         )
     return normalized
 
-
 def role_collision_key(role: object) -> str:
     return validate_role_identity(role).casefold()
-
 
 def role_storage_slug(role: object) -> str:
     """Stable ASCII component with a digest that preserves identity uniqueness."""
@@ -49,7 +46,6 @@ def role_storage_slug(role: object) -> str:
     readable = readable[:_ROLE_SLUG_MAX_CHARS] or "role"
     digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12]
     return f"{readable}-{digest}"
-
 
 __all__ = [
     "MAX_ROLE_IDENTITY_BYTES",

@@ -38,7 +38,6 @@ TOOL_SCOPED_EVENTS: frozenset[str] = frozenset({"PreToolUse", "PostToolUse"})
 HOOK_ACTION_TYPES: frozenset[str] = frozenset({"command", "prompt", "agent"})
 EXECUTABLE_HOOK_ACTION_TYPES: frozenset[str] = frozenset({"command"})
 
-
 @dataclass(frozen=True)
 class HookSpec:
     """One resolved hook binding.
@@ -66,7 +65,6 @@ class HookSpec:
             raise ValueError("hook timeout must be a finite positive number")
         object.__setattr__(self, "timeout", timeout)
 
-
 @dataclass(frozen=True)
 class HookOutcome:
     """Result of firing a hook. Phase-1 observe-only wiring always allows; the
@@ -75,7 +73,6 @@ class HookOutcome:
 
     allow: bool = True
     feedback: str | None = None
-
 
 def match_hooks(
     specs: tuple[HookSpec, ...],
@@ -97,7 +94,6 @@ def match_hooks(
         elif tool_name is not None and fnmatch(tool_name, spec.matcher):
             selected.append(spec)
     return selected
-
 
 __all__ = [
     "HOOK_EVENT_NAMES",

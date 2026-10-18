@@ -26,7 +26,6 @@ def test_abandon_on_timeout_rejects_unbounded_numeric_sentinels(timeout):
 
     asyncio.run(scenario())
 
-
 def test_abandon_on_timeout_allows_none_as_explicit_disable():
     async def scenario() -> str:
         future = asyncio.get_running_loop().create_future()
@@ -34,7 +33,6 @@ def test_abandon_on_timeout_allows_none_as_explicit_disable():
         return await abandon_on_timeout(future, None)
 
     assert asyncio.run(scenario()) == "done"
-
 
 @pytest.mark.parametrize(
     "shutdown_timeout",
@@ -45,7 +43,6 @@ def test_bounded_shutdown_rejects_invalid_timeout_before_event_loop(
 ):
     with pytest.raises(ValueError, match="finite positive"):
         run_with_bounded_shutdown(None, shutdown_timeout=shutdown_timeout)
-
 
 def test_force_task_terminal_finishes_coroutine_that_consumes_cancel():
     release = None
@@ -72,7 +69,6 @@ def test_force_task_terminal_finishes_coroutine_that_consumes_cancel():
     assert task.done() is True
     assert result is False
 
-
 def test_force_task_terminal_runs_cooperative_finally():
     finalized: list[bool] = []
 
@@ -93,7 +89,6 @@ def test_force_task_terminal_runs_cooperative_finally():
 
     assert result is True
     assert finalized == [True]
-
 
 def test_cancel_tasks_and_wait_returns_only_cancellation_resistant_tasks():
     async def scenario():
@@ -121,7 +116,6 @@ def test_cancel_tasks_and_wait_returns_only_cancellation_resistant_tasks():
 
     asyncio.run(scenario())
 
-
 def test_bounded_shutdown_runs_pending_task_finalizers():
     finalized: list[bool] = []
 
@@ -140,11 +134,8 @@ def test_bounded_shutdown_runs_pending_task_finalizers():
     assert run_with_bounded_shutdown(main(), shutdown_timeout=0.1) == "done"
     assert finalized == [True]
 
-
 def test_bounded_shutdown_preserves_result_despite_cancellation_resistant_task():
-    # A background task that refuses cancellation must NOT discard the
-    # completed run's result: the run returns normally and the lingering task
-    # is surfaced as a non-fatal diagnostic rather than a crash-on-exit.
+    # Cancellation-resistant background work is reported without discarding the completed result.
     script = r'''
 import asyncio
 from opencollab.application.async_timeout import run_with_bounded_shutdown
@@ -170,10 +161,7 @@ print("RESULT:" + repr(value))
         [sys.executable, "-c", script],
         capture_output=True,
         text=True,
-        # Starting an interpreter and importing opencollab measures 0.37-0.52s
-        # on an idle machine here and more under load, so a one-second budget
-        # was bounding Python's startup, not the shutdown being tested. This
-        # only has to fail a subprocess that never exits.
+        # Allow interpreter startup time while bounding a subprocess that never exits.
         timeout=60,
         env=env,
         check=False,
@@ -182,7 +170,6 @@ print("RESULT:" + repr(value))
     assert completed.returncode == 0, completed.stderr
     assert "RESULT:'RESULT_OK'" in completed.stdout
     assert "missed the shutdown deadline" in completed.stderr
-
 
 def test_bounded_shutdown_cancels_task_spawned_during_cleanup():
     child_cancelled: list[bool] = []

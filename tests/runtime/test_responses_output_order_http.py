@@ -74,7 +74,6 @@ def native_events(reverse):
         event["sequence_number"] = sequence
     return "".join(f"event: {event['type']}\ndata: {json.dumps(event)}\n\n" for event in events)
 
-
 @pytest.mark.parametrize("reverse", [False, True], ids=["in-order", "reverse-order"])
 async def test_public_workflow_executes_parallel_calls_in_output_order(tmp_path, monkeypatch, reverse):
     monkeypatch.delenv("OPENCOLLAB_API_USAGE_LOG", raising=False)

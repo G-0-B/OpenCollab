@@ -1,8 +1,4 @@
-"""Bounded tool cancellation and late-write cleanup tests.
-
-These lifecycle tests are kept separate from the core tool-use-case contract so
-the contract module remains small and focused.
-"""
+"""Bounded tool cancellation and late-write cleanup tests."""
 
 from __future__ import annotations
 
@@ -39,7 +35,6 @@ class RevocableEnvironment(Environment):
         self._ensure_active()
         self.writes.append((path, content))
 
-
 class StubbornLateWriteTool:
     name = "stubborn_late_writer"
     default_timeout = 0.005
@@ -68,7 +63,6 @@ class StubbornLateWriteTool:
                 self.write_blocked.set()
             return "late completion"
 
-
 def _bounded_tool_use_case(tool, environment):
     return build_use_case(
         agent=FakeAgent(tools=[tool]),
@@ -77,7 +71,6 @@ def _bounded_tool_use_case(tool, environment):
         cancellation_force_timeout=0.01,
         environment_abort_timeout=0.01,
     )[0]
-
 
 @pytest.mark.asyncio
 async def test_stubborn_timed_out_tool_cannot_write_after_execute_returns(monkeypatch):
@@ -104,7 +97,6 @@ async def test_stubborn_timed_out_tool_cannot_write_after_execute_returns(monkey
     assert tool.write_blocked.is_set()
     assert environment.writes == []
     assert use_case.pending_cleanup_tasks == ()
-
 
 @pytest.mark.asyncio
 async def test_stubborn_environment_abort_is_bounded_and_exposed(monkeypatch):
@@ -147,7 +139,6 @@ async def test_stubborn_environment_abort_is_bounded_and_exposed(monkeypatch):
     assert environment.writes == []
     assert use_case.pending_cleanup_tasks == ()
 
-
 @pytest.mark.asyncio
 async def test_cooperative_tool_timeout_keeps_existing_result_shape(monkeypatch):
     monkeypatch.setattr(tool_execution_runtime, "TOOL_EXECUTION_TIMEOUT_GRACE", 0.001)
@@ -172,7 +163,6 @@ async def test_cooperative_tool_timeout_keeps_existing_result_shape(monkeypatch)
     assert environment._aborted is False
     assert use_case.pending_cleanup_tasks == ()
 
-
 @pytest.mark.asyncio
 async def test_execute_tool_success_path_is_unchanged():
     tool = RuntimeNativeTool(output="success")
@@ -182,7 +172,6 @@ async def test_execute_tool_success_path_is_unchanged():
 
     assert output == "success"
     assert use_case.pending_cleanup_tasks == ()
-
 
 @pytest.mark.asyncio
 async def test_execute_tool_preserves_caller_cancellation():
@@ -213,7 +202,6 @@ async def test_execute_tool_preserves_caller_cancellation():
 
     await asyncio.wait_for(tool.cancelled.wait(), timeout=0.2)
 
-
 @pytest.mark.asyncio
 async def test_repeated_caller_cancel_cannot_interrupt_late_write_cleanup():
     class CallerStubbornLateWriteTool(StubbornLateWriteTool):
@@ -243,7 +231,6 @@ async def test_repeated_caller_cancel_cannot_interrupt_late_write_cleanup():
     assert environment.writes == []
     assert use_case.pending_cleanup_tasks == ()
 
-
 @pytest.mark.asyncio
 async def test_caller_cancel_cannot_interrupt_tool_timeout_cleanup(monkeypatch):
     monkeypatch.setattr(tool_execution_runtime, "TOOL_EXECUTION_TIMEOUT_GRACE", 0.001)
@@ -268,7 +255,6 @@ async def test_caller_cancel_cannot_interrupt_tool_timeout_cleanup(monkeypatch):
     assert environment.writes == []
     assert use_case.pending_cleanup_tasks == ()
 
-
 @pytest.mark.asyncio
 async def test_simultaneous_outer_and_cleanup_cancel_cannot_spin():
     use_case, _ = build_use_case()
@@ -290,7 +276,6 @@ async def test_simultaneous_outer_and_cleanup_cancel_cannot_spin():
     await asyncio.wait_for(owner, timeout=0.2)
     assert cleanup_task.cancelled() is True
 
-
 @pytest.mark.parametrize(
     "field",
     [
@@ -306,7 +291,6 @@ def test_tool_cleanup_timeouts_must_be_finite_and_positive(field, value):
     with pytest.raises(ValueError, match="must be a finite positive number"):
         build_use_case(**kwargs)
 
-
 @pytest.mark.parametrize("value", [0, -1, float("nan"), float("inf"), True, "invalid"])
 def test_invalid_requested_tool_timeout_falls_back_to_positive_bound(value):
     tool = SimpleNamespace(default_timeout=None, disable_outer_timeout=False)
@@ -317,7 +301,6 @@ def test_invalid_requested_tool_timeout_falls_back_to_positive_bound(value):
     assert timeout is not None
     assert math.isfinite(timeout)
     assert timeout > 0
-
 
 class FailingCancellationTool:
     name = "failing_cleanup"
@@ -334,7 +317,6 @@ class FailingCancellationTool:
             await asyncio.Event().wait()
         except asyncio.CancelledError:
             raise self.error_type("command cancellation failed") from None
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("error_type", [RuntimeError, TimeoutError])
@@ -356,7 +338,6 @@ async def test_failed_cancellation_revokes_environment_and_retains_cause(monkeyp
     next_output, _ = await use_case.execute_tool(RuntimeNativeTool(), {})
     assert "environment has been revoked" in next_output
 
-
 @pytest.mark.asyncio
 async def test_caller_cancel_with_failed_cleanup_still_aborts_environment():
     environment = RevocableEnvironment()
@@ -373,7 +354,6 @@ async def test_caller_cancel_with_failed_cleanup_still_aborts_environment():
     assert use_case.environment_revoked
     assert environment._aborted
     assert use_case.pending_cleanup_tasks == ()
-
 
 @pytest.mark.asyncio
 async def test_cancellation_failure_and_abort_failure_are_both_reported(monkeypatch):
@@ -392,7 +372,6 @@ async def test_cancellation_failure_and_abort_failure_are_both_reported(monkeypa
     assert "RuntimeError: command cancellation failed" in output
     assert "OSError: abort transport unavailable" in output
     assert use_case.environment_revoked
-
 
 @pytest.mark.asyncio
 async def test_tool_that_returns_after_cancellation_keeps_environment_usable(monkeypatch):

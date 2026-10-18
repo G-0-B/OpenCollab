@@ -67,14 +67,12 @@ def test_cleanup_rejects_invalid_timeout_before_any_side_effect(invalid_timeout)
 
     run(scenario())
 
-
 def test_wait_until_terminal_fails_without_active_producer():
     lead = ScriptedSession("lead", [])
     scheduler, _ = build_scheduler(lead, [])
 
     with pytest.raises(SchedulerStalledError, match="aid 0"):
         run(scheduler.wait_until_terminal(0))
-
 
 def test_active_startup_prevents_quiescence_until_child_finishes():
     class BlockingAcquirePool:

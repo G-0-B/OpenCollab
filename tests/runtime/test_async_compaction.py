@@ -26,7 +26,6 @@ def history(long=True):
         {"role": "user", "content": "Now finish."},
     ]
 
-
 class SlowModel:
     def __init__(self, *, summary_delay=0.15, answer_delay=0.0):
         self.summary_delay = summary_delay
@@ -48,7 +47,6 @@ class SlowModel:
             raise
         self.finished.append(summary)
         return llm_response(content="<summary>Earlier context.</summary>" if summary else "answer")
-
 
 @pytest.mark.parametrize("long", [False, True])
 def test_default_summary_obeys_the_generation_ceiling_and_yields_to_observers(long):
@@ -80,7 +78,6 @@ def test_default_summary_obeys_the_generation_ceiling_and_yields_to_observers(lo
     assert model.finished == []
     assert session.pending_cleanup_tasks == ()
 
-
 @pytest.mark.parametrize("long", [False, True])
 def test_outer_cancellation_reaches_the_owned_summary_and_prevents_an_answer(long):
     model = SlowModel(answer_delay=0.15 if not long else 0)
@@ -101,7 +98,6 @@ def test_outer_cancellation_reaches_the_owned_summary_and_prevents_an_answer(lon
     assert model.cancelled == [long]
     assert model.finished == []
     assert session.pending_cleanup_tasks == ()
-
 
 def test_forced_compaction_retry_awaits_summary_and_restores_forced_flags():
     class OverflowModel(SlowModel):
@@ -125,7 +121,6 @@ def test_forced_compaction_retry_awaits_summary_and_restores_forced_flags():
     assert [call[0] for call in model.calls] == [False, True]
     assert model.cancelled == [True]
     assert all(not getattr(shaper, "_forced", False) for shaper in session.runner.shaper._shapers)
-
 
 def test_owned_summary_client_closes_after_cancellation(monkeypatch):
     from opencollab.bootstrap import container
@@ -156,7 +151,6 @@ def test_owned_summary_client_closes_after_cancellation(monkeypatch):
     assert clients[0].calls == []
     assert clients[1].cancelled == [True]
     assert [client.close_calls for client in clients] == [1, 1]
-
 
 def test_shared_pipeline_forced_and_normal_calls_keep_force_state_local():
     class GatedSummarizer:
@@ -199,7 +193,6 @@ def test_shared_pipeline_forced_and_normal_calls_keep_force_state_local():
 
     asyncio.run(scenario())
 
-
 def test_overlapping_forced_calls_do_not_leave_shared_force_flag_set():
     class GatedSummarizer:
         def __init__(self):
@@ -240,7 +233,6 @@ def test_overlapping_forced_calls_do_not_leave_shared_force_flag_set():
 
     asyncio.run(scenario())
 
-
 def test_cancelled_forced_compaction_restores_force_state_and_nested_force_applies():
     class GatedSummarizer:
         def __init__(self):
@@ -273,7 +265,6 @@ def test_cancelled_forced_compaction_restores_force_state_and_nested_force_appli
         assert await pipeline.ashape(messages) is messages
 
     asyncio.run(scenario())
-
 
 def test_failed_forced_summary_does_not_leak_force_state():
     class FailingSummarizer:

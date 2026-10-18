@@ -18,10 +18,8 @@ from opencollab.bootstrap.agent_runtime import revoke_and_abort_environment
 
 T = TypeVar("T")
 
-
 def _add_failure_note(error: BaseException, note: str) -> None:
     add_exception_note(error, note)
-
 
 def _merge_failure(
     primary: BaseException | None,
@@ -35,7 +33,6 @@ def _merge_failure(
         _add_failure_note(primary, f"{note_prefix}: {type(secondary).__name__}: {secondary}")
     return primary
 
-
 def _close_tracer_capture(tracer: TracePort | None) -> BaseException | None:
     close = getattr(tracer, "close", None)
     if not callable(close):
@@ -45,7 +42,6 @@ def _close_tracer_capture(tracer: TracePort | None) -> BaseException | None:
     except BaseException as exc:
         return exc
     return None
-
 
 def _inspect_tracer(tracer: TracePort | None) -> tuple[str | None, int, BaseException | None]:
     if tracer is None:
@@ -62,7 +58,6 @@ def _inspect_tracer(tracer: TracePort | None) -> tuple[str | None, int, BaseExce
         )
     return write_error, dropped_steps, None
 
-
 def _sticky_tracer_failure(
     write_error: str | None, dropped_steps: int, *, error_number: int | None = None,
 ) -> BaseException | None:
@@ -72,7 +67,6 @@ def _sticky_tracer_failure(
     if isinstance(error_number, int) and not isinstance(error_number, bool):
         return OSError(error_number, message)
     return OSError(message)
-
 
 def _positive_cleanup_timeout(value: float) -> float:
     if isinstance(value, bool):
@@ -85,14 +79,12 @@ def _positive_cleanup_timeout(value: float) -> float:
         raise ValueError("cleanup_timeout must be a finite positive number")
     return timeout
 
-
 async def _wait_for_context_cleanup(ctx: WorkflowContext, *, timeout: float) -> bool:
     """Wait once for the cleanup tasks currently owned by the context."""
     pending = set(ctx.pending_cleanup_tasks)
     if pending:
         _done, pending = await asyncio.wait(pending, timeout=timeout)
     return not pending and not ctx.pending_cleanup_tasks
-
 
 def _session_environments(ctx: WorkflowContext) -> tuple[Any, ...]:
     environments: list[Any] = []
@@ -106,10 +98,8 @@ def _session_environments(ctx: WorkflowContext) -> tuple[Any, ...]:
             environments.append(environment)
     return tuple(environments)
 
-
 def _session_persistence_succeeded(ctx: WorkflowContext) -> bool:
     return all(not getattr(session, "persistence_errors", ()) for session in ctx.sessions)
-
 
 async def _abort_session_environments(ctx: WorkflowContext, *, timeout: float) -> bool:
     for task in ctx.pending_cleanup_tasks:
@@ -124,7 +114,6 @@ async def _abort_session_environments(ctx: WorkflowContext, *, timeout: float) -
         return_exceptions=True,
     )
     return all(result is True for result in results)
-
 
 async def _quiesce_workflow_context(
     ctx: WorkflowContext,
@@ -141,7 +130,6 @@ async def _quiesce_workflow_context(
         abort_succeeded and quiesced and _session_persistence_succeeded(ctx),
         lingering,
     )
-
 
 async def _quiesce_and_finalize_workflow_context(
     ctx: WorkflowContext,
@@ -178,7 +166,6 @@ async def _quiesce_and_finalize_workflow_context(
         (*lingering, *final_lingering),
     )
 
-
 async def _release_isolated_workspaces(ctx: WorkflowContext, *, timeout: float) -> bool:
     """Remove the worktrees lent to isolated agents; report whether it worked.
 
@@ -193,7 +180,6 @@ async def _release_isolated_workspaces(ctx: WorkflowContext, *, timeout: float) 
         return False
     return True
 
-
 async def _await_owned_with_cancellation(
     task: asyncio.Task[T],
 ) -> tuple[T, asyncio.CancelledError | None]:
@@ -205,7 +191,6 @@ async def _await_owned_with_cancellation(
             if task.done() and task.cancelled():
                 raise
             cancellation = cancellation or exc
-
 
 def _persist_workflow_manifest(
     save_dir: str,

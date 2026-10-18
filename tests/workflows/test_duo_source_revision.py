@@ -20,7 +20,6 @@ from opencollab.tools import evidence_tools
 def git(repo, *args):
     return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True).stdout
 
-
 def response(name, arguments, sequence):
     return LLMResponse(
         content=None,
@@ -34,7 +33,6 @@ def response(name, arguments, sequence):
         finish_reason="tool_calls",
         usage=Usage(5, 3),
     )
-
 
 @pytest.mark.parametrize("mode,mutate", [("duo", False), ("duo", True), ("direct", True)])
 async def test_duo_source_revision_survives_coder_wrapper(tmp_path, monkeypatch, mode, mutate):

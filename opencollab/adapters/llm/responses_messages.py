@@ -11,13 +11,11 @@ from opencollab.adapters.llm.types import to_plain_data
 
 OUTPUT_ITEM_TYPES = frozenset({"message", "reasoning", "function_call"})
 
-
 def message_text(content: Any) -> str:
     try:
         return normalize_text_content(content)
     except ValueError as exc:
         raise ResponsesProtocolError(str(exc)) from exc
-
 
 def message_content_parts(content: Any) -> str | list[dict[str, Any]]:
     """Project legacy text/image blocks into Responses input content."""
@@ -62,7 +60,6 @@ def message_content_parts(content: Any) -> str | list[dict[str, Any]]:
         raise ResponsesProtocolError(f"unsupported message content block {kind!r}")
     return parts
 
-
 def function_call_identity(call_id: Any, name: Any, arguments: Any) -> tuple[str, str, str]:
     if not isinstance(call_id, str) or not call_id or not isinstance(name, str) or not name:
         raise ResponsesProtocolError("function call is missing call_id or name")
@@ -75,7 +72,6 @@ def function_call_identity(call_id: Any, name: Any, arguments: Any) -> tuple[str
     normalized = json.dumps(parsed, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return call_id, name, normalized
 
-
 def validated_response_items(value: Any) -> list[dict[str, Any]]:
     """Validate provider-owned items before storing or replaying them."""
     if not isinstance(value, list):
@@ -87,7 +83,6 @@ def validated_response_items(value: Any) -> list[dict[str, Any]]:
             raise ResponsesProtocolError("response_items contain an unsupported item")
         items.append(item)
     return items
-
 
 def _verify_replay_tool_calls(
     message: dict[str, Any],
@@ -118,7 +113,6 @@ def _verify_replay_tool_calls(
     ]
     if legacy != replayed:
         raise ResponsesProtocolError("tool_calls and response_items disagree")
-
 
 def messages_to_input(
     messages: list[dict[str, Any]],
@@ -207,7 +201,6 @@ def messages_to_input(
                 }
             )
     return ("\n\n".join(instructions) or None), items
-
 
 __all__ = [
     "OUTPUT_ITEM_TYPES",

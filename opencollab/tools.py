@@ -1,8 +1,4 @@
-"""Public structural tool contract and built-in tool composition.
-
-Pass custom implementations directly to ``OpenCollab.agent``; built-in tools
-can be selected by preset name or composed explicitly for workflow roles.
-"""
+"""Public tool interfaces and built-in bundles for agents and workflow roles."""
 
 from __future__ import annotations
 
@@ -36,7 +32,6 @@ _BUILTIN_TOOL_NAMES = frozenset(
     }
 )
 
-
 @runtime_checkable
 class VerificationTool(Tool, Protocol):
     """A test tool exposing targets with a latest parser-backed green verdict."""
@@ -44,17 +39,14 @@ class VerificationTool(Tool, Protocol):
     @property
     def verified_targets(self) -> frozenset[str]: ...
 
-
 def profile_tool_names(profile: str | None) -> tuple[str, ...]:
     """Return the profile's default coding tools in their execution order."""
     return tuple(tool.name for tool in resolve_agent_profile(profile).resolve_tools("coding"))
-
 
 def profile_tool_limits(profile: str | None) -> dict[str, dict[str, int]]:
     """Return an independent copy of a profile's built-in tool defaults."""
     resolved = resolve_agent_profile(profile)
     return {name: dict(values) for name, values in resolved.tool_limits.items()}
-
 
 def builtin_tools(
     *names: BuiltinToolName,
@@ -98,15 +90,12 @@ def builtin_tools(
     return tuple(
         build_tools_for_role(
             list(names),
-            # ``ask_user`` is not a built-in name here, so ``headless`` only
-            # ever meant one of the two things the registry now asks about:
-            # whether the shell may run outside an OS process sandbox.
+            # Legacy headless selects whether shell commands may run outside a process sandbox.
             allow_unisolated_shell=not headless,
             allow_file_creation=allow_file_creation,
             tool_limits=normalized_limits,
         )
     )
-
 
 def evidence_tools(
     *names: BuiltinToolName,
@@ -114,16 +103,12 @@ def evidence_tools(
     allow_file_creation: bool = True,
     limits: Mapping[str, Mapping[str, int]] | None = None,
 ) -> tuple[Tool, ...]:
-    """Build native tools whose Bash observes executed pytest, Go and Django tests.
+    """Build native tools with parser-backed pytest, Go and Django evidence.
 
-    Commands and formatted output follow the native Bash API. The Bash tool
-    retains ``verification_records`` for every recognized target and
-    ``verified_targets`` for targets with current passing execution evidence.
-    Completed native edits with observed content changes annotate earlier
-    records with uncertain applicability and their subsequent edit paths.
-    The composition inherits workflow profile defaults and explicit ``limits``.
-    Candidate agents fork these observations for each call and return their
-    execution evidence on ``CandidateRun``.
+    Bash retains all ``verification_records`` and currently passing
+    ``verified_targets``. Observed edits mark earlier evidence as uncertain and
+    record the changed paths. Candidate calls fork observations into ``CandidateRun``.
+    Workflow profile defaults apply, with explicit ``limits`` taking precedence.
     """
     return observe_test_evidence(
         builtin_tools(
@@ -133,7 +118,6 @@ def evidence_tools(
             limits=limits,
         )
     )
-
 
 __all__ = [
     "BashEvidence",

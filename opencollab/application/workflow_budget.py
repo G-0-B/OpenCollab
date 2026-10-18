@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 # Preserve the finite one-shot escape for callers that configured a finite pool.
 UNBOUNDED_SESSION_BUDGET = 1_000_000
 
-
 def _unbounded_limits_enabled() -> bool:
     return os.environ.get("OPENCOLLAB_UNBOUNDED_LIMITS", "").strip().lower() in {
         "1",
@@ -33,13 +32,11 @@ def _positive_concurrency(value: object, name: str) -> int:
         raise ValueError(f"{name} must be a positive integer")
     return parsed
 
-
 def _positive_budget(value: object, name: str = "budget") -> int | None:
     """Normalize an optional per-call budget to a strictly positive integer."""
     if value is None:
         return None
     return _positive_concurrency(value, name)
-
 
 class WorkflowBudget:
     """Read-only view over token spend across all sessions created so far."""
@@ -71,14 +68,12 @@ class WorkflowBudget:
         except ValueError:
             pass
 
-
 @dataclass
 class _BudgetEscapeState:
     """One atomic forced-write claim shared by a workflow and its children."""
 
     lock: asyncio.Lock
     used: bool = False
-
 
 @dataclass(eq=False)
 class _BudgetLease:
@@ -95,14 +90,12 @@ class _BudgetLease:
         spent = sum(max(0, int(getattr(s, "used_tokens", 0))) for s in self.sessions)
         return max(0, self.total - spent)
 
-
 @dataclass
 class _ConcurrencyPermit:
     """One semaphore slot owned by a task and reusable by nested agent calls."""
 
     owner: asyncio.Task[Any] | None
     pending_cleanup_tasks: list[asyncio.Task[Any]]
-
 
 class WorkflowBudgetMixin:
     """Allocate call budgets while retaining workflow accounting and trace evidence."""
@@ -115,9 +108,8 @@ class WorkflowBudgetMixin:
         remaining = self.budget.remaining()
         if remaining == float("inf"):
             return None
-        # Clamp to zero: a concurrent agent's spend can land between agent()'s
-        # budget gate and this call, driving ``remaining`` negative. A negative
-        # per-session budget is nonsensical, so floor it at 0.
+        # A concurrent spend can make remaining negative after agent() checks it.
+        # Floor the per-session budget at zero.
         return max(0, int(remaining))
 
     def _capped_session_budget(self, cap: int | None) -> int | None:
@@ -141,44 +133,20 @@ class WorkflowBudgetMixin:
         label: str | None,
         over_budget_ok: bool = False,
     ) -> None:
-        """Record one shared-pool gate decision. Observation only.
+        """Record shared-pool refusal or the ``over_budget_ok`` exception.
 
-        The pool's two decision points — the refusal that raises
-        ``WorkflowBudgetExceeded`` and the ``over_budget_ok`` escape that waves a
-        call through anyway — used to leave nothing behind: a finished run showed
-        only ``reason="budget_exceeded"``, never which call was stopped, where in
-        the run, or by how much, and the escape was invisible entirely.
+        ``seq`` counts sessions created before this decision. ``agent_id`` is None
+        because no session exists yet, while ``label`` identifies the caller and
+        joins its transcript. Keep these fields separate from session integer aids.
 
-        ``seq`` is how many agent sessions this context had already created when
-        the decision was taken. The workflow layer keeps no step counter, and
-        this is the only ordinal that says *where* in the run the call sat.
-
-        ``agent_id`` is always ``None`` here, and that is the honest value: the
-        lease is taken before any session is built, and every workflow session's
-        agent is named ``workflow_agent`` regardless, so there is no agent to
-        name. ``label`` carries the caller's own name instead — the same string
-        that names that call's transcript file, hence the one key that joins to
-        anything on disk. They are separate fields because a ``label`` sitting
-        under an ``agent_id`` heading would join wrongly against the integer
-        ``aid`` the session-level records carry, and silently.
-
-        ``would_exceed_by`` measures the request against the live remaining
-        balance (``requested_cap - remaining``), so a pool already in the hole
-        makes it larger than the cap. ``None`` when no cap was named — an
-        uncapped request has no amount, and a number there would be invented.
-        ``remaining`` is that same live balance, unclamped, so an overdrawn pool
-        reads as the negative it is.
-
-        Guarded end to end: building this payload must never overturn the
-        decision it describes, so a failure is logged and dropped.
+        ``remaining`` retains the live, unclamped balance. ``would_exceed_by`` is
+        ``requested_cap - remaining``, or None for an uncapped request. Trace failures
+        are logged without changing the allocation decision.
         """
         try:
             payload: dict[str, Any] = {
                 "seq": len(self._sessions),
-                # Two separate slots on purpose. No agent exists yet, so the
-                # agent id is honestly empty rather than filled with something
-                # that merely looks like one; ``label`` is the caller's own
-                # name, which is what the field actually holds.
+                # Before agent creation, keep the caller's label separate from the empty agent id.
                 "agent_id": None,
                 "label": str(label)[:240] if label else None,
                 "requested_cap": cap,

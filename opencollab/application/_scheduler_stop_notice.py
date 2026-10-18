@@ -20,14 +20,12 @@ from opencollab.domain.session import SessionPhase
 logger = logging.getLogger(__name__)
 _FAILED_PHASES = {SessionPhase.STOPPED, SessionPhase.ERROR}
 
-
 def _notice_xml(aid: int, role: str, message_id: str, content: str) -> str:
     return (
         f"<team-notice about={quoteattr(f'A{aid}')} "
         f"role={quoteattr(role)} message_id={quoteattr(message_id)}>\n"
         f"{escape(content)}\n</team-notice>"
     )
-
 
 class SchedulerStopNoticeMixin:
     """Use each pair's current unanswered exchange to notify waiting senders."""

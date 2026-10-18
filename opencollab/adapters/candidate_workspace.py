@@ -30,17 +30,14 @@ from opencollab.application.exception_notes import add_exception_note
 
 CANDIDATE_WORKSPACE_GIT_TIMEOUT_SECONDS = 900.0
 
-
 def _repository_exclusions(prefix: str, paths: Sequence[str]) -> tuple[str, ...]:
     return tuple(posixpath.join(prefix, _safe_path(path)) for path in paths)
-
 
 async def _raw_diff(environment: Any, exclude_paths: Sequence[str] = ()) -> str:
     workspace = getattr(environment, "workspace", None)
     if not isinstance(workspace, str) or not workspace:
         raise RuntimeError("candidate diff workspace is unavailable")
     return await _raw_diff_at(environment, workspace, exclude_paths)
-
 
 async def _raw_diff_at(
     environment: Any,
@@ -99,7 +96,6 @@ async def _raw_diff_at(
             parts.append(patch)
     return "".join(parts)
 
-
 async def _assert_patchable_submodules(
     environment: Any,
     workspace: str,
@@ -120,7 +116,6 @@ async def _assert_patchable_submodules(
         ),
         "submodule patch inspection",
     )
-
 
 @dataclass(slots=True)
 class _CandidateLease:
@@ -227,7 +222,6 @@ class _CandidateLease:
             "candidate worktree cleanup",
         )
         self.cleaned = True
-
 
 class EnvCandidateWorkspace:
     """Candidate workspace port implemented over one task environment."""
@@ -585,6 +579,5 @@ class EnvCandidateWorkspace:
         await _apply_increment(
             self._environment, await self._repository_root(), patch, preserved,
         )
-
 
 __all__ = ["EnvCandidateWorkspace"]

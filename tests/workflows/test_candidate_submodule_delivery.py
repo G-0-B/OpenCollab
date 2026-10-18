@@ -38,7 +38,6 @@ def _source_with_dependency(tmp_path, nested):
     _git(source, "commit", "-am", "record dependency")
     return source, module_path
 
-
 @pytest.mark.parametrize("mode", ["agent", "workflow"])
 @pytest.mark.parametrize("mutation", ["dirty", "untracked", "ignored", "commit"])
 @pytest.mark.parametrize("nested", [False, True])
@@ -116,7 +115,6 @@ async def test_candidate_submodule_changes_retain_complete_worktree(tmp_path, mo
             await lease.cleanup()
         await environment.cleanup()
 
-
 @pytest.mark.parametrize("mutation", ["dirty", "untracked", "commit"])
 @pytest.mark.parametrize("nested", [False, True])
 async def test_changed_source_submodule_is_preserved_before_acquisition(tmp_path, mutation, nested):
@@ -141,7 +139,6 @@ async def test_changed_source_submodule_is_preserved_before_acquisition(tmp_path
         assert _git(source, "worktree", "list", "--porcelain").count("worktree ") == 1
     finally:
         await environment.cleanup()
-
 
 @pytest.mark.parametrize("entry", ["workflow", "team"])
 @pytest.mark.parametrize("generated_cache", [False, True])
@@ -191,7 +188,6 @@ async def test_source_dependency_python_cache_is_retained(tmp_path, entry, gener
     assert git(source, "status", "--porcelain") == ""
     assert git(source, "worktree", "list", "--porcelain").count("worktree ") == 1
 
-
 @pytest.mark.parametrize("replacement", [False, True])
 async def test_removed_or_replaced_submodule_is_retained(tmp_path, replacement):
     source, module_path = _source_with_dependency(tmp_path, False)
@@ -212,7 +208,6 @@ async def test_removed_or_replaced_submodule_is_retained(tmp_path, replacement):
         await lease.cleanup()
         await environment.cleanup()
 
-
 async def test_colon_prefixed_filename_is_not_raw_diff_metadata(tmp_path):
     source = _repository(tmp_path)
     name = ":160000 160000 file.txt"
@@ -230,7 +225,6 @@ async def test_colon_prefixed_filename_is_not_raw_diff_metadata(tmp_path):
     finally:
         await lease.cleanup()
         await environment.cleanup()
-
 
 async def test_public_sdk_reports_capture_failure_and_retains_submodule_result(tmp_path):
     source, module_path = _source_with_dependency(tmp_path, False)

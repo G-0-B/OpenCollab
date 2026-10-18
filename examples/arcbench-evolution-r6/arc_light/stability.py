@@ -23,10 +23,8 @@ PERSISTENT_FEATURES = {
     "Create, Edit, and Delete Conditional Formatting Rules",
 }
 
-
 def scenario_name(item):
     return scenario_key(item)
-
 
 def read_history(workspace):
     path = workspace / ".arc/checks/stability-history.json"
@@ -50,7 +48,6 @@ def read_history(workspace):
         normalized[key] = row
     value["checks"] = normalized
     return value
-
 
 def observe(workspace, report, digest, report_path):
     history = read_history(workspace)
@@ -89,7 +86,6 @@ def observe(workspace, report, digest, report_path):
     write_json(workspace / ".arc/checks/stability-history.json", history)
     return history
 
-
 def targets(contract, history):
     selected = []
     for item in contract.get("evolution_checks", []):
@@ -101,7 +97,6 @@ def targets(contract, history):
             selected.append(item)
     return selected
 
-
 def pending(items, history, digest):
     return [
         item
@@ -109,7 +104,6 @@ def pending(items, history, digest):
         if history["checks"].get(scenario_name(item), {}).get("source_digest") != digest
         or history["checks"].get(scenario_name(item), {}).get("consecutive_passes", 0) < REQUIRED_PASSES
     ]
-
 
 def cache_signature(workspace, scope, ids):
     """A newer replay failure invalidates cached success even with unchanged source."""
@@ -127,7 +121,6 @@ def cache_signature(workspace, scope, ids):
             if scope == "all" or (scope == "requirements" and set(ids).intersection(row.get("source_ids", [])))
         )
     )
-
 
 def certify(workspace, report, *, contract, digest, timeout, output, cancel_event, verifier):
     """Only final full acceptance calls this. Replays use new app/DB copies, never a cache.

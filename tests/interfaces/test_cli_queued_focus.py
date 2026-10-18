@@ -26,11 +26,9 @@ async def _wait_for(predicate):
 
     await asyncio.wait_for(wait(), timeout=5)
 
-
 def _snapshot(workspace, aid):
     paths = list((workspace / ".opencollab/sessions").glob(f"*/agent_{aid}_*.json"))
     return json.loads(paths[0].read_text(encoding="utf-8")) if paths else None
-
 
 def _install_cli(monkeypatch, workspace):
     import opencollab.adapters.tui as tui_module
@@ -59,7 +57,6 @@ def _install_cli(monkeypatch, workspace):
         "https://offline.invalid/v1", 100000,
     )
     return tui, output, team, cfg
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["done", "error", "cancel", "dropped", "no_queue"])
@@ -187,7 +184,6 @@ async def test_real_prompt_keeps_lead_draft_when_analyst_turn_starts(monkeypatch
     if outcome in {"error", "cancel"}:
         assert child_snapshot["session_state"]["phase"] == ("error" if outcome == "error" else "stopped")
     assert not (tmp_path / "cancelled.txt").exists()
-
 
 @pytest.mark.asyncio
 async def test_one_shot_prints_final_lead_answer_after_user_tabs_to_analyst(monkeypatch, tmp_path):

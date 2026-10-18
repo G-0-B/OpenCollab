@@ -45,7 +45,6 @@ class FileModel:
             },
         }], usage=Usage(4, 2), finish_reason="tool_calls")
 
-
 class FileChecks(WeaveAdapter):
     def __init__(self, workspace):
         (workspace / "check_result.py").write_text(
@@ -82,10 +81,8 @@ class FileChecks(WeaveAdapter):
         self.checks.append(check)
         return check
 
-
 def _client(workspace):
     return OpenCollab(workspace, model="local-file-model", config={"max_output_tokens": 128})
-
 
 def _config(**overrides):
     values = {"main_budget": 10_000, "max_steps": 12, "output_reserve_tokens": 128,
@@ -93,13 +90,11 @@ def _config(**overrides):
     values.update(overrides)
     return WeaveConfig(**values)
 
-
 async def test_sdk_named_weave_writes_shared_files_in_independent_sessions(tmp_path):
     report = await exercise_weave(tmp_path)
     assert report["model_calls"] == 5
     assert report["tokens"] == 30
     assert report["checks"] >= 2
-
 
 @pytest.mark.parametrize("commands", [
     [], [""], ["true"], ["python --help"], ["python -m pytest --collect-only"],
@@ -120,7 +115,6 @@ async def test_missing_or_nonexecuting_check_never_verifies_delivery(tmp_path, c
     assert result.output["delivery_ok"] is False
     assert result.output["verification"]["executed"] is False
 
-
 async def test_successful_command_without_behavior_evidence_is_unverified(tmp_path):
     command = f"{shlex.quote(sys.executable)} -c 'print(123)'"
     model = FileModel(initial="correct\n")
@@ -138,7 +132,6 @@ async def test_successful_command_without_behavior_evidence_is_unverified(tmp_pa
     assert "123" in checks[0]["output"]
     assert not result.output["repair_rounds"]
     assert len(model.calls) == 2
-
 
 @pytest.mark.parametrize("passed", [False, True], ids=["failed-tests", "passed-tests"])
 @pytest.mark.parametrize("expected", ["RESOURCE_VERSION=1", "RESOURCE_VERSION=2"], ids=["matching", "mismatching"])
@@ -168,7 +161,6 @@ async def test_native_tests_and_expected_output_jointly_verify_delivery(tmp_path
     assert row["ok"] is (passed and row["matched"])
     assert result.output["delivery_ok"] is row["ok"]
 
-
 @pytest.mark.parametrize("expected", ["no tests ran", "RESOURCE_VERSION=2"])
 async def test_zero_collected_tests_with_expected_text_never_verifies_delivery(tmp_path, expected):
     (tmp_path / "empty_tests").mkdir()
@@ -188,7 +180,6 @@ async def test_zero_collected_tests_with_expected_text_never_verifies_delivery(t
     assert "no tests ran" in checks[0]["output"]
     assert not result.output["repair_rounds"]
     assert len(model.calls) == 2
-
 
 @pytest.mark.parametrize("unbounded", [False, True])
 async def test_real_sessions_preserve_weighted_finite_and_unbounded_allowances(tmp_path, monkeypatch, unbounded):
@@ -218,7 +209,6 @@ async def test_real_sessions_preserve_weighted_finite_and_unbounded_allowances(t
         assert groups["1"]["result"]["hard_budget_tokens"] == 2_000
         assert groups["2"]["result"]["hard_budget_tokens"] == 7_988
         assert result.output["total_tokens"] == 24
-
 
 async def test_failed_executable_check_is_repaired_in_a_new_session(tmp_path, monkeypatch):
     adapter = FileChecks(tmp_path)
@@ -250,7 +240,6 @@ async def test_failed_executable_check_is_repaired_in_a_new_session(tmp_path, mo
     assert result.output["groups"]["1"]["result"]["session_id"] != result.output["repair_rounds"][0]["session_id"]
     assert len(model.calls) == 4 and result.tokens == 24
     assert "write-stage" not in str(model.calls[2])
-
 
 @pytest.mark.parametrize("changed", [False, True])
 async def test_completed_native_edit_extends_soft_allowance_within_the_same_session(tmp_path, changed):
@@ -301,7 +290,6 @@ async def test_completed_native_edit_extends_soft_allowance_within_the_same_sess
         assert result.output["groups"]["1"]["result"]["soft_budget_tokens"] == 10_000
         assert result.output["groups"]["1"]["result"]["status"] == "stopped"
 
-
 async def test_executed_failures_stop_finite_repairs_after_measured_stagnation(tmp_path):
     adapter, model = FileChecks(tmp_path), FileModel(repaired="wrong\n")
 
@@ -322,7 +310,6 @@ async def test_executed_failures_stop_finite_repairs_after_measured_stagnation(t
     assert len(adapter.checks) == 4 and all(check.executed and not check.ok for check in adapter.checks)
     assert (tmp_path / "checks-ran.txt").read_text().splitlines() == ["executed"] * 4
     assert (tmp_path / "result.txt").read_text() == "wrong\n"
-
 
 async def test_edit_to_ancestor_rechecks_transitive_dependent_targets(tmp_path):
     (tmp_path / "check_targets.py").write_text(
@@ -388,7 +375,6 @@ async def test_edit_to_ancestor_rechecks_transitive_dependent_targets(tmp_path):
     assert (tmp_path / "a.txt").read_text() == "changed\n"
     assert len(result.output["groups"]) == 4
     assert result.tokens == len(model.calls) * 6 > 0
-
 
 async def test_planned_dependency_cycle_executes_one_shared_session_then_its_dependent(tmp_path):
     (tmp_path / "check_cycle.py").write_text(
@@ -475,7 +461,6 @@ async def test_planned_dependency_cycle_executes_one_shared_session_then_its_dep
     assert (tmp_path / "checks-ran.txt").read_text().splitlines() == ["executed"] * 3
     assert len(model.calls) == 5 and result.tokens == 30
 
-
 @pytest.mark.parametrize("failure_hook", ["save_state", "on_update"])
 async def test_state_and_update_callback_failures_retain_execution_failure(tmp_path, failure_hook):
     class BrokenPersistence(FileChecks):
@@ -502,7 +487,6 @@ async def test_state_and_update_callback_failures_retain_execution_failure(tmp_p
     assert "controlled" in str(result.error)
     assert not (tmp_path / "result.txt").exists()
     assert not adapter.checks
-
 
 @pytest.mark.parametrize("failure_hook", ["on_event", "group_generated"])
 async def test_observation_failure_after_real_generation_prevents_verified_handoff(tmp_path, failure_hook):
@@ -533,7 +517,6 @@ async def test_observation_failure_after_real_generation_prevents_verified_hando
     assert adapter.saved[-1]["status"] == "failed"
     assert adapter.saved[-1]["delivery_ok"] is False
     assert WeaveState(adapter.saved[-1]).tokens == 12
-
 
 async def test_cancelled_generated_group_resumes_at_executed_check(tmp_path):
     checking, settled = asyncio.Event(), asyncio.Event()
@@ -579,7 +562,6 @@ async def test_cancelled_generated_group_resumes_at_executed_check(tmp_path):
     assert result.tokens == 0
     assert state.tokens == original_tokens == 12
     assert resumed.checks and all(check.executed and check.ok for check in resumed.checks)
-
 
 async def test_cancelled_writer_settles_before_return_without_later_group_or_check(tmp_path):
     writing, release, cancelled = asyncio.Event(), asyncio.Event(), asyncio.Event()

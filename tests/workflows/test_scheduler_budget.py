@@ -1,17 +1,4 @@
-"""Global-budget enforcement for the team scheduler.
-
-Two mechanisms keep the global token pool a *true* ceiling (it used to be
-enforced only per-session against each session's own cap, so fan-out could
-oversubscribe it 2-3x):
-
-1. Reserve-at-allocation — each spawned child is granted budget from the
-   *unallocated remainder* (``_max_budget_tokens - _allocated_tokens``), and the
-   grant is booked synchronously before any await. The sum of grants therefore
-   never exceeds the global pool. A terminal child's reservation is reclaimed
-   so a later spawn can reuse the headroom.
-2. Aggregate runtime ceiling — a session's precheck stops the session once the
-   *team aggregate* spend reaches the global cap, regardless of per-session caps.
-"""
+"""Scheduler budget checks cover allocation reservations and aggregate runtime spend."""
 
 from __future__ import annotations
 
@@ -28,12 +15,8 @@ from opencollab.domain.session import SessionPhase, SessionState
 def run(coro):
     return asyncio.run(coro)
 
-
 class BlockingChild:
-    """A child whose run_loop blocks on a gate so in-flight state is observable.
-
-    Records the budget it was built with so tests can assert the granted caps.
-    """
+    """Block a child on a gate and record its granted budget."""
 
     def __init__(self, role: str, budget: int, gate: asyncio.Event):
         self.agent = type("_Agent", (), {"name": role})()
@@ -50,7 +33,6 @@ class BlockingChild:
         self.state.set_phase(SessionPhase.DONE)
         self.state.append_message({"role": "assistant", "content": "done"})
         return "done"
-
 
 class RecordingFactory:
     """Builds a fresh ``BlockingChild`` per spawn, recording each granted budget."""
@@ -69,14 +51,12 @@ class RecordingFactory:
         self.grants.append(budget)
         return child
 
-
 class _NoopWorktreePool:
     async def acquire(self, role):
         return None
 
     async def release(self):
         return None
-
 
 class _RaisingWorktreePool:
     """A pool whose acquire always raises — simulates a spawn that fails after
@@ -88,7 +68,6 @@ class _RaisingWorktreePool:
     async def release(self):
         return None
 
-
 class _RaisingFactory(RecordingFactory):
     """Builds children normally, but raises inside build_spawn_session — the
     second site (after acquire) where a spawn can fail post-reservation."""
@@ -98,11 +77,9 @@ class _RaisingFactory(RecordingFactory):
     ):
         raise RuntimeError("session build failed")
 
-
 class _FailingEventPublisher:
     async def emit(self, event):
         raise RuntimeError("event sink failed")
-
 
 class _BlockingAcquirePool:
     def __init__(self):
@@ -116,12 +93,10 @@ class _BlockingAcquirePool:
     async def cleanup(self):
         return None
 
-
 def _register_budget_lead(sched: Scheduler, total: int) -> None:
     lead = BlockingChild("lead", total, asyncio.Event())
     lead.state.set_phase(SessionPhase.DONE)
     sched.register_lead(lead)
-
 
 def _scheduler(factory: RecordingFactory, *, max_budget_tokens: int) -> Scheduler:
     sched = Scheduler(
@@ -133,10 +108,7 @@ def _scheduler(factory: RecordingFactory, *, max_budget_tokens: int) -> Schedule
     _register_budget_lead(sched, max_budget_tokens)
     return sched
 
-
 def test_concurrent_grants_never_exceed_global_pool():
-    """N children spawned against a global cap: the sum of granted caps plus the
-    Lead reserve never exceeds the global pool."""
 
     async def scenario():
         total = 400_000
@@ -144,7 +116,6 @@ def test_concurrent_grants_never_exceed_global_pool():
         factory = RecordingFactory(gate)
         sched = _scheduler(factory, max_budget_tokens=total)
 
-        # Three children receive bounded quarter-shares. The fourth is rejected.
         await sched.spawn(0, "coder", "task-0", tool_call_id="c-0")
         await sched.spawn(0, "coder", "task-1", tool_call_id="c-1")
         await sched.spawn(0, "coder", "task-2", tool_call_id="c-2")
@@ -153,7 +124,6 @@ def test_concurrent_grants_never_exceed_global_pool():
 
         grants = factory.grants
         assert grants == [100_000, 100_000, 100_000]
-        # The allocation tracker reflects every booked grant.
         assert sched.allocated_tokens == dynamic_roster_share(total) + sum(grants)
         assert sched.allocated_tokens <= total
         assert sched.inflight_spawn("coder", "task-3") is None
@@ -163,10 +133,7 @@ def test_concurrent_grants_never_exceed_global_pool():
 
     run(scenario())
 
-
 def test_finished_child_reservation_is_reclaimed():
-    """A child that reaches a terminal phase frees its reservation so a later
-    spawn is granted from the reclaimed headroom, not the floor."""
 
     async def scenario():
         total = 400_000
@@ -178,12 +145,10 @@ def test_finished_child_reservation_is_reclaimed():
         assert factory.grants[0] == 100_000
         assert sched.allocated_tokens == dynamic_roster_share(total) + 100_000
 
-        # Finish the first child — its 100_000 reservation must be reclaimed.
         gate.set()
         await sched._tasks[aid0]
-        assert sched.allocated_tokens == dynamic_roster_share(total)  # back to 100_000
+        assert sched.allocated_tokens == dynamic_roster_share(total)
 
-        # A fresh spawn gets the reclaimed fair share again.
         gate.clear()
         await sched.spawn(0, "coder", "second", tool_call_id="c-1")
         assert factory.grants[1] == 100_000
@@ -193,12 +158,8 @@ def test_finished_child_reservation_is_reclaimed():
 
     run(scenario())
 
-
 def test_failed_worktree_acquire_releases_reservations():
-    """If ``_worktree_pool.acquire`` raises after the inflight + budget
-    reservations are booked, ``spawn`` must release BOTH and re-raise — otherwise
-    the budget grant leaks (shrinking the pool forever) and the inflight key
-    permanently refuses any re-spawn of the same (role, task)."""
+    """Acquisition failure can leak both token headroom and the same-task spawn reservation."""
 
     async def scenario():
         total = 400_000
@@ -216,7 +177,6 @@ def test_failed_worktree_acquire_releases_reservations():
         assert before == dynamic_roster_share(total)
         assert sched.inflight_spawn("coder", "leaky") is None
 
-        # The failing spawn must propagate the original exception.
         raised = False
         try:
             await sched.spawn(0, "coder", "leaky", tool_call_id="c-0")
@@ -225,20 +185,14 @@ def test_failed_worktree_acquire_releases_reservations():
             assert "worktree acquire failed" in str(exc)
         assert raised, "original exception must propagate out of spawn()"
 
-        # Budget reservation released — allocation is back to its pre-spawn value.
         assert sched.allocated_tokens == before
-        # Inflight key cleared — a re-spawn of the SAME (role, task) is not refused.
         assert sched.inflight_spawn("coder", "leaky") is None
-        # No driver task was scheduled for the failed spawn.
         assert sched._tasks == {}
 
     run(scenario())
 
-
 def test_failed_session_build_releases_reservations_then_respawn_succeeds():
-    """The second post-reservation failure site — ``build_spawn_session`` raising
-    — must also release both reservations, so a subsequent spawn of the same
-    (role, task) books fresh from the reclaimed headroom (not the floor)."""
+    """Session construction is a second failure point after both reservations are booked."""
 
     async def scenario():
         total = 400_000
@@ -258,21 +212,18 @@ def test_failed_session_build_releases_reservations_then_respawn_succeeds():
         assert sched.allocated_tokens == before
         assert sched.inflight_spawn("coder", "retry-me") is None
 
-        # Swap in a working factory: a re-spawn of the SAME (role, task) is NOT
-        # refused and is granted from the reclaimed fair-share headroom.
         good = RecordingFactory(gate)
         sched._session_factory = good
         sched._worktree_pool = _NoopWorktreePool()
 
         aid = await sched.spawn(0, "coder", "retry-me", tool_call_id="c-1")
-        assert good.grants[0] == dynamic_roster_share(total)  # 100_000 fair share
+        assert good.grants[0] == dynamic_roster_share(total)
         assert sched.inflight_spawn("coder", "retry-me") == aid
 
         gate.set()
         await asyncio.gather(*sched._tasks.values())
 
     run(scenario())
-
 
 def test_spawn_event_failure_rolls_back_all_child_state():
     async def scenario():
@@ -300,7 +251,6 @@ def test_spawn_event_failure_rolls_back_all_child_state():
         assert sched.allocated_tokens == dynamic_roster_share(total)
 
     run(scenario())
-
 
 def test_cancelled_spawn_rolls_back_reservations_before_driver_exists():
     async def scenario():
@@ -333,10 +283,7 @@ def test_cancelled_spawn_rolls_back_reservations_before_driver_exists():
 
     run(scenario())
 
-
 def test_successful_spawn_does_not_double_release():
-    """Regression: a NORMAL spawn holds its reservation until the agent
-    terminates — the failure-path release must not fire on the success path."""
 
     async def scenario():
         total = 400_000
@@ -347,19 +294,15 @@ def test_successful_spawn_does_not_double_release():
         before = sched.allocated_tokens
         aid = await sched.spawn(0, "coder", "work", tool_call_id="c-0")
 
-        # Reservation is HELD while the child runs (not released by the success
-        # path of spawn) — allocation reflects the live grant.
         assert sched.allocated_tokens == before + factory.grants[0]
         assert sched.inflight_spawn("coder", "work") == aid
 
-        # The child terminates: the driver task releases exactly once.
         gate.set()
         await sched._tasks[aid]
-        assert sched.allocated_tokens == before  # reclaimed once, not twice
+        assert sched.allocated_tokens == before
         assert sched.inflight_spawn("coder", "work") is None
 
     run(scenario())
-
 
 def test_lead_reservation_seeded_at_registration():
     """register_lead seeds the running allocation with the Lead reserve."""
@@ -374,14 +317,13 @@ def test_lead_reservation_seeded_at_registration():
             event_sink=EventBus(None),
             max_budget_tokens=total,
         )
-        assert sched.allocated_tokens == 0  # nothing reserved yet
+        assert sched.allocated_tokens == 0
 
         lead = BlockingChild("lead", total, gate)
         sched.register_lead(lead)
         assert sched.allocated_tokens == dynamic_roster_share(total)
 
     run(scenario())
-
 
 def test_budget_exhausted_reflects_aggregate_spend():
     """The aggregate ceiling predicate flips once team total reaches the cap."""
@@ -394,10 +336,9 @@ def test_budget_exhausted_reflects_aggregate_spend():
 
         assert sched.budget_exhausted is False
 
-        # Spawn a child and simulate spend that reaches the global cap.
         aid = await sched.spawn(0, "coder", "burn", tool_call_id="c-0")
         child = factory.children[aid]
-        child.state.add_used_tokens(total)  # aggregate now == cap
+        child.state.add_used_tokens(total)
         assert sched.used_tokens >= total
         assert sched.budget_exhausted is True
 
@@ -405,7 +346,6 @@ def test_budget_exhausted_reflects_aggregate_spend():
         await asyncio.gather(*sched._tasks.values())
 
     run(scenario())
-
 
 def test_consumed_child_tokens_are_not_reclaimed_as_fresh_headroom():
     async def scenario():
@@ -420,7 +360,6 @@ def test_consumed_child_tokens_are_not_reclaimed_as_fresh_headroom():
         gate.set()
         await sched._tasks[aid]
 
-        # The lease is gone, while its consumed tokens stay committed.
         assert aid not in sched._turn_lease
         assert sched.allocated_tokens == dynamic_roster_share(total) + grant
 
@@ -433,7 +372,6 @@ def test_consumed_child_tokens_are_not_reclaimed_as_fresh_headroom():
         await asyncio.gather(*sched._tasks.values(), return_exceptions=True)
 
     run(scenario())
-
 
 def test_lead_yields_unused_turn_lease_before_parallel_children():
     async def scenario():
@@ -465,7 +403,6 @@ def test_lead_yields_unused_turn_lease_before_parallel_children():
         await asyncio.gather(*sched._tasks.values(), return_exceptions=True)
 
     run(scenario())
-
 
 def test_message_revival_reacquires_child_budget_before_starting_turn():
     async def scenario():
@@ -501,7 +438,6 @@ def test_message_revival_reacquires_child_budget_before_starting_turn():
         await asyncio.gather(*sched._tasks.values(), return_exceptions=True)
 
     run(scenario())
-
 
 def test_cancelled_agent_retries_other_messages_waiting_for_budget():
     async def scenario():

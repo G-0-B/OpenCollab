@@ -1,21 +1,7 @@
-"""``submit`` — the agent says it is finished, instead of the run inferring it.
+"""Record explicit completion and use the submitted summary as the turn answer.
 
-A turn ends today when a model returns a message with no tool calls. That rule
-cannot tell three different endings apart: the work is done, the model gave up,
-or the model wrote a sentence about what it was going to do next and stopped
-calling tools by accident. All three come out of the loop as
-``DONE(reason="completed")``, and downstream every one of them submits whatever
-happens to be in the workspace.
-
-``submit`` gives the first ending a positive act. It does not move where a run
-stops: a turn with no tool call still finishes exactly as it did, so runs made
-with and without this tool remain comparable. What changes is that a run which
-*did* end deliberately now says so, with the agent's own account of what it is
-handing over, and that account becomes the turn's answer.
-
-Deliberately not a gate. Nothing refuses to grade a run that never submitted,
-because the workspace is read either way and a rule that discarded unsubmitted
-work would turn a missing sentence into a missing result.
+A message with no tool calls still ends a turn. Workspace evaluation also
+runs when the agent omits ``submit``.
 """
 
 from __future__ import annotations
@@ -26,7 +12,6 @@ from opencollab.adapters.tools.base import Tool
 from opencollab.application.tool_execution import ToolRuntime
 
 MAX_SUMMARY_CHARS = 4000
-
 
 class SubmitTool(Tool):
     """End this agent's turn and record what it is handing over."""
@@ -80,6 +65,5 @@ class SubmitTool(Tool):
         if runtime is not None and runtime.observations is not None:
             runtime.observations.record_submission(self.submitted_summary)
         return "Submitted. Your turn ends here."
-
 
 __all__ = ["MAX_SUMMARY_CHARS", "SubmitTool"]

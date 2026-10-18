@@ -8,7 +8,6 @@ from typing import Any
 def ns(**values: Any) -> SimpleNamespace:
     return SimpleNamespace(**values)
 
-
 def completed_response(
     *,
     response_id: str = "resp_test",
@@ -34,7 +33,6 @@ def completed_response(
         ),
     )
 
-
 def message_item(text: str) -> dict[str, Any]:
     return {
         "id": "msg_1",
@@ -43,7 +41,6 @@ def message_item(text: str) -> dict[str, Any]:
         "status": "completed",
         "content": [{"type": "output_text", "text": text, "annotations": []}],
     }
-
 
 def function_item(call_id: str, name: str, arguments: str) -> dict[str, Any]:
     return {
@@ -54,7 +51,6 @@ def function_item(call_id: str, name: str, arguments: str) -> dict[str, Any]:
         "name": name,
         "arguments": arguments,
     }
-
 
 class FakeStream:
     def __init__(self, events: list[Any], *, delays: list[float] | None = None):

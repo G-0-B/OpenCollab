@@ -1,8 +1,4 @@
-"""Team-mode composition entry point.
-
-Kept separate from the single-agent/workflow composition helpers so the
-composition root stays below the repository's module-size ceiling.
-"""
+"""Team-mode programmatic composition entry point."""
 
 from __future__ import annotations
 
@@ -49,21 +45,14 @@ async def run_team(
     budget_explicit: bool = False,
     run_id: str | None = None,
 ) -> ProgrammaticResult:
-    """Run the scheduler regime once, including bounded team cleanup.
+    """Run one scheduler turn with bounded team cleanup.
 
-    ``prebuild_team``, ``allow_unisolated_shell``, ``max_steps`` and
-    ``serialize_turns`` are handed straight to ``build_scheduler``; see its
-    docstring for what each decides. All default to the values that reproduce
-    today's run: no roster is seated up front, turns may overlap, and the shell
-    answer still follows ``interactive``, which is ``False`` here because a
-    programmatic run has no human at it. Stating them is how an unattended
-    experiment gets a declared roster whose agents can run ``git`` without also
-    being handed an ``ask_user`` there is nobody to answer.
+    See ``build_scheduler`` for roster, step-limit and serialization settings.
+    Programmatic runs disable human questions. ``allow_unisolated_shell``
+    independently authorizes commands outside an OS sandbox.
 
-    ``environment`` is where the run works. ``workspace`` still names the
-    directory this run is anchored to -- skills, the repository map, and the
-    session store are read from it -- while the environment is what agents
-    execute in, which is how a team reaches a repository inside a container.
+    ``environment`` supplies the agents' execution workspace. ``workspace``
+    anchors local configuration, skills, the repository map and session storage.
     """
     team_config = load_team_config(workspace, path=team_config_path)
     if team_config.role_budgets and budget_explicit:
@@ -77,8 +66,7 @@ async def run_team(
     )
     context = build_runtime_context(workspace, run_config, trace=False)
     _programmatic._claim_artifacts(artifacts)
-    # One id per run, written to the trajectory, the team.json manifest and the
-    # result, so the three join on it and two runs never share one.
+    # Use one run id across trajectories, ``team.json``, and the result.
     run_id = run_id if run_id is not None else f"team-{uuid.uuid4().hex}"
     if artifacts is not None and trace:
         context.tracer = Tracer(
@@ -90,9 +78,8 @@ async def run_team(
         scheduler = _programmatic.build_scheduler(
             context,
             use_worktrees=use_worktrees,
-            # No human is at a programmatic run, so nobody can answer
-            # ``ask_user``. Whether an agent may open an unsandboxed shell is a
-            # separate question, and the caller answers it.
+            # Programmatic runs cannot answer ``ask_user``. The caller separately
+            # chooses whether to allow an unsandboxed shell.
             interactive=False,
             allow_unisolated_shell=allow_unisolated_shell,
             auto_save=artifacts is not None,

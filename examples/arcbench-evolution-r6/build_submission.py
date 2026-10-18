@@ -60,6 +60,5 @@ def main() -> None:
         print(json.dumps({"zip": str(output), "source_commit": revision,
                           "files": len(bundle.namelist())}))
 
-
 if __name__ == "__main__":
     main()

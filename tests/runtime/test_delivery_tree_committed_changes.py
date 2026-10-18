@@ -9,7 +9,6 @@ from opencollab.adapters.working_tree import EnvWorkingTreeProbe
 def _git(repo, *args):
     return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
 
-
 async def test_delivery_probe_sees_committed_and_checked_out_changes(tmp_path):
     _git(tmp_path, "init", "-q")
     _git(tmp_path, "config", "user.email", "test@example.invalid")

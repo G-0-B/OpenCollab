@@ -1,18 +1,6 @@
-"""Authority checks on a candidate program and the paper's stage score.
+"""Check memorized inputs and complexity when ranking reconstruction candidates.
 
-rea refuses to close an obligation on evidence without authority: a pass
-produced by memorised fixtures proves nothing, and the more a claim is
-inferred rather than observed, the more observation it needs. Two cheap,
-deterministic checks implement that for Python candidates:
-
-* ``memorised_inputs`` counts observed inputs embedded verbatim as literals
-  (lookup-table keys, equality comparisons);
-* the FromIO paper's complexity penalty: honest solutions in our runs stayed
-  at or below 0.61 while every over-fitted program hit 1.0.
-
-``stage_score`` is the paper's program score (accuracy on the observed
-examples minus complexity and hard-coding penalties) used to pick the final
-candidate.
+``stage_score`` is observed accuracy minus complexity and hard-coding penalties.
 """
 
 from __future__ import annotations

@@ -59,12 +59,10 @@ async def install(monkeypatch, handler):
     monkeypatch.setattr(container, "LLMClient", RecordedClient)
     return models
 
-
 def limited(request):
     return http_response(request, 429, headers={"retry-after": "1"}, json={"error": {
         "message": "Controlled rate limit.", "type": "rate_limit_error",
     }})
-
 
 @pytest.mark.parametrize("borrowed", [False, True])
 @pytest.mark.parametrize("allowance", [1.5, 0])
@@ -123,7 +121,6 @@ async def test_agent_tool_history_triggers_summary_under_the_same_retry_allowanc
     finally:
         if model is not None:
             await model.close()
-
 
 @pytest.mark.parametrize("budget_kind", ["implicit", "explicit", "zero"])
 async def test_owned_session_turns_and_repeated_summaries_keep_the_original_allowance(

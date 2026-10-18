@@ -19,23 +19,18 @@ TABLE_NAMES = (
     "node_contracts",
 )
 
-
 def _utc_timestamp() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-
 
 def _as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
-
 def _as_str_list(value: Any) -> list[str]:
     return [str(item).strip() for item in _as_list(value) if str(item).strip()]
-
 
 def _as_optional_str(value: Any) -> str | None:
     normalized = str(value or "").strip()
     return normalized or None
-
 
 def _as_bool_or_none(value: Any) -> bool | None:
     if value is None:
@@ -49,7 +44,6 @@ def _as_bool_or_none(value: Any) -> bool | None:
         return False
     return None
 
-
 def _edge_key(source_req_id: str, target_req_id: str, from_interface_id: str, to_interface_id: str) -> str:
     return "::".join(
         [
@@ -59,7 +53,6 @@ def _edge_key(source_req_id: str, target_req_id: str, from_interface_id: str, to
             str(to_interface_id or "").strip(),
         ]
     )
-
 
 @dataclass(frozen=True)
 class RequirementRecord:
@@ -72,14 +65,12 @@ class RequirementRecord:
     children_ids: list[str] | None = None
     dependencies: list[str] | None = None
 
-
 @dataclass(frozen=True)
 class ScenarioRecord:
     scenario_id: str
     req_id: str
     name: str
     steps: list[dict[str, str]]
-
 
 @dataclass(frozen=True)
 class InterfaceRecord:
@@ -93,7 +84,6 @@ class InterfaceRecord:
     callers: list[str] | None = None
     callees: list[str] | None = None
 
-
 @dataclass(frozen=True)
 class TestRecord:
     test_id: str
@@ -105,13 +95,8 @@ class TestRecord:
     passed: bool | None = None
     scenario_id: str | None = None
 
-
 class TraceabilityStore:
-    """Keyed JSON traceability store.
-
-    Each table is stored as one JSON object under `.arc/traceability/<table>.json`.
-    This keeps current-state reads and overwrites simple, deterministic, and git-trackable.
-    """
+    """Store each keyed JSON table under ``.arc/traceability/<table>.json``."""
 
     def __init__(self, paths: RuntimePaths, events: EventClient) -> None:
         self.paths = paths
@@ -156,11 +141,9 @@ class TraceabilityStore:
         }
 
     def store_requirement_tree(self, requirement_tree: dict[str, Any]) -> None:
-        """Persist a nested ARC requirements tree into current-state tables.
+        """Replace requirement and scenario tables from a nested requirements tree.
 
-        Only requirements and scenarios are replaced here. Generated interfaces,
-        tests, node states, and contracts remain owned by their phase-specific
-        SDK calls and by git history.
+        Other tables remain owned by their phase-specific SDK calls and Git history.
         """
 
         requirements: dict[str, Any] = {}

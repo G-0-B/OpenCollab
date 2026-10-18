@@ -1,24 +1,9 @@
-"""CLI entry point — Typer-based.
+"""Typer entry point for an interactive team and its REPL.
 
-Two surfaces:
-- the default (no subcommand): one interactive team. Agent 0 is the first
-  session and can spawn children; Tab selects any live session for follow-up.
-
-The input line is permanent: ``live_prompt`` owns the bottom of the terminal
-for the whole session and ``turn_queue`` runs turns behind it, so typing during
-a turn queues instead of waiting, and Ctrl+C interrupts the turn instead of
-ending the session.
-
-Split by concern: ``live_prompt`` (the prompt and the HUD above it),
-``turn_queue`` (background turn execution), ``config_resolve`` (CLI args + .env
-merge and API-key checks). This module keeps the Typer app, the read loop, and
-``main()``.
-
-Ref:
-- kimi-cli: Typer app with callback, async main, session management
-- opencode: bun run dev with agent mode selection
-- Design doc: cli/main.py as the interface layer — parses args and drives the
-  REPL only; all wiring lives in opencollab.bootstrap.
+Agent 0 starts the team. Tab selects a live session for follow-up.
+``live_prompt`` owns the persistent input and HUD while ``turn_queue`` runs
+turns in order. Typing queues a turn and Ctrl+C interrupts the running turn.
+Configuration merging and key checks live in ``config_resolve``.
 """
 
 from __future__ import annotations
@@ -68,7 +53,6 @@ MAX_CLI_PROMPT_FILE_BYTES = 4 * 1024 * 1024
 
 app.add_typer(workflow_app, name="workflow")
 app.add_typer(build_team_app(default_team_config, load_team_config), name="team")
-
 
 @app.callback(invoke_without_command=True)
 def main_callback(
@@ -149,7 +133,6 @@ def main_callback(
         )
     )
 
-
 def _resolve_one_shot_prompt(prompt: str | None, prompt_file: str | None) -> str | None:
     return resolve_text_input(
         prompt,
@@ -159,18 +142,10 @@ def _resolve_one_shot_prompt(prompt: str | None, prompt_file: str | None) -> str
         max_bytes=MAX_CLI_PROMPT_FILE_BYTES,
     )
 
-
-# ---------------------------------------------------------------------------
-# Async implementations
-# ---------------------------------------------------------------------------
-
-
 def _print_hint(label: str, value: str) -> None:
-    """One hairline-led chrome line, home-shortened and kept to a single row.
+    """Print one home-shortened hint row.
 
-    Session and trajectory paths are long enough to wrap into three or four rows
-    and push real output off the top. The head is elided rather than the tail:
-    the run id and filename at the end are what identify the file.
+    Elide the path head to preserve the identifying run id and filename.
     """
     home = os.path.expanduser("~")
     if home != "~" and value.startswith(home):
@@ -184,19 +159,14 @@ def _print_hint(label: str, value: str) -> None:
     line.append(f"{label} → {value}", style="grey58")
     console.print(line)
 
-
 _EXIT_COMMANDS = frozenset({"exit", "quit", "/exit", "/quit"})
-# ``--hold`` inherits the word the old post-run inspection view used for the
-# same intent, now that there is no raw key listener to press it against.
 _HOLD_EXIT_COMMANDS = _EXIT_COMMANDS | {"q"}
-
 
 def _save_session(lead: Any) -> None:
     """`/save` REPL command: write the lead session to a fresh JSONL file."""
     path = f"session-{uuid.uuid4().hex[:8]}.jsonl"
     lead.save(path)
     console.print(f"[dim]Session saved to {path}[/dim]")
-
 
 def _print_repl_help() -> None:
     table = Table(title="Interactive team help", show_header=False, box=None, padding=(0, 2))
@@ -214,7 +184,6 @@ def _print_repl_help() -> None:
     console.print(table)
     console.print(Text("From your shell, use 'opencollab team --help' to set up a team, "
                        "or 'opencollab workflow run duo --help' to run Duo."))
-
 
 def _dispatch_repl_command(
     line: str,
@@ -244,7 +213,6 @@ def _dispatch_repl_command(
         return True
     raise KeyError(line)
 
-
 async def _read_loop(
     prompt: LivePrompt,
     queue: TurnQueue,
@@ -253,11 +221,9 @@ async def _read_loop(
     *,
     exit_words: frozenset[str] | set[str] = _EXIT_COMMANDS,
 ) -> None:
-    """Read the one input line until the user leaves it.
+    """Read until the user leaves, routing each line by priority.
 
-    Every line has three possible owners, in this order: an agent waiting on an
-    answer, a built-in command, and finally the queue of turns. The agent wins
-    because it asked first and the user can see whose question is on screen.
+    A waiting agent's answer takes precedence over a REPL command or queued turn.
     """
     while True:
         if not getattr(prompt, "interactive", True):
@@ -289,7 +255,6 @@ async def _read_loop(
             pass
         queue.submit(line, tui.selected_aid)
 
-
 def _report_turn_failure(tui: Any, exc: SchedulerTurnError) -> None:
     """Print what a failed turn left behind, without repeating what it printed."""
     # The half-finished answer is salvage: print it only if the turn's cleanup
@@ -301,18 +266,15 @@ def _report_turn_failure(tui: Any, exc: SchedulerTurnError) -> None:
     style = "yellow" if exc.phase.value == "stopped" else "red"
     console.print(Text(f"Agent {exc.aid} {exc.phase.value}: {reason}", style=style))
 
-
 async def _drive(
     queue: TurnQueue,
     *,
     reader: Awaitable[None] | None,
     until_drained: bool,
 ) -> None:
-    """Run queued turns while the input line stays live, until one side ends.
+    """Drive queued turns until input ends, one-shot work drains, or a turn fails.
 
-    Three ways out: the user leaves the prompt, a one-shot run drains its
-    queue, or a turn fails outright — and that failure is re-raised here
-    because it is the same failure the REPL used to take inline.
+    Propagate turn failures to the caller.
     """
     if reader is None and not until_drained:
         raise ValueError("a run with nothing reading must end when its queue drains")
@@ -333,7 +295,6 @@ async def _drive(
         if not task.cancelled() and task.exception() is not None:
             raise task.exception()
 
-
 async def _await_scheduler_cleanup(scheduler: Any) -> asyncio.CancelledError | None:
     """Keep the CLI-owned scheduler teardown alive through repeated cancel."""
     cleanup_task = asyncio.create_task(scheduler.cleanup())
@@ -348,7 +309,6 @@ async def _await_scheduler_cleanup(scheduler: Any) -> asyncio.CancelledError | N
                 return repeated_cancellation or exc
             if repeated_cancellation is None:
                 repeated_cancellation = exc
-
 
 async def _run(
     workspace: str,
@@ -431,8 +391,6 @@ async def _run(
             _print_hint("session", str(lead.auto_save_path))
 
         one_shot = one_shot_prompt is not None
-        # Holding means staying at the prompt, so a run with no screen to hold
-        # it on has nothing to stay for.
         holding = hold_after_run and has_screen
         one_shot_error = False
 
@@ -448,14 +406,10 @@ async def _run(
             except SchedulerTurnError as exc:
                 failure = exc
             except KeyboardInterrupt:
-                pass  # abandon the turn, return to the prompt
+                pass
             finally:
-                # Only the focused agent's blocks reach scrollback, and a
-                # one-shot run has no "later" in which to Tab back. If the
-                # user wandered off to watch a teammate, flush the tail of
-                # the agent that owes them an answer. The tail, not a focus
-                # switch: a switch reprints in full and would repeat every
-                # row this agent already put on screen.
+                # Flush the answering agent's unprinted tail when focus moved to a teammate.
+                # Switching focus would reprint rows already in scrollback.
                 tui.settle_turn(
                     final_aid=target_aid if one_shot else None
                 )
@@ -474,8 +428,7 @@ async def _run(
                 ):
                     one_shot_error = True
             if not one_shot or holding:
-                # The rule separates turns. A run that ends with this one has
-                # nothing to separate it from.
+                # A final one-shot turn needs no separator.
                 tui.print_turn_divider()
 
         queue = TurnQueue(turn, on_depth=tui.set_queued_turns)
@@ -583,10 +536,8 @@ async def _run(
         raise tracer_failure
     console.print("\n[grey46]─[/grey46] [grey58]session ended.[/grey58]")
 
-
 def main():
     app()
-
 
 if __name__ == "__main__":
     main()

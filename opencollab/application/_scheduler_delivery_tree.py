@@ -1,47 +1,16 @@
-"""Delivery-tree snapshots — which seat was working when a line arrived.
+"""Record agent 0's delivered tree at turn and message boundaries.
 
-What a team run is graded on is one tree: the repository agent 0 was given.
-Teammates work in worktrees of their own (``WorktreePool``, rooted outside the
-repository on purpose), so nothing a teammate writes is in the graded tree
-until agent 0 puts it there. "Who wrote the delivered patch" therefore cannot
-be answered from the per-agent ``worktree_changes`` rows alone: those say what
-each seat produced in its own directory, not what reached the tree that was
-graded.
+Teammate worktree changes reach this tree only after adoption. Serialized
+turn-start snapshots bracket one seat's work, with the final delivered patch
+closing the last interval. Concurrent turns provide approximate attribution.
+Accepted messages also trigger a snapshot, while refused messages do not.
 
-This records the graded tree itself, at the two boundaries a team run has:
+Snapshots retain bounded diff text and mark truncation. Repeated states use
+``unchanged_since`` to reference an earlier row. Failed probes record
+``diff=None`` and ``probe_error`` so failures remain distinct from unchanged
+trees and do not interrupt execution.
 
-* ``turn_start`` — taken inside the turn gate, immediately before a session's
-  ``run_loop``. Under ``serialize_turns`` exactly one seat runs at a time, so
-  consecutive ``turn_start`` snapshots bracket one seat's working period: every
-  line present at turn *n+1* and absent at turn *n* arrived while the seat that
-  held turn *n* was the only one running. The last turn needs no closing
-  snapshot — the delivered patch is that closing snapshot, extracted by the
-  harness. Without ``serialize_turns`` turns overlap and the bracket is only
-  approximate; the flag is recorded by ``_trace_assigned_topology`` so a reader
-  can tell which reading applies.
-* ``message_sent`` — taken when one seat's message to another has been queued.
-  This is the handoff itself, and it is the boundary the "was the work already
-  done before anyone was asked" question is asked at: a workflow that sequences
-  the same three roles probes its tree between the analyze and implement
-  phases, and a message is where a team decides that boundary for itself.
-  A refused message writes no snapshot: nothing crossed.
-
-The snapshot is the tree's *diff text*, not a hash of it, because the quantity
-wanted is per line and a hash cannot be subtracted from another hash. Repeats
-are collapsed: a snapshot whose diff is byte-identical to one already recorded
-stores ``unchanged_since`` and no text, which is the common case (a teammate's
-turn cannot change the graded tree at all, so most turns repeat the previous
-state exactly).
-
-Every read is guarded and a failure is written down rather than raised: this is
-observational, and a run must not fail because a ``git diff`` did not come back.
-A boundary whose probe failed leaves a row with ``diff: None`` and
-``probe_error``, so "the recorder broke" and "the tree did not change" stay
-distinguishable.
-
-Off unless the scheduler was built with a probe, which is how every existing
-caller (the TUI, the CLI, every test) keeps its exact previous behaviour: no
-probe, no git call, no rows.
+Recording is enabled only when the scheduler receives a tree probe.
 """
 
 from __future__ import annotations
@@ -52,11 +21,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# How much of one boundary's diff text is kept. Line-level attribution needs the
-# text, so it is stored; the cap stops one pathological tree from writing
-# megabytes into every run record. ``truncated`` says when it bit.
+# Cap boundary diff text while retaining line attribution and marking truncation.
 DELIVERY_DIFF_SNAPSHOT_CHARS = 20_000
-
 
 def _delivery_diff_files(text: str) -> list[str]:
     """Every path a working-tree diff touches, in diff order, without repeats."""
@@ -67,7 +33,6 @@ def _delivery_diff_files(text: str) -> list[str]:
             if len(parts) == 2 and parts[1] not in paths:
                 paths.append(parts[1])
     return paths
-
 
 class SchedulerDeliveryTreeMixin:
     """Records the graded tree at seat boundaries, when a probe is wired."""
@@ -109,9 +74,7 @@ class SchedulerDeliveryTreeMixin:
         record["sha256"] = digest
         already = self._delivery_tree_shas.get(digest)
         if already is not None:
-            # The tree is in a state already stored in full. Naming that row is
-            # the whole content of this one; repeating the text would multiply
-            # the same diff by the number of turns that did not change it.
+            # Reference the stored tree row instead of repeating unchanged diff text.
             record["unchanged_since"] = already
             self._delivery_tree_snapshots.append(record)
             return
@@ -120,6 +83,5 @@ class SchedulerDeliveryTreeMixin:
         record["diff"] = text[:DELIVERY_DIFF_SNAPSHOT_CHARS]
         record["truncated"] = len(text) > DELIVERY_DIFF_SNAPSHOT_CHARS
         self._delivery_tree_snapshots.append(record)
-
 
 __all__ = ["DELIVERY_DIFF_SNAPSHOT_CHARS", "SchedulerDeliveryTreeMixin"]

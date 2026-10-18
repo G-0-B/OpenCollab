@@ -41,7 +41,6 @@ class MarkerLLM:
         finally:
             self.active -= 1
 
-
 async def _run_collection_workflow(
     workspace, composition, *, call_budget="omitted", workflow_budget=100_000,
     task_concurrency=3, limit_mode="explicit", artifacts=None,
@@ -110,7 +109,6 @@ async def _run_collection_workflow(
     )
     return result, rows, model, contexts[0], observations
 
-
 def _assert_delivery(workspace, execution, expected_count, task_concurrency):
     result, rows, model, ctx, observations = execution
     assert result.status == "completed", result.reason
@@ -136,7 +134,6 @@ def _assert_delivery(workspace, execution, expected_count, task_concurrency):
         assert ctx.budget.remaining() == ctx.budget.total - result.tokens
         assert all(observation["remaining"] >= 0 for observation in observations)
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("call_budget", ["omitted", None])
 @pytest.mark.parametrize("composition", [
@@ -148,7 +145,6 @@ async def test_nested_collections_deliver_all_files_with_uncapped_calls(tmp_path
     execution = await _run_collection_workflow(tmp_path, composition, call_budget=call_budget)
     expected_count = 3 * 2 ** (len(composition) - 1)
     _assert_delivery(tmp_path, execution, expected_count, 3)
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("composition,workflow_budget,call_budget,task_concurrency,unbounded,limit_mode", [
@@ -183,7 +179,6 @@ async def test_collection_budget_controls(
         if isinstance(call_budget, int):
             assert all(row.hard_budget_tokens == call_budget for row in rows)
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("budget", [2_000, 6_000])
 async def test_small_collection_shares_retain_session_budget_stops(tmp_path, budget):
@@ -200,7 +195,6 @@ async def test_small_collection_shares_retain_session_budget_stops(tmp_path, bud
     assert ctx.budget.remaining() == budget - result.tokens
     assert ctx.budget._leases == []
     assert not ctx.pending_cleanup_tasks
-
 
 @pytest.mark.asyncio
 async def test_exhausted_workflow_rejects_nested_work_and_retains_one_escape(tmp_path):

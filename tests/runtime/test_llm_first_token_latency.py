@@ -1,7 +1,6 @@
-"""Per-attempt first-protocol-event timing across provider and trace paths.
+"""First-protocol-event timing across provider and trace paths.
 
-The legacy TTFT fields measure the first chunk or event, which can precede
-text. The explicit semantics field and source describe that sampling point.
+Legacy TTFT fields can measure a chunk or event that precedes text.
 """
 
 from __future__ import annotations
@@ -27,16 +26,9 @@ USAGE = {
     "total_tokens": 111,
 }
 
-# Long enough that a clock with millisecond resolution cannot report it as
-# zero, short enough that the whole file stays under a second.
+# The gap exceeds millisecond clock resolution.
 FIRST_CHUNK_DELAY = 0.05
 TAIL_CHUNK_DELAY = 0.05
-
-
-# ---------------------------------------------------------------------------
-# Fakes: a chat stream with a measurable gap before its first chunk
-# ---------------------------------------------------------------------------
-
 
 def _chunk(**payload: Any) -> ChatCompletionChunk:
     base = {
@@ -49,7 +41,6 @@ def _chunk(**payload: Any) -> ChatCompletionChunk:
     base.update(payload)
     return ChatCompletionChunk.model_validate(base)
 
-
 def _chat_script() -> list[ChatCompletionChunk]:
     return [
         _chunk(choices=[{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}]),
@@ -57,7 +48,6 @@ def _chat_script() -> list[ChatCompletionChunk]:
         _chunk(choices=[{"index": 0, "delta": {}, "finish_reason": "stop"}]),
         _chunk(choices=[], usage=USAGE),
     ]
-
 
 def _completion() -> ChatCompletion:
     return ChatCompletion.model_validate(
@@ -77,14 +67,8 @@ def _completion() -> ChatCompletion:
         }
     )
 
-
 class _FakeStream:
-    """Sleeps before the first chunk, and again before the last one.
-
-    Both gaps matter: the first is what TTFT must see, the second is what makes
-    the call's total latency strictly larger than its TTFT, so a test can tell
-    a real measurement from ``ttft_s = latency_s``.
-    """
+    """Separate first- and last-chunk delays distinguish TTFT from total latency."""
 
     def __init__(self, chunks: list[Any], delays: list[float]):
         self._chunks = iter(chunks)
@@ -106,7 +90,6 @@ class _FakeStream:
     async def close(self):
         self.closed = True
 
-
 class _FakeChatClient:
     """Stands in for ``AsyncOpenAI`` on the chat-completions path."""
 
@@ -124,7 +107,6 @@ class _FakeChatClient:
         delays = [FIRST_CHUNK_DELAY] + [0.0] * (len(script) - 2) + [TAIL_CHUNK_DELAY]
         return _FakeStream(script, delays)
 
-
 def _assert_block_shape(block: Any) -> dict[str, Any]:
     assert isinstance(block, dict), f"expected a transport-timing dict, got {block!r}"
     assert set(block) == set(TRANSPORT_TIMING_KEYS), (
@@ -132,16 +114,7 @@ def _assert_block_shape(block: Any) -> dict[str, Any]:
     )
     return block
 
-
-# ---------------------------------------------------------------------------
-# Which paths can measure TTFT at all
-# ---------------------------------------------------------------------------
-#
-# Every case below goes through ``LLMClient.complete`` rather than a provider
-# function, because that method is what an arm actually calls and what installs
-# the timer. A test that called the provider directly would pass while the
-# production path recorded nothing.
-
+# LLMClient.complete installs the timer used by the production call path.
 
 def _chat_client(*, stream: bool) -> tuple[LLMClient, _FakeChatClient]:
     fake = _FakeChatClient(stream=stream)
@@ -154,7 +127,6 @@ def _chat_client(*, stream: bool) -> tuple[LLMClient, _FakeChatClient]:
     client._openai = fake
     return client, fake
 
-
 def test_streamed_chat_completion_measures_time_to_first_token():
     client, _fake = _chat_client(stream=True)
     response = run(client.complete(MESSAGES))
@@ -165,12 +137,10 @@ def test_streamed_chat_completion_measures_time_to_first_token():
     assert block["ttft_source"] == "chat_stream_first_chunk"
     assert block["streamed"] is True
     assert block["ttft_s"] >= FIRST_CHUNK_DELAY
-    # The tail gap must land outside TTFT, or the number is just the latency
-    # under a new name.
+    # The trailing gap must stay outside time to first token.
     assert block["ttft_s"] < block["attempt_s"]
     assert block["first_token_at"] > block["request_started_at"]
     assert block["attempts"] == 1
-
 
 def test_non_streamed_chat_completion_reports_ttft_as_unmeasured():
     client, _fake = _chat_client(stream=False)
@@ -178,8 +148,6 @@ def test_non_streamed_chat_completion_reports_ttft_as_unmeasured():
 
     block = _assert_block_shape(response.transport_timing)
     assert block["ttft_measured"] is False
-    # Not zero: "the first token arrived instantly" and "nobody watched for it"
-    # must not read the same downstream.
     assert block["ttft_s"] is None
     assert block["ttft_unavailable_reason"] == "response_not_streamed"
     assert block["ttft_source"] is None
@@ -187,7 +155,6 @@ def test_non_streamed_chat_completion_reports_ttft_as_unmeasured():
     assert block["request_started_at"] is not None
     assert block["first_token_at"] is None
     assert block["attempt_s"] >= FIRST_CHUNK_DELAY
-
 
 def test_anthropic_completion_reports_ttft_as_unmeasured():
     class _Messages:
@@ -209,7 +176,6 @@ def test_anthropic_completion_reports_ttft_as_unmeasured():
     assert block["ttft_unavailable_reason"] == "response_not_streamed"
     assert block["streamed"] is False
 
-
 def _responses_output() -> list[dict[str, Any]]:
     return [
         {
@@ -220,7 +186,6 @@ def _responses_output() -> list[dict[str, Any]]:
             "content": [{"type": "output_text", "text": "done", "annotations": []}],
         }
     ]
-
 
 def _completed_responses_object(model: str) -> SimpleNamespace:
     return SimpleNamespace(
@@ -239,7 +204,6 @@ def _completed_responses_object(model: str) -> SimpleNamespace:
         ),
     )
 
-
 def _responses_client(model: str, create) -> LLMClient:
     client = LLMClient(
         model=model,
@@ -251,7 +215,6 @@ def _responses_client(model: str, create) -> LLMClient:
         base_url="http://fake.invalid/v1", responses=SimpleNamespace(create=create),
     )
     return client
-
 
 def test_streamed_responses_call_measures_time_to_first_token():
     model = "gpt-5-fake"
@@ -279,10 +242,8 @@ def test_streamed_responses_call_measures_time_to_first_token():
     assert block["ttft_s"] >= FIRST_CHUNK_DELAY
     assert block["ttft_s"] < block["attempt_s"]
 
-
 def test_responses_model_that_cannot_stream_reports_ttft_as_unmeasured():
-    """``o1-pro`` declares ``supports_responses_streaming=False``, so even on the
-    streaming wire protocol this model's calls have no first-token event."""
+    """o1-pro declares supports_responses_streaming=False and has no first-event sample."""
     model = "o1-pro"
 
     async def create(**_kwargs: Any) -> Any:
@@ -296,11 +257,6 @@ def test_responses_model_that_cannot_stream_reports_ttft_as_unmeasured():
     assert block["ttft_s"] is None
     assert block["ttft_unavailable_reason"] == "response_not_streamed"
     assert block["streamed"] is False
-
-
-# ---------------------------------------------------------------------------
-# The cross-arm contract
-# ---------------------------------------------------------------------------
 
 _SINGLE_BUNDLE = ("apply_patch", "bash", "file_read", "file_write", "grep", "run_tests", "submit")
 _TEAM_WORKING_BUNDLE = (
@@ -327,10 +283,7 @@ _TEAM_TESTER_BUNDLE = (
 _SCRIPTED_TESTER_BUNDLE = ("bash", "file_read", "git_diff", "grep", "run_tests", "submit")
 _READING_ANALYST_BUNDLE = ("bash", "file_read", "grep", "run_tests", "submit")
 
-#: Every seat of every arm the batch driver runs, copied from the alignment
-#: registry's ``role_tool_names`` factor (OpenCollab-Eval
-#: ``experiment/arm_registry.py``). A seat this list omits is a seat this
-#: contract does not cover, so it is enumerated rather than sampled.
+# Enumerate every seat from OpenCollab-Eval experiment/arm_registry.py role_tool_names.
 ARM_SEATS: tuple[tuple[str, str, tuple[str, ...], int], ...] = (
     ("single", "swe_agent", _SINGLE_BUNDLE, 0),
     ("best-of-n", "swe_agent", _SINGLE_BUNDLE, 0),
@@ -347,11 +300,9 @@ ARM_SEATS: tuple[tuple[str, str, tuple[str, ...], int], ...] = (
     ("self-collaboration-reading-analyst", "analyst:adjudicate:r1", _SINGLE_BUNDLE, -1),
 )
 
-
 class _ToolStub:
     def __init__(self, name: str):
         self.name = name
-
 
 def _seat_agent(tool_names: tuple[str, ...]) -> FakeAgent:
     schemas = [
@@ -369,12 +320,10 @@ def _seat_agent(tool_names: tuple[str, ...]) -> FakeAgent:
     agent.tools = [_ToolStub(name) for name in tool_names]
     return agent
 
-
 def _client_over(fake: _FakeChatClient, *, stream: bool) -> LLMClient:
     client = LLMClient(model=MODEL, api_key="unused", base_url="http://fake.invalid/v1", stream_chat=stream)
     client._openai = fake
     return client
-
 
 @pytest.mark.parametrize("stream", [True, False], ids=["streamed", "unstreamed"])
 @pytest.mark.parametrize(
@@ -402,16 +351,11 @@ def test_every_arm_seat_records_transport_timing_on_its_llm_call(
     assert payloads, f"{arm}/{seat} produced no llm_call record"
     for payload in payloads:
         block = _assert_block_shape(payload.get("transport_timing"))
-        # Presence is the contract; measurability is a property of the wire
-        # format, and the record says which of the two it is either way.
         assert block["streamed"] is stream
         assert block["ttft_measured"] is stream
         assert (block["ttft_s"] is not None) is stream
 
-
 def test_transport_timing_never_replaces_an_existing_field():
-    """Readers of six batches of ``metrics.jsonl`` and of the trajectories run
-    on the old keys; this change may only add."""
     tracer = FakeTracer()
     runner = build_runner(
         state=SessionState(messages=[{"role": "system", "content": "sys"}], aid=0),
@@ -429,10 +373,8 @@ def test_transport_timing_never_replaces_an_existing_field():
     assert step["latency"] > 0
     assert step["payload"]["transport_timing"]["ttft_s"] < step["latency"]
 
-
 def test_usage_ledger_row_gains_the_block_and_keeps_every_old_key(tmp_path, monkeypatch):
-    """``api_usage.jsonl`` is read by OpenCollab-Eval's token/cost summary, which
-    keys off ``schema`` and ``usage``. The row may grow, never change shape."""
+    """OpenCollab-Eval reads schema and usage from api_usage.jsonl."""
     log = tmp_path / "api_usage.jsonl"
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(log))
 
@@ -448,10 +390,8 @@ def test_usage_ledger_row_gains_the_block_and_keeps_every_old_key(tmp_path, monk
     assert block["ttft_measured"] is True
     assert block["ttft_s"] < row["latency_s"]
 
-
 def test_a_call_that_never_reached_the_provider_says_so():
-    """``None`` for TTFT has two causes and they are not the same fact: the
-    response was not streamed, or no request was ever issued."""
+    """Unstreamed responses and requests never sent both lack TTFT but have different causes."""
     timer = FirstTokenTimer()
     block = timer.snapshot()
 
@@ -463,7 +403,6 @@ def test_a_call_that_never_reached_the_provider_says_so():
     assert block["request_started_at"] is None
     assert block["attempt_s"] is None
 
-
 def test_a_stream_without_any_event_has_the_correct_unavailable_reason():
     timer = FirstTokenTimer()
     timer.begin_attempt(streamed=True, unavailable_reason=None)
@@ -472,12 +411,10 @@ def test_a_stream_without_any_event_has_the_correct_unavailable_reason():
     assert snapshot["ttft_unavailable_reason"] == "stream_received_no_events"
     assert snapshot["ttft_semantics"] == "first_protocol_event"
 
-
 def test_role_only_chunk_timing_is_explicitly_an_event_measurement():
     response = run(_chat_client(stream=True)[0].complete(MESSAGES))
     assert response.transport_timing["ttft_semantics"] == "first_protocol_event"
     assert response.transport_timing["ttft_source"] == "chat_stream_first_chunk"
-
 
 def test_chat_stream_accepts_none_for_both_wait_timeouts():
     client, _ = _chat_client(stream=True)

@@ -48,7 +48,6 @@ def test_cancelled_emit_returns_while_subscriber_cleanup_is_tracked():
 
     asyncio.run(scenario())
 
-
 def test_event_bus_accepts_callback_returning_an_existing_task():
     bus = EventBus()
     started = asyncio.Event()

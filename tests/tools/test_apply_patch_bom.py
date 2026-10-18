@@ -17,19 +17,16 @@ async def runtime(tmp_path):
     yield ToolRuntime(environment, None, None)
     await environment.cleanup()
 
-
 async def insert(runtime, **params):
     return await ApplyPatchTool().execute_with_runtime({
         "path": "app.py", "mode": "line_replace", "start_line": 1, "end_line": 0,
         "expected_str": "", "new_str": "import os", **params,
     }, runtime)
 
-
 def execute(target):
     return subprocess.run(
         [sys.executable, "-B", str(target)], capture_output=True, text=True,
     )
-
 
 @pytest.mark.parametrize("newline", [b"\n", b"\r\n", b"\r"])
 @pytest.mark.parametrize("terminated", [False, True])
@@ -55,7 +52,6 @@ async def test_first_line_insertion_keeps_python_executable(
     assert target.read_bytes() == prefix + b"import os" + newline + body
     assert target.stat().st_mode & 0o777 == 0o755
 
-
 @pytest.mark.parametrize("prefix", [b"", codecs.BOM_UTF8])
 async def test_insertion_into_empty_body_keeps_the_signature(tmp_path, runtime, prefix):
     target = tmp_path / "app.py"
@@ -69,7 +65,6 @@ async def test_insertion_into_empty_body_keeps_the_signature(tmp_path, runtime, 
     assert after.stdout == "42\n"
     assert target.read_bytes() == prefix + b"print(42)"
 
-
 @pytest.mark.parametrize("body", [b"", b"print(42)\r\n"])
 async def test_empty_insertion_is_rejected_without_moving_the_signature(tmp_path, runtime, body):
     target = tmp_path / "app.py"
@@ -82,7 +77,6 @@ async def test_empty_insertion_is_rejected_without_moving_the_signature(tmp_path
     assert "patch produced no changes" in output
     assert target.read_bytes() == original
     assert target.stat().st_mtime_ns == before.st_mtime_ns
-
 
 @pytest.mark.parametrize("prefix", ["", "\ufeff"])
 @pytest.mark.parametrize("relocate", [False, True])
@@ -104,7 +98,6 @@ async def test_exact_first_line_guard_still_matches_and_replaces_the_signature(
     assert after.returncode == 0, after.stderr
     assert after.stdout == "43\n"
 
-
 @pytest.mark.parametrize("params", [
     {"expected_str": "print(42)"},
     {"end_line": 1, "expected_str": "print(42)"},
@@ -120,7 +113,6 @@ async def test_rejected_bom_edits_preserve_all_bytes(tmp_path, runtime, params):
 
     assert output.startswith("Error applying patch"), output
     assert target.read_bytes() == original
-
 
 async def test_later_insertion_keeps_a_literal_bom_inside_the_body(tmp_path, runtime):
     target = tmp_path / "app.py"

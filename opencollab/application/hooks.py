@@ -1,13 +1,8 @@
-"""HookEventSubscriber — bridges the runtime event bus to the hook runner.
+"""Translate team-bus session and scheduler events into configured hook calls.
 
-Subscribed to the team-level ``EventBus``, it sees every agent's session-runtime
-events (forwarded up from per-session buses) and the scheduler's lifecycle
-events. It translates the internal event vocabulary into the CC-style hook
-event names the user configures, builds a payload, and calls the ``HookPort``.
-
-Observe-only: the runner's ``HookOutcome`` is ignored here (bus delivery is
-fire-and-forget). Blocking hooks live on the synchronous tool-execution path,
-not the bus — see the phase-2 note in the plan.
+``HookEventSubscriber`` builds CC-style hook names and payloads for
+``HookPort``. Bus delivery ignores ``HookOutcome``. Blocking hooks run
+synchronously on the tool-execution path.
 """
 
 from __future__ import annotations
@@ -29,7 +24,6 @@ _TERMINAL_DISPOSITIONS = {
     "agent_failed": "failed",
     "agent_cancelled": "cancelled",
 }
-
 
 class HookEventSubscriber(EventPublisherPort):
     def __init__(self, runner: HookPort):
@@ -53,6 +47,5 @@ class HookEventSubscriber(EventPublisherPort):
         if event.type in {"agent_failed", "agent_cancelled"}:
             return "Stop" if event.data.get("aid") == 0 else "SubagentStop"
         return _DIRECT_EVENT_MAP.get(event.type)
-
 
 __all__ = ["HookEventSubscriber"]

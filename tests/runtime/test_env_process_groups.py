@@ -20,7 +20,6 @@ def _stat(pid=101, group=101, started=123, state=b"Z", name=b"parent") -> bytes:
     fields = [state, b"1", str(group).encode(), *([b"0"] * 16), str(started).encode()]
     return str(pid).encode() + b" (" + name + b") " + b" ".join(fields)
 
-
 def _fake_proc(monkeypatch, entries, stats, *, mountinfo=None, status=None, tasks=None) -> None:
     if mountinfo is None:
         mountinfo = "1 0 0:1 / /proc rw,nosuid - proc proc rw\n"
@@ -73,20 +72,17 @@ def _fake_proc(monkeypatch, entries, stats, *, mountinfo=None, status=None, task
     monkeypatch.setattr(process_module.os, "stat", stat)
     monkeypatch.setattr(process_module, "open", open_proc, raising=False)
 
-
 @pytest.mark.parametrize("state", [b"Z", b"X", b"x"])
 def test_linux_group_with_stable_exited_members_is_quiescent(monkeypatch, state) -> None:
     _fake_proc(monkeypatch, ["self", "101"], {"101": _stat(state=state, name=b"a (b) ) \xff")})
 
     assert process_module._group_exists(101) is False
 
-
 @pytest.mark.parametrize("state", [b"R", b"S", b"D", b"T", b"t", b"I"])
 def test_linux_group_with_active_and_zombie_members_remains_alive(monkeypatch, state) -> None:
     _fake_proc(monkeypatch, ["101", "102"], {"101": _stat(), "102": _stat(102, state=state)})
 
     assert process_module._group_exists(101) is True
-
 
 @pytest.mark.parametrize("changed", ["pid", "started", "group", "state"])
 def test_linux_group_identity_or_state_change_keeps_cleanup_running(monkeypatch, changed) -> None:
@@ -101,7 +97,6 @@ def test_linux_group_identity_or_state_change_keeps_cleanup_running(monkeypatch,
 
     assert process_module._group_exists(101) is True
 
-
 def test_linux_group_scan_catches_child_forked_after_first_enumeration(monkeypatch) -> None:
     entries = iter([["101"], ["101", "102"]])
     _fake_proc(
@@ -112,13 +107,11 @@ def test_linux_group_scan_catches_child_forked_after_first_enumeration(monkeypat
 
     assert process_module._group_exists(101) is True
 
-
 def test_linux_group_new_exited_member_keeps_cleanup_running(monkeypatch) -> None:
     entries = iter([["101"], ["101", "102"]])
     _fake_proc(monkeypatch, lambda: next(entries), {"101": _stat(), "102": _stat(102)})
 
     assert process_module._group_exists(101) is True
-
 
 def test_linux_group_visibility_change_keeps_cleanup_running(monkeypatch) -> None:
     mounts = iter([
@@ -129,7 +122,6 @@ def test_linux_group_visibility_change_keeps_cleanup_running(monkeypatch) -> Non
 
     assert process_module._group_exists(101) is True
 
-
 @pytest.mark.parametrize("error", [PermissionError(), OSError("read failure"), ValueError("invalid stat")])
 @pytest.mark.parametrize("pid", ["101", "202"])
 def test_linux_group_scan_failure_keeps_original_existence_result(monkeypatch, error, pid) -> None:
@@ -137,25 +129,21 @@ def test_linux_group_scan_failure_keeps_original_existence_result(monkeypatch, e
 
     assert process_module._group_exists(101) is True
 
-
 @pytest.mark.parametrize("value", [b"101 (parent) Z 1 101", b"broken", _stat(pid=102)])
 def test_linux_group_incomplete_or_mismatched_stat_keeps_cleanup_running(monkeypatch, value) -> None:
     _fake_proc(monkeypatch, ["101"], {"101": value})
 
     assert process_module._group_exists(101) is True
 
-
 def test_linux_group_with_no_visible_members_remains_alive(monkeypatch) -> None:
     _fake_proc(monkeypatch, ["self"], {})
 
     assert process_module._group_exists(101) is True
 
-
 def test_linux_group_missing_stat_in_existing_directory_remains_unknown(monkeypatch) -> None:
     _fake_proc(monkeypatch, ["101"], {"101": FileNotFoundError()})
 
     assert process_module._group_exists(101) is True
-
 
 def test_linux_group_allows_process_disappearing_during_scan(monkeypatch) -> None:
     _fake_proc(monkeypatch, ["101", "202"], {"101": _stat(), "202": FileNotFoundError()})
@@ -169,7 +157,6 @@ def test_linux_group_allows_process_disappearing_during_scan(monkeypatch) -> Non
     monkeypatch.setattr(process_module.os, "stat", stat)
 
     assert process_module._group_exists(101) is False
-
 
 @pytest.mark.parametrize(
     "mountinfo",
@@ -191,12 +178,10 @@ def test_linux_group_restricted_or_incomplete_mount_keeps_cleanup_running(monkey
 
     assert process_module._group_exists(101) is True
 
-
 def test_linux_group_proc_namespace_mismatch_remains_unknown(monkeypatch) -> None:
     _fake_proc(monkeypatch, ["101"], {"101": _stat(), "self": _stat(os.getpid() + 1, os.getpgrp())})
 
     assert process_module._group_exists(101) is True
-
 
 @pytest.mark.parametrize("status", ["", "NStgid:\t1 1\n", PermissionError(), "NStgid:\tbad\n"])
 def test_linux_group_proc_namespace_hierarchy_must_be_complete(monkeypatch, status) -> None:
@@ -204,13 +189,11 @@ def test_linux_group_proc_namespace_hierarchy_must_be_complete(monkeypatch, stat
 
     assert process_module._group_exists(101) is True
 
-
 def test_linux_group_matching_pids_in_ancestor_namespace_remain_unknown(monkeypatch) -> None:
     pid = os.getpid()
     _fake_proc(monkeypatch, ["101"], {"101": _stat()}, status=f"NStgid:\t{pid} {pid}\n")
 
     assert process_module._group_exists(101) is True
-
 
 @pytest.mark.parametrize("tasks", [[], ["101", "102"], PermissionError(), FileNotFoundError()])
 def test_linux_group_zombie_leader_requires_complete_exited_task_group(monkeypatch, tasks) -> None:
@@ -218,12 +201,10 @@ def test_linux_group_zombie_leader_requires_complete_exited_task_group(monkeypat
 
     assert process_module._group_exists(101) is True
 
-
 def test_linux_group_enumeration_failure_remains_unknown(monkeypatch) -> None:
     _fake_proc(monkeypatch, PermissionError(), {})
 
     assert process_module._group_exists(101) is True
-
 
 @pytest.mark.parametrize("error, exists", [(ProcessLookupError(), False), (PermissionError(), True)])
 def test_group_signal_probe_preserves_lookup_and_permission_results(monkeypatch, error, exists) -> None:
@@ -235,14 +216,12 @@ def test_group_signal_probe_preserves_lookup_and_permission_results(monkeypatch,
 
     assert process_module._group_exists(101) is exists
 
-
 def test_non_linux_group_uses_existing_signal_probe(monkeypatch) -> None:
     monkeypatch.setattr(process_module, "sys", SimpleNamespace(platform="darwin"))
     monkeypatch.setattr(process_module.os, "killpg", lambda _group, _signal: None)
     monkeypatch.setattr(process_module, "_exited_proc_group_members", lambda _group: pytest.fail("unexpected scan"))
 
     assert process_module._group_exists(101) is True
-
 
 _GROUP_SUPERVISOR = textwrap.dedent("""\
     import ctypes
@@ -296,14 +275,12 @@ _GROUP_SUPERVISOR = textwrap.dedent("""\
                 break
 """)
 
-
 async def _wait_until(predicate) -> None:
     for _ in range(500):
         if predicate():
             return
         await asyncio.sleep(0.01)
     raise AssertionError("timed out waiting for controlled process state")
-
 
 @pytest.fixture
 async def linux_group(tmp_path):
@@ -336,13 +313,11 @@ async def linux_group(tmp_path):
             _stdout, stderr = await asyncio.wait_for(supervisor.communicate(), timeout=5)
             assert supervisor.returncode == 0, stderr.decode()
 
-
 async def test_linux_kernel_zombie_group_finishes_cleanup(linux_group) -> None:
     group, _workspace = await linux_group("zombie")
     os.killpg(group, 0)
 
     assert await process_module._wait_for_group_exit(group, timeout=0.1)
-
 
 async def test_linux_kernel_mixed_group_waits_for_active_child(linux_group) -> None:
     group, _workspace = await linux_group("mixed")
@@ -352,7 +327,6 @@ async def test_linux_kernel_mixed_group_waits_for_active_child(linux_group) -> N
     os.killpg(group, signal.SIGKILL)
 
     assert await process_module._wait_for_group_exit(group, timeout=1)
-
 
 async def test_linux_kernel_zombie_leader_with_live_thread_keeps_cleanup_running(linux_group) -> None:
     group, workspace = await linux_group("threaded")
@@ -364,7 +338,6 @@ async def test_linux_kernel_zombie_leader_with_live_thread_keeps_cleanup_running
     process = SimpleNamespace(pid=group, wait=lambda: asyncio.sleep(0))
     assert await process_module.terminate_process(process)
     assert not os.path.exists(f"/proc/{thread_id}")
-
 
 async def test_linux_kernel_fork_between_enumeration_and_stat_keeps_child_visible(linux_group, monkeypatch) -> None:
     group, workspace = await linux_group("fork")
@@ -397,7 +370,6 @@ async def test_linux_kernel_fork_between_enumeration_and_stat_keeps_child_visibl
     process = SimpleNamespace(pid=group, wait=lambda: asyncio.sleep(0))
     assert await process_module.terminate_process(process)
     assert original_stat(str(child))[3] in {b"Z", b"X"}
-
 
 @pytest.mark.skipif(sys.platform != "linux", reason="requires Linux proc and child subreaping")
 async def test_linux_local_environment_continues_after_zombie_descendant_cleanup(tmp_path) -> None:

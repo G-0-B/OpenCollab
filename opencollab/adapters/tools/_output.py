@@ -1,9 +1,6 @@
-"""Shared output truncation for tool results.
+"""Shared head-and-tail truncation for tool output.
 
-Several tools (bash, git_diff) bound their stdout/stderr so one huge
-result can't blow up the model's context. They all keep a head + tail and drop
-the middle; this is the single copy of that rule. ``label`` names the truncated
-stream in the marker when given (e.g. ``stdout``).
+An optional ``label`` identifies the truncated stream in the marker.
 """
 
 from __future__ import annotations
@@ -14,7 +11,6 @@ def require_positive_int(value: int, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ValueError(f"{name} must be a positive integer")
     return value
-
 
 def truncate(text: str, max_chars: int, label: str | None = None) -> str:
     """Keep head + tail, drop the middle to avoid context explosion."""
@@ -41,6 +37,5 @@ def truncate(text: str, max_chars: int, label: str | None = None) -> str:
     result = text[:head] + marker + suffix
     assert len(result) <= max_chars
     return result
-
 
 __all__ = ["require_positive_int", "truncate"]

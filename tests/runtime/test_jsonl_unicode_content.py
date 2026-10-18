@@ -33,7 +33,6 @@ def test_autosave_restores_unicode_string_content(tmp_path, separator):
     session.save(path)
     assert SessionStore().load_snapshot(path, "system")["messages"][-1]["content"] == content
 
-
 @pytest.mark.parametrize("separator", ["\u2028", "\u2029", "\u0085", "\n", "\r", "\t"])
 @pytest.mark.parametrize("record_separator", ["\n", "\r\n"])
 def test_legacy_jsonl_restores_only_lf_delimited_records(tmp_path, separator, record_separator):

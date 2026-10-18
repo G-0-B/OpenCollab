@@ -54,7 +54,6 @@ def test_real_cli_prints_partial_output_once(monkeypatch, tmp_path, variant):
         assert result.exit_code == 1
         assert "offline followup failure" in result.output
 
-
 @pytest.mark.parametrize("event", ["tool_start", "error"])
 def test_settle_remembers_text_flushed_by_events_and_resets_for_next_turn(event):
     tui = TUI(Console(file=StringIO(), width=100, color_system=None))
@@ -70,7 +69,6 @@ def test_settle_remembers_text_flushed_by_events_and_resets_for_next_turn(event)
     tui.start_turn(0)
     tui.settle_turn()
     assert tui.drained_partial_answer(0) is False
-
 
 def test_hidden_text_flushed_by_tool_still_needs_salvage_until_printed():
     tui = TUI(Console(file=StringIO(), width=100, color_system=None))

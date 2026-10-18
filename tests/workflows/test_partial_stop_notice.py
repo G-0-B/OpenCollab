@@ -20,7 +20,6 @@ class RetainedEnvironment:
         self.recovery_location = "/tmp/retained-worktree"
         return self.recovery_location
 
-
 def _stopped_sender(scheduler):
     session = ScriptedSession("coder", [])
     session.state.aid = 1
@@ -30,7 +29,6 @@ def _stopped_sender(scheduler):
     scheduler._sessions[1] = session
     scheduler._unanswered[1] = {0: "request-1"}
     return session
-
 
 @pytest.mark.parametrize("partial", ["a" * 10000, "\u4e2d\u6587" * 2000, "<&>" * 1500])
 async def test_notice_retains_work_when_xml_or_utf8_exceeds_message_limit(partial):
@@ -50,7 +48,6 @@ async def test_notice_retains_work_when_xml_or_utf8_exceeds_message_limit(partia
     finally:
         blocker.cancel()
         await asyncio.gather(blocker, return_exceptions=True)
-
 
 async def test_full_inbox_retains_work_and_retries_with_recovery_location():
     lead = ScriptedSession("lead", [])

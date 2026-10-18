@@ -27,7 +27,6 @@ _PREFIX_ERROR = (
     'thinking.block_binding.prefix_mismatch_behavior to "drop_block".'
 )
 
-
 class _RejectingProvider(_BoundThinkingProvider):
     def __init__(self):
         super().__init__(reads=2)
@@ -45,14 +44,12 @@ class _RejectingProvider(_BoundThinkingProvider):
             }})
         return super().__call__(request)
 
-
 @pytest.fixture(autouse=True)
 def _local_usage(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(tmp_path / "usage.jsonl"))
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
     (tmp_path / "source.txt").write_text("original tool evidence\n")
-
 
 async def _snapshot(tmp_path, client, *, with_native_view=False):
     session = build_session(agent=_agent(), llm=client, env=LocalEnvironment(str(tmp_path)),
@@ -69,7 +66,6 @@ async def _snapshot(tmp_path, client, *, with_native_view=False):
         return path, copy.deepcopy(session.messages)
     finally:
         await session.aclose()
-
 
 @pytest.mark.parametrize("with_native_view", [False, True], ids=["legacy", "saved-after-old-failure"])
 async def test_rejected_old_history_recovers_once_and_stays_recovered(monkeypatch, tmp_path, with_native_view):
@@ -128,7 +124,6 @@ async def test_rejected_old_history_recovers_once_and_stays_recovered(monkeypatc
     assert usage_events[0].data["total_tokens"] == 140
     assert peer.retired == {f"{kind}-{number}" for kind in ("signed", "redacted") for number in range(1, 4)}
 
-
 async def test_valid_legacy_snapshot_keeps_all_native_thinking(monkeypatch, tmp_path):
     peer = _RejectingProvider()
     install_sdk_transport(monkeypatch, "anthropic", peer)
@@ -147,7 +142,6 @@ async def test_valid_legacy_snapshot_keeps_all_native_thinking(monkeypatch, tmp_
         finally:
             await session.aclose()
     assert not any(step["step_type"] == "thinking_prefix_recovery" for step in tracer.steps)
-
 
 @pytest.mark.parametrize("status,kind,message", [
     (400, "invalid_request_error", "messages.1.content.0: Invalid `signature` in `thinking` block"),
@@ -176,7 +170,6 @@ async def test_other_provider_errors_keep_their_original_failure(monkeypatch, tm
         finally:
             await session.aclose()
 
-
 async def test_recovery_failure_propagates_after_the_single_retry(monkeypatch, tmp_path):
     peer = _RejectingProvider()
     install_sdk_transport(monkeypatch, "anthropic", peer)
@@ -196,7 +189,6 @@ async def test_recovery_failure_propagates_after_the_single_retry(monkeypatch, t
         finally:
             await session.aclose()
 
-
 async def test_prefix_error_without_replayed_thinking_keeps_the_original_failure(monkeypatch, tmp_path):
     peer = _RejectingProvider()
     peer.failure = (400, "invalid_request_error", _PREFIX_ERROR)
@@ -213,7 +205,6 @@ async def test_prefix_error_without_replayed_thinking_keeps_the_original_failure
         finally:
             await session.aclose()
     assert not any(step["step_type"] == "thinking_prefix_recovery" for step in tracer.steps)
-
 
 @pytest.mark.parametrize("model,provider,wire_protocol", [
     ("claude-sonnet-4-6", "anthropic", "chat_completions"),

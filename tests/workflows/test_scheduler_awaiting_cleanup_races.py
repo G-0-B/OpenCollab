@@ -127,7 +127,6 @@ def test_cleanup_is_bounded_when_worktree_release_ignores_cancellation():
 
     run(scenario())
 
-
 def test_cleanup_does_not_release_pool_while_session_owned_task_survives():
     class ResistantCleanupSession(ScriptedSession):
         def __init__(self):
@@ -182,7 +181,6 @@ def test_cleanup_does_not_release_pool_while_session_owned_task_survives():
 
     run(scenario())
 
-
 @pytest.mark.parametrize("target_aid", [0, 1, 2])
 def test_cleanup_finalizes_the_actual_active_public_turn_owner(target_aid):
     started = asyncio.Event()
@@ -234,7 +232,6 @@ def test_cleanup_finalizes_the_actual_active_public_turn_owner(target_aid):
     if target_aid:
         assert lead.state.phase is SessionPhase.IDLE
 
-
 def test_cleanup_surfaces_synchronous_worktree_release_failure():
     error = OSError("pool release failed")
 
@@ -258,7 +255,6 @@ def test_cleanup_surfaces_synchronous_worktree_release_failure():
         assert "worktree pool" in str(caught.value)
 
     run(scenario())
-
 
 def test_cleanup_retries_transient_failure_then_caches_success():
     class FlakyReleasePool:
@@ -291,7 +287,6 @@ def test_cleanup_retries_transient_failure_then_caches_success():
         assert pool.release_calls == 2
 
     run(scenario())
-
 
 def test_concurrent_cleanup_callers_share_the_inflight_attempt():
     class GatedReleasePool:
@@ -328,7 +323,6 @@ def test_concurrent_cleanup_callers_share_the_inflight_attempt():
         assert pool.release_calls == 1
 
     run(scenario())
-
 
 def test_cleanup_surfaces_environment_abort_failure():
     class FailingAbortEnv:

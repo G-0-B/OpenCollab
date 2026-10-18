@@ -1,9 +1,4 @@
-"""Contract checks for the file-touching tools: read, write and apply_patch.
-
-Split out of ``test_tool_runtime_contract.py``. These cover the read and write
-paths through ``ToolRuntime`` plus the host write lock, which must only be
-taken when the I/O really lands on the host filesystem.
-"""
+"""File-tool runtime checks include host locks only for host filesystem writes."""
 
 from __future__ import annotations
 
@@ -21,10 +16,6 @@ from opencollab.adapters.tools.apply_patch import ApplyPatchTool
 from opencollab.adapters.tools.fs import FileReadTool, FileWriteTool
 from opencollab.application.tool_execution import ToolRuntime
 from tests.support.tool_runtime_test_support import FakeRemoteEnv, FalseyFakeEnv, SpyLock, run
-
-# ---------------------------------------------------------------------------
-# FileReadTool
-# ---------------------------------------------------------------------------
 
 
 def test_file_read_reads_through_runtime(tmp_path):
@@ -47,7 +38,6 @@ def test_file_read_reads_through_runtime(tmp_path):
     assert "2\tbeta" in result
     assert "1\talpha" not in result
 
-
 def test_file_read_small_range_bypasses_full_file_limit(tmp_path):
     target = tmp_path / "large.txt"
     target.write_bytes(b"first\nsecond\n" + b"x" * (5 * 1024 * 1024))
@@ -68,7 +58,6 @@ def test_file_read_small_range_bypasses_full_file_limit(tmp_path):
     assert "2\tsecond" in result
     assert "more lines below" in result
 
-
 def test_file_read_preserves_workspace_path_jail(tmp_path):
     workspace = tmp_path / "ws"
     workspace.mkdir()
@@ -79,14 +68,12 @@ def test_file_read_preserves_workspace_path_jail(tmp_path):
     with pytest.raises(PermissionError):
         run(FileReadTool().execute_with_runtime({"path": "/etc/passwd"}, runtime))
 
-
 def test_file_read_requires_environment():
     runtime = ToolRuntime(environment=None, safety_policy=None, permission_policy=None)
 
     result = run(FileReadTool().execute_with_runtime({"path": "missing.txt"}, runtime))
 
     assert result == "Error: no execution environment available."
-
 
 def test_file_read_accepts_falsey_environment():
     env = FalseyFakeEnv()
@@ -96,7 +83,6 @@ def test_file_read_accepts_falsey_environment():
 
     assert "contents" in result
 
-
 def test_file_read_preserves_file_not_found(tmp_path):
     env = LocalEnvironment(str(tmp_path))
     runtime = ToolRuntime(environment=env, safety_policy=None, permission_policy=None)
@@ -104,7 +90,6 @@ def test_file_read_preserves_file_not_found(tmp_path):
     result = run(FileReadTool().execute_with_runtime({"path": "missing.txt"}, runtime))
 
     assert result == "Error: file not found: missing.txt"
-
 
 def test_file_read_preserves_permission_error_string(monkeypatch, tmp_path):
     async def raise_permission_error(*args, **kwargs):
@@ -118,23 +103,12 @@ def test_file_read_preserves_permission_error_string(monkeypatch, tmp_path):
 
     assert result == "Error: denied"
 
-
 def test_file_read_description_teaches_distill_and_forbids_reread():
-    # The file_read description is the UNIVERSAL carrier of the anti-thrash rule:
-    # every workflow/team that has the tool sees it, regardless of its prompt. Pins
-    # the rule (distill into notes; trust the cleared stub; don't re-read to
-    # reconfirm) motivated by a 90-read/0-write/step-cap stall.
+    # Every file_read user receives the same guidance against repeated reads.
     desc = FileReadTool.description
     assert "Distill as you read" in desc
-    assert "empty reply" in desc  # forbids bare tool-call turns
-    assert "re-read" in desc      # trust the stub instead
-
-
-
-# ---------------------------------------------------------------------------
-# FileWriteTool
-# ---------------------------------------------------------------------------
-
+    assert "empty reply" in desc
+    assert "re-read" in desc
 
 def test_file_write_create_and_str_replace(tmp_path):
     workspace = tmp_path / "ws"
@@ -160,7 +134,6 @@ def test_file_write_create_and_str_replace(tmp_path):
     assert "Replaced in" in replace_result
     assert (workspace / "note.txt").read_text(encoding="utf-8") == "beta\n"
 
-
 @pytest.mark.parametrize("existing", [False, True])
 def test_file_write_create_requires_explicit_content(tmp_path, existing):
     target = tmp_path / "note.txt"
@@ -181,7 +154,6 @@ def test_file_write_create_requires_explicit_content(tmp_path, existing):
     if existing:
         assert target.read_text(encoding="utf-8") == "KEEP"
 
-
 def test_file_write_create_allows_explicit_empty_content(tmp_path):
     env = LocalEnvironment(str(tmp_path))
     runtime = ToolRuntime(environment=env, safety_policy=None, permission_policy=None)
@@ -195,7 +167,6 @@ def test_file_write_create_allows_explicit_empty_content(tmp_path):
 
     assert "Created/wrote" in result
     assert (tmp_path / "empty.txt").read_text(encoding="utf-8") == ""
-
 
 def test_file_write_preserves_workspace_path_jail(tmp_path):
     workspace = tmp_path / "ws"
@@ -212,7 +183,6 @@ def test_file_write_preserves_workspace_path_jail(tmp_path):
             )
         )
 
-
 def test_file_write_requires_environment():
     runtime = ToolRuntime(environment=None, safety_policy=None, permission_policy=None)
 
@@ -224,7 +194,6 @@ def test_file_write_requires_environment():
     )
 
     assert result == "Error: no execution environment available."
-
 
 def test_file_write_preserves_missing_old_str(tmp_path):
     target = tmp_path / "note.txt"
@@ -240,7 +209,6 @@ def test_file_write_preserves_missing_old_str(tmp_path):
     )
 
     assert result == "Error: old_str is required for str_replace mode."
-
 
 def test_file_write_preserves_duplicate_old_str_error(tmp_path):
     target = tmp_path / "note.txt"
@@ -259,7 +227,6 @@ def test_file_write_preserves_duplicate_old_str_error(tmp_path):
         result
         == "Error: old_str found 2 times in note.txt. Provide more context to make it unique."
     )
-
 
 def test_file_write_rejects_overlapping_old_str_matches(tmp_path):
     target = tmp_path / "note.txt"
@@ -280,12 +247,6 @@ def test_file_write_rejects_overlapping_old_str_matches(tmp_path):
     )
     assert target.read_text(encoding="utf-8") == "aaa"
 
-
-# ---------------------------------------------------------------------------
-# Host write lock — only taken when I/O hits the host filesystem
-# ---------------------------------------------------------------------------
-
-
 def test_file_write_remote_env_takes_no_host_lock(monkeypatch):
     SpyLock.instances = []
     monkeypatch.setattr(base, "FileLock", SpyLock)
@@ -302,7 +263,6 @@ def test_file_write_remote_env_takes_no_host_lock(monkeypatch):
     assert "Replaced in" in result
     assert env.files["note.txt"] == "beta\n"
     assert SpyLock.instances == []
-
 
 def test_apply_patch_remote_env_takes_no_host_lock(monkeypatch):
     SpyLock.instances = []
@@ -327,7 +287,6 @@ def test_apply_patch_remote_env_takes_no_host_lock(monkeypatch):
     assert env.files["f.py"] == "a\nB\nc\nd\n"
     assert SpyLock.instances == []
 
-
 def test_host_write_lock_files_live_outside_target_workspace(tmp_path):
     env = LocalEnvironment(str(tmp_path))
     lock_path = Path(base._host_lock_path("x.txt", env))
@@ -342,7 +301,6 @@ def test_host_write_lock_files_live_outside_target_workspace(tmp_path):
     assert tmp_path not in lock_path.parents
     assert list(tmp_path.rglob("*.lock")) == []
 
-
 class SlowLocalWriteEnv(FakeRemoteEnv):
     local_filesystem = True
     workspace = "/virtual/workspace"
@@ -354,7 +312,6 @@ class SlowLocalWriteEnv(FakeRemoteEnv):
     async def write_file(self, path: str, content: str) -> None:
         await asyncio.sleep(0.05)
         await super().write_file(path, content)
-
 
 def test_concurrent_host_writes_do_not_block_event_loop_on_lock():
     env = SlowLocalWriteEnv({"note.txt": "initial"})
@@ -391,7 +348,6 @@ def test_concurrent_host_writes_do_not_block_event_loop_on_lock():
 
     assert time.monotonic() - started < 1.0
     assert env.files["note.txt"] in {"first", "second"}
-
 
 def test_host_write_lock_never_pollutes_git_diff(tmp_path):
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)

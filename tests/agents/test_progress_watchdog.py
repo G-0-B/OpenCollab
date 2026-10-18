@@ -1,23 +1,6 @@
-"""STEP 3 — progress watchdog + anti-windup tool-removal actuator + low-yield brake.
+"""Progress watchdog and low-yield triggers share the wind-down actuator.
 
-Two additional triggers into the SAME forced-commit actuator (``_enter_wind_down``)
-the budget-threshold wind-down uses, so a scout that spins WHILE BUDGET IS STILL
-PLENTIFUL is force-committed instead of grepping to the cap. Both key strictly on
-the STEP-1 information-gain sensor via the DISTINCT brake gate (``_brake_on``),
-never on ``has_write``.
-
-* T1 (WATCHDOG) — ``steps_since_progress >= K`` with budget remaining routes the
-  scout through ``_enter_wind_down``: tools are physically narrowed to submit-only
-  (the non-degradable actuator), ``tool_choice`` is forced to the submit function,
-  and a committed turn reaches terminus "forced".
-* T2 (LOW-YIELD BRAKE + off==reference) — ``low_yield_since_progress >= M`` trips
-  the same actuator; AND with enforcement OFF neither brake fires even with the
-  counters pinned high (no watchdog/brake, no extra control flow) — byte-for-byte
-  the reference behavior.
-
-Plus: the ``steps_since_progress`` counter increments per no-progress STEP and
-resets on a hit/write; the red-team pending-result gate blocks a brake while a
-tool result is still un-ingested.
+Pending tool results defer the brake until the session ingests them.
 """
 
 from __future__ import annotations
@@ -72,33 +55,19 @@ def _captured():
         "insufficient_evidence": False,
     }
 
-
 _FORCED_SUBMIT_CHOICE = {"type": "function", "function": {"name": SUBMIT_TOOL_NAME}}
-
-
-# --------------------------------------------------------------------------- #
-# Knob sanity.
-# --------------------------------------------------------------------------- #
-
 
 def test_default_knobs():
     assert DEFAULT_WATCHDOG_K == 4
     assert DEFAULT_LOW_YIELD_M == 3
 
-
-# --------------------------------------------------------------------------- #
-# T1 — WATCHDOG: spin with budget remaining -> forced commit via _enter_wind_down.
-# --------------------------------------------------------------------------- #
-
-
 def test_t1_watchdog_trips_with_budget_remaining_and_forces_commit():
-    # Budget is PLENTIFUL (1k of 100k used, threshold 75k far away) so ONLY the
-    # watchdog can trip — the real pathology of spinning while budget is plentiful.
+    # Budget stays below the wind-down threshold so only the watchdog can trip.
     capture_done = asyncio.Event()
     submit = SubmitFindingsTool(on_capture=capture_done.set)
     agent = Agent(name="scout", system_prompt="s", tools=[_ReadStub(), submit])
     state = SessionState(messages=[{"role": "user", "content": "investigate"}], used_tokens=1_000)
-    state.turn.steps_since_progress = DEFAULT_WATCHDOG_K  # K no-progress steps
+    state.turn.steps_since_progress = DEFAULT_WATCHDOG_K
     llm = FakeLLM(
         [llm_response(tool_calls=[tool_call(arguments=json.dumps(_captured()))], finish_reason="tool_calls")]
     )
@@ -114,24 +83,20 @@ def test_t1_watchdog_trips_with_budget_remaining_and_forces_commit():
 
     run(runner.run_loop(capture_done))
 
-    # The watchdog routed THROUGH the forced-commit actuator even with budget left.
     assert state.wind_down_done is True
-    assert state.used_tokens < 75_000  # budget genuinely was remaining when it tripped
-    # Physical tool-removal actuator: toolset narrowed to submit-only + forced choice.
+    assert state.used_tokens < 75_000
     assert [t.name for t in agent.tools] == [SUBMIT_TOOL_NAME]
     assert agent.tool_choice == _FORCED_SUBMIT_CHOICE
     assert llm.calls[0]["tool_choice"] == _FORCED_SUBMIT_CHOICE
     assert len(llm.calls) == 1
     assert submit.captured is not None
     assert state.phase.is_terminal()
-    # Terminus is reachable as "forced".
     payload = commitment_terminus_payload(
         role="scout:0", captured=submit.captured, wind_down_done=state.wind_down_done,
         used_tokens=state.used_tokens, max_budget_tokens=100_000,
         wind_down_token_mark=state.wind_down_token_mark, artifact="x",
     )
     assert payload["terminus"] == "forced"
-
 
 def test_watchdog_trips_after_three_malformed_tool_steps():
     capture_done = asyncio.Event()
@@ -187,7 +152,6 @@ def test_watchdog_trips_after_three_malformed_tool_steps():
     assert state.wind_down_done is True
     assert submit.captured is not None
 
-
 def test_t1_watchdog_just_below_k_does_not_trip():
     # K-1 no-progress steps must NOT brake (off-by-one guard).
     agent = _agent_with_submit()
@@ -202,18 +166,12 @@ def test_t1_watchdog_just_below_k_does_not_trip():
     assert state.wind_down_done is False
     assert [t.name for t in agent.tools] == ["file_read", SUBMIT_TOOL_NAME]
 
-
-# --------------------------------------------------------------------------- #
-# T2 — LOW-YIELD BRAKE + off==reference parity.
-# --------------------------------------------------------------------------- #
-
-
 def test_t2_low_yield_brake_trips_at_m_and_forces_commit():
     capture_done = asyncio.Event()
     submit = SubmitFindingsTool(on_capture=capture_done.set)
     agent = Agent(name="scout", system_prompt="s", tools=[_ReadStub(), submit])
     state = SessionState(messages=[{"role": "user", "content": "investigate"}], used_tokens=2_000)
-    state.turn.low_yield_since_progress = DEFAULT_LOW_YIELD_M  # M low-yield results
+    state.turn.low_yield_since_progress = DEFAULT_LOW_YIELD_M
     llm = FakeLLM(
         [llm_response(tool_calls=[tool_call(arguments=json.dumps(_captured()))], finish_reason="tool_calls")]
     )
@@ -230,17 +188,14 @@ def test_t2_low_yield_brake_trips_at_m_and_forces_commit():
     run(runner.run_loop(capture_done))
 
     assert state.wind_down_done is True
-    assert state.used_tokens < 75_000  # budget remaining
+    assert state.used_tokens < 75_000
     assert [t.name for t in agent.tools] == [SUBMIT_TOOL_NAME]
     assert agent.tool_choice == _FORCED_SUBMIT_CHOICE
     assert submit.captured is not None
     assert state.phase.is_terminal()
 
-
 def test_t2_off_pinned_counters_never_brake_reference_behavior():
-    # off==reference: enforcement OFF + BOTH sensor counters pinned absurdly high
-    # must behave exactly as today — no wind-down, tools untouched, the model runs
-    # its normal turn and finishes DONE on its plain-text answer.
+    # Disabled enforcement must ignore both progress counters.
     agent = _agent_with_submit()
     state = SessionState(messages=[{"role": "user", "content": "investigate"}], used_tokens=2_000)
     state.turn.steps_since_progress = 99
@@ -259,18 +214,11 @@ def test_t2_off_pinned_counters_never_brake_reference_behavior():
 
     assert result == "here is my answer"
     assert state.phase is SessionPhase.DONE
-    # No brake: wind-down never touched, toolset unchanged, no forced tool_choice.
     assert state.wind_down_done is False
     assert [t.name for t in agent.tools] == ["file_read", SUBMIT_TOOL_NAME]
     assert agent.tool_choice is None
     assert llm.calls[0]["tool_choice"] is None
     assert len(llm.calls) == 1
-
-
-# --------------------------------------------------------------------------- #
-# Red-team gate: never brake while a tool result is still un-ingested.
-# --------------------------------------------------------------------------- #
-
 
 def test_watchdog_not_entered_while_a_tool_result_is_pending():
     from opencollab.domain.pending import PendingRow, RowKind, RowStatus
@@ -288,21 +236,11 @@ def test_watchdog_not_entered_while_a_tool_result_is_pending():
         max_budget_tokens=100_000, commit_reserve=25_000, enforcement_strength=ENFORCEMENT_ON,
     )
     run(runner.run_loop())
-    # Pending row blocks the brake -> no wind-down, tools untouched.
     assert state.wind_down_done is False
     assert [t.name for t in agent.tools] == ["file_read", SUBMIT_TOOL_NAME]
 
-
-# --------------------------------------------------------------------------- #
-# Anti-windup: a forced turn the scout ignores escalates and latches.
-# --------------------------------------------------------------------------- #
-
-
 def test_watchdog_forced_turn_ignored_escalates_once_then_commits():
-    # Watchdog fires (budget plentiful); the scout IGNORES the forced tool_choice
-    # and calls a now-unknown tool on the forced turn. The actuator escalates with
-    # exactly ONE retry (submit-only stays enforced); the scout then commits on the
-    # retry -> terminus "forced".
+    # The scout ignores the forced tool choice once, then commits on the sole retry.
     capture_done = asyncio.Event()
     submit = SubmitFindingsTool(on_capture=capture_done.set)
     agent = Agent(name="scout", system_prompt="s", tools=[_ReadStub(), submit])
@@ -329,18 +267,11 @@ def test_watchdog_forced_turn_ignored_escalates_once_then_commits():
 
     run(runner.run_loop(capture_done))
 
-    assert len(llm.calls) == 2  # forced turn + exactly one retry
-    # Tool-removal stayed enforced across the retry (the terminal, non-degradable rung).
+    assert len(llm.calls) == 2
     assert [t.name for t in agent.tools] == [SUBMIT_TOOL_NAME]
     assert llm.calls[0]["tool_choice"] == _FORCED_SUBMIT_CHOICE
     assert llm.calls[1]["tool_choice"] == _FORCED_SUBMIT_CHOICE
     assert submit.captured is not None
-
-
-# --------------------------------------------------------------------------- #
-# steps_since_progress counter: per-STEP, resets on hit/write.
-# --------------------------------------------------------------------------- #
-
 
 class ScriptedTool:
     def __init__(self, name, outputs):
@@ -350,11 +281,9 @@ class ScriptedTool:
     async def execute_with_runtime(self, args, runtime):
         return self._outputs.pop(0) if self._outputs else ""
 
-
 def _run_one(state, tool, name, args):
     call = {"id": "c1", "function": {"name": name, "arguments": args}}
     run(_use_case(state, tool).process([call])).apply_to(state)
-
 
 def test_steps_since_progress_resets_on_user_turn():
     state = SessionState(messages=[])

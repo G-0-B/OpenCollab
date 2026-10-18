@@ -31,7 +31,6 @@ def _positive_int(value: object, name: str) -> int:
         raise ValueError(f"{name} must be a positive integer")
     return value
 
-
 def _positive_timeout(value: object, name: str) -> float | None:
     if value is None:
         return None
@@ -42,13 +41,11 @@ def _positive_timeout(value: object, name: str) -> float | None:
         raise ValueError(f"{name} must be a positive finite number")
     return parsed
 
-
 def _required_positive_timeout(value: object, name: str) -> float:
     parsed = _positive_timeout(value, name)
     if parsed is None:
         raise ValueError(f"{name} must be a positive finite number")
     return parsed
-
 
 def _unbounded_limits_requested() -> bool:
     value = os.environ.get("OPENCOLLAB_UNBOUNDED_LIMITS", "").strip().lower()
@@ -58,17 +55,14 @@ def _unbounded_limits_requested() -> bool:
         return True
     raise ValueError("OPENCOLLAB_UNBOUNDED_LIMITS must be true or false")
 
-
 def _non_empty(value: object, name: str) -> str:
     if not isinstance(value, str) or not value.strip() or "\x00" in value:
         raise ValueError(f"{name} must be non-empty text")
     return value
 
-
 def _optional_run_id(value: object) -> str | None:
     """A caller-chosen run id, written to every file the run leaves."""
     return None if value is None else _non_empty(value, "run_id")
-
 
 def _path(value: str | os.PathLike[str] | None, name: str) -> Path | None:
     if value is None:
@@ -77,7 +71,6 @@ def _path(value: str | os.PathLike[str] | None, name: str) -> Path | None:
     if not parsed or "\x00" in parsed:
         raise ValueError(f"{name} must be a valid filesystem path")
     return Path(parsed).resolve()
-
 
 def _public_agent_failure(item: dict[str, Any]) -> dict[str, Any]:
     record = {key: item.get(key) for key in (
@@ -97,7 +90,6 @@ def _public_agent_failure(item: dict[str, Any]) -> dict[str, Any]:
             record["exception_chain"] = nodes
     return record
 
-
 def _public_result(result: ProgrammaticResult) -> RunResult[Any]:
     agent_failures = tuple(_public_agent_failure(item) for item in result.agent_failures)
     return RunResult(
@@ -110,7 +102,6 @@ def _public_result(result: ProgrammaticResult) -> RunResult[Any]:
         metrics=dict(result.metrics),
         agent_failures=agent_failures,
     )
-
 
 class OpenCollab:
     """Resolve configuration once, then run agents, teams, or workflows."""
@@ -328,53 +319,26 @@ class OpenCollab:
     ) -> RunResult[str]:
         """Run one scheduler-controlled team turn.
 
-        ``prebuild_team`` seats every role the team config declares before the
-        first model call and refuses ``spawn_agent`` thereafter, so the roster
-        is an input to the run instead of something the model decides mid-run.
+        ``prebuild_team`` seats all declared roles before the first model call and
+        refuses later spawns. ``max_steps`` applies the same ceiling to every seat.
+        A client-supplied environment hosts agent 0 and isolated teammate views when
+        ``use_worktrees`` is enabled.
 
-        ``allow_unisolated_shell`` says whether an agent seated at the start may
-        execute commands the OS does not sandbox. It is *not* the same question
-        as "is a human present": an SDK run never has one, so no agent here is
-        ever given ``ask_user``, but an unattended experiment may still need its
-        agents to run ``git`` in their worktrees. ``None`` leaves the shell
-        answer where it has always been for an SDK run — off.
+        ``allow_unisolated_shell`` permits unsandboxed commands for initial seats. None
+        leaves that permission off for SDK runs. SDK agents have no ask-user tool.
 
-        ``max_steps`` is the step ceiling every seat gets, entry agent and
-        teammates alike. A comparison between a team and a solo agent can hold
-        their tokens equal or their steps equal but not both, and this run holds
-        tokens; the ceiling is only here to stop a runaway, so set it above what
-        the token budget can pay for and read the realized step counts out of
-        the trajectory.
+        ``serialize_turns`` runs one seat at a time while retaining all communication
+        edges. A parent waiting for spawn_with_review yields to its children before
+        resuming. The setting is recorded under assigned.topology_nodes.
 
-        An environment given to the client is where this team works: agent 0
-        runs in it, and with ``use_worktrees`` each teammate gets an isolated
-        view of the same place. That is how a team is run against a repository
-        that exists only inside a container -- the case the evaluation harness
-        creates, where the repository cannot be exposed to the host at all.
+        ``budget`` supplies the shared token pool. Per-role ``budget.tokens`` in a
+        team configuration instead defines independent allowances and their total.
+        Combining those allowances with an explicit budget raises ValueError.
 
-        ``serialize_turns`` holds the team to one turn at a time: a teammate a
-        message wakes waits for the running turn to finish instead of running
-        beside it. It changes only *when* an agent runs — every declared edge
-        stays open and ``message_agent`` stays voluntary, so whether the agents
-        hand work to each other is still theirs to decide. A parent waiting for
-        ``spawn_with_review`` yields execution to its coder and reviewer, then
-        resumes after their work. Off by default. The
-        run records which way it was set, under
-        ``assigned.topology_nodes.turns_serialized``.
-
-        ``budget`` is the team's shared token pool. A team file that declares
-        per-role allowances (``budget.tokens``) sets the budget itself — each
-        agent is held to its own allowance and the total is their sum — so
-        passing ``budget`` with such a file raises ``ValueError``.
-
-        ``record_delivery_tree`` returns ``metrics["tree_snapshots"]``: the diff
-        of the tree this run is graded on — agent 0's — taken before every turn
-        and at every teammate message that was queued. Two consecutive rows
-        bracket one seat's working period, so a line in the delivered patch can
-        be attributed to the seat that was working when it arrived, and the row
-        at the first message answers what had already been done before anyone
-        was asked. Off by default: it costs a ``git diff`` per boundary, and off
-        the key is absent rather than empty.
+        ``record_delivery_tree`` adds ``metrics["tree_snapshots"]`` for agent 0's
+        tree before turns and at accepted messages. Serialized boundaries support
+        seat attribution. It defaults to False, omitting the metric and probe cost.
+        Both prebuild_team and serialize_turns also default to False.
         """
         _non_empty(prompt, "prompt")
         _optional_run_id(run_id)
@@ -538,6 +502,5 @@ class OpenCollab:
         except ProgrammaticLifecycleError as exc:
             raise RunError(str(exc)) from exc
         return _public_result(result)
-
 
 __all__ = ["OpenCollab"]

@@ -28,10 +28,8 @@ def feature(identifier, name="Manage Active Browser Sessions", *, username="alic
         else [],
     }
 
-
 def passed(item):
     return dict(item, status="passed", ok=True)
-
 
 def test_same_feature_names_retain_original_identity_and_credentials(tmp_path):
     contract = write_public_checks([feature("REQ-A"), feature("REQ-B", username="bob")], tmp_path)
@@ -44,7 +42,6 @@ def test_same_feature_names_retain_original_identity_and_credentials(tmp_path):
     assert not coverage["complete"]
     assert scenario_coverage(contract["required_scenarios"], list(map(passed, selected)))["complete"]
 
-
 @pytest.mark.parametrize("names", [["Unknown action"], ["Manage Active Browser Sessions", "Unknown action"]])
 def test_unmapped_requirements_remain_in_requested_denominator(tmp_path, names):
     contract = write_public_checks([feature(f"REQ-{n}", name) for n, name in enumerate(names)], tmp_path)
@@ -53,7 +50,6 @@ def test_unmapped_requirements_remain_in_requested_denominator(tmp_path, names):
     assert coverage["mapped"] == len(names) - 1
     assert not coverage["complete"]
     assert any(row["reason"] == "unmapped_requirement" for row in coverage["scenarios"])
-
 
 def test_no_public_scenarios_and_zero_execution_are_unverified(tmp_path):
     contract = write_public_checks([feature("REQ-EMPTY", scenarios=False)], tmp_path)
@@ -64,14 +60,12 @@ def test_no_public_scenarios_and_zero_execution_are_unverified(tmp_path):
     assert coverage["requirements_without_scenarios"] == ["REQ-EMPTY"]
     assert not scenario_coverage([], [])["complete"]
 
-
 def test_duplicate_result_and_display_name_cannot_cover_another_id(tmp_path):
     contract = write_public_checks([feature("REQ-A"), feature("REQ-B")], tmp_path)
     row = passed(contract["evolution_checks"][0])
     coverage = scenario_coverage(contract["required_scenarios"], [row, row])
     assert coverage["passed"] == 0
     assert [r["reason"] for r in coverage["scenarios"]] == ["duplicate_results", "not_executed"]
-
 
 def test_original_scope_filters_by_id_and_rejects_missing_inputs(tmp_path):
     contract = write_public_checks([feature("REQ-A"), feature("REQ-B")], tmp_path, requirement_ids=["REQ-B"])
@@ -84,7 +78,6 @@ def test_original_scope_filters_by_id_and_rejects_missing_inputs(tmp_path):
     with pytest.raises(ValueError):
         write_public_checks([feature("REQ-A"), feature("REQ-A")], tmp_path)
     assert json.loads((tmp_path / ".arc/checks/scenario-ledger.json").read_text())["expected"] == 1
-
 
 def test_runtime_error_preserves_independent_failure_and_requires_comparable_recovery():
     before = {
@@ -103,7 +96,6 @@ def test_runtime_error_preserves_independent_failure_and_requires_comparable_rec
     assert improvement(before, after)
     after["browser"]["prerequisites"] = [{"name": "first", "status": "skipped"}]
     assert not improvement(before, after)
-
 
 def test_same_name_failures_and_progress_keep_each_scenario_identity(tmp_path):
     contract = write_public_checks([feature("REQ-A"), feature("REQ-B")], tmp_path)

@@ -1,8 +1,6 @@
-"""Event handling for the TUI: session-runtime + scheduler event dispatch.
+"""Update TUI state from session-runtime and scheduler events.
 
-Mixed into ``renderer.TUI`` — methods run on the TUI instance and feed the
-history/status/roster state that ``renderer_display`` renders. A block that
-settles here is handed straight to scrollback for the focused agent.
+Mixed into ``renderer.TUI``. Settled blocks reach focused-agent scrollback.
 """
 
 from __future__ import annotations
@@ -16,7 +14,6 @@ from opencollab.adapters.tui.renderer_display import collapse_text_rows
 from opencollab.domain.events import SchedulerEvent
 
 MAX_STATUS_LINES = 40
-
 
 class _RendererEventsMixin:
     """Consumes runtime/scheduler events and updates the TUI's render state."""
@@ -117,9 +114,7 @@ class _RendererEventsMixin:
         elif etype == "step_start":
             state.step = event.data.get("step", 0)
             self._clear_thinking_status(state)
-            # Drive the live view with the animated pulsing dot. A fresh bar
-            # resets the elapsed counter for this step; it keeps flowing on Live's
-            # refresh even while the model is silent, so it never looks frozen.
+            # Reset elapsed time for each step while Live keeps the wait dot animated.
             state.thinking = self._new_thinking_bar(
                 f"{agent_label} thinking… · step {state.step}"
             )
@@ -196,9 +191,7 @@ class _RendererEventsMixin:
             self._clear_thinking_status(state)
             self._mark_roster(aid, role, "idle")
             latency = event.data.get("latency", 0.0)
-            # The lead (aid 0) finishing IS the turn boundary — the stats footer
-            # already marks it. Skip the teammate-style "finished"/"completed"
-            # chrome so a solo turn isn't buried under its own lifecycle noise.
+            # The lead finishes at the turn boundary, which already has a stats footer.
             if aid != 0:
                 activity = f"{label} finished" if completed_spawn else f"{agent_label} completed"
                 self._append_activity(

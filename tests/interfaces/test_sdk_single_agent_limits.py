@@ -21,7 +21,6 @@ class ReplyLLM:
             finish_reason="stop",
         )
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("unbounded", [False, True])
 async def test_agent_configuration_reaches_real_session(monkeypatch, tmp_path, unbounded):
@@ -76,13 +75,11 @@ async def test_agent_configuration_reaches_real_session(monkeypatch, tmp_path, u
     assert llm.calls[0]["max_output_tokens"] == 65_536
     assert llm.calls[0]["reasoning_effort"] == "max"
 
-
 @pytest.mark.asyncio
 async def test_agent_rejects_invalid_unbounded_flag(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_UNBOUNDED_LIMITS", "invalid")
     with pytest.raises(ValueError, match="OPENCOLLAB_UNBOUNDED_LIMITS"):
         await OpenCollab(tmp_path).agent("finish once", llm=ReplyLLM())
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kwargs", [{"budget": 0}, {"budget": True}, {"max_steps": -1}, {"steps": False}])

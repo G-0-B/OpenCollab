@@ -12,7 +12,6 @@ from typing import Any
 CONTEXT_POLICIES = ("default", "no_history_compaction")
 _POLICY_KEYS = frozenset({"policy", "tool_result_budget"})
 
-
 @dataclass(frozen=True, slots=True)
 class ContextPolicy:
     """A named shaper policy, with the one parameter a team may set."""
@@ -41,10 +40,8 @@ class ContextPolicy:
             options["tool_result_budget"] = self.tool_result_budget
         return options
 
-
 def _normalize_name(value: str) -> str:
     return value.strip().lower().replace("-", "_")
-
 
 def resolve_context_policy(value: object) -> ContextPolicy:
     """Read a team file's ``context`` entry: absent, a name, or a mapping."""
@@ -68,6 +65,5 @@ def resolve_context_policy(value: object) -> ContextPolicy:
             tool_result_budget=value.get("tool_result_budget"),
         )
     raise ValueError("context must be a policy name or a mapping")
-
 
 __all__ = ["CONTEXT_POLICIES", "ContextPolicy", "resolve_context_policy"]

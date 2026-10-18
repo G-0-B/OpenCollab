@@ -1,10 +1,4 @@
-"""End-to-end: real run loop + real SpawnAgentTool + real Scheduler.
-
-Proves the central behavior change — a lead that calls ``spawn_agent`` suspends
-on AWAITING_EVENTS, the child runs, and the lead is re-activated to reason over
-the child's result in the SAME turn (delivered as the spawn tool call's result),
-rather than answering before the child finishes.
-"""
+"""Exercise spawn suspension and result delivery through the real run loop and scheduler."""
 
 from __future__ import annotations
 
@@ -25,7 +19,6 @@ from opencollab.domain.session import SessionPhase, SessionState
 def run(coro):
     return asyncio.run(coro)
 
-
 def llm_response(content=None, tool_calls=None, total_tokens=5, input_tokens=1, finish_reason="stop"):
     return SimpleNamespace(
         content=content,
@@ -33,7 +26,6 @@ def llm_response(content=None, tool_calls=None, total_tokens=5, input_tokens=1, 
         usage=SimpleNamespace(total_tokens=total_tokens, input_tokens=input_tokens),
         finish_reason=finish_reason,
     )
-
 
 class FakeLLM:
     def __init__(self, responses):
@@ -43,7 +35,6 @@ class FakeLLM:
     async def complete(self, messages, tools=None, temperature=0.0):
         self.calls.append({"messages": copy.deepcopy(messages)})
         return self.responses.pop(0)
-
 
 class ChildSession:
     """A scripted child: its run_loop finishes terminal with a canned result."""
@@ -62,7 +53,6 @@ class ChildSession:
         self.state.append_message({"role": "assistant", "content": self._result})
         return self._result
 
-
 class ChildFactory:
     def __init__(self, child):
         self._child = child
@@ -70,7 +60,6 @@ class ChildFactory:
     def build_spawn_session(self, *, role, env, budget, max_steps=50, aid=-1, scheduler=None, task=None, context=""):
         self._child.state.aid = aid
         return self._child
-
 
 class LeadSession:
     """Adapter exposing the real SessionRunUseCase as a scheduler-driven session."""
@@ -87,7 +76,6 @@ class LeadSession:
 
     async def run_loop(self) -> str:
         return await self.runner.run_loop()
-
 
 def test_lead_reasons_over_child_result_in_same_turn():
     child = ChildSession("coder", "THE CHILD RESULT")
@@ -133,15 +121,12 @@ def test_lead_reasons_over_child_result_in_same_turn():
 
     result = run(scheduler.run("please build it via a coder"))
 
-    # The final answer is the lead's POST-child reasoning, not its pre-spawn text.
     assert result == "Based on the child: done"
     assert lead_state.phase is SessionPhase.DONE
     assert lead_state.pending_events.is_empty()
 
-    # The second LLM call saw the child's result as the spawn tool call's result.
     second_call_msgs = llm.calls[1]["messages"]
     assert {"role": "tool", "tool_call_id": "call-1", "content": "THE CHILD RESULT"} in second_call_msgs
 
-    # The child actually ran and was tracked.
     assert child.state.phase is SessionPhase.DONE
     assert scheduler.table.get(child.state.aid).result == "THE CHILD RESULT"

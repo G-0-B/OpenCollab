@@ -74,10 +74,9 @@ def placeholder_record(name: str, status: str, reason: str) -> dict[str, Any]:
 
 
 def persist_record(run_dir: Path, record: dict[str, Any]) -> Path:
-    """Write ``<run_dir>/<task>/result.json``.
+    """Write ``<run_dir>/<task>/result.json``, including crashed and skipped tasks.
 
-    Every task gets one, including crashed and skipped ones, so a summary
-    rebuilt from the run directory (``--resume``) keeps the full denominator.
+    Resume summaries retain these records in the task denominator.
     """
     task_dir = run_dir / record["task"]
     task_dir.mkdir(parents=True, exist_ok=True)

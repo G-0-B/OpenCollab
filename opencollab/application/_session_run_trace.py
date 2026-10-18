@@ -14,18 +14,11 @@ class _SessionRunTraceMixin:
     """Observation helpers composed into session completion."""
 
     async def _shape_and_trace(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Shape the model's view, recording which compaction rung really fired.
+        """Shape a copy of history and record the compaction layers that fired.
 
-        The shapers reshape a COPY (the transcript keeps the full history), so
-        nothing on disk would otherwise say which of the five rungs ran on a
-        given turn. This emits one ``context_shaping`` record per fired rung —
-        and exactly one ``rung="none"`` record when the turn passed through
-        untouched, so a reader can tell "nothing fired" from "nothing was
-        recorded". The rung labels are the shapers' own frozen names, which is
-        what lets a run be compared turn-by-turn against its assigned policy.
-
-        The pipeline stays a pure transform: it only reports, and the sink
-        lives here, where ``tracer``/``aid``/``step_count`` are already at hand.
+        Emit one ``context_shaping`` record per fired layer, or one ``rung="none"``
+        record for an untouched turn. Labels come from the shapers for comparison
+        with the assigned policy. The pipeline reports changes and this mixin emits.
         """
         # A ShaperPipeline names its own rungs; wrap anything else (a single
         # shaper, or nothing wired at all) so every turn still reports.
@@ -109,9 +102,7 @@ class _SessionRunTraceMixin:
             input_tokens = getattr(usage, "input_tokens", 0)
             total_tokens = getattr(usage, "total_tokens", input_tokens)
             payload = {
-                # Agent attribution: the same ``aid`` steering_nudge/commit_brake
-                # stamp, so every record in a multi-agent trajectory file joins
-                # on one field.
+                # Join steering and commit-brake records through the same agent id.
                 "aid": self.state.aid,
                 "model": self.agent.model,
                 "finish_reason": getattr(result, "finish_reason", None),
@@ -159,8 +150,6 @@ class _SessionRunTraceMixin:
                 raw_usage = getattr(usage, "raw_usage", None)
                 if raw_usage:
                     payload["usage"]["raw_usage"] = raw_usage
-            # Record provider chain-of-thought to the trajectory when present
-            # (omitted otherwise, so non-thinking traces keep their prior shape).
             reasoning = getattr(result, "reasoning", None)
             if reasoning:
                 payload["reasoning"] = reasoning

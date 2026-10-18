@@ -14,7 +14,6 @@ _PATH_WORDMARKS = {
     "lockup-stacked.svg",
 }
 
-
 def _assert_self_contained_svg(path: Path) -> None:
     assert path.stat().st_size < 500_000, path
     root = ElementTree.parse(path).getroot()
@@ -26,12 +25,10 @@ def _assert_self_contained_svg(path: Path) -> None:
             assert "url(http" not in value.lower(), (path, value)
             assert "file:" not in value.lower(), (path, value)
 
-
 def test_svg_assets_are_self_contained_and_within_hygiene_limit() -> None:
     svg_paths = [*sorted(_ASSET_DIR.glob("*.svg")), _ASSET_DIR / "brand-guidelines.svg.in"]
     for path in svg_paths:
         _assert_self_contained_svg(path)
-
 
 def test_wordmarks_are_font_independent_paths() -> None:
     for filename in _PATH_WORDMARKS:
@@ -51,7 +48,6 @@ def test_wordmarks_are_font_independent_paths() -> None:
 
     template = ElementTree.parse(_ASSET_DIR / "brand-guidelines.svg.in").getroot()
     assert list(template.iter("{http://www.w3.org/2000/svg}text"))
-
 
 def test_brand_assets_record_open_font_provenance() -> None:
     tracked_text = "\n".join(

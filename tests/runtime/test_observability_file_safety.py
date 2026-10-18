@@ -23,7 +23,6 @@ def test_tracer_rejects_fifo_without_blocking(tmp_path) -> None:
     with pytest.raises(OSError, match="regular file"):
         Tracer("run", output_dir=str(tmp_path))
 
-
 def test_tracer_rejects_symlink_target_and_parent(tmp_path) -> None:
     target = tmp_path / "target"
     target.write_text("original", encoding="utf-8")
@@ -39,19 +38,16 @@ def test_tracer_rejects_symlink_target_and_parent(tmp_path) -> None:
         Tracer("other", output_dir=str(linked / "new"))
     assert list(outside.iterdir()) == []
 
-
 @pytest.mark.parametrize("filename", ["../escape", "/tmp/escape", "a/b", "line\nbreak"])
 def test_tracer_rejects_path_bearing_filename(tmp_path, filename) -> None:
     with pytest.raises(ValueError, match="safe path component"):
         Tracer("run", output_dir=str(tmp_path), filename=filename)
-
 
 def test_append_rejects_device_file() -> None:
     if not os.path.exists("/dev/null"):
         pytest.skip("device file unavailable")
     with pytest.raises(OSError, match="regular file"):
         append_regular_text("/dev/null", "record\n")
-
 
 def test_tracer_records_valid_jsonl_and_flushes(tmp_path) -> None:
     tracer = Tracer("run", output_dir=str(tmp_path))
@@ -62,7 +58,6 @@ def test_tracer_records_valid_jsonl_and_flushes(tmp_path) -> None:
     assert row["run_id"] == "run"
     assert row["type"] == "tool_exec"
     assert row["metrics"] == {"tokens": 3, "latency_s": 0.25}
-
 
 def test_tracer_reopen_continues_step_sequence(tmp_path) -> None:
     first = Tracer("run", output_dir=str(tmp_path))
@@ -80,7 +75,6 @@ def test_tracer_reopen_continues_step_sequence(tmp_path) -> None:
     ]
     assert [row["step"] for row in rows] == [1, 2, 3]
 
-
 def test_tracer_rejects_overlapping_writer_for_the_same_file(tmp_path) -> None:
     active = Tracer("run", output_dir=str(tmp_path))
     try:
@@ -95,7 +89,6 @@ def test_tracer_rejects_overlapping_writer_for_the_same_file(tmp_path) -> None:
     row = json.loads((tmp_path / "run.jsonl").read_text(encoding="utf-8"))
     assert row["step"] == 1
 
-
 def test_tracer_refuses_to_restart_when_bounded_tail_has_no_complete_step(
     tmp_path,
 ) -> None:
@@ -107,7 +100,6 @@ def test_tracer_refuses_to_restart_when_bounded_tail_has_no_complete_step(
 
     with pytest.raises(OSError, match="cannot safely recover trace step"):
         Tracer("run", output_dir=str(tmp_path))
-
 
 def test_tracer_reopen_separates_an_unterminated_tail(tmp_path) -> None:
     path = tmp_path / "run.jsonl"
@@ -125,7 +117,6 @@ def test_tracer_reopen_separates_an_unterminated_tail(tmp_path) -> None:
         '{"step": 7}\n{"damaged":'
     )
 
-
 def test_tracer_write_failure_is_sticky(tmp_path, monkeypatch) -> None:
     tracer = Tracer("run", output_dir=str(tmp_path))
 
@@ -139,17 +130,11 @@ def test_tracer_write_failure_is_sticky(tmp_path, monkeypatch) -> None:
     assert tracer.write_error == "OSError: disk full"
     assert tracer.dropped_steps == 2
 
-
-# The sink is released on its own timer rather than by the caller under test: a
-# ``log_step`` that waited for the write would otherwise be holding the release
-# it needs, and the block would only surface after the sink's own 10s cap.
+# A timer releases the sink independently so waiting in log_step would block until that release.
 SINK_HELD_SECONDS = 2.0
 
-# A ``log_step`` that waited for the sink pays the whole hold above. This bound
-# sits an order of magnitude above the hand-off and well below that hold, so it
-# fails a caller that waited without failing a merely loaded machine.
+# The deadline separates a prompt hand-off from waiting for the held sink.
 NON_BLOCKING_HANDOFF_SECONDS = 0.5
-
 
 def test_tracer_slow_write_does_not_block_log_step(tmp_path, monkeypatch) -> None:
     started = threading.Event()
@@ -169,17 +154,13 @@ def test_tracer_slow_write_does_not_block_log_step(tmp_path, monkeypatch) -> Non
         handed_off_at = time.monotonic()
         tracer.log_step("slow", {})
         elapsed = time.monotonic() - handed_off_at
-        # The writer really is inside the slow sink and the sink is still held,
-        # so a log_step that waited for the write could not have returned.
         assert started.wait(10.0)
         assert not left_sink.is_set()
-        # And it did not merely decline to wait for the sink — it came back.
         assert elapsed < NON_BLOCKING_HANDOFF_SECONDS
     finally:
         releaser.cancel()
         release.set()
         tracer.close()
-
 
 def test_tracer_serialization_fallback_does_not_disable_later_steps(tmp_path) -> None:
     tracer = Tracer("run", output_dir=str(tmp_path))
@@ -197,7 +178,6 @@ def test_tracer_serialization_fallback_does_not_disable_later_steps(tmp_path) ->
     assert tracer.write_error is None
     assert tracer.dropped_steps == 0
 
-
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO requires POSIX")
 async def test_event_sink_fifo_failure_returns_without_freezing(tmp_path) -> None:
     path = tmp_path / "events.fifo"
@@ -206,7 +186,6 @@ async def test_event_sink_fifo_failure_returns_without_freezing(tmp_path) -> Non
     await asyncio.wait_for(sink.emit({"type": "test"}), timeout=0.5)
     assert sink.write_error is not None
     assert sink.dropped_events == 1
-
 
 async def test_event_sink_rejects_symlink_without_touching_target(tmp_path) -> None:
     target = tmp_path / "target"
@@ -218,7 +197,6 @@ async def test_event_sink_rejects_symlink_without_touching_target(tmp_path) -> N
     assert target.read_text(encoding="utf-8") == "original"
     assert sink.write_error is not None
 
-
 async def test_event_sink_concurrent_records_remain_whole_json_lines(tmp_path) -> None:
     path = tmp_path / "events.jsonl"
     sink = JsonlEventSink(str(path))
@@ -228,7 +206,6 @@ async def test_event_sink_concurrent_records_remain_whole_json_lines(tmp_path) -
     rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     assert {row["data"]["index"] for row in rows} == set(range(30))
     assert sink.write_error is None
-
 
 async def test_event_sink_slow_write_does_not_block_event_loop(
     tmp_path,

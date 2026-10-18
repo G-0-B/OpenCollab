@@ -9,20 +9,16 @@ from typing import Any
 
 from opencollab.application.async_timeout import await_owned_operation
 
-# A thunk is a zero-arg callable returning an awaitable result.
 Thunk = Callable[[], Awaitable[Any]]
 
 # A pipeline stage receives (previous result, original item, item index).
 Stage = Callable[[Any, Any, int], Awaitable[Any]]
 
-
 class WorkflowBudgetExceeded(Exception):
     """Raised when the shared budget is exhausted before an agent starts."""
 
-
 class WorkflowEnvironmentRevoked(RuntimeError):
     """The shared workflow environment can no longer execute agent work."""
-
 
 @dataclass
 class _TaskPermitState:
@@ -30,7 +26,6 @@ class _TaskPermitState:
 
     borrowers: int
     borrowers_done: asyncio.Event
-
 
 @dataclass
 class _TaskConcurrencyPermit:
@@ -40,7 +35,6 @@ class _TaskConcurrencyPermit:
     state: _TaskPermitState
     child_lock: asyncio.Lock
     closed: bool = False
-
 
 class WorkflowCollectionsMixin:
     """Task-concurrency permits plus bounded collection orchestration."""

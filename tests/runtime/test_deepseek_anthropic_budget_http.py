@@ -19,14 +19,12 @@ from tests.runtime.test_deepseek_thinking_off_http import _deepseek_server
 _MODELS = ["deepseek-flash", "deepseek-v4-pro", "deepseek-v4-flash", "deepseek-v4-flash-vision-exp"]
 _MESSAGES = [{"role": "user", "content": "Return done"}]
 
-
 @pytest.fixture(autouse=True)
 def isolate_configuration(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(tmp_path / "usage.jsonl"))
     monkeypatch.setenv("OPENCOLLAB_UNBOUNDED_LIMITS", "false")
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
-
 
 @pytest.mark.parametrize("model", _MODELS)
 @pytest.mark.parametrize("limit,mode", [
@@ -56,7 +54,6 @@ async def test_public_agent_sends_native_thinking_without_claude_budget_requirem
     assert config == original
     assert app.configuration["thinking_params"] == original["thinking_params"]
 
-
 @pytest.mark.parametrize("model", _MODELS)
 @pytest.mark.parametrize("limit,mode", [
     (8192, {"type": "enabled"}),
@@ -75,7 +72,6 @@ async def test_native_sdk_accepts_the_same_deepseek_thinking_request(model, limi
     assert requests[0]["thinking"] == mode
     assert requests[0]["max_tokens"] == limit
 
-
 @pytest.mark.parametrize("model", _MODELS)
 @pytest.mark.parametrize("prefix", ["", "deepseek/", "gateway/"])
 @pytest.mark.parametrize("suffix", ["", "-2026", "-2026-09", "-2026-09-21"])
@@ -86,7 +82,6 @@ def test_existing_exact_aliases_share_the_native_budget_capability(model, prefix
     )
     assert request["thinking"] == {"type": "enabled"}
     assert request["max_tokens"] == 128
-
 
 @pytest.mark.parametrize("model", [
     "claude-sonnet-4-6", "gateway/unknown", "deepseek-pro", "deepseek-reasoner",
@@ -105,7 +100,6 @@ def test_claude_and_unverified_models_keep_strict_budget_validation(model, mode,
             thinking_params={"thinking": mode}, max_output_tokens=limit,
         )
 
-
 @pytest.mark.parametrize("params,error", [
     ({"thinking": {"type": "enabled", "budget_tokens": True}}, "integer budget_tokens"),
     ({"thinking": {"type": "enabled", "budget_tokens": "1024"}}, "integer budget_tokens"),
@@ -118,7 +112,6 @@ def test_claude_and_unverified_models_keep_strict_budget_validation(model, mode,
 def test_deepseek_keeps_other_native_schema_validation(params, error):
     with pytest.raises(ValueError, match=error):
         _build_request_kwargs("deepseek-flash", _MESSAGES, None, 0.2, thinking=True, thinking_params=params)
-
 
 @pytest.mark.parametrize("mode", [{"type": "enabled"}, {"type": "enabled", "budget_tokens": 2048}])
 @pytest.mark.parametrize("output_budget", [0, 128])

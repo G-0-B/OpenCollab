@@ -22,7 +22,6 @@ MAX_ERROR_CHARS = 2_000
 #: no ref names, no revision syntax, no option.
 _SHA = re.compile(r"^[0-9a-fA-F]{7,40}$")
 
-
 class AdoptTool(Tool):
     """Check out a teammate's commit in the tree that is read as the answer."""
 

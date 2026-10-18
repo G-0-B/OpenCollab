@@ -18,7 +18,6 @@ def _optional_usage_int(source: Any, key: str) -> int | None:
         return None
     return value if value >= 0 else None
 
-
 def _combine_attempt_usage(attempts: list[Usage | None]) -> Usage | None:
     """Sum known attempts and retain omissions in the native usage record."""
     known = [usage for usage in attempts if usage is not None]

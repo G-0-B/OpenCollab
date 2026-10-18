@@ -53,7 +53,6 @@ async def test_anthropic_tool_response_replays_standard_assistant_history(monkey
         {"type": "tool_result", "tool_use_id": "toolu_lookup", "content": "42"}
     ]
 
-
 @pytest.mark.parametrize("role,content", [("user", None), ("assistant", {"text": "invalid"})])
 def test_anthropic_history_retains_content_validation(role, content):
     with pytest.raises(ValueError, match="content must be text or a content block list"):

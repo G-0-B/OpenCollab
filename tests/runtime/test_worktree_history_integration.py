@@ -21,7 +21,6 @@ def _git(workspace: Path | str, *args: str, input_text: str | None = None) -> st
         capture_output=True, text=True, check=True,
     ).stdout.strip()
 
-
 def _repo(path: Path) -> Path:
     path.mkdir()
     _git(path, "init", "-q", "-b", "main")
@@ -33,10 +32,8 @@ def _repo(path: Path) -> Path:
     _git(path, "commit", "-qm", "base")
     return path
 
-
 def _answer(path: Path, value: int) -> None:
     (path / "answer.py").write_text(f"def answer():\n    return {value}\n", encoding="utf-8")
-
 
 def _environment(source: Path, tmp_path: Path, backend: str):
     if backend == "local":
@@ -48,13 +45,11 @@ def _environment(source: Path, tmp_path: Path, backend: str):
     LocalDockerTransport(source, pair_reads=False).attach(environment)
     return environment
 
-
 def _execute_answer(workspace: Path, value: int) -> str:
     return subprocess.run(
         [sys.executable, "-B", "-c", f"from answer import answer; assert answer() == {value}; print(answer())"],
         cwd=workspace, capture_output=True, text=True, check=True,
     ).stdout.strip()
-
 
 @pytest.mark.parametrize("backend", ["local", "docker-shell"])
 @pytest.mark.parametrize("operation", [
@@ -233,7 +228,6 @@ async def test_a_repair_survives_history_integration(tmp_path, backend, operatio
         assert environment.own_commit_count == expected_count
         assert _execute_answer(workspace, expected_value) == str(expected_value)
 
-        # Apply the actual delivery to its advertised base and execute the result.
         target = tmp_path / "delivered"
         _git(source, "worktree", "add", "--detach", str(target), expected_base)
         try:
@@ -245,7 +239,6 @@ async def test_a_repair_survives_history_integration(tmp_path, backend, operatio
         await environment.cleanup()
     assert not workspace.exists()
     assert _execute_answer(source, source_value) == str(source_value)
-
 
 @pytest.mark.parametrize("backend", ["local", "docker-shell"])
 @pytest.mark.parametrize("command", ["merge", "pull"])
@@ -279,7 +272,6 @@ async def test_fast_forward_adopts_the_incoming_merge_commit(tmp_path, backend, 
         assert environment.own_commits == (environment.head_commit,)
     finally:
         await environment.cleanup()
-
 
 @pytest.mark.parametrize("backend", ["local", "docker-shell"])
 @pytest.mark.parametrize("adoption", ["checkout", "fast-forward"])

@@ -11,10 +11,8 @@ from opencollab.domain.tools import MAX_CALL_HASH_WINDOW, ToolProcessingResult
 
 _WORKSPACE_READS = frozenset({"file_read", "grep", "git_diff"})
 
-
 def _workspace_sensitive(name: str, tool: Any) -> bool:
     return name in _WORKSPACE_READS or getattr(tool, "loop_workspace_observer", False) is True
-
 
 def _controlled_timeout(tool: Any, args: dict) -> float | None:
     if getattr(tool, "loop_timeout_is_control", False) is not True:
@@ -27,7 +25,6 @@ def _controlled_timeout(tool: Any, args: dict) -> float | None:
     except (ValueError, OverflowError):
         return None
     return timeout if math.isfinite(timeout) and timeout > 0 else None
-
 
 def _apply_completed_prefix_progress(state: SessionState, result: ToolProcessingResult) -> bool:
     """Publish confirmed prefix progress without folding the unfinished model step."""
@@ -51,7 +48,6 @@ def _apply_completed_prefix_progress(state: SessionState, result: ToolProcessing
         turn.steps_since_progress = 0
         turn.last_progress_unknown = False
     return prefix_progress
-
 
 class _LoopBatch:
     def __init__(self, executor: Any, result: ToolProcessingResult) -> None:

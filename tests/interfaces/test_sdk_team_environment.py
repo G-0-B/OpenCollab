@@ -1,18 +1,6 @@
-"""A team can be run against a repository the run's workspace does not hold.
+"""A supplied environment hosts both agent zero and teammate worktrees.
 
-The evaluation harness keeps the repository under test inside a container and
-extracts the run's patch from a bounded archive of it. Exposing that repository
-to the host would take a bind mount, which is exactly what such an extraction
-cannot allow -- so an arm that could only work on the host workspace could not
-be run there at all. ``client.team()`` used to refuse a supplied environment
-outright.
-
-Both wiring points are checked in one run, because either alone would leave the
-team split across two places: agent 0 executes in the supplied environment, and
-each teammate's worktree is cut from the same repository rather than from the
-workspace the client was anchored to. A local environment stands in for the
-container here -- what is under test is where the run works, not how a
-container is reached.
+A local environment exercises the same repository wiring used by containers.
 """
 
 from __future__ import annotations
@@ -30,12 +18,10 @@ from opencollab.sdk import OpenCollab
 
 ANALYST_AID, CODER_AID = 0, 1
 
-
 def _git(cwd: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(cwd), *args], check=True, capture_output=True, text=True
     ).stdout.strip()
-
 
 def _repo(path: Path, marker: str) -> Path:
     path.mkdir(parents=True)
@@ -46,7 +32,6 @@ def _repo(path: Path, marker: str) -> Path:
     _git(path, "add", "-A")
     _git(path, "commit", "-qm", marker)
     return path
-
 
 def _team_file(path: Path) -> Path:
     path.write_text(
@@ -67,14 +52,12 @@ topology:
     )
     return path
 
-
 def _call(call_id: str, name: str, arguments: dict) -> dict:
     return {
         "id": call_id,
         "type": "function",
         "function": {"name": name, "arguments": json.dumps(arguments)},
     }
-
 
 def _scripted_llm(observed: dict):
     class ScriptedLLM:
@@ -126,7 +109,6 @@ def _scripted_llm(observed: dict):
 
     return ScriptedLLM
 
-
 @pytest.fixture
 def run_team_in(tmp_path, monkeypatch):
     async def run(*, environment, **team_kwargs) -> dict:
@@ -167,7 +149,6 @@ def run_team_in(tmp_path, monkeypatch):
 
     return run
 
-
 async def test_a_team_works_in_the_environment_it_was_given(run_team_in, tmp_path):
     """Agent 0 and every teammate's worktree come from the supplied repository."""
     elsewhere = _repo(tmp_path / "elsewhere", "supplied-environment")
@@ -179,7 +160,6 @@ async def test_a_team_works_in_the_environment_it_was_given(run_team_in, tmp_pat
     assert "anchor-workspace" not in observed["analyst_saw"]
     assert "anchor-workspace" not in observed["coder_saw"]
 
-
 async def test_a_team_given_no_environment_still_works_in_its_workspace(
     run_team_in, tmp_path
 ):
@@ -189,22 +169,13 @@ async def test_a_team_given_no_environment_still_works_in_its_workspace(
     assert observed["analyst_saw"].strip().endswith("anchor-workspace")
     assert observed["coder_saw"].strip().endswith("anchor-workspace")
 
-
 async def test_a_finished_team_run_says_it_wound_down(run_team_in):
-    """Wind-down evidence, in the same fields a solo agent and a workflow use.
-
-    Without it a caller cannot tell a team that finished from one abandoned
-    mid-flight, and a harness that reads the absence as "not settled" throws
-    away the workspace of every completed team run -- which is how this was
-    found: every team run produced an empty patch and reported that its
-    execution had not quiesced, while the identical workflow run did not.
-    """
+    """Missing quiescence evidence makes the harness discard a completed team workspace."""
     metrics = (await run_team_in(environment=None))["result"].metrics
 
     assert metrics["session_quiesced"] is True
     assert metrics["environment_owned"] is True
     assert metrics["execution_quiesced"] is True
-
 
 async def test_a_team_says_nothing_about_an_environment_it_was_lent(
     run_team_in, tmp_path
@@ -220,14 +191,7 @@ async def test_a_team_says_nothing_about_an_environment_it_was_lent(
     assert metrics["environment_owned"] is False
     assert metrics["environment_quiesced"] is None
 
-
 async def test_one_run_id_joins_the_trajectory_the_manifest_and_the_result(run_team_in):
-    """The three things a run leaves name the same run, and only that run.
-
-    The trajectory used to carry the constant ``"team"`` on every record and the
-    manifest the name of the artifacts directory, so the two files of one run
-    disagreed, and two runs written under one name could not be told apart.
-    """
     import re
 
     observed = await run_team_in(environment=None)
@@ -237,7 +201,6 @@ async def test_one_run_id_joins_the_trajectory_the_manifest_and_the_result(run_t
     assert {record["run_id"] for record in observed["records"]} == {run_id}
     manifest = json.loads((result.artifacts / "team.json").read_text(encoding="utf-8"))
     assert manifest["run_id"] == run_id
-
 
 async def test_a_team_uses_the_run_id_its_caller_supplies(run_team_in):
     """A harness that names the run finds that name in all three places."""

@@ -138,7 +138,6 @@ def test_add_user_message_appends_resets_hashes_and_autosaves():
     assert saved_messages[-1]["content"] == "hello"
     assert "timestamp" in saved_messages[-1]
 
-
 def test_new_user_turn_restores_agent_tools_and_wind_down_latches():
     original_tool = object()
     forced_submit_tool = object()
@@ -163,7 +162,6 @@ def test_new_user_turn_restores_agent_tools_and_wind_down_latches():
     assert session.state.wind_down_attempts == 0
     assert session.state.wind_down_token_mark == 0
 
-
 def test_session_rejects_a_second_queued_user_turn_before_the_first_runs():
     session = Session(agent=FakeAgent(), llm=FakeLLMClient())
     run(session.add_user_message("first queued turn"))
@@ -175,7 +173,6 @@ def test_session_rejects_a_second_queued_user_turn_before_the_first_runs():
     assert session.messages == before
     assert session.state.pending_external_user_turn is not None
     assert session.state.pending_external_user_turn["content"] == "first queued turn"
-
 
 @pytest.mark.asyncio
 async def test_session_rejects_a_second_runner_while_a_turn_is_active():
@@ -210,7 +207,6 @@ async def test_session_rejects_a_second_runner_while_a_turn_is_active():
         llm.release.set()
         await asyncio.gather(first, second, return_exceptions=True)
 
-
 @pytest.mark.asyncio
 async def test_session_rejects_user_message_while_provider_turn_is_active():
     class GatedLLM:
@@ -237,7 +233,6 @@ async def test_session_rejects_user_message_while_provider_turn_is_active():
     finally:
         llm.release.set()
         await run_task
-
 
 @pytest.mark.asyncio
 async def test_direct_run_loop_cancellation_leaves_session_reusable():
@@ -271,7 +266,6 @@ async def test_direct_run_loop_cancellation_leaves_session_reusable():
     assert session.state.phase is SessionPhase.DONE
     assert llm.calls == 2
 
-
 def test_session_rejects_user_message_for_a_suspended_turn():
     session = Session(agent=FakeAgent(), llm=FakeLLMClient())
     session.phase = SessionPhase.AWAITING_EVENTS
@@ -281,7 +275,6 @@ def test_session_rejects_user_message_for_a_suspended_turn():
         run(session.add_user_message("must not replace suspended turn"))
 
     assert session.messages == before
-
 
 def test_snapshot_rejects_an_environment_without_a_safe_fork():
     agent = FakeAgent()
@@ -295,7 +288,6 @@ def test_snapshot_rejects_an_environment_without_a_safe_fork():
 
     with pytest.raises(SnapshotSessionError, match="environment.fork_snapshot"):
         snapshot_session(session)
-
 
 def test_snapshot_copies_full_state_and_isolates_agent_and_environment():
     class ForkableEnvironment:
@@ -371,9 +363,7 @@ def test_budget_exceeded_stops_before_llm_call_and_emits_error():
     ]
 
 def test_run_loop_does_not_route_to_mutating_compaction():
-    # The mutating compaction path is gone: read-time shaping (AutoCompactShaper)
-    # owns compaction instead, so even a long history costs no extra
-    # summarization turn — the first model response is the answer.
+    # Read-time shaping compacts history without an extra summarization turn.
     fake_llm = FakeLLMClient([
         llm_response(content="direct answer", input_tokens=3, output_tokens=4),
     ])
@@ -417,8 +407,6 @@ def test_no_tool_calls_marks_done_and_emits_text_delta():
     assert [event.type for event in events] == ["step_start", "text_delta", "step_end"]
     assert fake_llm.calls[0]["tools"] is None
     assert [step["step_type"] for step in tracer.steps] == [
-        # Written once when the session is built: the compaction thresholds it
-        # runs under (see test_trace_history_compaction).
         "session.history_compaction",
         "context_shaping",
         "llm_call_started",
@@ -644,9 +632,7 @@ def test_loop_detection_skips_third_identical_tool_call():
     ]
 
 def test_tool_output_is_persisted_in_full_in_messages():
-    # The full tool result is now persisted verbatim in the message history;
-    # the per-tool-result budget shaper caps only the model-facing copy at call
-    # time (see test_shaping / test_session_run_loop).
+    # The tool-result shaper caps the model-facing copy while history retains the full result.
     long_result = "a" * 25_000 + "b" * 123 + "c" * 25_000
     tool = FakeTool(result=long_result)
     fake_llm = FakeLLMClient([

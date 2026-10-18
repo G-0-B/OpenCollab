@@ -45,10 +45,8 @@ def _first_call_messages(messages):
     )
     return [*messages, steering]
 
-
 def _reserved_first_call_input(messages):
     return estimate_request_tokens(_first_call_messages(messages))
-
 
 @pytest.mark.parametrize(
     "per_call_timeout",
@@ -74,7 +72,6 @@ def test_run_loop_budget_exceeded_emits_error_and_sets_phase():
     }
     assert events == [("error", {"reason": "budget exceeded: 10 tokens used", "aid": -1})]
 
-
 def test_remaining_budget_caps_next_model_output_request():
     messages = [{"role": "system", "content": "sys"}]
     input_tokens = _reserved_first_call_input(messages)
@@ -99,7 +96,6 @@ def test_remaining_budget_caps_next_model_output_request():
     assert run(runner.run_loop()) == "done"
     assert llm.calls[0]["max_output_tokens"] == 1
     assert state.used_tokens == 500
-
 
 def test_input_reservation_exhausting_budget_stops_before_model_call():
     events, bus = collect_events()
@@ -129,7 +125,6 @@ def test_input_reservation_exhausting_budget_stops_before_model_call():
     assert state.phase is SessionPhase.STOPPED
     assert state.terminal_reason.startswith("budget exhausted before model call")
     assert [event_type for event_type, _data in events] == ["error"]
-
 
 def test_conservative_input_reservation_blocks_estimator_overshoot():
     messages = [{"role": "system", "content": "\u754c" * 3}]
@@ -165,16 +160,10 @@ def test_conservative_input_reservation_blocks_estimator_overshoot():
     assert state.phase is SessionPhase.STOPPED
     assert state.terminal_reason.startswith("budget exhausted before model call")
 
-
 def test_english_input_reservation_stays_within_twice_the_ordinary_estimate():
-    """Guard the unit the reservation is denominated in.
+    """A UTF-8 byte reservation overcharges English histories by 3-5x.
 
-    The reservation used to charge one token per serialized UTF-8 byte, which
-    ran 3-5x the ordinary estimate on English histories and stopped sessions
-    that still held most of their budget. Reserving in the same unit the
-    estimator uses keeps the framing allowances as the only margin; a ratio
-    creeping back toward 3x means the unit slipped again, not that the margin
-    was tuned.
+    The ordinary estimator and the reservation must use the same token unit.
     """
     messages = [{"role": "system", "content": "You are a careful engineer."}]
     for turn in range(12):
@@ -234,10 +223,7 @@ def test_english_input_reservation_stays_within_twice_the_ordinary_estimate():
     ordinary_estimate = estimate_messages_tokens(messages, tools)
     reserved = estimate_request_tokens(messages, tools)
     assert reserved >= ordinary_estimate
-    # Byte-per-token reservation put this ratio at 3.81; it is now ~1.6, all of
-    # it the per-request/per-message/per-tool framing allowances.
     assert reserved < 2 * ordinary_estimate
-
 
 def test_anthropic_provider_state_is_reserved_before_model_call():
     thinking_chars = 256
@@ -278,7 +264,6 @@ def test_anthropic_provider_state_is_reserved_before_model_call():
     assert llm.calls == []
     assert state.step_count == 0
     assert state.phase is SessionPhase.STOPPED
-
 
 def test_actual_usage_overrun_preserves_text_and_stops_new_tools():
     events, bus = collect_events()
@@ -325,8 +310,6 @@ def test_actual_usage_overrun_preserves_text_and_stops_new_tools():
         "error",
         "step_end",
     ]
-    # Closing row: how the session ended, beside both counters (see
-    # ``_trace_session_terminal``).
     assert [step["step_type"] for step in tracer.steps] == [
         "context_shaping",
         "llm_call_started",
@@ -338,7 +321,6 @@ def test_actual_usage_overrun_preserves_text_and_stops_new_tools():
         reserved_input_tokens + 100
     )
     assert tracer.steps[2]["latency"] >= 0
-
 
 def test_remaining_budget_caps_configured_per_step_output_limit():
     agent = FakeAgent()
@@ -367,7 +349,6 @@ def test_remaining_budget_caps_configured_per_step_output_limit():
     run(runner.run_loop())
 
     assert llm.calls[0]["max_output_tokens"] == 7
-
 
 @pytest.mark.parametrize(
     ("input_tokens", "output_tokens", "total_tokens"),
@@ -408,7 +389,6 @@ def test_invalid_provider_usage_does_not_change_token_counters(
     assert state.used_tokens == 9
     assert state.context_tokens == 4
 
-
 def test_inconsistent_reported_total_cannot_undercharge_usage():
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
     llm = FakeLLM(
@@ -427,11 +407,8 @@ def test_inconsistent_reported_total_cannot_undercharge_usage():
     assert state.used_tokens == 7
     assert state.context_tokens == 4
 
-
 def test_run_loop_team_aggregate_ceiling_stops_under_own_cap():
-    # Per-session cap is generous (1_000_000) and the session has spent nothing,
-    # so the per-session check passes — but the injected team-aggregate predicate
-    # reports the global pool exhausted, so the session must still stop.
+    # The per-session budget has headroom while the injected team budget is exhausted.
     events, bus = collect_events()
     state = SessionState(messages=[{"role": "system", "content": "sys"}], used_tokens=0)
     llm = FakeLLM()
@@ -446,7 +423,7 @@ def test_run_loop_team_aggregate_ceiling_stops_under_own_cap():
     result = run(runner.run_loop())
 
     assert result == ""
-    assert llm.calls == []  # never called the model
+    assert llm.calls == []
     assert state.phase is SessionPhase.STOPPED
     assert "team budget exceeded" in state.terminal_reason
     assert events == [
@@ -454,8 +431,6 @@ def test_run_loop_team_aggregate_ceiling_stops_under_own_cap():
     ]
 
 def test_run_loop_team_aggregate_ceiling_not_reached_proceeds_normally():
-    # When the aggregate predicate reports headroom, the per-session loop runs as
-    # before (regression guard that the new check is additive, not a hard stop).
     events, bus = collect_events()
     llm = FakeLLM([llm_response(content="done")])
     runner = build_runner(
@@ -648,7 +623,7 @@ def test_empty_stop_retries_once_with_nudge_then_succeeds():
     state = SessionState(messages=_convo())
     llm = FakeLLM(
         [
-            llm_response(content=None),  # empty-stop
+            llm_response(content=None),
             llm_response(content="recovered", total_tokens=4),
         ]
     )
@@ -658,22 +633,15 @@ def test_empty_stop_retries_once_with_nudge_then_succeeds():
 
     assert result == "recovered"
     assert state.phase is SessionPhase.DONE
-    assert len(llm.calls) == 2  # initial empty turn + one retry
-    # The retry call saw the nudge as a user message. Because that retry turn's
-    # shaped history ends with the user nudge, the per-turn status block folds INTO
-    # it (rather than appending a second consecutive user turn), so the nudge text
-    # rides in a user message alongside the status rather than as a standalone dict.
+    assert len(llm.calls) == 2
+    # The retry status folds into the user nudge to preserve role alternation.
     retry_sent = llm.calls[1]["messages"]
     assert any(
         m["role"] == "user" and _EMPTY_STOP_NUDGE in (m.get("content") or "")
         for m in retry_sent
     )
     assert _no_consecutive_same_role(retry_sent)
-    # The nudge is persisted to state.messages, preceded by an assistant
-    # placeholder so roles still alternate (no two consecutive user messages,
-    # which Anthropic rejects). The retry's per-turn budget block folds into that
-    # same user turn, so the nudge now leads a user message rather than standing
-    # alone as a bare dict.
+    # An assistant placeholder separates the persisted nudge from the preceding user turn.
     assert any(
         m["role"] == "user"
         and isinstance(m.get("content"), str)
@@ -682,13 +650,11 @@ def test_empty_stop_retries_once_with_nudge_then_succeeds():
     )
     assert _no_consecutive_same_role(state.messages)
     assert {"role": "assistant", "content": _EMPTY_STOP_PLACEHOLDER} in state.messages
-    # No bare empty assistant message was ever appended.
     assert all(
         not (m["role"] == "assistant" and not m.get("content") and not m.get("tool_calls"))
         for m in state.messages
     )
     assert state.messages[-1] == {"role": "assistant", "content": "recovered"}
-
 
 def test_whitespace_only_stop_uses_empty_turn_rescue():
     state = SessionState(messages=_convo())
@@ -710,21 +676,19 @@ def test_whitespace_only_stop_uses_empty_turn_rescue():
     assert state.messages[-1] == {"role": "assistant", "content": "recovered"}
 
 def test_empty_stop_retries_at_most_once_then_gives_up():
-    # Two consecutive empty-stops: retry fires once, then the session finishes
-    # cleanly rather than looping. A 3rd LLM call would make FakeLLM raise.
+    # A third provider call would exhaust FakeLLM, exposing an unbounded retry.
     state = SessionState(messages=_convo())
     llm = FakeLLM([llm_response(content=None), llm_response(content=None)])
     runner = build_runner(state=state, llm=llm)
 
     result = run(runner.run_loop())
 
-    assert result == ""  # placeholder is filtered out, never returned as an answer
+    assert result == ""
     assert state.phase is SessionPhase.DONE
-    assert len(llm.calls) == 2  # bounded: initial + exactly one retry
+    assert len(llm.calls) == 2
 
 def test_empty_stop_retry_is_recorded_in_trajectory():
-    # The retry must leave a grep-able trace entry, since the injected
-    # nudge/placeholder messages are never persisted to the trajectory.
+    # The trace retains retry evidence after transient nudge and placeholder messages are removed.
     state = SessionState(messages=_convo())
     llm = FakeLLM([llm_response(content=None), llm_response(content="ok", total_tokens=4)])
     tracer = FakeTracer()
@@ -758,7 +722,6 @@ def test_llm_trace_records_effective_thinking_mode():
     llm_calls = [s for s in tracer.steps if s["step_type"] == "llm_call"]
     assert llm_calls[0]["payload"]["thinking"] is True
 
-
 def test_llm_trace_records_reasoning_effort_policy():
     agent = FakeAgent()
     agent.reasoning_effort = None
@@ -771,7 +734,6 @@ def test_llm_trace_records_reasoning_effort_policy():
     llm_calls = [s for s in tracer.steps if s["step_type"] == "llm_call"]
     assert llm_calls[0]["payload"]["reasoning_effort_policy"] == "suppressed"
 
-
 def test_llm_trace_records_verified_provider_model():
     response = llm_response(content="answer")
     response.provider_model = "gpt-verified"
@@ -782,7 +744,6 @@ def test_llm_trace_records_verified_provider_model():
 
     llm_calls = [step for step in tracer.steps if step["step_type"] == "llm_call"]
     assert llm_calls[0]["payload"]["provider_model"] == "gpt-verified"
-
 
 def test_reasoning_is_preserved_in_assistant_tool_call_history():
     state = SessionState(messages=_convo())
@@ -827,14 +788,13 @@ def test_length_finish_reason_never_executes_or_persists_partial_tool_calls():
     assert not any(message.get("tool_calls") for message in state.messages)
 
 def test_empty_stop_retry_budget_resets_across_turns():
-    # The once-per-turn flag must reset on a new turn, or a long-lived session
-    # that hit an empty-stop in turn 1 would never retry again.
+    # Reusing the runner must re-arm empty-stop retry for each user turn.
     state = SessionState(messages=_convo())
     llm = FakeLLM(
         [
-            llm_response(content=None),  # turn 1 empty-stop
+            llm_response(content=None),
             llm_response(content="answer-1", total_tokens=4),
-            llm_response(content=None),  # turn 2 empty-stop
+            llm_response(content=None),
             llm_response(content="answer-2", total_tokens=4),
         ]
     )
@@ -843,11 +803,10 @@ def test_empty_stop_retry_budget_resets_across_turns():
     assert run(runner.run_loop()) == "answer-1"
     assert len(llm.calls) == 2
 
-    # Start a fresh user turn on the SAME runner instance.
     state.reset_for_user_turn()
     state.append_message({"role": "user", "content": "follow-up"})
     assert run(runner.run_loop()) == "answer-2"
-    assert len(llm.calls) == 4  # turn 2 retried too — flag was reset
+    assert len(llm.calls) == 4
 
 def test_shaper_bounds_model_view_but_leaves_state_messages_full():
     from opencollab.application.shaping import PerToolResultBudgetShaper
@@ -864,23 +823,13 @@ def test_shaper_bounds_model_view_but_leaves_state_messages_full():
 
     run(runner.run_loop())
 
-    # The model saw a bounded copy...
     sent_tool = [m for m in llm.calls[0]["messages"] if m.get("role") == "tool"][0]
     assert len(sent_tool["content"]) <= 1000
     assert "re-read a narrower range" in sent_tool["content"]
-    # ...while the persisted history kept the full result.
     assert state.messages[1]["content"] == big
 
-
 def test_a_session_stopped_by_its_step_ceiling_says_so_on_disk():
-    """The ceiling is a guard, so a run has to be able to prove it never fired.
-
-    Tokens are the resource these arms are held to; steps vary and are counted.
-    A session stopped at its step ceiling with budget still unspent is that
-    story falling apart, and before this record it looked identical to a session
-    that simply finished: one STOPPED phase, a reason string that lived only in
-    memory, nothing in the trajectory.
-    """
+    """A step-ceiling stop must remain distinguishable from normal completion on disk."""
     tracer = FakeTracer()
     calls = [tool_call()]
     runner = build_runner(
@@ -917,14 +866,10 @@ def test_a_session_stopped_by_its_step_ceiling_says_so_on_disk():
     payload = terminal[0]["payload"]
     assert payload["step_ceiling_reached"] is True
     assert payload["terminal_reason"] == "step limit reached: 2 steps"
-    # The other resource was nowhere near spent, which is what makes the stop a
-    # limit acting rather than a run finishing.
+    # The other resource retains headroom to isolate the stopping limit.
     assert payload["used_tokens"] < payload["max_budget_tokens"]
 
-
 def test_a_session_that_finishes_on_its_own_reports_an_unreached_ceiling():
-    """The control. Without it the field above proves nothing: a record that
-    said "reached" for every session would pass the test above unchanged."""
     tracer = FakeTracer()
     runner = build_runner(
         llm=FakeLLM([llm_response(content="done", total_tokens=5)]),
@@ -938,10 +883,8 @@ def test_a_session_that_finishes_on_its_own_reports_an_unreached_ceiling():
     assert payload["step_ceiling_reached"] is False
     assert payload["step_count"] < payload["max_steps"]
 
-
 def test_a_finished_session_re_entered_for_its_answer_does_not_sign_off_twice():
-    """``run_loop`` doubles as a read-only query on a DONE session. One session
-    is one disposition; a second row would double-count it."""
+    """Re-entering a DONE session queries its answer without another disposition."""
     tracer = FakeTracer()
     runner = build_runner(
         llm=FakeLLM([llm_response(content="done", total_tokens=5)]),

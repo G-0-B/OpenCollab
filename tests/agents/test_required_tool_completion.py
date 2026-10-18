@@ -24,7 +24,6 @@ def state():
         turn=TurnEnforcementState(reads_since_last_edit=READS_NUDGE_HARD),
     )
 
-
 @pytest.mark.parametrize("first_reply", ["I will edit it", None])
 def test_required_write_retries_once_then_executes_the_write(first_reply):
     write = tool_call(name="file_write")
@@ -43,7 +42,6 @@ def test_required_write_retries_once_then_executes_the_write(first_reply):
     assert executor.calls == [[write]]
     assert runner.state.used_tokens == 15
 
-
 def test_repeated_prose_cannot_complete_a_required_write():
     llm = FakeLLM([llm_response(content="done"), llm_response(content="done")])
     runner = build_runner(state=state(), llm=llm, agent=_agent_with_tool_schemas("file_write"))
@@ -52,7 +50,6 @@ def test_repeated_prose_cannot_complete_a_required_write():
     assert "required tool" in runner.state.terminal_reason
     assert len(llm.calls) == 2
     assert runner.state.used_tokens == 10
-
 
 def test_new_user_turn_resets_required_tool_retry():
     runner = build_runner()

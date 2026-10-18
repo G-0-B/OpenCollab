@@ -68,7 +68,6 @@ __all__ = [
     "_WIND_DOWN_RETRY",
 ]
 
-
 class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
     """Application use case for the session run loop.
 
@@ -122,27 +121,14 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
         self.max_steps = max_steps
         self.deferrable_tool_names = deferrable_tool_names
         self.shaper = shaper
-        # Defense-in-depth aggregate ceiling. An injected zero-arg predicate that
-        # reports whether the *team total* spend has reached the global cap.
-        # Passed as a plain callable (resolved in bootstrap/the factory) so the
-        # application layer never imports the concrete Scheduler — same pattern as
-        # ``max_budget_tokens`` being injected rather than read from the scheduler.
-        # ``None`` for standalone (non-team) sessions: only the per-session cap
-        # applies, preserving existing behavior.
+        # Inject the aggregate team ceiling without coupling this layer to Scheduler.
+        # Standalone sessions use only their own cap.
         self._team_budget_exhausted = team_budget_exhausted
-        # Adapter-supplied predicate classifying a provider exception as a
-        # context-window overflow (prompt too large even after reactive
-        # compaction). Injected as a plain callable (resolved in the factory) so
-        # the application layer never imports ``adapters.llm`` — same boundary
-        # pattern as ``team_budget_exhausted``. ``None`` (tests/standalone)
-        # means "never an overflow", preserving the prior propagate-as-ERROR
-        # behaviour for callers that don't wire it.
+        # The adapter classifies provider context overflow without provider imports
+        # in this layer. An unwired classifier leaves exceptions on the ERROR path.
         self._is_context_overflow = is_context_overflow or (lambda _exc: False)
-        # Hard ceiling (seconds) on a SINGLE model generation. The provider's own
-        # httpx ``request_timeout`` does not bound a slow streaming/thinking
-        # generation cooperatively; this wraps the call in ``asyncio.wait_for`` so
-        # one ~595s generation cannot consume the whole run wall (P7). ``None``
-        # disables it, preserving prior behavior for callers that don't wire it.
+        # Bound each generation because an HTTP timeout may not bound a slow
+        # streaming or thinking response within the run's wall-clock budget.
         if per_call_timeout is None:
             self._per_call_timeout = None
         else:
@@ -170,25 +156,17 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
         # can be re-entered on an already-finished session as a read-only query
         # for its answer, and that must not add a second disposition.
         self._session_terminal_traced = False
-        # Enforcement wind-down (STEP 0). Off by default: when ``off`` the precheck
-        # wind-down branch is never taken, so the FSM is byte-for-byte identical to
-        # the pre-enforcement code. ``commit_reserve`` is carved FROM the cap (not
-        # additive), so the single protected submit turn fits inside the budget.
+        # The protected submit reserve is carved from the token cap.
+        # Wind-down runs only when enforcement is enabled.
         self._enforcement_strength = enforcement_strength
         self._commit_reserve = commit_reserve
         self._submit_tool_name = submit_tool_name
-        # Progress watchdog + low-yield brake knobs (STEP 3). Inert unless
-        # ``enforcement_strength`` is on (the brake gate); they then route a
-        # spinning scout into the SAME ``_enter_wind_down`` actuator the budget
-        # threshold uses.
+        # No-progress and low-yield limits share the budget wind-down actuator.
         self._watchdog_k = watchdog_k
         self._low_yield_m = low_yield_m
         self._pending_tool_allowlist: frozenset[str] | None = None
         self._pending_tool_gate_label: str | None = None
-        # What the application offered before provider request adaptation. Written by
-        # ``_complete_with_choice`` (the one place a request is issued) and read
-        # by ``record_llm_trace``; recording only, never consulted by control
-        # flow.
+        # Record the offered tools before provider adaptation for record_llm_trace.
         self._last_request_tool_names: list[str] = []
         self._last_request_tool_choice: Any = None
         self._required_tool_retried = False
@@ -370,30 +348,11 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
         return self.state.phase.is_terminal()
 
     def _trace_session_terminal(self) -> None:
-        """Record how this session ended, and what it had left when it did.
+        """Record session disposition beside token and step usage and limits.
 
-        Two resources can stop a session: the tokens it was given and the steps
-        it was allowed. They cannot both be equalized across differently
-        organized runs — a solo agent carries one long history and pays more per
-        step than a teammate carrying a short one — so a comparison holds one of
-        them equal and lets the other vary. This repository holds tokens equal.
-
-        That makes the step ceiling a runaway guard rather than an allowance,
-        and a guard is only honest if it never actually fires. Nothing recorded
-        that. A session stopped at its step ceiling with tokens still unspent
-        looked exactly like a session that finished: the phase collapsed to
-        STOPPED, the reason string lived only in memory, and the trajectory —
-        the file the run is read from afterwards — said nothing at all. The
-        claim "steps were counted, never enforced" was unfalsifiable.
-
-        So each session writes one row naming its disposition beside both
-        counters and both ceilings. ``step_ceiling_reached`` is derivable from
-        the two step fields and is written anyway: it is the exact question this
-        record exists to answer, and a reader should not have to re-derive the
-        rule to ask it.
-
-        Observation only, and guarded: a record that cannot be built must not
-        change how the session ended.
+        ``step_ceiling_reached`` distinguishes a step-limited stop from completion
+        or token exhaustion. Trace construction failures leave the terminal state
+        unchanged.
         """
         if getattr(self, "_run_control", None) is not None:
             self._record_run_terminal()
@@ -505,26 +464,20 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
         return self._enforcement_strength != ENFORCEMENT_OFF
 
     def _brake_on(self) -> bool:
-        """DISTINCT gate for the STEP-3 watchdog / low-yield brakes.
+        """Enable watchdog and low-yield brakes under scout enforcement.
 
-        Deliberately a separate predicate from the ``has_write``-driven write-nudge
-        in ``_build_steering_block``: the write-nudge keys on repo-mutation
-        (``has_write``) and is disabled for read-only scouts, whereas these brakes
-        MUST fire for scouts. They are gated on enforcement (on only for scouts) and
-        keyed on the STEP-1 information-gain sensor — never on ``has_write``, whose
-        flip would leak into verify/diff/integrity accounting.
+        These use information gain because read-only scouts still need progress
+        brakes. ``has_write`` separately drives write nudges and integrity accounting.
         """
         return self._enforcement_on()
 
     def _enter_wind_down(self) -> None:
-        """Trip the single protected submit turn: latch the flag, mark the token
-        cost baseline, narrow the toolset to submit-only, FORCE ``tool_choice`` to
-        the submit function (constrained decoding — without it DeepSeek-class models
-        reflexively re-issue their prior tool, now unknown, and are chopped on the
-        error), and inject the commit instruction. The agent is per-session here, so
-        mutating its tools / tool_choice cannot leak across sessions. If the submit
-        tool is somehow absent the toolset is left as-is (the injected message + the
-        one allowed turn still apply)."""
+        """Allocate the protected submit turn and restrict it to the submit tool.
+
+        Force ``tool_choice`` to avoid spending this turn on a removed exploration
+        tool. Tool mutations stay within the session. If the submit tool
+        is absent, retain the current tools and apply the nudge and turn limit.
+        """
         self.state.wind_down_done = True
         self.state.wind_down_attempts += 1
         self.state.wind_down_token_mark = self.state.used_tokens
@@ -591,20 +544,12 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
         self.state.transition_to(SessionPhase.STOPPED, reason=reason)
 
     async def _apply_enforcement_gate(self) -> bool:
-        """The enforcement funnel: THREE triggers -> ONE actuator. Returns whether
-        it chose the next phase (so the caller yields the transition to it).
+        """Choose the next phase when an enforcement brake fires.
 
-        Off unless enforcement is on (the self-regulating default never enters).
-        When on, three independent brakes converge on a single actuator
-        (``_enter_wind_down``, which narrows the toolset to submit-only and forces
-        the commit): the token budget spent past the commit reserve, the progress
-        watchdog (``steps_since_progress`` >= K), and the low-yield sensor
-        (``low_yield_since_progress`` >= M). Any one trips it; none fires while a
-        tool result is still un-ingested (``pending_events`` non-empty).
-
-        Once wound down, the durable attempt count grants EXACTLY ONE protected
-        commit turn and a single retry if that turn strays, then a terminal
-        STOPPED — never an unbounded forced loop, including after restore.
+        With enforcement enabled and pending results consumed, budget reserve,
+        watchdog or low-yield exhaustion enters ``_enter_wind_down``. Durable
+        attempt counts allow one protected submit turn and one compatibility retry,
+        then STOPPED, including after restore. Return whether a phase was selected.
         """
         if not self._enforcement_on():
             return False
@@ -697,10 +642,8 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
             await self._stop_precheck(reason)
             return
 
-        # Aggregate ceiling (defense-in-depth): even when this session is under
-        # its own cap, stop if the *team total* has reached the global cap. A
-        # single overshooting turn or fan-out could otherwise spend past the
-        # global pool that reserve-at-allocation is meant to protect.
+        # Stop at the aggregate team ceiling even if this session has allowance left,
+        # since an overshooting generation can consume the shared pool.
         if self._team_budget_exhausted is not None and self._team_budget_exhausted():
             reason = "team budget exceeded: aggregate spend reached the global cap"
             await self._stop_precheck(reason)
@@ -717,14 +660,10 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
         self.state.transition_to(SessionPhase.CALLING_LLM)
 
     async def run_llm_call(self) -> None:
-        """One model call: track tokens, trace, append the assistant message,
-        and stash the response as the pending step for HANDLING_RESPONSE.
+        """Run one model call and retain its response for HANDLING_RESPONSE.
 
-        Context-overflow safety net: ``call_llm`` already force-compacts and
-        retries once on an overflow rejection. If the retry still overflows it
-        raises ``_ContextOverflowStop``; we catch it here and stop the session
-        gracefully (CONTEXT_OVERFLOW) instead of letting it crash as an
-        unhandled ERROR — mirroring the BUDGET_EXCEEDED degradation.
+        If ``call_llm`` still overflows after forced compaction and one retry,
+        catch ``_ContextOverflowStop`` and stop with CONTEXT_OVERFLOW.
         """
         self._llm_step_started = False
         self._ensure_tool_environment_active()
@@ -871,18 +810,12 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
             )
             return
 
-        # Empty-stop: a natural completion that produced neither text nor a tool
-        # call. Falling straight through to DONE would silently record a clean
-        # completion that answered nothing. Retry once with a nudge before giving
-        # up; the once-per-turn flag (plus the budget/step limits) bounds it. The
-        # AUTOSAVING handler finishes the step and loops back to PRECHECK.
-        # Chat ``stop`` and native ``end_turn`` share this recovery. Other stop
-        # reasons retain their existing handling.
+        # Retry an empty stop once per turn before declaring an answerless completion.
+        # Both Chat stop and native end_turn use this route through AUTOSAVING.
+        # Budget and step limits still bound the retry.
         empty_stop = not has_content and not response.tool_calls
         if empty_stop and response.finish_reason in (None, "stop", "end_turn") and not self._empty_stop_retried:
             self._empty_stop_retried = True
-            # Record the retry to the trajectory so empty-stops are measurable
-            # (the injected nudge/placeholder messages are never persisted).
             if self.tracer:
                 self.tracer.log_step(
                     step_type="empty_stop_retry",
@@ -892,10 +825,8 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
                     },
                     latency=pending.latency,
                 )
-            # The empty assistant turn was not appended, so the history may end
-            # with a user/tool message. Insert a short assistant placeholder
-            # before the nudge so the retry request never sends two consecutive
-            # user messages (which Anthropic rejects).
+            # The empty turn was omitted. Insert an assistant placeholder before the
+            # nudge to avoid consecutive user messages, which Anthropic rejects.
             if self.state.messages and self.state.messages[-1]["role"] in ("user", "tool"):
                 self.state.append_message({"role": "assistant", "content": _EMPTY_STOP_PLACEHOLDER})
             self.state.append_message({"role": "user", "content": _EMPTY_STOP_NUDGE})

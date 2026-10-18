@@ -18,7 +18,6 @@ PROMPT = "Read these notes and return the measured total.\n" + (
     "The measured count was recorded as 42 and checked by the operator.\n" * 30
 )
 
-
 class MarkerTool(Tool):
     name = "touch_marker"
     description = "Record a local marker."
@@ -30,7 +29,6 @@ class MarkerTool(Tool):
     async def execute_with_runtime(self, params, runtime):
         self.calls += 1
         return "recorded"
-
 
 @pytest.mark.parametrize("trace", [False, True])
 @pytest.mark.parametrize("case", [
@@ -126,7 +124,6 @@ async def test_budget_stop_preserves_answer_after_native_retry(tmp_path, monkeyp
     assert result.tokens == session.used_tokens == expected_tokens
     assert session.step_count == 1
     assert len(requests) == (2 if retry else 1)
-    # Every billed response obeys its output ceiling, including the internal retry.
     assert all((0 if retry and index == 0 else 15) <= body["max_output_tokens"]
                for index, body in enumerate(requests))
     request_snapshot = next(snapshot for snapshot in snapshots if snapshot.reason == "request")

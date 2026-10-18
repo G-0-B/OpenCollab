@@ -1,15 +1,4 @@
-"""A team file sets each role's token allowance, and the allowances are independent.
-
-Until now a team's tokens were one number handed to ``client.team(budget=)``
-and divided by rule (``per_agent_cap``); the team file could not say what any
-role was allowed to spend. A file may now declare ``budget: {tokens: N}`` as
-every role's allowance and override it per role. Each agent is then held to its
-own allowance alone: what one teammate spends, overshoots included, never
-reduces what another may spend. The team's total is the sum of the allowances.
-
-A file that declares no budget runs exactly as before; that regression is held
-by ``test_declared_budget_rule.py``, which this change leaves untouched.
-"""
+"""Team files assign independent role allowances whose sum is the team total."""
 
 from __future__ import annotations
 
@@ -26,10 +15,8 @@ from opencollab.domain.session import SessionPhase, SessionState
 ROLES = ("lead", "coder", "tester")
 ALLOWANCES = {"lead": 300_000, "coder": 200_000, "tester": 100_000}
 
-
 def run(coro):
     return asyncio.run(coro)
-
 
 def _write(tmp_path, body: str):
     path = tmp_path / "team.yaml"
@@ -42,19 +29,13 @@ def _write(tmp_path, body: str):
     )
     return path
 
-
-# --- Declaration and validation ------------------------------------------------
-
-
 def test_no_budget_declared_leaves_the_team_on_the_shared_rule(tmp_path) -> None:
     team = load_team_config(path=str(_write(tmp_path, "")))
     assert team.role_budgets == {}
 
-
 def test_a_team_level_allowance_applies_to_every_role(tmp_path) -> None:
     team = load_team_config(path=str(_write(tmp_path, "budget:\n  tokens: 2000000\n")))
     assert team.role_budgets == {"lead": 2_000_000, "coder": 2_000_000}
-
 
 def test_a_role_may_override_the_team_allowance(tmp_path) -> None:
     path = tmp_path / "team.yaml"
@@ -65,7 +46,6 @@ def test_a_role_may_override_the_team_allowance(tmp_path) -> None:
         encoding="utf-8",
     )
     assert load_team_config(path=str(path)).role_budgets == {"lead": 3_000_000, "coder": 2_000_000}
-
 
 @pytest.mark.parametrize(
     "body",
@@ -81,7 +61,6 @@ def test_a_malformed_allowance_is_refused_at_load(tmp_path, body) -> None:
     with pytest.raises(ValueError):
         load_team_config(path=str(_write(tmp_path, body)))
 
-
 def test_every_role_needs_an_allowance_once_any_has_one(tmp_path) -> None:
     """A role left without one would silently fall back to a different rule."""
     path = tmp_path / "team.yaml"
@@ -93,10 +72,6 @@ def test_every_role_needs_an_allowance_once_any_has_one(tmp_path) -> None:
     )
     with pytest.raises(ValueError, match="coder"):
         load_team_config(path=str(path))
-
-
-# --- The scheduler ---------------------------------------------------------------
-
 
 class FakeSession:
     def __init__(self, role: str, budget: int):
@@ -111,7 +86,6 @@ class FakeSession:
     async def run_loop(self) -> str:
         self.state.set_phase(SessionPhase.DONE)
         return "done"
-
 
 class RecordingFactory:
     def __init__(self) -> None:
@@ -128,7 +102,6 @@ class RecordingFactory:
         session.state.aid = aid
         return session
 
-
 class _NoWorktrees:
     async def acquire(self, role):
         return None
@@ -136,14 +109,12 @@ class _NoWorktrees:
     async def release(self):
         return None
 
-
 class RecordingTracer:
     def __init__(self) -> None:
         self.steps: list[tuple[str, dict[str, Any]]] = []
 
     def log_step(self, *, step_type: str, payload: dict[str, Any]) -> None:
         self.steps.append((step_type, payload))
-
 
 def _scheduler(*, tracer=None, **overrides):
     factory = RecordingFactory()
@@ -166,20 +137,16 @@ def _scheduler(*, tracer=None, **overrides):
     scheduler.register_lead(lead)
     return scheduler, factory
 
-
 def _spend(scheduler: Scheduler, aid: int, tokens: int) -> None:
     scheduler.table.get(aid).state.used_tokens = tokens
-
 
 def test_role_allowances_need_a_declared_roster() -> None:
     with pytest.raises(ValueError, match="prebuild"):
         _scheduler(prebuild_team=False)
 
-
 def test_role_allowances_must_cover_every_declared_role() -> None:
     with pytest.raises(ValueError, match="tester"):
         _scheduler(role_budgets={"lead": 1, "coder": 1})
-
 
 def test_each_seat_is_built_with_its_roles_allowance() -> None:
     async def scenario():
@@ -190,7 +157,6 @@ def test_each_seat_is_built_with_its_roles_allowance() -> None:
 
     run(scenario())
 
-
 def test_one_agents_overshoot_never_reduces_anothers_allowance() -> None:
     async def scenario():
         scheduler, _ = _scheduler()
@@ -199,7 +165,6 @@ def test_one_agents_overshoot_never_reduces_anothers_allowance() -> None:
         # has spent nearly all of its own.
         _spend(scheduler, 0, ALLOWANCES["lead"] + 250_000)
         _spend(scheduler, 1, 150_000)
-        # The pool alone would lend the tester nothing; its allowance is intact.
         assert scheduler.used_tokens >= sum(ALLOWANCES.values())
         assert scheduler._reserve_turn_lease(2) == ALLOWANCES["tester"]
         assert scheduler._reserve_turn_lease(1) == 50_000
@@ -207,7 +172,6 @@ def test_one_agents_overshoot_never_reduces_anothers_allowance() -> None:
         assert scheduler.budget_exhausted is False
 
     run(scenario())
-
 
 def test_the_team_is_exhausted_once_every_seat_has_spent_its_allowance() -> None:
     async def scenario():
@@ -218,7 +182,6 @@ def test_the_team_is_exhausted_once_every_seat_has_spent_its_allowance() -> None
         assert scheduler.budget_exhausted is True
 
     run(scenario())
-
 
 def test_each_seated_node_records_its_allowance() -> None:
     async def scenario():
@@ -231,16 +194,12 @@ def test_each_seated_node_records_its_allowance() -> None:
 
     run(scenario())
 
-
-# --- Wiring ----------------------------------------------------------------------
-
 _BUDGETED_TEAM = (
     "entry: lead\nbudget: {tokens: 2000000}\nroles:\n"
     "  lead:\n    prompt: hi\n    tools: [message_agent]\n    budget: {tokens: 3000000}\n"
     "  coder:\n    prompt: hi\n    tools: [message_agent]\n"
     "topology:\n  lead: [coder]\n  coder: [lead]\n"
 )
-
 
 def test_build_scheduler_takes_the_files_allowances(tmp_path) -> None:
     from opencollab.bootstrap import build_runtime_context, build_scheduler
@@ -265,7 +224,6 @@ def test_build_scheduler_takes_the_files_allowances(tmp_path) -> None:
     finally:
         run(scheduler.cleanup())
 
-
 def test_client_team_refuses_a_budget_the_file_already_declares(tmp_path) -> None:
     from opencollab import OpenCollab
 
@@ -279,14 +237,8 @@ def test_client_team_refuses_a_budget_the_file_already_declares(tmp_path) -> Non
             )
         )
 
-
 def test_a_programmatic_team_still_canonicalizes_its_topology() -> None:
-    """Guard for the validation this change sits beside in ``TeamConfig``.
-
-    Edges written with a role's name in another case must resolve to the
-    declared role; an edit that cut ``__post_init__`` short dropped this
-    silently while every other test stayed green.
-    """
+    """Budget validation must preserve case-insensitive topology canonicalization."""
     from opencollab.bootstrap.team_config import RoleConfig, TeamConfig
     from opencollab.domain.team import Topology
 

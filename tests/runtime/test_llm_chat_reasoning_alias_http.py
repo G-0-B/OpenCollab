@@ -12,7 +12,6 @@ from opencollab.adapters.llm.client import LLMClient
 
 _USAGE = {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20}
 
-
 async def _complete(message):
     requests = []
 
@@ -40,7 +39,6 @@ async def _complete(message):
         return response, requests
     finally:
         await client.close()
-
 
 @pytest.mark.parametrize(
     ("content", "reasoning_fields", "expected_content", "expected_reasoning"),

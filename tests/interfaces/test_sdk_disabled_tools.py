@@ -45,11 +45,9 @@ def _tool_reply(request, protocol):
         "usage": {"prompt_tokens": 8, "completion_tokens": 4, "total_tokens": 12},
     })
 
-
 def _choice(body):
     value = body.get("tool_choice", "auto")
     return value.get("type") if isinstance(value, dict) else value
-
 
 def _has_tool_result(body, protocol):
     if protocol == "responses":
@@ -58,7 +56,6 @@ def _has_tool_result(body, protocol):
         return any(item.get("type") == "tool_result" for message in body["messages"]
                    for item in (message["content"] if isinstance(message["content"], list) else []))
     return any(message.get("role") == "tool" for message in body["messages"])
-
 
 async def _run(tmp_path, protocol, model, requested):
     async def flow(ctx, inputs):
@@ -70,7 +67,6 @@ async def _run(tmp_path, protocol, model, requested):
         config={"wire_protocol": "responses" if protocol == "responses" else "chat_completions",
                 "llm_max_retries": 0},
     ).workflow(flow, budget=50_000, max_steps=3, trace=False)
-
 
 @pytest.mark.parametrize("model", ["deepseek-v4-flash", "qwen3.8-flash"])
 @pytest.mark.parametrize("requested", ["none", {"type": "none"}])
@@ -90,7 +86,6 @@ async def test_responses_capability_fallback_preserves_disabled_tools(tmp_path, 
     assert result.ok and result.output == "ok"
     assert len(requests) == 1 and requests[0]["tool_choice"] == "none"
     assert not (tmp_path / "answer.txt").exists()
-
 
 @pytest.mark.parametrize("protocol", ["chat_completions", "responses", "anthropic"])
 @pytest.mark.parametrize("status", [400, 422])
@@ -117,7 +112,6 @@ async def test_rejected_disabled_tools_never_retry_with_auto(tmp_path, monkeypat
     assert result.output is None and result.agent_failures
     assert len(requests) == 1 and _choice(requests[0]) == "none"
     assert not (tmp_path / "answer.txt").exists()
-
 
 @pytest.mark.parametrize("protocol", ["chat_completions", "responses", "anthropic"])
 async def test_auto_still_executes_registered_tool(tmp_path, monkeypatch, protocol):

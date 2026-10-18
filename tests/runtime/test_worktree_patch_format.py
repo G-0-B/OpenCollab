@@ -58,7 +58,6 @@ async def test_exported_patch_applies_with_display_settings(tmp_path, monkeypatc
     finally:
         await env.cleanup()
 
-
 @pytest.mark.parametrize("binary", [False, True])
 async def test_directory_copy_rename_exports_an_applicable_patch(tmp_path, monkeypatch, binary):
     source = tmp_path / "source"
@@ -87,7 +86,6 @@ async def test_directory_copy_rename_exports_an_applicable_patch(tmp_path, monke
         assert (source / after_name).read_bytes() == payload
     finally:
         await env.cleanup()
-
 
 @pytest.mark.parametrize("temporary_name", [
     "plain temp", "\u4e2d\u6587\u4e34\u65f6", 'quoted " directory', "tab\tdirectory",
@@ -155,7 +153,6 @@ async def test_directory_copy_patch_applies_after_cleanup_with_quoted_temp_paths
         assert config.read_bytes() == configured
     finally:
         await env.cleanup()
-
 
 @pytest.mark.parametrize("git_repo", [False, True])
 @pytest.mark.parametrize("change", ["value", "format", "minify_and_value"])

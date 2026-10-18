@@ -19,7 +19,6 @@ Caps are not creation-time reservations: an idle seat holds no tokens.
 Prechecks still permit in-flight overshoot; inspect recorded usage.
 """
 
-
 def per_agent_cap(
     total: int,
     team_size: int,
@@ -34,14 +33,12 @@ def per_agent_cap(
         return max(0, total)
     return max(0, min(total, int(total * share / team_size)))
 
-
 def dynamic_roster_share(total: int) -> int:
     """Return a dynamic agent's quarter-pool share, floored at 10k and capped at total.
 
     The roster has no known N; declared prebuilt teams use per_agent_cap instead.
     """
     return min(total, max(10_000, total // 4))
-
 
 def split_budget(total: int, allocated: int) -> int:
     """Grant at most one dynamic share from the unallocated pool; zero if exhausted.
@@ -51,7 +48,6 @@ def split_budget(total: int, allocated: int) -> int:
     """
     remaining = max(0, total - allocated)
     return min(dynamic_roster_share(total), remaining)
-
 
 @dataclass(frozen=True)
 class DelegationTask:
@@ -65,7 +61,6 @@ class DelegationTask:
         if self.context:
             return f"Context:\n{self.context}\n\nTask:\n{self.task}"
         return self.task
-
 
 @dataclass(frozen=True)
 class ReviewVerdict:
@@ -90,7 +85,6 @@ class ReviewVerdict:
         )
         return cls(passed=passed, raw_text=review_text)
 
-
 @dataclass
 class SessionControlBlock:
     """Registry data for an agent; the Scheduler owns its live Session/runtime."""
@@ -100,7 +94,6 @@ class SessionControlBlock:
     agent: Agent
     state: SessionState
     result: str = ""
-
 
 @dataclass
 class SessionTable:
@@ -123,7 +116,6 @@ class SessionTable:
     @property
     def total_used_tokens(self) -> int:
         return sum(scb.state.used_tokens for scb in self.entries.values())
-
 
 __all__ = [
     "PER_AGENT_BUDGET_SHARE",

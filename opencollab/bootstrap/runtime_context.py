@@ -32,7 +32,6 @@ class RuntimeContext:
     permission_policy: PermissionPort | None
     ask_policy: AskUserPort | None = None
 
-
 def build_runtime_context(
     workspace: str,
     cli_overrides: dict,
@@ -57,7 +56,6 @@ def build_runtime_context(
         permission_policy=permission_policy,
         ask_policy=ask_policy,
     )
-
 
 def build_workspace_safety_policy(env: Environment) -> SafetyPolicyPort | None:
     """A sandbox interceptor scoped to ``env``'s workspace, or None without one."""

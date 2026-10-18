@@ -19,7 +19,6 @@ from tests.support.provider_sdk_http import completion_http_response, http_respo
 _MODEL = "claude-sonnet-4-6"
 _THINKING = {"thinking": {"type": "adaptive"}}
 
-
 @pytest.fixture(autouse=True)
 def isolate_configuration(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(tmp_path / "usage.jsonl"))
@@ -27,13 +26,11 @@ def isolate_configuration(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
 
-
 def _wire_input_tokens(request):
     messages = list(request["messages"])
     if "system" in request:
         messages.insert(0, {"role": "system", "content": request["system"]})
     return estimate_request_tokens(messages, request.get("tools"))
-
 
 @pytest.mark.parametrize("budget,thinking,expected_tokens,expected_calls", [
     (11_000, True, 9702, 2),
@@ -115,7 +112,6 @@ async def test_long_thinking_tool_round_uses_one_native_copy(
     }]
     assert json.dumps(requests[1]).count(thinking_text) == int(thinking)
 
-
 @pytest.mark.parametrize("history_shape", ["native", "legacy", "empty-native"])
 async def test_reservation_counts_system_tools_and_native_blocks_received_by_sdk(
     monkeypatch, history_shape,
@@ -182,7 +178,6 @@ async def test_reservation_counts_system_tools_and_native_blocks_received_by_sdk
     else:
         assert requests[0]["messages"][1]["content"] == blocks[2:]
 
-
 async def test_reservation_handles_large_manual_thinking_configuration(monkeypatch):
     requests = []
 
@@ -201,7 +196,6 @@ async def test_reservation_handles_large_manual_thinking_configuration(monkeypat
         await client.complete(messages, thinking=True, thinking_params=params, max_output_tokens=32_768)
     assert requests[0]["thinking"] == params["thinking"]
     assert reserved == _wire_input_tokens(requests[0])
-
 
 @pytest.mark.parametrize("native", [False, True], ids=["legacy-message-only", "native-snapshot"])
 async def test_saved_anthropic_history_reserves_the_replayed_payload(monkeypatch, tmp_path, native):

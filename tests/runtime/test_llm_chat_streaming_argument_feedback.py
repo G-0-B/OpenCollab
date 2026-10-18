@@ -20,13 +20,11 @@ _BAD_ARGUMENTS = '{"path":"target.txt"'
 _GOOD_ARGUMENTS = '{"path":"target.txt"}'
 _MARKER = "verified file contents"
 
-
 def _call(call_id, arguments):
     return {
         "id": call_id, "type": "function",
         "function": {"name": "file_read", "arguments": arguments},
     }
-
 
 def _reply(body, message, finish):
     common = {"id": "chatcmpl_feedback", "created": 1, "model": body["model"]}
@@ -68,10 +66,8 @@ def _reply(body, message, finish):
         200, headers={"content-type": "text/event-stream"}, text=wire + "data: [DONE]\n\n",
     )
 
-
 def _records(path):
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
-
 
 @pytest.fixture(autouse=True)
 def isolate_configuration(monkeypatch, tmp_path):
@@ -79,7 +75,6 @@ def isolate_configuration(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_UNBOUNDED_LIMITS", "false")
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
-
 
 @pytest.mark.parametrize("stream", [False, True], ids=["ordinary-chat", "complete-stream"])
 @pytest.mark.parametrize("retries", [0, 1])
@@ -156,7 +151,6 @@ async def test_public_agent_corrects_invalid_arguments_after_tool_error(
     assert [record["usage"]["total_tokens"] for record in ledger] == [27, 27, 27]
     assert all(record["usage"]["estimated"] is False for record in ledger)
 
-
 class _UnfinishedToolStream(httpx.AsyncByteStream):
     def __init__(self):
         self.closed = False
@@ -174,7 +168,6 @@ class _UnfinishedToolStream(httpx.AsyncByteStream):
 
     async def aclose(self):
         self.closed = True
-
 
 @pytest.mark.parametrize("retries", [0, 1])
 async def test_unfinished_tool_stream_keeps_transient_retry_path(monkeypatch, retries):

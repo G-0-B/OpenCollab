@@ -20,7 +20,6 @@ _PAIRS = [
     ("docs/new-guide.md", "docs/new-guide.zh-CN.md"),
 ]
 
-
 def _commit(repository: Path, changes: dict[str, str | None]) -> str:
     for name, content in changes.items():
         path = repository / name
@@ -33,7 +32,6 @@ def _commit(repository: Path, changes: dict[str, str | None]) -> str:
     git(repository, "commit", "-m", "\u66f4\u65b0\u6d4b\u8bd5\u6587\u6863")
     return git(repository, "rev-parse", "HEAD")
 
-
 @pytest.fixture
 def repository(tmp_path: Path) -> tuple[Path, str]:
     git(tmp_path, "init")
@@ -44,7 +42,6 @@ def repository(tmp_path: Path) -> tuple[Path, str]:
     files["docs/english-only.md"] = "English only\n"
     return tmp_path, _commit(tmp_path, files)
 
-
 def _run(repository: Path, base: str, head: str = "HEAD") -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(_SCRIPT), base, head],
@@ -53,7 +50,6 @@ def _run(repository: Path, base: str, head: str = "HEAD") -> subprocess.Complete
         text=True,
         check=False,
     )
-
 
 @pytest.mark.parametrize(("english", "chinese"), _PAIRS)
 def test_english_change_requires_its_existing_translation(repository, english, chinese):
@@ -66,14 +62,12 @@ def test_english_change_requires_its_existing_translation(repository, english, c
     assert english in result.stderr
     assert chinese in result.stderr
 
-
 def test_bilingual_updates_can_use_separate_commits_in_one_pr(repository):
     root, base = repository
     _commit(root, {en: "Updated\n" for en, _ in _PAIRS})
     _commit(root, {zh: "\u5df2\u66f4\u65b0\n" for _, zh in _PAIRS})
 
     assert _run(root, base).returncode == 0
-
 
 @pytest.mark.parametrize(
     "changes",
@@ -90,13 +84,11 @@ def test_unpaired_and_chinese_only_changes_pass(repository, changes):
 
     assert _run(root, base).returncode == 0
 
-
 def test_new_translation_pair_passes(repository):
     root, base = repository
     _commit(root, {"docs/fresh.md": "New guide\n", "docs/fresh.zh-CN.md": "\u65b0\u6307\u5357\n"})
 
     assert _run(root, base).returncode == 0
-
 
 def test_changing_a_different_translation_does_not_satisfy_the_pair(repository):
     root, base = repository
@@ -107,14 +99,12 @@ def test_changing_a_different_translation_does_not_satisfy_the_pair(repository):
     assert result.returncode == 1
     assert "README.zh-CN.md" in result.stderr
 
-
 def test_reverted_translation_change_does_not_count(repository):
     root, base = repository
     _commit(root, {"README.md": "Updated\n", "README.zh-CN.md": "\u5df2\u66f4\u65b0\n"})
     _commit(root, {"README.zh-CN.md": "Original\n"})
 
     assert _run(root, base).returncode == 1
-
 
 def test_target_branch_changes_do_not_count_as_pr_changes(repository):
     root, base = repository
@@ -135,7 +125,6 @@ def test_target_branch_changes_do_not_count_as_pr_changes(repository):
     assert "README.zh-CN.md" in result.stderr
     assert "docs/duo" not in result.stderr
 
-
 @pytest.mark.parametrize("remove_chinese", [False, True])
 def test_removing_english_also_requires_a_translation_change(repository, remove_chinese):
     root, base = repository
@@ -145,7 +134,6 @@ def test_removing_english_also_requires_a_translation_change(repository, remove_
     _commit(root, changes)
 
     assert _run(root, base).returncode == (0 if remove_chinese else 1)
-
 
 def test_renaming_both_documents_passes(repository):
     root, base = repository
@@ -160,7 +148,6 @@ def test_renaming_both_documents_passes(repository):
     )
 
     assert _run(root, base).returncode == 0
-
 
 def test_missing_history_fails_with_an_actionable_error(repository):
     root, _ = repository

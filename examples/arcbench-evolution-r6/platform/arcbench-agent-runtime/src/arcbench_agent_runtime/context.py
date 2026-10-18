@@ -8,13 +8,11 @@ DEFAULT_RUNNER_EVENTS_PATH = ".arc/runner-events.jsonl"
 DEFAULT_TRACEABILITY_DIR = ".arc/traceability"
 DEFAULT_PROJECT_DIR = "."
 
-
 def _resolve_under_project(project_dir: Path, value: str | os.PathLike[str]) -> Path:
     path = Path(value)
     if path.is_absolute():
         return path
     return project_dir / path
-
 
 @dataclass(frozen=True)
 class RuntimePaths:

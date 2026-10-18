@@ -120,13 +120,7 @@ def _last_user_text(messages: list[dict]) -> str:
 
 
 def _scripted_llm(*, tester_checks_out: bool):
-    """One scripted provider class; each agent gets its own instance.
-
-    The role is read off the system prompt because the composition root builds a
-    client per agent and tells it only about the model. Every branch is fixed in
-    advance except the sha, which is read out of git's own output — the same
-    place the model would have to read it.
-    """
+    """Read roles from system prompts and commit IDs from Git output for each scripted client."""
 
     class ScriptedLLM:
         def __init__(self, **_kwargs) -> None:
@@ -322,12 +316,7 @@ async def test_every_step_of_the_handoff_is_recoverable_from_recorded_fields(
 async def test_a_tester_that_never_checked_out_reconstructs_as_not_having(
     tmp_path, monkeypatch
 ) -> None:
-    """The control: same run, same records, one step removed.
-
-    Everything else still happens — the Coder still commits, still sends the
-    sha, and the Tester still runs a command and answers. Only the checkout is
-    gone, and the step-3 reader has to say so on its own.
-    """
+    """Omit only checkout while preserving commit, message, command, and reply steps."""
     records = await _run_handoff(tmp_path, monkeypatch, tester_checks_out=False)
 
     committed = _commits_made_by(records, "coder")

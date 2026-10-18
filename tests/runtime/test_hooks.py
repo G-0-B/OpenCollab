@@ -1,9 +1,4 @@
-"""Tests for the minimal (phase-1, observe-only) hook system.
-
-Covers the four layers the feature touches: domain matching policy, the
-application event→hook subscriber, the adapter shell runner, the config parser,
-and the bootstrap wiring (including the eval-gating switch).
-"""
+"""Observe-only hooks across matching, subscriptions, shell execution, and configuration."""
 
 from __future__ import annotations
 
@@ -30,41 +25,27 @@ from opencollab.bootstrap.team_config import load_team_config
 from opencollab.domain.events import SchedulerEvent, SessionRuntimeEvent
 from opencollab.domain.hooks import HookOutcome, HookSpec, match_hooks
 
-# ---------------------------------------------------------------------------
-# domain: match_hooks
-# ---------------------------------------------------------------------------
-
 
 def _spec(event="PostToolUse", matcher=None, command="true"):
     return HookSpec(event=event, action_type="command", command=command, matcher=matcher)
-
 
 def test_match_hooks_no_matcher_matches_with_or_without_tool():
     specs = (_spec(matcher=None),)
     assert match_hooks(specs, "PostToolUse", "file_write") == list(specs)
     assert match_hooks(specs, "PostToolUse", None) == list(specs)
 
-
 def test_match_hooks_glob_hit_and_miss():
     specs = (_spec(matcher="file_*"),)
     assert match_hooks(specs, "PostToolUse", "file_write") == list(specs)
     assert match_hooks(specs, "PostToolUse", "bash") == []
 
-
 def test_match_hooks_filters_by_event_name():
     specs = (_spec(event="PreToolUse"),)
     assert match_hooks(specs, "PostToolUse", "bash") == []
 
-
 def test_match_hooks_with_matcher_never_fires_without_tool():
     specs = (_spec(matcher="file_*"),)
     assert match_hooks(specs, "PostToolUse", None) == []
-
-
-# ---------------------------------------------------------------------------
-# application: HookEventSubscriber mapping
-# ---------------------------------------------------------------------------
-
 
 class _RecordingRunner:
     def __init__(self):
@@ -74,12 +55,10 @@ class _RecordingRunner:
         self.calls.append((event_name, payload))
         return HookOutcome()
 
-
 def _emit(event):
     runner = _RecordingRunner()
     asyncio.run(HookEventSubscriber(runner).emit(event))
     return runner.calls
-
 
 def test_subscriber_maps_tool_events():
     calls = _emit(SessionRuntimeEvent(type="tool_start", data={"tool": "bash", "aid": 1}))
@@ -89,18 +68,13 @@ def test_subscriber_maps_tool_events():
     assert calls[0][0] == "PostToolUse"
     assert calls[0][1]["tool"] == "grep"
 
-
 def test_subscriber_maps_session_lifecycle():
     assert _emit(SchedulerEvent(type="agent_spawned", data={"aid": 3}))[0][0] == "SessionStart"
     assert _emit(SessionRuntimeEvent(type="error", data={"reason": "boom"}))[0][0] == "Notification"
 
-
 def test_subscriber_splits_completed_by_parent():
-    # Lead (parent_aid is None) finishing == the team Stop.
     assert _emit(SchedulerEvent(type="agent_completed", data={"aid": 0, "parent_aid": None}))[0][0] == "Stop"
-    # A child finishing == SubagentStop.
     assert _emit(SchedulerEvent(type="agent_completed", data={"aid": 5, "parent_aid": 0}))[0][0] == "SubagentStop"
-
 
 @pytest.mark.parametrize(
     ("event_type", "aid", "expected_hook", "expected_disposition"),
@@ -123,16 +97,9 @@ def test_subscriber_maps_all_terminal_dispositions(
     assert calls[0][0] == expected_hook
     assert calls[0][1]["disposition"] == expected_disposition
 
-
 def test_subscriber_ignores_unmapped_events():
     assert _emit(SessionRuntimeEvent(type="step_end", data={"step": 1})) == []
     assert _emit(SessionRuntimeEvent(type="text_delta", data={"content": "x"})) == []
-
-
-# ---------------------------------------------------------------------------
-# adapter: ShellHookRunner
-# ---------------------------------------------------------------------------
-
 
 def test_runner_runs_command_with_payload_on_stdin_and_env(tmp_path):
     stdin_file = tmp_path / "stdin.json"
@@ -151,7 +118,6 @@ def test_runner_runs_command_with_payload_on_stdin_and_env(tmp_path):
     assert json.loads(stdin_file.read_text()) == payload
     assert tool_file.read_text() == "file_write"
 
-
 def test_runner_does_not_run_unmatched_command(tmp_path):
     sentinel = tmp_path / "ran"
     spec = HookSpec(
@@ -161,23 +127,16 @@ def test_runner_does_not_run_unmatched_command(tmp_path):
         matcher="file_*",
     )
     runner = ShellHookRunner((spec,))
-    # tool 'bash' does not match 'file_*'
     asyncio.run(runner.fire("PostToolUse", {"hook_event_name": "PostToolUse", "tool": "bash"}))
     assert not sentinel.exists()
 
-
 def test_runner_swallows_nonzero_exit():
     runner = ShellHookRunner((HookSpec(event="Stop", action_type="command", command="exit 3"),))
-    # Must not raise.
     outcome = asyncio.run(runner.fire("Stop", {"hook_event_name": "Stop"}))
     assert outcome.allow is True
 
-
-# Killing one hook may cost the hook's own timeout, then a SIGTERM grace, then
-# two kill graces reaping the group. A test deadline below that sum reports a
-# kill that worked as a failure on any machine slow enough to need the graces.
+# The deadline includes the hook timeout, SIGTERM grace, and two process-group kill graces.
 HOOK_KILL_WORST_CASE_SECONDS = PROCESS_TERM_GRACE_SECONDS + 2 * PROCESS_KILL_GRACE_SECONDS
-
 
 def test_runner_kills_on_timeout_without_raising():
     hook_timeout = 0.2
@@ -193,31 +152,17 @@ def test_runner_kills_on_timeout_without_raising():
             timeout=deadline,
         )
 
-    # Returns well under the sleep duration and does not raise.
     outcome = asyncio.run(_run())
     assert outcome.allow is True
 
-
-# The descendant must still be sleeping when a *slow but correct* cleanup gets
-# round to killing it. Cleanup is allowed the whole kill window, so a descendant
-# that wakes inside it writes ``finished`` on cleanup that worked — the same
-# mismatch this module fixes elsewhere, pointing the other way.
+# The descendant sleeps past the full kill window so a successful cleanup cannot look like survival.
 DESCENDANT_OUTLIVES_CLEANUP_SECONDS = HOOK_KILL_WORST_CASE_SECONDS + 5.0
 
-
 def _delayed_sentinel_command(started, finished) -> str:
-    """A backgrounded descendant that records its pid, sleeps, then marks its end.
+    """Create a background descendant with PID and completion sentinels.
 
-    The marks are shell builtins rather than a launched program: the callers
-    below kill this group on a sub-second timeout, and an interpreter's startup
-    does not reliably fit inside one — measured at 0.04-0.35s on the machines
-    this suite runs on, against a 0.2s hook timeout.
-
-    ``started`` carries the sleeping descendant's pid, so a caller asks whether
-    that process is gone rather than waiting out a wall-clock window. ``finished``
-    is written only when the sleep runs to completion (``&&`` drops it when a
-    signal ends the wait), and the sleep outlasts every grace the cleanup path
-    may spend, so a cleanup that worked cannot lose a race to it.
+    Shell builtins fit the 0.2s hook timeout despite interpreter startup variance.
+    The descendant outlasts cleanup grace, and a signal prevents its completion mark.
     """
     child = (
         f"sleep {DESCENDANT_OUTLIVES_CLEANUP_SECONDS} & "
@@ -226,15 +171,10 @@ def _delayed_sentinel_command(started, finished) -> str:
     )
     return f"{{ {child}; }} & wait"
 
-
 async def _await_descendant_reaped(started) -> None:
-    """Wait, on the loop, until the recorded descendant is gone.
+    """Await descendant reaping on the loop that performs cancellation cleanup.
 
-    Bounded by what ``terminate_process`` permits itself rather than by a fixed
-    sleep, so a loaded machine buys time instead of a false failure. The wait
-    has to happen *on the running loop*: the cancellation path finishes its
-    cleanup there, so a caller that closed the loop first would be asking about
-    a descendant nobody is left to kill.
+    Use the cleanup time allowance so loaded machines can finish reaping.
     """
     deadline = time.monotonic() + HOOK_KILL_WORST_CASE_SECONDS + 1.0
     # ``started`` exists as soon as the redirection opens it, which can be a
@@ -256,7 +196,6 @@ async def _await_descendant_reaped(started) -> None:
             pytest.fail(f"descendant {descendant} outlived the cleanup path")
         await asyncio.sleep(0.01)
 
-
 def test_runner_timeout_kills_descendant_process_group(tmp_path):
     started = tmp_path / "started"
     finished = tmp_path / "finished"
@@ -274,7 +213,6 @@ def test_runner_timeout_kills_descendant_process_group(tmp_path):
 
     asyncio.run(_run())
     assert not finished.exists()
-
 
 def test_runner_cleans_background_group_after_shell_leader_exits(tmp_path):
     finished = tmp_path / "background-finished"
@@ -297,7 +235,6 @@ def test_runner_cleans_background_group_after_shell_leader_exits(tmp_path):
     assert runner.cleanup_quiesced is True
     threading.Event().wait(0.7)
     assert not finished.exists()
-
 
 def test_runner_caller_cancellation_kills_descendant_process_group(tmp_path):
     started = tmp_path / "started"
@@ -325,7 +262,6 @@ def test_runner_caller_cancellation_kills_descendant_process_group(tmp_path):
 
     asyncio.run(_run())
     assert not finished.exists()
-
 
 def test_runner_delegates_to_shared_process_supervisor(monkeypatch):
     calls = []
@@ -357,7 +293,6 @@ def test_runner_delegates_to_shared_process_supervisor(monkeypatch):
     assert calls[0][1]["env"]["OPENCOLLAB_TOOL"] == "bash"
     assert calls[0][1]["env"]["OPENCOLLAB_AID"] == "9"
 
-
 def test_runner_passes_workspace_cwd_to_process_supervisor(monkeypatch, tmp_path):
     calls = []
     workspace = tmp_path / "workspace with spaces"
@@ -376,7 +311,6 @@ def test_runner_passes_workspace_cwd_to_process_supervisor(monkeypatch, tmp_path
     asyncio.run(runner.fire("Stop", {"hook_event_name": "Stop"}))
 
     assert calls[0][1]["cwd"] == str(workspace.resolve())
-
 
 def test_runner_resolves_relative_hook_outputs_in_workspace(tmp_path):
     workspace = tmp_path / "workspace with spaces"
@@ -398,7 +332,6 @@ def test_runner_resolves_relative_hook_outputs_in_workspace(tmp_path):
     )
     assert (workspace / "relative-output.txt").read_text() == "ok"
 
-
 def test_runner_swallows_shared_supervisor_timeout(monkeypatch):
     async def fake_run_process(*_args, **_kwargs):
         raise asyncio.TimeoutError
@@ -412,7 +345,6 @@ def test_runner_swallows_shared_supervisor_timeout(monkeypatch):
     )
     assert outcome.allow is True
 
-
 def test_runner_reports_shared_supervisor_cleanup_failure(monkeypatch):
     async def fake_run_process(*_args, **_kwargs):
         raise hooks_adapter.ProcessCleanupError("descendant remained alive")
@@ -423,7 +355,6 @@ def test_runner_reports_shared_supervisor_cleanup_failure(monkeypatch):
     with pytest.raises(hooks_adapter.ProcessCleanupError, match="remained alive"):
         asyncio.run(runner.fire("Stop", {"hook_event_name": "Stop"}))
     assert runner.cleanup_quiesced is False
-
 
 def test_runner_serializes_payload_before_starting_command(tmp_path):
     sentinel = tmp_path / "started"
@@ -440,12 +371,10 @@ def test_runner_serializes_payload_before_starting_command(tmp_path):
     assert outcome.allow is True
     assert not sentinel.exists()
 
-
 @pytest.mark.parametrize("timeout", [0, -1, float("inf"), float("nan"), True])
 def test_hook_spec_rejects_unbounded_or_nonpositive_timeout(timeout):
     with pytest.raises(ValueError, match="finite positive"):
         HookSpec(event="Stop", action_type="command", command="true", timeout=timeout)
-
 
 def test_runner_rechecks_mutated_invalid_timeout_before_spawn(tmp_path):
     sentinel = tmp_path / "started"
@@ -463,18 +392,11 @@ def test_runner_rechecks_mutated_invalid_timeout_before_spawn(tmp_path):
     assert outcome.allow is True
     assert not sentinel.exists()
 
-
 def test_runner_reserved_action_type_raises_when_matched():
     spec = HookSpec(event="Stop", action_type="agent", command="ignored")
     runner = ShellHookRunner((spec,))
     with pytest.raises(NotImplementedError, match="agent"):
         asyncio.run(runner.fire("Stop", {"hook_event_name": "Stop"}))
-
-
-# ---------------------------------------------------------------------------
-# config: parsing
-# ---------------------------------------------------------------------------
-
 
 _TEAM_WITH_HOOKS = """\
 roles:
@@ -491,13 +413,11 @@ hooks:
     - command: "echo done"
 """
 
-
 def _write_team(tmp_path, monkeypatch, text):
     configs = tmp_path / "configs"
     configs.mkdir()
     (configs / "team.yaml").write_text(text)
     monkeypatch.setenv("OPENCOLLAB_TEAM_FILE", str(configs / "team.yaml"))
-
 
 def test_config_parses_hooks(tmp_path, monkeypatch):
     _write_team(tmp_path, monkeypatch, _TEAM_WITH_HOOKS)
@@ -511,13 +431,11 @@ def test_config_parses_hooks(tmp_path, monkeypatch):
     assert by_event["Stop"].matcher is None
     assert by_event["Stop"].action_type == "command"
 
-
 def test_config_unknown_event_raises(tmp_path, monkeypatch):
     bad = "roles:\n  lead:\n    tools: [bash]\n    prompt: x\nhooks:\n  Bogus:\n    - command: echo\n"
     _write_team(tmp_path, monkeypatch, bad)
     with pytest.raises(ValueError, match="Unknown hook event"):
         load_team_config(str(tmp_path))
-
 
 def test_config_unknown_action_type_raises(tmp_path, monkeypatch):
     bad = (
@@ -527,7 +445,6 @@ def test_config_unknown_action_type_raises(tmp_path, monkeypatch):
     _write_team(tmp_path, monkeypatch, bad)
     with pytest.raises(ValueError, match="Unknown hook action type"):
         load_team_config(str(tmp_path))
-
 
 @pytest.mark.parametrize("timeout", [".inf", ".nan", "0", "-1"])
 def test_config_rejects_unbounded_or_nonpositive_hook_timeout(
@@ -543,7 +460,6 @@ def test_config_rejects_unbounded_or_nonpositive_hook_timeout(
     with pytest.raises(ValueError):
         load_team_config(str(tmp_path))
 
-
 @pytest.mark.parametrize("timeout", ["true", "false", "yes", "no"])
 def test_config_rejects_boolean_hook_timeout(tmp_path, monkeypatch, timeout):
     team = (
@@ -553,7 +469,6 @@ def test_config_rejects_boolean_hook_timeout(tmp_path, monkeypatch, timeout):
     _write_team(tmp_path, monkeypatch, team)
     with pytest.raises(Exception, match="must not be a boolean"):
         load_team_config(str(tmp_path))
-
 
 @pytest.mark.parametrize("action_type", ["prompt", "agent"])
 def test_config_rejects_reserved_action_types_until_runner_supports_them(
@@ -567,20 +482,12 @@ def test_config_rejects_reserved_action_types_until_runner_supports_them(
     with pytest.raises(ValueError, match="not implemented"):
         load_team_config(str(tmp_path))
 
-
 def test_config_without_hooks_is_empty(tmp_path, monkeypatch):
     _write_team(tmp_path, monkeypatch, "roles:\n  lead:\n    tools: [bash]\n    prompt: x\n")
     assert load_team_config(str(tmp_path)).hooks == ()
 
-
-# ---------------------------------------------------------------------------
-# bootstrap: wiring + eval gating
-# ---------------------------------------------------------------------------
-
-
 def _cfg():
     return {"model": "gpt-4o", "provider": "openai", "api_key": "test-key", "base_url": None, "budget": 100_000}
-
 
 def _scheduler_with_stop_hook(tmp_path, monkeypatch, *, enable_hooks):
     sentinel = tmp_path / "stop-fired"
@@ -592,7 +499,6 @@ def _scheduler_with_stop_hook(tmp_path, monkeypatch, *, enable_hooks):
     scheduler = build_scheduler(ctx, use_worktrees=False, interactive=False, auto_save=False, enable_hooks=enable_hooks)
     return scheduler, sentinel
 
-
 def test_wiring_fires_hook_on_team_bus(tmp_path, monkeypatch):
     scheduler, sentinel = _scheduler_with_stop_hook(tmp_path, monkeypatch, enable_hooks=True)
     bus = scheduler._event_sink
@@ -600,7 +506,6 @@ def test_wiring_fires_hook_on_team_bus(tmp_path, monkeypatch):
 
     asyncio.run(bus.emit(SchedulerEvent(type="agent_completed", data={"aid": 0, "parent_aid": None})))
     assert sentinel.exists()
-
 
 def test_wiring_runs_relative_hook_in_runtime_workspace(tmp_path, monkeypatch):
     workspace = tmp_path / "target workspace"
@@ -634,7 +539,6 @@ def test_wiring_runs_relative_hook_in_runtime_workspace(tmp_path, monkeypatch):
     assert (workspace / "relative-stop-fired").exists()
     assert not (launch_directory / "relative-stop-fired").exists()
 
-
 def test_hook_process_cleanup_failure_reaches_scheduler_cleanup(tmp_path, monkeypatch):
     cleanup_error = hooks_adapter.ProcessCleanupError("descendant remained alive")
 
@@ -663,7 +567,6 @@ def test_hook_process_cleanup_failure_reaches_scheduler_cleanup(tmp_path, monkey
     ) as caught:
         asyncio.run(scheduler.cleanup())
     assert caught.value.__cause__ is cleanup_error
-
 
 def test_wiring_disabled_when_enable_hooks_false(tmp_path, monkeypatch):
     scheduler, sentinel = _scheduler_with_stop_hook(tmp_path, monkeypatch, enable_hooks=False)

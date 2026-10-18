@@ -27,7 +27,6 @@ from tests.support.worktree_delivery_support import worktree_transport as worktr
 def _git(repo, *args):
     return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True).stdout
 
-
 def _project(path, git):
     path.mkdir()
     (path / "answer.py").write_text("def answer():\n    return 1\n")
@@ -42,7 +41,6 @@ def _project(path, git):
         _git(path, "commit", "-qm", "\u521d\u59cb\u5316")
     return path
 
-
 def _adoption_scheduler(pool, coder):
     scheduler = Scheduler(session_factory=object(), worktree_pool=pool, event_sink=object())
     for aid, parent, role in ((0, None, "analyst"), (7, 0, "coder")):
@@ -52,7 +50,6 @@ def _adoption_scheduler(pool, coder):
         scheduler.table.add(SessionControlBlock(aid, parent, SimpleNamespace(name=role, tools=tools), state))
     scheduler._sessions[7] = SimpleNamespace(env=coder)
     return scheduler
-
 
 @pytest.mark.parametrize("git", [False, True])
 async def test_followup_captures_preserve_bytes_user_edits_and_empty_reverts(tmp_path, git):
@@ -143,7 +140,6 @@ async def test_followup_captures_preserve_bytes_user_edits_and_empty_reverts(tmp
         await coder.get_diff()
         await pool.release()
 
-
 @pytest.mark.parametrize("git", [False, True])
 async def test_followup_conflict_retains_increment_and_retries_atomically(tmp_path, git):
     source = _project(tmp_path / "project", git)
@@ -189,7 +185,6 @@ async def test_followup_conflict_retains_increment_and_retries_atomically(tmp_pa
     finally:
         await coder.get_diff()
         await pool.release()
-
 
 @pytest.mark.parametrize("git", [False, True])
 async def test_parallel_increments_conflict_and_next_teammates(tmp_path, git):
@@ -250,7 +245,6 @@ async def test_parallel_increments_conflict_and_next_teammates(tmp_path, git):
         await pool.release()
     assert all(not os.path.exists(env.workspace) for env in (a, b, conflict, tester, next_coder))
 
-
 async def test_git_subdirectory_and_local_port_keep_source_index(tmp_path):
     root = _project(tmp_path / "repository", True)
     subdir = root / "nested"
@@ -276,7 +270,6 @@ async def test_git_subdirectory_and_local_port_keep_source_index(tmp_path):
     assert (subdir / "module.py").read_text() == "value = 42\n"
     assert (root / "answer.py").read_text() == "def answer():\n    return 1\n"
 
-
 @pytest.mark.parametrize("key,value", [
     ("filter.probe.clean", "touch FILTER_EXECUTED; cat"),
     ("diff.probe.textconv", "touch DIFF_EXECUTED; cat"),
@@ -294,7 +287,6 @@ async def test_unsafe_source_config_is_rejected_before_capture(tmp_path, key, va
     assert not any(source.glob("*EXECUTED"))
     await pool.release()
 
-
 async def test_ignored_candidate_is_retained_until_complete_export(tmp_path):
     source = _project(tmp_path / "project", True)
     pool = WorktreePool(str(source), use_worktrees=True, enable_adoption=True)
@@ -310,7 +302,6 @@ async def test_ignored_candidate_is_retained_until_complete_export(tmp_path):
     assert "unique implementation" in await coder.get_diff()
     await pool.release()
     assert not os.path.exists(coder.workspace)
-
 
 async def test_source_owned_outputs_exclude_only_untracked_files(tmp_path):
     source = _project(tmp_path / "project", True)
@@ -330,7 +321,6 @@ async def test_source_owned_outputs_exclude_only_untracked_files(tmp_path):
     assert (source / ".git/index").read_bytes() == index
     await pool.release()
 
-
 async def test_custom_team_without_adoption_keeps_dirty_source_refusal(tmp_path):
     source = _project(tmp_path / "project", True)
     (source / "answer.py").write_text("user implementation\n")
@@ -338,7 +328,6 @@ async def test_custom_team_without_adoption_keeps_dirty_source_refusal(tmp_path)
     with pytest.raises(RuntimeError, match="source workspace has uncommitted changes"):
         await pool.acquire("coder")
     await pool.release()
-
 
 async def test_container_delivery_keeps_isolation_and_executes_fresh_tester(tmp_path, worktree_transport):
     source = _project(tmp_path / "project", True)
@@ -362,7 +351,6 @@ async def test_container_delivery_keeps_isolation_and_executes_fresh_tester(tmp_
     assert (source / "answer.py").read_text() == "def answer():\n    return 42\n"
     assert worktree_transport and all(command[0] == "docker" for command in worktree_transport)
     await attached.cleanup()
-
 
 async def test_failed_setup_retains_cleanup_retry_ownership(tmp_path, monkeypatch):
     source = _project(tmp_path / "project", True)
@@ -389,7 +377,6 @@ async def test_failed_setup_retains_cleanup_retry_ownership(tmp_path, monkeypatc
     await pool.release()
     assert not os.path.exists(retained) and pool._envs == []
 
-
 async def test_candidate_submodule_changes_remain_recoverable(tmp_path):
     source = _project(tmp_path / "project", True)
     dependency = _project(tmp_path / "dependency", True)
@@ -407,7 +394,6 @@ async def test_candidate_submodule_changes_remain_recoverable(tmp_path):
     await coder.write_file("vendor/module/answer.py", "def answer():\n    return 1\n")
     assert await coder.get_diff() == ""
     await pool.release()
-
 
 @pytest.mark.parametrize("git", [False, True])
 async def test_active_trace_outputs_are_omitted_without_hiding_tracked_edits(tmp_path, git):
@@ -443,7 +429,6 @@ async def test_active_trace_outputs_are_omitted_without_hiding_tracked_edits(tmp
         tracer.close()
         await pool.release()
 
-
 async def test_large_conflict_without_saved_artifacts_retains_and_retries(tmp_path):
     source = _project(tmp_path / "project", True)
     pool = WorktreePool(str(source), use_worktrees=True, enable_adoption=True)
@@ -467,7 +452,6 @@ async def test_large_conflict_without_saved_artifacts_retains_and_retries(tmp_pa
     assert coder.recovery_location is None
     await pool.release()
     assert not os.path.exists(coder.workspace)
-
 
 @pytest.mark.parametrize("dirty", [False, True])
 async def test_strict_snapshot_neutralizes_external_attributes_through_checkout_and_apply(tmp_path, dirty):

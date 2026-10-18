@@ -41,12 +41,10 @@ class AccountingModel:
             transport_timing={"first_token_seconds": 0.001},
         )
 
-
 @pytest.fixture(autouse=True)
 def disable_steering(monkeypatch):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
-
 
 @pytest.mark.parametrize("budget", [30_000, None])
 @pytest.mark.parametrize("content", ["<summary>Preserved context.</summary>", "empty parsed summary"])
@@ -81,7 +79,6 @@ def test_summary_usage_and_native_trace_fields_are_recorded(tmp_path, budget, co
     terminal = next(row for row in rows if row["type"] == "session_terminal")
     assert terminal["payload"]["used_tokens"] == 7_610
 
-
 @pytest.mark.parametrize("long", [False, True])
 @pytest.mark.parametrize("already_spent", [4_900, 5_000])
 def test_remaining_budget_stops_before_any_model_request(long, already_spent):
@@ -96,7 +93,6 @@ def test_remaining_budget_stops_before_any_model_request(long, already_spent):
     assert session.phase is SessionPhase.STOPPED
     assert "budget" in session.state.terminal_reason
 
-
 def test_summary_reserves_input_and_limits_output():
     model = AccountingModel(summary_tokens=20)
     session = build_session(agent=Agent(name="bounded", system_prompt="system", max_tokens_per_step=50_000),
@@ -107,7 +103,6 @@ def test_summary_reserves_input_and_limits_output():
     assert summary["summary"] is True
     assert summary["kwargs"]["max_output_tokens"] == 20_000 - estimate_request_tokens(summary["messages"])
     assert answer["kwargs"]["max_output_tokens"] == 19_980 - estimate_request_tokens(answer["messages"])
-
 
 def test_successful_summary_cache_reuse_charges_once():
     model = AccountingModel()
@@ -125,7 +120,6 @@ def test_successful_summary_cache_reuse_charges_once():
     assert [call["summary"] for call in model.calls] == [True, False]
     assert session.used_tokens == 7_610
 
-
 def test_summary_overspend_stops_before_an_answer_request():
     model = AccountingModel(summary_tokens=40_000)
     session = build_session(agent=Agent(name="overspend", system_prompt="system"), llm=model,
@@ -136,7 +130,6 @@ def test_summary_overspend_stops_before_an_answer_request():
     assert session.used_tokens == 40_000
     assert session.phase is SessionPhase.STOPPED
 
-
 def test_disabled_history_compaction_has_only_answer_usage():
     model = AccountingModel()
     session = build_session(agent=Agent(name="disabled", system_prompt="system"), llm=model,
@@ -145,7 +138,6 @@ def test_disabled_history_compaction_has_only_answer_usage():
     asyncio.run(session.run_loop())
     assert [call["summary"] for call in model.calls] == [False]
     assert session.used_tokens == 10
-
 
 @pytest.mark.parametrize("deadline", [None, 0.01])
 def test_late_summary_response_is_owned_and_charged_once(deadline):
@@ -182,7 +174,6 @@ def test_late_summary_response_is_owned_and_charged_once(deadline):
     assert session.runner.late_provider_usage == (7_600,)
     assert session.pending_cleanup_tasks == ()
 
-
 def test_summary_reservation_uses_the_provider_estimator_with_actual_thinking_controls():
     class EstimatingModel(AccountingModel):
         def __init__(self):
@@ -211,7 +202,6 @@ def test_summary_reservation_uses_the_provider_estimator_with_actual_thinking_co
         {"summary": False, "kwargs": {"thinking": True, "thinking_params": {"fixture": True}}},
     ]
 
-
 def test_forced_overflow_summary_uses_the_same_usage_accounting():
     class OverflowModel(AccountingModel):
         async def complete(self, messages, tools=None, **kwargs):
@@ -227,7 +217,6 @@ def test_forced_overflow_summary_uses_the_same_usage_accounting():
     assert asyncio.run(session.run_loop()) == "answer"
     assert [call["summary"] for call in model.calls] == [False, True, False]
     assert session.used_tokens == 7_610
-
 
 @pytest.mark.parametrize("sibling_spends_during_summary", [False, True])
 @pytest.mark.parametrize("team_allowance", ["exhausted", "available", None])

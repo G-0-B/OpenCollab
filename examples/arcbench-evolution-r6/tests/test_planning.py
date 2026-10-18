@@ -13,7 +13,6 @@ def requirement(identifier, name, *, dependencies=(), scenarios=1, target=True):
         "dependencies": list(dependencies),
     }
 
-
 def test_dependency_cycle_restores_interleaved_requirement_order():
     index = [
         requirement("REQ-A", "Freeze Rows and Columns", dependencies=("REQ-B",), scenarios=2),
@@ -28,7 +27,6 @@ def test_dependency_cycle_restores_interleaved_requirement_order():
     assert groups[0]["dependencies"] == [] and groups[0]["dependency_cycle_merged"]
     assert groups[1]["dependencies"] == ["REQ-B"] and not groups[1]["dependency_cycle_merged"]
     assert group_weight(groups[0]) == 6
-
 
 def test_interleaved_resource_buckets_keep_stable_ready_order_and_inherited_dependencies():
     index = [

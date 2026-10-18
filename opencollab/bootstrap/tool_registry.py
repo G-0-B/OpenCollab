@@ -59,10 +59,9 @@ KNOWN_TOOL_NAMES: frozenset[str] = (
 # Tools that let a role act on teammates — used to decide whether to render the
 # topology-aware "Your team" prompt section.
 COORDINATION_TOOL_NAMES: frozenset[str] = frozenset(SCHEDULER_TOOL_FACTORIES)
-# Bulky, reconstructible read-only tool outputs whose OLD results may be cleared
-# in place by ``ToolOutputClearShaper``. Intersected with the real registry so a
-# renamed/removed tool drops out automatically (driven from real names, not a
-# hardcoded library set). Edits/writes and coordination tools are excluded.
+# Reconstructible read-only outputs eligible for ``ToolOutputClearShaper``.
+# Intersect with the registry to track tool renames and removals.
+# Exclude edits, writes, and coordination tools.
 COMPACTABLE_TOOL_NAMES: frozenset[str] = (
     frozenset({"bash", "file_read", "grep", "git_diff"}) & KNOWN_TOOL_NAMES
 )
@@ -73,7 +72,6 @@ TOOL_LIMIT_FIELDS: dict[str, frozenset[str]] = {
     "file_read": frozenset({"max_read_chars"}),
     "grep": frozenset({"max_grep_chars"}),
 }
-
 
 def validate_tool_limits(
     raw: object,
@@ -114,7 +112,6 @@ def validate_tool_limits(
         normalized[tool_name] = normalized_kwargs
     return normalized
 
-
 def build_tools_for_role(
     tool_names: list[str],
     *,
@@ -125,30 +122,16 @@ def build_tools_for_role(
     allow_file_creation: bool = True,
     tool_limits: dict[str, dict[str, int]] | None = None,
 ) -> list[Tool]:
-    """Resolve tool names to Tool instances.
+    """Resolve tool names with separate human-input and shell permissions.
 
-    Two capability questions reach this function, and they are deliberately two
-    parameters rather than one:
+    ``ask_user_available`` controls inclusion of ``ask_user``.
+    ``allow_unisolated_shell`` controls ``bash.require_process_isolation``.
+    Prebuilt peers can share the entry agent's shell permission while human
+    questions remain available to the entry role.
 
-    * ``ask_user_available`` — is there a human this agent may put a question
-      to? ``ask_user`` is dropped when there is not.
-    * ``allow_unisolated_shell`` — may this agent execute commands the OS does
-      not sandbox? It sets ``bash``'s ``require_process_isolation``.
-
-    They used to be one ``interactive`` flag, because one fact — "a human is
-    sitting at this run" — happened to answer both: a human can be asked a
-    question, and a human can be shown a risky command before it runs, which is
-    what let the shell run outside an OS sandbox. A prebuilt team pulls them
-    apart: its teammates are declared in the team file and seated before the
-    first model call, so they must get the entry agent's shell, while
-    ``ask_user`` still belongs to the entry role alone — a peer has no human to
-    ask. Folding them back into one boolean would hand every teammate a shell
-    the entry agent does not have, or take away one it does.
-
-    Scheduler-bound tools require a ``scheduler``;
-    skill-bound tools require a ``skill_store``. ``tool_limits`` maps a tool name
-    to constructor kwargs (output caps) so a team file can tune per-tool output
-    budgets to its backend. Unknown names or kwargs raise — fail fast at startup.
+    Scheduler tools require ``scheduler`` and skill tools require ``skill_store``.
+    ``tool_limits`` supplies per-tool output-cap kwargs. Unknown names or kwargs
+    raise during construction.
     """
     validate_unique_tool_names(tool_names)
     limits = validate_tool_limits(tool_limits or {})
@@ -190,7 +173,6 @@ def build_tools_for_role(
             )
     return tools
 
-
 def _instantiate(
     name: str,
     factory: Callable[..., Tool],
@@ -214,7 +196,6 @@ def _instantiate(
         raise ValueError(
             f"tool_limits for '{name}' has unsupported keys {sorted(kwargs)}: {e}"
         ) from e
-
 
 __all__ = [
     "STATELESS_TOOL_FACTORIES",

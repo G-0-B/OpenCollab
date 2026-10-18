@@ -26,14 +26,12 @@ def test_autosave_subscriber_fires_on_each_trigger(trigger):
     asyncio.run(sub.emit(SessionEvent(type=trigger)))
     assert calls == ["saved"]
 
-
 def test_autosave_subscriber_ignores_other_events():
     calls = []
     sub = AutoSaveSubscriber(lambda: calls.append("saved"))
     asyncio.run(sub.emit(SessionEvent(type="text_delta", data={"content": "x"})))
     asyncio.run(sub.emit(SessionEvent(type="tool_start", data={"tool": "bash"})))
     assert calls == []
-
 
 def test_autosave_subscriber_records_save_errors(caplog):
     error = OSError("disk full")
@@ -53,7 +51,6 @@ def test_autosave_subscriber_records_save_errors(caplog):
     assert sub.failure_count == 1
     assert "auto-save failed: disk full" in caplog.text
 
-
 @pytest.mark.parametrize("fatal", [KeyboardInterrupt("stop"), SystemExit("exit")])
 def test_autosave_wraps_worker_base_exceptions_without_escaping(fatal):
     def boom():
@@ -71,7 +68,6 @@ def test_autosave_wraps_worker_base_exceptions_without_escaping(fatal):
     assert type(fatal).__name__ in str(sub.last_error)
     assert sub.last_error.__cause__ is fatal
     assert sub.failure_count == 1
-
 
 def test_session_surfaces_autosave_persistence_error():
     error = OSError("snapshot write failed")
@@ -96,7 +92,6 @@ def test_session_surfaces_autosave_persistence_error():
 
     assert session.persistence_errors == (error,)
 
-
 def test_autosave_coalesces_generations_not_yet_started():
     current = {"value": "first"}
     saved: list[str] = []
@@ -118,16 +113,11 @@ def test_autosave_coalesces_generations_not_yet_started():
     assert saved == ["second"]
     assert subscriber.pending_tasks == ()
 
-
-# The sink is released on its own timer rather than by the loop under test: an
-# ``emit`` that waited for its save would otherwise be holding the release it
-# needs, and the block would only surface after the sink's own 10s cap.
+# A timer releases the sink independently so waiting in emit would block until that release.
 SINK_HELD_SECONDS = 2.0
 
-# Ten hand-offs cost microseconds; an ``emit`` that waited pays the whole hold
-# above on the first one. This bound sits between the two with room to spare.
+# The deadline separates a prompt hand-off from waiting for the held sink.
 NON_BLOCKING_EMIT_SECONDS = 0.5
-
 
 def test_autosave_coalesces_pending_generations_without_blocking_emit():
     current = {"value": ""}
@@ -153,11 +143,7 @@ def test_autosave_coalesces_pending_generations_without_blocking_emit():
             for index in range(10):
                 current["value"] = str(index)
                 await subscriber.emit(SessionEvent(type="step_end"))
-                # The first save is parked in the sink and the sink is still
-                # held, so an emit that waited for its save could not have
-                # returned here.
                 assert saved == []
-            # And the hand-offs did not merely decline to wait — they came back.
             assert time.monotonic() - started_at < NON_BLOCKING_EMIT_SECONDS
         finally:
             releaser.cancel()
@@ -167,7 +153,6 @@ def test_autosave_coalesces_pending_generations_without_blocking_emit():
     asyncio.run(scenario())
 
     assert saved == ["0", "9"]
-
 
 class _CountingSessionStore(SessionStore):
     def __init__(self):
@@ -192,7 +177,6 @@ class _CountingSessionStore(SessionStore):
         )
         return super()._append_journal_record(path, record)
 
-
 class _SwitchableCheckpointStore(SessionStore):
     def __init__(self, error: Exception):
         self.error = error
@@ -202,7 +186,6 @@ class _SwitchableCheckpointStore(SessionStore):
         if self.fail_checkpoint:
             raise self.error
         return super().checkpoint_snapshot(*args, **kwargs)
-
 
 @pytest.mark.parametrize("trigger", sorted(SAVE_TRIGGERS))
 def test_autosave_journal_recovers_every_trigger_with_linear_write_growth(
@@ -261,7 +244,6 @@ def test_autosave_journal_recovers_every_trigger_with_linear_write_growth(
     assert len(restored_1000.state.turn.seen_result_hashes) == 1000
     assert bytes_1000 <= bytes_500 * 2.5
 
-
 def test_cancelling_owned_worker_finishes_submitted_save():
     prepared = asyncio.Event()
     saved: list[str] = []
@@ -291,7 +273,6 @@ def test_cancelling_owned_worker_finishes_submitted_save():
     asyncio.run(scenario())
     assert saved == ["saved"]
 
-
 def test_event_bus_fans_out_to_multiple_subscribers():
     bus = EventBus()
     a, b = [], []
@@ -299,7 +280,6 @@ def test_event_bus_fans_out_to_multiple_subscribers():
     bus.subscribe(lambda evt: b.append(evt.type))
     asyncio.run(bus.emit(SessionEvent(type="ping")))
     assert a == ["ping"] and b == ["ping"]
-
 
 def test_event_bus_failure_in_one_subscriber_does_not_silence_others():
     bus = EventBus()
@@ -312,7 +292,6 @@ def test_event_bus_failure_in_one_subscriber_does_not_silence_others():
     bus.subscribe(lambda evt: seen.append(evt.type))
     asyncio.run(bus.emit(SessionEvent(type="ping")))
     assert seen == ["ping"]
-
 
 def test_event_bus_subscriber_self_cancel_does_not_silence_others():
     bus = EventBus()
@@ -327,7 +306,6 @@ def test_event_bus_subscriber_self_cancel_does_not_silence_others():
     asyncio.run(bus.emit(SessionEvent(type="ping")))
 
     assert seen == ["ping"]
-
 
 def test_event_bus_external_cancellation_still_propagates():
     bus = EventBus()
@@ -352,7 +330,6 @@ def test_event_bus_external_cancellation_still_propagates():
 
     assert seen == []
 
-
 def test_session_with_auto_save_path_writes_on_user_message(tmp_path):
     path = tmp_path / "auto.jsonl"
     session = Session(
@@ -364,7 +341,6 @@ def test_session_with_auto_save_path_writes_on_user_message(tmp_path):
     assert path.exists()
     contents = path.read_text()
     assert "hello" in contents
-
 
 def test_autosave_retries_journal_record_after_fsync_error(tmp_path, monkeypatch):
     path = tmp_path / "fsync-retry.json"
@@ -440,7 +416,6 @@ def test_autosave_retries_journal_record_after_fsync_error(tmp_path, monkeypatch
     assert session.persistence_errors == (injected_error,)
     assert journal_path.read_bytes() == b""
 
-
 @pytest.mark.parametrize(
     ("mode", "expected_phase"),
     [("done", "done"), ("stopped", "stopped"), ("error", "error")],
@@ -479,7 +454,6 @@ def test_terminal_phase_is_committed_by_final_autosave(
     snapshot = json.loads(path.read_text(encoding="utf-8"))
     assert snapshot["session_state"]["phase"] == expected_phase
 
-
 def test_terminal_checkpoint_failure_does_not_mask_provider_error(tmp_path):
     provider_error = RuntimeError("provider failed")
     checkpoint_error = OSError("checkpoint failed")
@@ -512,7 +486,6 @@ def test_terminal_checkpoint_failure_does_not_mask_provider_error(tmp_path):
         assert session.persistence_errors == (checkpoint_error,)
 
     asyncio.run(scenario())
-
 
 def test_terminal_checkpoint_failure_does_not_mask_cancellation(tmp_path):
     cancellation = asyncio.CancelledError("caller cancelled")
@@ -548,7 +521,6 @@ def test_terminal_checkpoint_failure_does_not_mask_cancellation(tmp_path):
 
     asyncio.run(scenario())
 
-
 def test_terminal_checkpoint_failure_surfaces_without_primary_error(tmp_path):
     checkpoint_error = OSError("checkpoint failed")
 
@@ -576,7 +548,6 @@ def test_terminal_checkpoint_failure_surfaces_without_primary_error(tmp_path):
         assert session.persistence_errors == (checkpoint_error,)
 
     asyncio.run(scenario())
-
 
 def test_cancelling_terminal_checkpoint_waits_for_owned_write(tmp_path):
     class BlockingCheckpointStore(SessionStore):
@@ -625,7 +596,6 @@ def test_cancelling_terminal_checkpoint_waits_for_owned_write(tmp_path):
         assert snapshot["session_state"]["phase"] == "done"
 
     asyncio.run(scenario())
-
 
 def test_session_external_sink_and_autosave_coexist(tmp_path):
     path = tmp_path / "auto.jsonl"

@@ -27,7 +27,6 @@ _TOOLS = [{"type": "function", "function": {
 _NAMED = {"type": "function", "function": {"name": "file_read"}}
 _THINKING = {"thinking": {"type": "enabled"}}
 
-
 @contextmanager
 def _choice_server():
     requests = []
@@ -69,7 +68,6 @@ def _choice_server():
         server.server_close()
         thread.join(timeout=2)
 
-
 @pytest.fixture(autouse=True)
 def isolate_configuration(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(tmp_path / "usage.jsonl"))
@@ -77,14 +75,12 @@ def isolate_configuration(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
 
-
 def _app(tmp_path, base_url, model="deepseek-flash"):
     return OpenCollab(
         tmp_path, provider="anthropic", model=model,
         api_key="fake-key-for-test", base_url=base_url,  # pragma: allowlist secret
         config={"llm_max_retries": 0, "thinking": True, "thinking_params": _THINKING},
     )
-
 
 @pytest.mark.parametrize("model", _MODELS)
 @pytest.mark.parametrize("choice,native", [
@@ -117,7 +113,6 @@ async def test_public_model_client_matches_native_sdk_forced_tool_use(tmp_path, 
     rows = [json.loads(line) for line in (tmp_path / "usage.jsonl").read_text().splitlines()]
     assert len(rows) == 1 and rows[0]["status"] == "success"
     assert rows[0]["usage"]["total_tokens"] == 5
-
 
 @pytest.mark.parametrize("entry", ["named", "structured"])
 async def test_public_workflow_executes_forced_tool_and_counts_usage(tmp_path, monkeypatch, entry):
@@ -180,7 +175,6 @@ async def test_public_workflow_executes_forced_tool_and_counts_usage(tmp_path, m
     assert all(row["status"] == "success" and row["usage"]["total_tokens"] == 5 for row in rows)
     assert sum(row["usage"]["total_tokens"] for row in rows) == result.tokens
 
-
 @pytest.mark.parametrize("choice", ["auto", "none"])
 async def test_normal_choices_reach_http_without_forcing_tools(tmp_path, choice):
     with _choice_server() as (base_url, requests):
@@ -190,7 +184,6 @@ async def test_normal_choices_reach_http_without_forcing_tools(tmp_path, choice)
             )
     assert response.content == "done" and response.tool_calls == []
     assert len(requests) == 1 and requests[0]["tool_choice"] == {"type": choice}
-
 
 @pytest.mark.parametrize("model", _MODELS)
 @pytest.mark.parametrize("prefix,suffix", [("", ""), ("gateway/", "-2026-09-21")])
@@ -205,7 +198,6 @@ def test_exact_model_aliases_keep_protocol_capabilities_independent(model, prefi
     if model == "deepseek-v4-flash":
         assert capabilities.supports_forced_tool_choice is False
 
-
 @pytest.mark.parametrize("model", [
     "claude-sonnet-4-5", "gateway/unknown", "deepseek-pro", "deepseek-v4.1-flash",
     "deepseek-flash-preview", "deepseek-v4-flash-vision-exp-preview",
@@ -217,7 +209,6 @@ def test_manual_thinking_keeps_existing_policy_for_unverified_models(model, choi
         thinking_params={"thinking": {"type": "enabled", "budget_tokens": 1024}}, tool_choice=choice,
     )
     assert request["tool_choice"] == {"type": "auto"}
-
 
 @pytest.mark.parametrize("tools,choice", [
     (None, "required"), (_TOOLS, {"type": "function", "function": {"name": "missing"}}),

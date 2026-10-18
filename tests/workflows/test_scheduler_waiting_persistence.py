@@ -23,12 +23,10 @@ from tests.support.session_characterization_test_support import FakeLLMClient, l
 def agent(tools=()):
     return Agent(name="lead", system_prompt="Finish the task.", tools=list(tools))
 
-
 class DelayedClient(FakeLLMClient):
     async def complete(self, messages, tools=None, temperature=0.0):
         await asyncio.sleep(0.03)
         return await super().complete(messages, tools=tools, temperature=temperature)
-
 
 class ChildClient:
     def __init__(self):
@@ -37,7 +35,6 @@ class ChildClient:
     async def complete(self, **kwargs):
         await self.release.wait()
         return llm_response(content="child done")
-
 
 class Pool:
     def __init__(self, workspace):
@@ -49,7 +46,6 @@ class Pool:
     async def release(self):
         pass
 
-
 class Factory:
     def __init__(self, workspace):
         self.workspace = workspace
@@ -60,7 +56,6 @@ class Factory:
             agent=agent(), llm=self.client, env=LocalEnvironment(str(self.workspace)),
             max_budget_tokens=kwargs["budget"], aid=kwargs["aid"],
         )
-
 
 def make_team(workspace, *, extra_calls=(), extra_tools=(), autosave=True, response_content=None):
     factory = Factory(workspace)
@@ -79,7 +74,6 @@ def make_team(workspace, *, extra_calls=(), extra_tools=(), autosave=True, respo
     scheduler.register_lead(session)
     return scheduler, factory, session, model, events, path
 
-
 async def wait_for_suspension(session):
     async def wait():
         while session.phase is not SessionPhase.AWAITING_EVENTS:
@@ -87,13 +81,11 @@ async def wait_for_suspension(session):
     await asyncio.wait_for(wait(), 2)
     await asyncio.gather(*session.pending_cleanup_tasks)
 
-
 async def finish_team(scheduler, factory, active):
     factory.client.release.set()
     if not active.done():
         await asyncio.wait_for(asyncio.shield(active), 2)
     await scheduler.cleanup()
-
 
 @pytest.mark.asyncio
 async def test_awaiting_autosave_restores_old_turn_before_accepting_new_request(tmp_path):
@@ -138,7 +130,6 @@ async def test_awaiting_autosave_restores_old_turn_before_accepting_new_request(
         await finish_team(scheduler, factory, active)
         if resumed_scheduler is not None:
             await resumed_scheduler.cleanup()
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("autosave", [False, True])
@@ -190,7 +181,6 @@ async def test_restored_waiting_turn_retains_accepted_submit_without_another_mod
     finally:
         await finish_team(scheduler, factory, active)
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stored_summary", [None, False, {"summary": "unaccepted"}])
 async def test_legacy_or_malformed_waiting_submission_does_not_skip_the_model(tmp_path, stored_summary):
@@ -214,7 +204,6 @@ async def test_legacy_or_malformed_waiting_submission_does_not_skip_the_model(tm
     finally:
         await finish_team(scheduler, factory, active)
 
-
 def test_accepted_submission_resets_with_fresh_turn_and_rolls_back_with_failed_acceptance():
     state = SessionState(messages=[])
     state.submitted_summary = "accepted summary"
@@ -228,7 +217,6 @@ def test_accepted_submission_resets_with_fresh_turn_and_rolls_back_with_failed_a
     assert state.submitted_summary is None
     state.restore_user_turn(checkpoint)
     assert state.submitted_summary == "accepted summary"
-
 
 @pytest.mark.asyncio
 async def test_cancelling_a_waiting_submitted_turn_clears_the_durable_submission(tmp_path):

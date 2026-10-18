@@ -14,7 +14,6 @@ def candidate(label, value):
         verified_targets=(),
     )
 
-
 def decision(evidence="src/handler.py implements the required return value"):
     return {
         "winner": "B",
@@ -28,7 +27,6 @@ def decision(evidence="src/handler.py implements the required return value"):
         }],
         "rationale": "B covers the requirement that A leaves unresolved",
     }
-
 
 class Context:
     def __init__(self, *, result=None, barrier=None, identical=False):

@@ -100,14 +100,12 @@ _RESPONSES_THINKING_FIELDS = _FRAMEWORK_CONTROLLED_THINKING_FIELDS | frozenset({
     "prompt_cache_key", "text", "previous_response_id", "conversation",
 })
 
-
 @dataclass
 class _StreamState:
     output_items: list[dict[str, Any]] = field(default_factory=list)
     output_items_by_index: dict[int, dict[str, Any]] = field(default_factory=dict)
     argument_fragments: dict[int, list[str]] = field(default_factory=dict)
     completed_response: Any = None
-
 
 def _responses_tools(tools: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     try:
@@ -128,7 +126,6 @@ def _responses_tools(tools: list[dict[str, Any]] | None) -> list[dict[str, Any]]
             item["strict"] = function["strict"]
         converted.append(item)
     return converted
-
 
 def _responses_tool_choice(
     value: Any,
@@ -155,7 +152,6 @@ def _responses_tool_choice(
         return {"type": "function", "name": choice.name}
     return choice.mode
 
-
 def _forced_text_tool(
     model: str,
     converted_tools: list[dict[str, Any]],
@@ -175,7 +171,6 @@ def _forced_text_tool(
         )
     except ValueError as exc:
         raise ResponsesProtocolError(str(exc)) from exc
-
 
 def _build_request_kwargs(
     model: str,
@@ -257,7 +252,6 @@ def _build_request_kwargs(
         kwargs["extra_body"] = params
     return kwargs
 
-
 async def _next_event(iterator: Any, timeout: float | None, *, stage: str) -> Any:
     try:
         if timeout is None:
@@ -271,13 +265,11 @@ async def _next_event(iterator: Any, timeout: float | None, *, stage: str) -> An
     except StopAsyncIteration as exc:
         raise ResponsesStreamInterruptedError("Responses stream ended before response.completed") from exc
 
-
 def _event_type(event: Any) -> str:
     value = getattr(event, "type", None)
     if not isinstance(value, str) or not value:
         raise ResponsesProtocolError("Responses event is missing its type")
     return value
-
 
 def _event_error_data(event: Any) -> Any:
     error = to_plain_data(getattr(event, "error", None))
@@ -296,12 +288,10 @@ def _event_error_data(event: Any) -> Any:
             error = to_plain_data(getattr(response, "incomplete_details", None))
     return error
 
-
 def _error_message(error: Any) -> str:
     if isinstance(error, dict):
         return str(error.get("message") or error.get("code") or error.get("reason") or "unknown Responses error")
     return str(error or "unknown Responses error")
-
 
 def _raise_response_error(error: Any) -> None:
     message = _error_message(error)
@@ -315,13 +305,11 @@ def _raise_response_error(error: Any) -> None:
     status_code = 400 if code in {"context_length_exceeded", "string_above_max_length"} else None
     raise ResponsesTerminalEventError(message, code=code, status_code=status_code, param=param)
 
-
 def _response_model(response: Any) -> str:
     actual_model = getattr(response, "model", None)
     if not isinstance(actual_model, str) or not actual_model:
         raise ResponsesProtocolError("terminal Responses object is missing model identity")
     return actual_model
-
 
 def _accept_output_item(event: Any, state: _StreamState) -> None:
     index = getattr(event, "output_index", None)
@@ -352,7 +340,6 @@ def _accept_output_item(event: Any, state: _StreamState) -> None:
     state.output_items_by_index[index] = item
     state.output_items = [state.output_items_by_index[key] for key in sorted(state.output_items_by_index)]
 
-
 def _validate_terminal_response(
     response: Any,
     expected_model: str | None,
@@ -373,8 +360,6 @@ def _validate_terminal_response(
             raise ResponsesProtocolError(f"incomplete Responses object has unsupported reason {reason!r}")
         finish_reason = "max_tokens"
     return _response_model(response), finish_reason
-
-
 
 def _handle_event(event: Any, state: _StreamState, expected_model: str | None = None) -> bool:
     event_type = _event_type(event)
@@ -417,7 +402,6 @@ def _handle_event(event: Any, state: _StreamState, expected_model: str | None = 
         raise ResponsesProtocolError(f"unsupported Responses event {event_type!r}")
     return False
 
-
 async def _consume_stream(
     stream: Any,
     first_event_timeout: float | None,
@@ -433,7 +417,6 @@ async def _consume_stream(
             exc.usage = usage
         raise
     return state
-
 
 async def _drain_stream(
     stream: Any,
@@ -480,7 +463,6 @@ async def _drain_stream(
             raise ResponsesProtocolError("Responses stream ended with incomplete tool arguments")
         state.argument_fragments.clear()
 
-
 async def _create_and_consume_stream(
     client: Any,
     kwargs: dict[str, Any],
@@ -521,7 +503,6 @@ async def _create_and_consume_stream(
         idle_timeout,
         expected_model,
     )
-
 
 def _parse_stream(
     state: _StreamState,
@@ -636,7 +617,6 @@ def _parse_stream(
         provider_model=actual_model,
     )
 
-
 def parse_responses_response(
     response: Any,
     messages: list[dict[str, Any]],
@@ -664,7 +644,6 @@ def parse_responses_response(
         forced_text_tool,
         tools,
     )
-
 
 async def complete_responses(
     client: Any,

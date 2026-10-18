@@ -38,7 +38,6 @@ def test_session_closes_only_composition_owned_llm(monkeypatch):
     assert owned.close_calls == 1
     assert injected.close_calls == 0
 
-
 def test_session_runtime_config_mutations_update_all_runtime_consumers():
     old_env = object()
     new_env = object()
@@ -176,10 +175,7 @@ def test_save_and_load_round_trip_restores_control_flow_latches(tmp_path):
     assert restored.turn.loop_blocked_since_progress == 2
 
 def test_checkpoint_and_restore_user_turn_roll_back_per_turn_enforcement():
-    # The user-message append transaction snapshots the per-turn enforcement
-    # window and rolls it back if the append fails, so a failed turn cannot
-    # leave stale brake counters. This locks that contract at the field level
-    # (shape-agnostic: only the public checkpoint/restore methods are used).
+    # A failed append rolls back the per-turn enforcement window.
     agent = FakeAgent()
     session = Session(agent=agent, llm=FakeLLMClient())
     state = session.state
@@ -232,13 +228,9 @@ def test_checkpoint_and_restore_user_turn_roll_back_per_turn_enforcement():
         "content": "retry after restore",
         "message_index": 1,
     }
-    # Rollback restores the prior turn's latch while retaining the lifetime
-    # budget reserve consumption.
     assert state.wind_down_done is True
     assert state.budget_reserve_consumed is True
 
-    # The checkpoint is an independent snapshot: mutating restored state and
-    # restoring a second time still yields the checkpoint values.
     state.turn.recent_call_hashes.append("h-c")
     state.turn.scout_ledger.append({"tool": "x", "outcome": "y"})
     state.turn.reads_since_last_edit = 42

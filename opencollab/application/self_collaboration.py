@@ -20,7 +20,6 @@ from opencollab.domain.session import SessionPhase
 logger = logging.getLogger(__name__)
 MAX_REVIEW_ITERATIONS = 3
 
-
 def validate_review_iterations(value: object) -> int:
     if (
         isinstance(value, bool)
@@ -32,7 +31,6 @@ def validate_review_iterations(value: object) -> int:
             f"max_iterations must be an integer in 1..{MAX_REVIEW_ITERATIONS}"
         )
     return value
-
 
 class ReviewLoopScheduler(Protocol):
     """The slice of the Scheduler surface the review loop drives."""
@@ -55,7 +53,6 @@ class ReviewLoopScheduler(Protocol):
     async def emit_scheduler_event(self, event: SchedulerEvent) -> None:
         ...
 
-
 async def _emit_review_event(
     scheduler: ReviewLoopScheduler, event: SchedulerEvent
 ) -> None:
@@ -68,7 +65,6 @@ async def _emit_review_event(
         await scheduler.emit_scheduler_event(event)
     except Exception as exc:
         logger.error("review event %s failed: %s", event.type, exc)
-
 
 def _format_review_failure(
     *,
@@ -98,7 +94,6 @@ def _format_review_failure(
         sections.append(f"Last reviewer feedback:\n{feedback}")
     return "\n\n".join(sections)
 
-
 async def run_spawn_with_review(
     scheduler: ReviewLoopScheduler,
     parent_aid: int,
@@ -127,7 +122,6 @@ async def run_spawn_with_review(
             scheduler.events.review_started(iteration, max_iterations)
         )
 
-        # Spawn coder and wait
         try:
             coder_aid = await scheduler.spawn(
                 parent_aid,
@@ -182,7 +176,6 @@ async def run_spawn_with_review(
             )
         last_result = code_result
 
-        # Spawn reviewer and wait
         review_prompt = (
             "Review the artifact against the original task and required context.\n\n"
             f"Original task:\n{task}\n\n"
@@ -265,7 +258,6 @@ async def run_spawn_with_review(
         feedback=last_feedback,
         reason="reviewer did not return a passing verdict",
     )
-
 
 __all__ = [
     "MAX_REVIEW_ITERATIONS",

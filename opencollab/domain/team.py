@@ -69,5 +69,4 @@ class Topology:
             )
         return False
 
-
 __all__ = ["Topology"]

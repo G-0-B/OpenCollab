@@ -19,7 +19,6 @@ def handoff():
     spec.loader.exec_module(module)
     return module
 
-
 class RecordingContext:
     def __init__(self):
         self.shell_requirements = []
@@ -41,7 +40,6 @@ class RecordingContext:
     def tokens_spent(self):
         return 0
 
-
 @pytest.mark.parametrize("permission", [None, False, True])
 async def test_workflow_passes_explicit_permission_to_every_role(handoff, permission):
     ctx = RecordingContext()
@@ -55,7 +53,6 @@ async def test_workflow_passes_explicit_permission_to_every_role(handoff, permis
     assert ctx.shell_requirements == [permission is not True] * 3
     assert ctx.isolation == [True] * 3
 
-
 @pytest.mark.parametrize("permission", ["true", "false", 1, None, []])
 async def test_workflow_requires_a_boolean_permission(handoff, permission):
     ctx = RecordingContext()
@@ -64,7 +61,6 @@ async def test_workflow_requires_a_boolean_permission(handoff, permission):
 
     assert result == {"status": "error", "error": "allow_unisolated_shell must be a boolean"}
     assert ctx.shell_requirements == []
-
 
 async def test_explicit_permission_executes_commit_and_checkout_in_real_worktrees(handoff, tmp_path):
     workspace = tmp_path / "repo"

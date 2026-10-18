@@ -18,7 +18,6 @@ TARGET = "tests/test_example.py::test_case"
 PASS = f"PASSED {TARGET}\n1 passed in 0.01s"
 COMMAND = f"python -m pytest -rA {TARGET}"
 
-
 class Environment:
     workspace = "/work"
     process_isolated = True
@@ -31,14 +30,11 @@ class Environment:
         self.calls.append((command, timeout))
         return self.result
 
-
 def runtime(env, policy=None):
     return SimpleNamespace(environment=env, safety_policy=policy, confirm_fn=lambda: None)
 
-
 def execute(tool, env, command=COMMAND, **params):
     return asyncio.run(tool.execute_with_runtime({"command": command, **params}, runtime(env)))
-
 
 def test_native_bash_schema_output_command_and_timeout_are_unchanged():
     native = builtin_tools("bash")[0]
@@ -52,11 +48,9 @@ def test_native_bash_schema_output_command_and_timeout_are_unchanged():
     assert observed.verification_records[-1]["command"] == COMMAND
     assert "Verdict:" not in result
 
-
 def test_removed_tool_is_unavailable():
     with pytest.raises(ValueError, match="unsupported built-in"):
         evidence_tools("run_tests")
-
 
 def test_native_project_command_runs_without_runner_detection():
     env = Environment("build completed")
@@ -64,7 +58,6 @@ def test_native_project_command_runs_without_runner_detection():
     assert "build completed" in execute(tool, env, "npm test -- --runInBand")
     assert env.calls == [("npm test -- --runInBand", 120.0)]
     assert not tool.verified_targets
-
 
 @pytest.mark.parametrize("command", [
     "true", "echo 'PASSED tests/test_example.py::test_case'", "cat saved-test-output.txt",
@@ -79,7 +72,6 @@ def test_shell_output_forgery_cannot_create_test_evidence(command):
     assert not tool.verified_targets
     assert not tool.verification_records
 
-
 @pytest.mark.parametrize("output", [
     "", "usage: pytest [options]", "1 test collected in 0.01s", "no tests ran in 0.01s",
     "PASSED tests/test_other.py::test_case\n1 passed in 0.01s", "1 passed in 0.01s",
@@ -90,7 +82,6 @@ def test_missing_or_ambiguous_execution_cannot_pass(output):
     execute(tool, Environment(output))
     assert not tool.verified_targets
     assert tool.verification_records[-1]["verified"] is False
-
 
 @pytest.mark.parametrize("failure", ["failed", "truncated", "collected", "help", "exception"])
 def test_failed_or_unverified_rerun_invalidates_previous_pass(failure):
@@ -118,7 +109,6 @@ def test_failed_or_unverified_rerun_invalidates_previous_pass(failure):
         execute(tool, env, command)
     assert not tool.verified_targets
 
-
 def test_directory_evidence_requires_a_descendant_pass():
     tool = evidence_tools("bash")[0]
     execute(tool, Environment(), "python -m pytest -rA tests")
@@ -126,7 +116,6 @@ def test_directory_evidence_requires_a_descendant_pass():
     other = evidence_tools("bash")[0]
     execute(other, Environment(), "python -m pytest -rA test")
     assert not other.verified_targets
-
 
 def test_multiple_pytest_targets_require_each_actual_result():
     tool = evidence_tools("bash")[0]
@@ -136,7 +125,6 @@ def test_multiple_pytest_targets_require_each_actual_result():
     assert other not in tool.verified_targets
     assert [r["verified"] for r in tool.verification_records] == [True, False]
 
-
 def test_explicit_directory_and_absolute_target_use_same_execution_root():
     command = f"cd -- /work/subdir && python -m pytest -rA /work/subdir/{TARGET}"
     env = Environment()
@@ -145,7 +133,6 @@ def test_explicit_directory_and_absolute_target_use_same_execution_root():
     assert env.calls == [(command, 120.0)]
     assert tool.verified_targets == {f"subdir/{TARGET}"}
     assert tool.verification_records[0]["workspace"] == "/work/subdir"
-
 
 @pytest.mark.parametrize("reverse", [False, True])
 @pytest.mark.parametrize("outcome", ["failed", "error", "empty", "collected", "help", "truncated", "exception"])
@@ -187,7 +174,6 @@ def test_pytest_rerun_across_workspaces_invalidates_the_same_target(reverse, out
     assert tool.verification_records[0]["target"] == (nested_target if reverse else TARGET)
     assert tool.verification_records[0]["workspace"] == ("/work/tests" if reverse else "/work")
 
-
 @pytest.mark.parametrize("first_target", [".", "test_example.py"])
 def test_pytest_same_names_in_different_directories_keep_independent_passes(first_target):
     tool = evidence_tools("bash")[0]
@@ -200,7 +186,6 @@ def test_pytest_same_names_in_different_directories_keep_independent_passes(firs
     assert tool.verified_targets == alpha | {"beta/test_example.py", "beta/test_example.py::test_case"}
     execute(tool, Environment(code=1), f"cd alpha && {command} test_example.py")
     assert tool.verified_targets == {"beta/test_example.py", "beta/test_example.py::test_case"}
-
 
 @pytest.mark.parametrize("local_filesystem", [False, True])
 def test_pytest_host_aliases_are_resolved_only_for_local_environments(tmp_path, local_filesystem):
@@ -219,7 +204,6 @@ def test_pytest_host_aliases_are_resolved_only_for_local_environments(tmp_path, 
     execute(tool, failed, f"python -m pytest -rA {shlex.quote(str(alias / TARGET))}")
     assert bool(tool.verified_targets) is not local_filesystem
 
-
 def test_go_duplicate_selector_cannot_create_ambiguous_evidence():
     env = Environment(json.dumps({"Action": "pass", "Package": "module/pkg1", "Test": "TestB"}))
     tool = evidence_tools("bash")[0]
@@ -229,7 +213,6 @@ def test_go_duplicate_selector_cannot_create_ambiguous_evidence():
     assert not tool.verified_targets
     assert all(not record["verified"] for record in tool.verification_records)
 
-
 def test_go_command_requires_correct_named_test():
     tool = evidence_tools("bash")[0]
     command = "go test -json ./pkg1 -run '^TestA$'"
@@ -237,7 +220,6 @@ def test_go_command_requires_correct_named_test():
     assert not tool.verified_targets
     execute(tool, Environment('{"Action":"pass","Package":"module/pkg1","Test":"TestA"}'), command)
     assert tool.verified_targets == {"./pkg1::TestA"}
-
 
 @pytest.mark.parametrize("command,target,output", [
     ("go test -json ./pkg1 -run TestA", "./pkg1::TestA",
@@ -258,7 +240,6 @@ def test_non_pytest_targets_retain_runner_identity_in_local_workspaces(tmp_path,
     assert [record["target"] for record in tool.verification_records] == [target, target]
     assert [record["verified"] for record in tool.verification_records] == [True, False]
 
-
 async def test_sandbox_and_command_approval_remain_native():
     env = Environment()
     env.process_isolated = False
@@ -273,7 +254,6 @@ async def test_sandbox_and_command_approval_remain_native():
     with pytest.raises(PermissionError):
         await tool.execute_with_runtime({"command": COMMAND}, runtime(env, Policy()))
     assert not env.calls
-
 
 async def test_real_pytest_pass_then_failure_and_arbitrary_native_shell(tmp_path):
     tests = tmp_path / "tests"
@@ -296,7 +276,6 @@ async def test_real_pytest_pass_then_failure_and_arbitrary_native_shell(tmp_path
         assert "native-command-ok" in result
     finally:
         await env.cleanup()
-
 
 async def test_real_pytest_same_names_keep_the_unrelated_directory_pass(tmp_path):
     for name in ("alpha", "beta"):
@@ -324,7 +303,6 @@ async def test_real_pytest_same_names_keep_the_unrelated_directory_pass(tmp_path
         assert [record["verified"] for record in tool.verification_records] == [True, True, False]
     finally:
         await env.cleanup()
-
 
 @pytest.mark.parametrize("file_alias", [False, True])
 @pytest.mark.parametrize("absolute", [False, True])
@@ -355,7 +333,6 @@ async def test_real_pytest_alias_spelling_proves_the_physical_target(tmp_path, f
     finally:
         await env.cleanup()
 
-
 async def test_real_pytest_system_alias_pass_is_invalidated_by_the_canonical_path(tmp_path):
     workspace = str(tmp_path.resolve())
     alias = next((alternate + workspace[len(canonical):] for canonical, alternate in (
@@ -384,7 +361,6 @@ async def test_real_pytest_system_alias_pass_is_invalidated_by_the_canonical_pat
     finally:
         await env.cleanup()
 
-
 @pytest.mark.parametrize("option", ["-k no_matching_test_name", "--collect-only", "--help"])
 async def test_real_empty_collection_and_help_invalidate_previous_pass(tmp_path, option):
     tests = tmp_path / "tests"
@@ -403,7 +379,6 @@ async def test_real_empty_collection_and_help_invalidate_previous_pass(tmp_path,
     finally:
         await env.cleanup()
 
-
 async def test_evidence_composition_retains_profile_and_explicit_native_configuration(tmp_path):
     async def flow(ctx, inputs):
         observed = evidence_tools("bash", "file_write", headless=False, allow_file_creation=False)
@@ -420,7 +395,6 @@ async def test_evidence_composition_retains_profile_and_explicit_native_configur
     assert result.ok and result.output == frozenset()
     assert evidence_tools("bash")[0].max_output_chars == builtin_tools("bash")[0].max_output_chars == 8_000
 
-
 def test_each_observer_retains_independent_records_and_returns_copies():
     first, second = evidence_tools("bash")[0], evidence_tools("bash")[0]
     execute(first, Environment())
@@ -428,7 +402,6 @@ def test_each_observer_retains_independent_records_and_returns_copies():
     copied["verified"] = False
     assert first.verification_records[0]["verified"] is True
     assert not second.verification_records and not second.verified_targets
-
 
 @pytest.mark.parametrize("command", ["printf changed > source.py", "cat source.py", "python -m pytest && true"])
 @pytest.mark.parametrize("outcome", ["success", "failure", "exception"])

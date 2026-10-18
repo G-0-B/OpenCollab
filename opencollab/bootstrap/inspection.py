@@ -30,7 +30,6 @@ def configured_model_client(
         provider_error_time_budget=config.get("provider_error_time_budget", 0.0),
     )
 
-
 def read_session_snapshot(path: str | Path, password: str = "") -> dict[str, Any]:
     """Read the native snapshot and journal through their owning storage adapter."""
     return SessionStore().load_snapshot(str(path), password)

@@ -14,10 +14,6 @@ from opencollab.adapters.llm.openai_provider import _parse_response as parse_ope
 from opencollab.adapters.llm.types import model_capabilities, model_matches_family
 from tests.support.llm_provider_test_support import _openai_resp
 
-# ---------------------------------------------------------------------------
-# Thinking passthrough — OpenAI-compatible extra_body (DashScope compatible mode)
-# ---------------------------------------------------------------------------
-
 
 def test_openai_thinking_on_adds_extra_body():
     """thinking=True ships thinking_params as extra_body for the SDK create()."""
@@ -30,7 +26,6 @@ def test_openai_thinking_on_adds_extra_body():
         thinking_params={"enable_thinking": True},
     )
     assert kwargs["extra_body"] == {"enable_thinking": True}
-
 
 @pytest.mark.parametrize(
     "field",
@@ -59,7 +54,6 @@ def test_openai_thinking_rejects_framework_controlled_request_fields(field, thin
             thinking_params={field: "override"},
             max_output_tokens=10,
         )
-
 
 def test_openai_preserves_reasoning_content_for_tool_follow_up():
     kwargs = build_openai_kwargs(
@@ -91,7 +85,6 @@ def test_openai_preserves_reasoning_content_for_tool_follow_up():
     assert "provider_state" not in assistant
     assert kwargs["extra_body"] == {"thinking": {"type": "enabled", "keep": "all"}}
 
-
 def test_openai_thinking_off_sends_declared_native_disable():
     kwargs = build_openai_kwargs(
         "kimi-k2.6",
@@ -103,11 +96,9 @@ def test_openai_thinking_off_sends_declared_native_disable():
     )
     assert kwargs["extra_body"] == {"enable_thinking": False}
 
-
 def test_openai_thinking_off_without_protocol_adds_no_extra_body():
     kwargs = build_openai_kwargs("kimi-k2.6", [{"role": "user", "content": "hi"}], None, 0.2)
     assert "extra_body" not in kwargs
-
 
 def test_openai_tool_choice_defaults_to_auto():
     """No tool_choice -> the request keeps the prior 'auto' default."""
@@ -119,7 +110,6 @@ def test_openai_tool_choice_defaults_to_auto():
     )
     assert kwargs["tool_choice"] == "auto"
 
-
 def test_openai_tool_choice_required_is_passed_through():
     """tool_choice='required' overrides the 'auto' default for the forced-write path."""
     kwargs = build_openai_kwargs(
@@ -130,7 +120,6 @@ def test_openai_tool_choice_required_is_passed_through():
         tool_choice="required",
     )
     assert kwargs["tool_choice"] == "required"
-
 
 @pytest.mark.parametrize(
     ("thinking", "tool_choice"),
@@ -154,7 +143,6 @@ def test_openai_kimi_uses_auto_for_unsupported_forced_tool_choice(thinking, tool
 
     assert kwargs["tool_choice"] == "auto"
 
-
 def test_openai_other_thinking_model_keeps_required_tool_choice():
     kwargs = build_openai_kwargs(
         "another-thinking-model",
@@ -168,7 +156,6 @@ def test_openai_other_thinking_model_keeps_required_tool_choice():
 
     assert kwargs["tool_choice"] == "required"
 
-
 def test_openai_other_model_keeps_named_tool_choice():
     choice = {"type": "function", "function": {"name": "structured_output"}}
     kwargs = build_openai_kwargs(
@@ -180,7 +167,6 @@ def test_openai_other_model_keeps_named_tool_choice():
     )
 
     assert kwargs["tool_choice"] == choice
-
 
 @pytest.mark.parametrize(
     ("model", "context_window"),
@@ -194,7 +180,6 @@ def test_exact_model_capabilities_centralize_provider_compatibility(model, conte
     assert capabilities.honors_workflow_thinking_override is False
     assert capabilities.supports_responses_json_schema is False
 
-
 def test_deepseek_flash_declares_verified_responses_json_schema_support():
     capabilities = model_capabilities("gateway/deepseek-v4-flash-0731")
 
@@ -203,7 +188,6 @@ def test_deepseek_flash_declares_verified_responses_json_schema_support():
     assert capabilities.supports_responses_json_schema is True
     assert capabilities.honors_workflow_thinking_override is True
 
-
 def test_luna_declares_verified_responses_reasoning_support():
     capabilities = model_capabilities("gateway/gpt-5.6-luna")
 
@@ -211,7 +195,6 @@ def test_luna_declares_verified_responses_reasoning_support():
     assert capabilities.supports_forced_tool_choice is True
     assert capabilities.supports_responses_reasoning is True
     assert capabilities.honors_workflow_thinking_override is False
-
 
 @pytest.mark.parametrize(
     "model",
@@ -226,7 +209,6 @@ def test_known_model_capabilities_accept_bounded_provider_aliases(model):
     assert capabilities.context_window == 262_144
     assert capabilities.supports_forced_tool_choice is False
     assert capabilities.honors_workflow_thinking_override is False
-
 
 @pytest.mark.parametrize(
     "model",
@@ -244,7 +226,6 @@ def test_known_model_capabilities_reject_prefixed_near_misses(model):
     assert capabilities.context_window is None
     assert capabilities.supports_forced_tool_choice is True
 
-
 @pytest.mark.parametrize(
     "model",
     [
@@ -256,7 +237,6 @@ def test_known_model_capabilities_reject_prefixed_near_misses(model):
 def test_model_family_matching_rejects_unbounded_kimi_aliases(model):
     assert not model_matches_family(model, "kimi-for-coding")
 
-
 def test_unknown_model_capabilities_use_neutral_defaults():
     capabilities = model_capabilities("unknown-model")
 
@@ -264,13 +244,6 @@ def test_unknown_model_capabilities_use_neutral_defaults():
     assert capabilities.supports_forced_tool_choice is True
     assert capabilities.honors_workflow_thinking_override is True
     assert capabilities.supports_responses_json_schema is False
-
-
-# ---------------------------------------------------------------------------
-# top_p nucleus sampling — included only when set, omitted (request unchanged)
-# when None. Mirrors the temperature/thinking conditional flow.
-# ---------------------------------------------------------------------------
-
 
 def test_openai_top_p_included_when_set():
     """top_p set -> the request carries the knob with that exact value."""
@@ -283,7 +256,6 @@ def test_openai_top_p_included_when_set():
     )
     assert kwargs["top_p"] == 0.9
 
-
 def test_openai_top_p_omitted_when_none():
     """top_p None (default) -> no top_p key, so the request is unchanged."""
     kwargs = build_openai_kwargs(
@@ -293,7 +265,6 @@ def test_openai_top_p_omitted_when_none():
         0.2,
     )
     assert "top_p" not in kwargs
-
 
 @pytest.mark.parametrize(
     "model",
@@ -314,7 +285,6 @@ def test_openai_reasoning_models_use_compatible_request_fields(model):
     assert "temperature" not in kwargs
     assert "top_p" not in kwargs
 
-
 def test_openai_reasoning_model_near_miss_keeps_classic_fields():
     kwargs = build_openai_kwargs(
         "vendor/not-o1-preview",
@@ -329,7 +299,6 @@ def test_openai_reasoning_model_near_miss_keeps_classic_fields():
     assert kwargs["temperature"] == 0.2
     assert kwargs["top_p"] == 0.9
 
-
 def test_anthropic_top_p_included_when_set():
     """Anthropic parity: top_p set -> the payload carries it."""
     kwargs = build_anthropic_kwargs(
@@ -341,7 +310,6 @@ def test_anthropic_top_p_included_when_set():
     )
     assert kwargs["top_p"] == 0.8
 
-
 def test_anthropic_top_p_omitted_when_none():
     """Anthropic parity: top_p None -> no top_p key (request unchanged)."""
     kwargs = build_anthropic_kwargs(
@@ -351,7 +319,6 @@ def test_anthropic_top_p_omitted_when_none():
         0.2,
     )
     assert "top_p" not in kwargs
-
 
 def test_anthropic_keeps_compaction_record_in_conversation_order():
     identity = "global identity"
@@ -374,7 +341,6 @@ def test_anthropic_keeps_compaction_record_in_conversation_order():
         "new request",
     ]
 
-
 def test_max_output_tokens_reaches_both_provider_payloads():
     messages = [{"role": "user", "content": "hi"}]
 
@@ -388,7 +354,6 @@ def test_max_output_tokens_reaches_both_provider_payloads():
     assert openai_kwargs["max_tokens"] == 32768
     assert anthropic_kwargs["max_tokens"] == 32768
 
-
 def test_anthropic_tool_choice_required_maps_to_any():
     """Anthropic wants a dict form; 'required' -> {'type': 'any'}, None omits it."""
     tools = [{"function": {"name": "f", "parameters": {}}}]
@@ -398,7 +363,6 @@ def test_anthropic_tool_choice_required_maps_to_any():
     default = build_anthropic_kwargs("claude", msgs, tools, 0.0)
     assert "tool_choice" not in default
 
-
 def test_anthropic_tool_choice_none_maps_to_none_type():
     tools = [{"function": {"name": "f", "parameters": {}}}]
     msgs = [{"role": "user", "content": "hi"}]
@@ -406,7 +370,6 @@ def test_anthropic_tool_choice_none_maps_to_none_type():
     kwargs = build_anthropic_kwargs("claude", msgs, tools, 0.0, tool_choice="none")
 
     assert kwargs["tool_choice"] == {"type": "none"}
-
 
 def test_anthropic_tool_choice_named_function_maps_to_named_tool():
     tools = [{"function": {"name": "structured_output", "parameters": {}}}]
@@ -421,7 +384,6 @@ def test_anthropic_tool_choice_named_function_maps_to_named_tool():
     )
 
     assert kwargs["tool_choice"] == {"type": "tool", "name": "structured_output"}
-
 
 def test_llm_client_forwards_anthropic_base_url(monkeypatch):
     from anthropic import Timeout
@@ -456,7 +418,6 @@ def test_llm_client_forwards_anthropic_base_url(monkeypatch):
     }
     assert captured["max_retries"] == 0
 
-
 def test_llm_client_disables_openai_sdk_retries(monkeypatch):
     captured = {}
 
@@ -477,7 +438,6 @@ def test_llm_client_disables_openai_sdk_retries(monkeypatch):
 
     assert client.max_retries == 3
     assert captured["max_retries"] == 0
-
 
 @pytest.mark.asyncio
 async def test_llm_client_closes_provider_once(monkeypatch):
@@ -507,7 +467,6 @@ async def test_llm_client_closes_provider_once(monkeypatch):
 
     assert provider_client.close_calls == 1
 
-
 def test_openai_estimates_output_from_tool_calls_when_no_content():
     """Output estimate falls back to tool-call args when content is empty."""
     tool_call = SimpleNamespace(
@@ -521,7 +480,6 @@ def test_openai_estimates_output_from_tool_calls_when_no_content():
 
     assert result.usage.output_tokens > 0
     assert result.usage.estimated is True
-
 
 def test_openai_usage_fallback_tolerates_null_tool_arguments():
     """A gateway's partial tool call must not crash usage estimation."""

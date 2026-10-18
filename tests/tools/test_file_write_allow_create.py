@@ -13,7 +13,6 @@ def _runtime(workspace):
     sandbox = SandboxInterceptor(str(workspace))
     return ToolRuntime(environment=env, safety_policy=sandbox, permission_policy=None)
 
-
 def test_allow_create_false_rejects_create_mode(tmp_path):
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -29,7 +28,6 @@ def test_allow_create_false_rejects_create_mode(tmp_path):
     assert result.startswith("Error:")
     assert "file creation disabled" in result
     assert not (ws / "new.py").exists()
-
 
 def test_allow_create_false_still_allows_str_replace(tmp_path):
     ws = tmp_path / "ws"
@@ -47,7 +45,6 @@ def test_allow_create_false_still_allows_str_replace(tmp_path):
 
     assert "content changed" in result
     assert target.read_text(encoding="utf-8") == "hello there\n"
-
 
 def test_allow_create_true_default_creates_file(tmp_path):
     ws = tmp_path / "ws"

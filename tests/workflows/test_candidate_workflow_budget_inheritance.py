@@ -33,7 +33,6 @@ def repository(tmp_path, monkeypatch):
         subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
     return tmp_path
 
-
 def _context(repository, factory, total):
     return WorkflowContext(
         factory,
@@ -41,7 +40,6 @@ def _context(repository, factory, total):
         max_concurrency=2,
         candidate_workspace=EnvCandidateWorkspace(LocalEnvironment(str(repository))),
     )
-
 
 @pytest.mark.parametrize(
     "total,spent,requested,approved",
@@ -71,7 +69,6 @@ async def test_child_inherits_approved_budget(repository, total, spent, requeste
     assert parent.tokens_spent() == spent + 7
     assert len(parent.sessions) == 2
     assert parent.tokens_remaining() == (float("inf") if total is None else total - spent - 7)
-
 
 @pytest.mark.parametrize("requested", [None, 60])
 async def test_parallel_candidates_retain_their_approved_shares(repository, requested):
@@ -109,7 +106,6 @@ async def test_parallel_candidates_retain_their_approved_shares(repository, requ
     assert all(result.output == "done" for result in results)
     assert parent.tokens_spent() == 60
     assert parent.tokens_remaining() == 40
-
 
 async def test_over_budget_escape_is_shared_by_sibling_candidate_workflows(repository):
     factory = FakeFactory([
@@ -153,7 +149,6 @@ async def test_over_budget_escape_is_shared_by_sibling_candidate_workflows(repos
         await parent.agent("another forced write", over_budget_ok=True)
     assert len(factory.builds) == 3
 
-
 @pytest.mark.parametrize("parallel", [False, True])
 async def test_nested_roles_share_child_pool(repository, parallel):
     factory = FakeFactory([FakeSession(tokens=30), FakeSession(tokens=30)])
@@ -174,7 +169,6 @@ async def test_nested_roles_share_child_pool(repository, parallel):
     assert parent.tokens_spent() == 60
     assert parent.tokens_remaining() == 40
 
-
 @pytest.mark.parametrize("unbounded", [False, True])
 @pytest.mark.parametrize("invalid", [0, -1, True, False, 1.5, "2"])
 async def test_invalid_candidate_budget_is_rejected(repository, monkeypatch, unbounded, invalid):
@@ -194,7 +188,6 @@ async def test_invalid_candidate_budget_is_rejected(repository, monkeypatch, unb
     assert factory.builds == []
     assert parent.tokens_remaining() == 100
 
-
 async def test_exhausted_parent_does_not_start_candidate(repository):
     factory = FakeFactory([FakeSession(tokens=100)])
     parent = _context(repository, factory, 100)
@@ -210,7 +203,6 @@ async def test_exhausted_parent_does_not_start_candidate(repository):
     assert entered == []
     assert len(factory.builds) == 1
     assert parent.tokens_remaining() == 0
-
 
 @pytest.mark.parametrize("ending", ["success", "error", "cancel"])
 async def test_candidate_releases_reservation_after_exit(repository, ending):
@@ -251,7 +243,6 @@ async def test_candidate_releases_reservation_after_exit(repository, ending):
     await parent.agent("later work")
     assert factory.builds[-1]["budget"] == 100 - expected_spent
 
-
 @pytest.mark.parametrize("fail", [False, True])
 async def test_parent_reservation_waits_for_child_cleanup(repository, fail):
     release_cleanup = asyncio.Event()
@@ -283,7 +274,6 @@ async def test_parent_reservation_waits_for_child_cleanup(repository, fail):
     assert parent.tokens_remaining() == 93
     assert len(parent.sessions) == 1
     assert parent.pending_cleanup_tasks == ()
-
 
 @pytest.mark.parametrize("unbounded", [False, True])
 @pytest.mark.parametrize("mode", ["ordinary", "candidate-agent", "candidate-workflow", "candidate-cap"])
@@ -369,7 +359,6 @@ async def test_public_sdk_enforces_finite_and_preserves_unbounded_sessions(
         assert all(session.max_steps == 1 for session in sessions)
         assert all(context == 1048576 for _, context in calls)
         assert len(outputs) == 3 and not outputs[-1]
-
 
 async def test_cancelled_candidate_keeps_completed_sessions_and_spend(repository):
     factory = FakeFactory([FakeSession(tokens=20), FakeSession(tokens=30), FakeSession()])

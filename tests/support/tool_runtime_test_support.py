@@ -1,9 +1,4 @@
-"""Shared fakes for the tool contract tests.
-
-``test_tool_runtime_contract.py``, ``test_file_tool_contract.py`` and
-``test_search_tool_contract.py`` were split out of a single oversized module;
-these are the module-level doubles they build their runtimes from.
-"""
+"""Shared fakes for tool, file, and search runtime tests."""
 
 from __future__ import annotations
 
@@ -13,7 +8,6 @@ from types import SimpleNamespace
 
 def run(coro):
     return asyncio.run(coro)
-
 
 class FakeEnv:
     def __init__(self, stdout: str = ""):
@@ -30,14 +24,12 @@ class FakeEnv:
     async def write_file(self, path: str, content: str) -> None:
         raise AssertionError("write_file was not expected")
 
-
 class FalseyFakeEnv(FakeEnv):
     def __bool__(self) -> bool:
         return False
 
     async def read_file(self, path: str) -> str:
         return "contents\n"
-
 
 class SpySafetyPolicy:
     def __init__(self):
@@ -57,7 +49,6 @@ class SpySafetyPolicy:
     async def check_cmd_interactive(self, cmd: str, confirm_fn=None) -> None:
         self.cmd_calls.append((cmd, confirm_fn))
 
-
 class FakeRemoteEnv:
     """Environment that does I/O somewhere other than the host filesystem."""
 
@@ -71,7 +62,6 @@ class FakeRemoteEnv:
 
     async def write_file(self, path: str, content: str) -> None:
         self.files[path] = content
-
 
 class SpyLock:
     instances: list["SpyLock"] = []

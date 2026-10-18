@@ -9,13 +9,11 @@ from opencollab.workflows import CandidateRun
 
 MAX_PUBLIC_COMMAND_BYTES = 4_000
 
-
 def _clip_text(value: Any, limit: int) -> str:
     """Preserve complete model-visible evidence, including identity-bearing text."""
     del limit
     text = "" if value is None else str(value)
     return text
-
 
 def _public_record(record: dict[str, Any]) -> dict[str, Any]:
     public = {
@@ -30,14 +28,11 @@ def _public_record(record: dict[str, Any]) -> dict[str, Any]:
             public[field] = copy.deepcopy(record[field])
     return public
 
-
 def _candidate_output(candidate: CandidateRun) -> dict[str, Any]:
     return candidate.output if isinstance(candidate.output, dict) else {}
 
-
 def _candidate_command(candidate: CandidateRun) -> str:
     return str(_candidate_output(candidate).get("public_command") or "").strip()
-
 
 def _candidate_records(candidate: CandidateRun) -> list[dict[str, Any]]:
     records = _candidate_output(candidate).get("public_test_records")
@@ -45,14 +40,12 @@ def _candidate_records(candidate: CandidateRun) -> list[dict[str, Any]]:
         return []
     return [_public_record(record) for record in records if isinstance(record, dict)]
 
-
 def _record_key(record: dict[str, Any]) -> tuple[str, str, str]:
     return (
         str(record.get("target") or "").strip(),
         str(record.get("runner") or "").strip(),
         str(record.get("command") or "").strip(),
     )
-
 
 def _record_state(record: dict[str, Any]) -> str | None:
     if record.get("applicability", "current") != "current":
@@ -65,7 +58,6 @@ def _record_state(record: dict[str, Any]) -> str | None:
     if exit_code != 0 and record.get("verified") is False:
         return "red"
     return None
-
 
 def _public_red_winner(
     candidate_a: CandidateRun,
@@ -87,7 +79,6 @@ def _public_red_winner(
         if {states_a[key], states_b[key]} == {"green", "red"}
     }
     return next(iter(decisions)) if len(decisions) == 1 else None
-
 
 async def _adopt(
     ctx: Any,

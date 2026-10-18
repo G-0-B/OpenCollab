@@ -23,7 +23,6 @@ class DuplicateSpawnError(RuntimeError):
             f"Duplicate delegated task is already handled by agent aid={existing_aid}"
         )
 
-
 class TeamPrebuiltError(RuntimeError):
     """A pre-built team refused to create an agent that was not declared for it.
 
@@ -38,7 +37,6 @@ class TeamPrebuiltError(RuntimeError):
     def __init__(self, message: str, *, roster: tuple[tuple[int, str], ...] = ()) -> None:
         self.roster = roster
         super().__init__(message)
-
 
 class SchedulerTurnError(RuntimeError):
     """A targeted public turn reached a non-success terminal session phase."""
@@ -57,14 +55,12 @@ class SchedulerTurnError(RuntimeError):
         reason = terminal_reason or phase.value
         super().__init__(f"Agent aid {aid} {phase.value}: {reason}")
 
-
 class SchedulerStalledError(RuntimeError):
     """No scheduler-owned task can advance a non-terminal session."""
 
     def __init__(self, aid: int) -> None:
         self.aid = aid
         super().__init__(f"Scheduler stalled for aid {aid}: no active producer can advance it")
-
 
 class RosterEntry(TypedDict):
     """One row of a team roster (``Scheduler.team_snapshot``/``team_roster``).
@@ -80,10 +76,8 @@ class RosterEntry(TypedDict):
     phase: str
     busy: bool
 
-
 # Live phases that present as "settled" (idle) in a roster display.
 _SETTLED_PHASES = frozenset({"done"})
-
 
 def roster_display_state(entry: RosterEntry) -> str:
     """Map a roster entry (phase/busy) to a single display-state label.
@@ -96,7 +90,6 @@ def roster_display_state(entry: RosterEntry) -> str:
         return "running"
     phase = entry.get("phase", "?")
     return "idle" if phase in _SETTLED_PHASES else phase
-
 
 @dataclass(frozen=True)
 class LaunchSpec:
@@ -111,7 +104,6 @@ class LaunchSpec:
     session_file: str | None = None
     auto_save_path: str | None = None
 
-
 @dataclass(frozen=True)
 class QueuedTeammateMessage:
     from_aid: int
@@ -125,7 +117,6 @@ class QueuedTeammateMessage:
     to_role: str = ""
     restored: bool = False
     kind: str = "teammate"
-
 
 __all__ = [
     "DuplicateSpawnError",

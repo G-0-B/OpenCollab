@@ -30,7 +30,6 @@ from tests.support.session_run_loop_test_support import build_runner
 def pressure():
     return ContextPressure(lambda message: estimate_request_message_tokens([message]))
 
-
 def encrypted_message(index=0):
     return {
         "role": "assistant", "content": "Inspect the next source file.",
@@ -39,7 +38,6 @@ def encrypted_message(index=0):
             "encrypted_content": "opaque" * 20_000,
         }],
     }
-
 
 def test_measured_prefix_and_new_output_are_additive_and_preserve_history():
     history = [{"role": "user", "content": "fix the task"}, encrypted_message()]
@@ -60,7 +58,6 @@ def test_measured_prefix_and_new_output_are_additive_and_preserve_history():
     assert estimator(history + [new_assistant, tool]) < 5_000
     assert history == original
 
-
 def test_retries_use_final_input_and_estimated_usage_does_not_calibrate():
     history = [encrypted_message()]
     estimator = pressure()
@@ -74,7 +71,6 @@ def test_retries_use_final_input_and_estimated_usage_does_not_calibrate():
     assert estimator(changed) == estimate_request_message_tokens(changed)
     estimator.clear()
     assert estimator(history) == fallback
-
 
 @pytest.mark.parametrize("failed", [None, Usage(input_tokens=500, output_tokens=7_000),
                                     Usage(input_tokens=500, output_tokens=7_000, estimated=True)])
@@ -90,7 +86,6 @@ def test_actual_retry_combination_keeps_final_measurement_separate_from_cost(fai
     assert usage.estimated == (failed is None or failed.estimated)
     assert usage.total_tokens == 1_100 + (failed.total_tokens if failed is not None else 0)
 
-
 async def test_estimator_scope_isolated_between_concurrent_sessions():
     messages = [encrypted_message()]
 
@@ -103,7 +98,6 @@ async def test_estimator_scope_isolated_between_concurrent_sessions():
 
     assert await asyncio.gather(size(100), size(200)) == [100, 200]
     assert approx_messages_tokens(messages) > 40_000
-
 
 async def test_summary_usage_is_accounted_but_does_not_calibrate_main_history():
     runner = build_runner()
@@ -121,7 +115,6 @@ async def test_summary_usage_is_accounted_but_does_not_calibrate_main_history():
     assert runner._context_pressure(history) == 2_000
     runner.reset_for_restore()
     assert runner._context_pressure(history) == estimate_request_message_tokens(history)
-
 
 def test_real_pressure_still_clears_old_tools_and_reestimates_edited_content():
     history = [{"role": "system", "content": "system"}]
@@ -143,7 +136,6 @@ def test_real_pressure_still_clears_old_tools_and_reestimates_edited_content():
     assert history == original
     assert shaped[-1] == history[-1]
 
-
 @pytest.mark.parametrize("protocol", ["responses", "chat_completions"])
 async def test_provider_projection_avoids_aliases_and_follows_thinking_policy(protocol):
     client = LLMClient(model="gpt-fake", api_key=uuid.uuid4().hex, wire_protocol=protocol)
@@ -164,7 +156,6 @@ async def test_provider_projection_avoids_aliases_and_follows_thinking_policy(pr
     finally:
         await client.close()
 
-
 async def test_anthropic_projection_counts_native_blocks_once():
     client = LLMClient(model="claude-sonnet-4-6", api_key=uuid.uuid4().hex, provider="anthropic")
     blocks = [{"type": "thinking", "thinking": "reasoning" * 100, "signature": "opaque" * 100},
@@ -177,7 +168,6 @@ async def test_anthropic_projection_counts_native_blocks_once():
         ])
     finally:
         await client.close()
-
 
 async def test_responses_session_keeps_encrypted_history_on_real_sdk_wire(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")

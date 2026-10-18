@@ -23,7 +23,6 @@ def _dependency(tmp_path: Path, name: str) -> Path:
     parent.mkdir()
     return _repository(parent)
 
-
 @pytest.mark.parametrize("backend", ["local", "candidate", "container", "container-candidate", "container-team"])
 @pytest.mark.parametrize(
     ("module_path", "module_name"),
@@ -78,7 +77,6 @@ async def test_available_submodule_names_preserve_spaces(
     assert _git(source, "status", "--porcelain") == ""
     assert _git(source, "worktree", "list", "--porcelain").count("worktree ") == 1
 
-
 @pytest.mark.parametrize("nested", [False, True])
 async def test_candidate_reads_committed_source_available_submodules(tmp_path, monkeypatch, nested):
     dependency = _dependency(tmp_path, "dependency")
@@ -118,7 +116,6 @@ async def test_candidate_reads_committed_source_available_submodules(tmp_path, m
     assert not candidate_path.exists()
     assert _git(source, "worktree", "list", "--porcelain").count("worktree ") == 1
 
-
 def _partly_initialized_source(tmp_path: Path) -> Path:
     dependency = _dependency(tmp_path, "dependency")
     source = _repository(tmp_path)
@@ -128,7 +125,6 @@ def _partly_initialized_source(tmp_path: Path) -> Path:
     _git(source, "submodule", "deinit", "-f", "--", "vendor/optional")
     assert _git(source, "status", "--porcelain") == ""
     return source
-
 
 async def test_candidate_copies_initialized_dependency_and_leaves_optional_empty(tmp_path):
     source = _partly_initialized_source(tmp_path)
@@ -148,7 +144,6 @@ async def test_candidate_copies_initialized_dependency_and_leaves_optional_empty
             await lease.cleanup()
         await base.cleanup()
     assert _git(source, "worktree", "list", "--porcelain").count("worktree ") == 1
-
 
 async def test_candidate_from_repository_subdirectory_initializes_only_scoped_submodules(tmp_path):
     dependency = _dependency(tmp_path, "nested-dependency")
@@ -173,7 +168,6 @@ async def test_candidate_from_repository_subdirectory_initializes_only_scoped_su
             await lease.cleanup()
         await base.cleanup()
 
-
 async def test_worktree_environment_keeps_requiring_initialized_source_submodules(tmp_path):
     source = _partly_initialized_source(tmp_path)
     environment = WorktreeEnvironment(str(source))
@@ -183,7 +177,6 @@ async def test_worktree_environment_keeps_requiring_initialized_source_submodule
     finally:
         await environment.cleanup()
     assert _git(source, "worktree", "list", "--porcelain").count("worktree ") == 1
-
 
 @pytest.mark.parametrize("damage", ["invalid_path", "external_module", "broken_metadata"])
 async def test_source_submodule_errors_are_reported(tmp_path, damage):

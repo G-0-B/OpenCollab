@@ -19,7 +19,6 @@ from tests.workflows.test_workflow_candidate_workspace import _git, _repository
 _FILENAME = "\u5ba2\u6237\u8bb0\u5f55.csv"
 _LEGACY = b"id,label\n1,caf\xe9 \x80\n"
 
-
 @pytest.mark.parametrize("tracked", [False, True], ids=["untracked", "tracked"])
 async def test_candidate_inherits_and_adopts_legacy_text_bytes(tmp_path, tracked):
     repo = _repository(tmp_path)
@@ -58,7 +57,6 @@ async def test_candidate_inherits_and_adopts_legacy_text_bytes(tmp_path, tracked
             await lease.cleanup()
         await environment.cleanup()
 
-
 class _CsvWriter:
     def __init__(self, payload):
         self.payload = payload
@@ -75,7 +73,6 @@ class _CsvWriter:
                 },
             }], usage=Usage(10, 5), finish_reason="tool_calls")
         return LLMResponse(content="CSV exported.", usage=Usage(10, 5), finish_reason="stop")
-
 
 @pytest.mark.parametrize("payload", [_LEGACY, "id,label\n1,café\n".encode(), b"id,label\x00\xff\n"],
                          ids=["legacy-text", "utf-8-text", "nul-binary"])
@@ -100,7 +97,6 @@ async def test_public_candidate_adoption_preserves_exported_csv_bytes(tmp_path, 
     assert model.calls == 2
     if payload == "id,label\n1,café\n".encode():
         assert "+1,café" in result.output["patch"]
-
 
 @pytest.mark.parametrize("change", ["delete", "rename", "executable"])
 async def test_legacy_text_patch_keeps_file_change_metadata(tmp_path, change):
@@ -147,7 +143,6 @@ async def test_legacy_text_patch_keeps_file_change_metadata(tmp_path, change):
             await lease.cleanup()
         await environment.cleanup()
 
-
 async def test_legacy_text_patch_uses_git_line_ending_normalization(tmp_path):
     repo = _repository(tmp_path)
     attributes = b"*.csv text eol=crlf\n"
@@ -174,7 +169,6 @@ async def test_legacy_text_patch_uses_git_line_ending_normalization(tmp_path):
         if lease is not None:
             await lease.cleanup()
         await environment.cleanup()
-
 
 @pytest.mark.parametrize("tracked", [False, True], ids=["untracked", "tracked"])
 async def test_legacy_text_patch_keeps_git_clean_and_smudge_filters(tmp_path, tracked):

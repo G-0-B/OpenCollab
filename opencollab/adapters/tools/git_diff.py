@@ -1,17 +1,7 @@
-"""git_diff — focused working-tree diff and status.
+"""Read working-tree status and the uncommitted diff against HEAD.
 
-Reviewers and the lead need to see *what actually changed* in the working tree
-to judge a fix, without burning budget reconstructing it from a transcript of
-edits. This tool returns ``git status --short`` plus the working-tree diff
-against HEAD (all uncommitted changes), focused by an optional pathspec and
-truncated so a large diff can't blow up the context.
-
-Read-only: it never stages, commits, or resets — only ``git status`` and
-``git diff``.
-
-Ref:
-- bash.py: same env handling + head/tail truncation.
-- grep.py: read-only tools skip the command-safety gate.
+An optional pathspec focuses the result. Head-and-tail truncation bounds output.
+The tool runs ``git status`` and ``git diff`` without modifying Git state.
 """
 
 from __future__ import annotations
@@ -29,10 +19,8 @@ MAX_DIFF_CHARS = 8_000
 MAX_STATUS_CHARS = 2_000
 MAX_UNTRACKED_DIFF_FILES = 50
 
-
 class _GitConfigurationRejected(Exception):
     pass
-
 
 async def _read_git(environment: Any, command: str) -> Any:
     git, guard = _git_command_and_config_guard()
@@ -40,7 +28,6 @@ async def _read_git(environment: Any, command: str) -> Any:
     if result.returncode == 125:
         raise _GitConfigurationRejected(result.stderr or result.stdout or "repository configuration rejected")
     return result
-
 
 def _captured_git_output(result: Any) -> str:
     output = result.stdout.strip()
@@ -52,7 +39,6 @@ def _captured_git_output(result: Any) -> str:
             "The displayed output is incomplete.\n\n" + output
         )
     return output
-
 
 class GitDiffTool(Tool):
     """Show the current working-tree diff (and status) vs HEAD.

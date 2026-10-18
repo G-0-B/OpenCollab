@@ -42,7 +42,6 @@ async def test_anthropic_thinking_usage_from_sdk_reaches_ledger(monkeypatch, tmp
     assert record["usage"]["raw_usage"]["output_tokens_details"] == details
     assert record["usage"]["total_tokens"] == 373
 
-
 @pytest.mark.parametrize("shape", [dict, SimpleNamespace])
 @pytest.mark.parametrize("thinking_tokens", [312, 0, None])
 def test_anthropic_thinking_detail_shapes_keep_missing_and_zero_distinct(shape, thinking_tokens):
@@ -58,7 +57,6 @@ def test_anthropic_thinking_detail_shapes_keep_missing_and_zero_distinct(shape, 
     assert parsed.raw_usage["output_tokens_details"] == (
         {"thinking_tokens": thinking_tokens} if thinking_tokens is not None else {}
     )
-
 
 def test_anthropic_absent_thinking_detail_remains_unreported():
     parsed = _parse_usage(SimpleNamespace(input_tokens=25, output_tokens=348))

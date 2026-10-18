@@ -34,5 +34,4 @@ def resolve_text_input(
         return text
     return None
 
-
 __all__ = ["resolve_text_input"]

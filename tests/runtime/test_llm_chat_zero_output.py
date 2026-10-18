@@ -18,7 +18,6 @@ from tests.runtime.test_llm_chat_streaming_session import USAGE, completion, ses
 
 ZERO_OUTPUT = {"prompt_tokens": 100, "completion_tokens": 0, "total_tokens": 100}
 
-
 async def test_complete_empty_stream_preserves_reported_zero_output():
     response, client = await run_stream([
         chunk(delta={"role": "assistant"}), chunk(finish_reason="stop"),
@@ -30,7 +29,6 @@ async def test_complete_empty_stream_preserves_reported_zero_output():
     assert response.usage.estimated is False
     assert all(stream.closed for stream in client.streams)
 
-
 @pytest.mark.parametrize("delta", [
     {"content": "Visible answer"},
     {"content": " "},
@@ -41,7 +39,6 @@ async def test_complete_empty_stream_preserves_reported_zero_output():
 async def test_nonempty_stream_still_rejects_zero_output_usage(delta):
     with pytest.raises(StreamedUsageUnavailableError):
         await run_stream([chunk(delta=delta), chunk(finish_reason="stop"), usage_chunk(ZERO_OUTPUT)])
-
 
 @pytest.mark.parametrize("usage", [
     None,
@@ -55,7 +52,6 @@ async def test_empty_stream_still_requires_consistent_reported_usage(usage):
         script.append(usage_chunk(usage))
     with pytest.raises(StreamedUsageUnavailableError):
         await run_stream(script)
-
 
 @pytest.mark.parametrize("stream", [False, True])
 async def test_empty_zero_output_turn_reaches_session_correction_and_tools(tmp_path, stream):
@@ -94,7 +90,6 @@ async def test_empty_zero_output_turn_reaches_session_correction_and_tools(tmp_p
     assert "Created/wrote" in receipts["write"]
     assert (tmp_path / "output.txt").read_text() == "delivered"
     assert all(stream.closed for stream in wire.streams)
-
 
 @pytest.mark.parametrize("stream", [False, True])
 async def test_zero_output_provider_limit_still_stops_without_executing_tools(tmp_path, stream):
