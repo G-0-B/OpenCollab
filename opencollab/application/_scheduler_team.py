@@ -36,18 +36,10 @@ class _CompletedCoderChanges(NamedTuple):
     patch: str
 
 def _shell_state(agent: Any, env: Any) -> str:
-    """Whether this agent's ``bash`` would run a command or refuse one.
+    """Classify effective shell access for the run record.
 
-    An experimental condition, not a code detail: a run that compares a lone
-    agent against a team has to be able to show from its records that both
-    sides could reach a shell, and "read the tool wiring" is not a record. So
-    the three answers are kept apart rather than collapsed into one boolean.
-
-    * ``absent`` — the role was never given ``bash``.
-    * ``available`` — a command sent to ``bash`` runs.
-    * ``sandbox_required`` — the role carries ``bash``, but the tool demands an
-      OS process sandbox this environment does not provide, so every command is
-      answered with a refusal instead of being run.
+    Return ``absent`` when the role lacks ``bash``, ``sandbox_required`` when
+    its required OS sandbox is unavailable, and ``available`` otherwise.
     """
     bash = next(
         (
@@ -193,14 +185,9 @@ class SchedulerTeamMixin:
         return scb.agent.name if scb is not None else "?"
 
     def _topology_forbids(self, src_role: str, dst_role: str) -> bool:
-        """True when a team topology is configured and forbids ``src_role`` → ``dst_role``.
+        """Whether the configured topology forbids ``src_role`` from reaching ``dst_role``.
 
-        The single deny decision shared by the two verbs — spawn
-        (``_check_topology`` raises ``PermissionError``) and ``send_message``
-        (returns an error-string tool result). Each caller keeps its own role
-        resolution and its own response shape; only the boolean is shared, so
-        ``allows`` is consulted exactly one way for both. Takes role *strings*,
-        not aids: a spawn target has no aid yet.
+        Accept role names because spawn targets have no aid yet.
         """
         return self._topology is not None and not self._topology.allows(src_role, dst_role)
 
@@ -457,15 +444,10 @@ class SchedulerTeamMixin:
         task: str,
         context: str,
     ) -> None:
-        """In static-topology mode, refuse to create an agent — and record it.
+        """Record and raise a roster-bearing spawn refusal for prebuilt teams.
 
-        The ``spawn_agent`` tool is deliberately left in the tool set: removing
-        it would remove the observation. A model that wants a role the team does
-        not have is evidence about delegation, and it can only be collected if
-        the model is still able to ask. So the ask is answered with a refusal
-        that names the live roster, and the attempt is written down.
-
-        No-op unless ``prebuild_team`` is on.
+        ``spawn_agent`` stays available so the trace captures attempted delegation.
+        With ``prebuild_team=False``, return immediately.
         """
         if not self._prebuild_team:
             return
@@ -732,12 +714,7 @@ class SchedulerTeamMixin:
             logger.error("worktree_changes trace failed for aid %s: %s", aid, exc)
 
     async def emit_scheduler_event(self, event: SchedulerEvent) -> None:
-        """Emit a pre-built scheduler event via the event sink.
-
-        Events are built through ``self._events`` (a ``SchedulerEventFactory``)
-        so the orchestration vocabulary lives in one place; the sink is a
-        required ``EventPublisherPort``, so emission is a single ``emit``.
-        """
+        """Emit a scheduler event through the configured sink."""
         await self._event_sink.emit(event)
 
     async def _safe_emit_scheduler_event(self, event: SchedulerEvent) -> None:

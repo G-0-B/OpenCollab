@@ -145,27 +145,13 @@ class ToolProcessingResult:
             state.turn.reads_since_last_edit += self.reads_executed
 
     def apply_evidence_counter_to(self, state: SessionState) -> None:
-        """Fold this batch's information-gain signals into the novelty counters
-        (STEP 1) and the evidence ledger (STEP 2).
+        """Apply ordered result signals and cards, then update batch progress.
 
-        Replays each executed result in call order through
-        ``state.record_evidence_signal`` so the within-batch ordering of
-        informative vs low-yield results is preserved (a duplicate that follows
-        its own first occurrence in the same batch scores low-yield). The
-        index-aligned ``evidence_cards`` ride along so the ledger's outcome label
-        is decided from the SAME novelty decision. Like
-        ``apply_read_write_counter_to`` it must be applied even on the deferred
-        path, where the result MESSAGES are buffered into the pending table.
-        Observational only — no control flow depends on the counters/ledger.
-
-        STEP 3 watchdog: also folds this batch's PER-STEP progress signal into
-        ``steps_since_progress``. A step makes progress when it lands a write OR a
-        novel informative ("hit") result (``distinct_evidence_count`` rose). A real
-        tool-executing batch with neither increments the counter by 1; a progress
-        batch resets it to 0. Counted per STEP (batch), not per result, so a single
-        turn that fired several low-yield reads still costs one watchdog step. Like
-        the counters above this is maintained ALWAYS — only the precheck brake that
-        reads it is gated, so the off path is unchanged.
+        Call this for deferred batches too, while their messages remain buffered.
+        Result order preserves duplicate detection within the batch. A write or
+        novel informative result resets the watchdog. A known no-progress batch
+        increments it once, regardless of result count. Counters are maintained
+        independently of enforcement.
         """
         loops = state.turn.loop_state
         if self.model_step is not None and loops.last_counted_step == self.model_step:

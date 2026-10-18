@@ -1,23 +1,10 @@
-"""SubmitFindingsTool — a scout's structured, cite-or-abstain recon report (STEP 0).
+"""Capture a scout's structured cite-or-abstain findings.
 
-A schema-capture tool in the same family as ``StructuredOutputTool``: the
-workflow engine injects one into a read-only scout session so the scout's report
-is a *structured artifact* the runtime owns, not fragile last-message text. It
-is available to the scout normally (so it CAN commit early — commit-first
-friendly) AND becomes the ONLY tool during the enforcement wind-down, where the
-scout's single protected turn must call it.
-
-Cite-or-abstain (anti-fabrication): every finding marked ``verified=true`` must
-carry a concrete ``evidence_anchor`` (a ``file:line`` or an exact string copied
-from a real tool result). A scout that lacks evidence for its dimension sets
-``insufficient_evidence=true`` — an explicit, VALID, non-penalized abstention,
-NOT a reason to invent a citation. Post-validation enforces this lightly: a
-``verified`` finding without an anchor is bounced back for correction instead of
-being captured.
-
-Pure application layer: stdlib + application imports only (no adapters import —
-the workflow engine that injects this lives in ``application`` and the Clean
-Architecture boundary forbids an inward layer importing an outer one).
+The workflow offers ``SubmitFindingsTool`` during exploration and makes it
+the sole tool for the protected enforcement turn. Verified findings require
+an ``evidence_anchor`` containing a file location or exact tool-result text.
+Missing anchors return a correction request. Scouts without evidence can
+submit ``insufficient_evidence=true``.
 """
 
 from __future__ import annotations
@@ -226,20 +213,11 @@ def harvest_findings(
     ledger: list[dict[str, Any]] | None = None,
     draft: str | None = None,
 ) -> str:
-    """The harvest backstop: turn whatever a scout produced into a usable report.
+    """Recover a scout report from the best available captured evidence.
 
-    Priority: (1) the scout's own captured submit_findings payload, formatted (its
-    refined commit always wins); else (2) the commit-first ``draft`` (STEP 5b — the
-    fact-sheet-seeded structured cite-or-abstain artifact) so a scout that dies or
-    strays before refining never loses the fact-sheet anchors; else (3) the scout's
-    final assistant text (today's behavior); else (4) a "(partial …)" salvage built
-    from what the scout actually gathered — preferring the runtime-authored evidence
-    ``ledger`` (STEP 2, classified + targeted) when present, else the raw tool
-    results + interim assistant texts in the transcript — so a chopped scout yields
-    what it found, never a bare "(scout died)". Returns "" only when there is
-    genuinely nothing, letting the caller's own fallback decide; this function never
-    fabricates. ``draft`` defaults ``None`` (no commit-first), keeping the harvest
-    byte-for-byte identical for every caller that does not seed one.
+    Prefer captured findings, then ``draft``, then final assistant text. Otherwise
+    build a partial report from ``ledger``, or from tool results and interim
+    assistant text when the ledger is empty. Return ``""`` when nothing is available.
     """
     if captured is not None:
         report = format_findings_report(captured)

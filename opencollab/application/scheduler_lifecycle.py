@@ -1,14 +1,7 @@
-"""Agent lifecycle for the Scheduler: register, spawn, drive, wake, deliver.
+"""Register, spawn, drive and wake agents for the passive scheduler.
 
-This is the heart of the passive scheduler — the non-blocking spawn, the
-per-agent run/finalize loop, and the wake path that routes a finished child's
-result back into the pending row that suspended its parent.
-
-``LifecycleMixin`` is composed into ``Scheduler`` and relies on the maps and
-helpers created in ``Scheduler.__init__`` (``table``, ``_sessions``,
-``_tasks``, ``_locks``, ``_spawn_origin``, ``_session_factory``,
-``_worktree_pool``, ``_tracer``, and the dedup / messaging / event / topology
-helpers).
+``LifecycleMixin`` uses ``Scheduler`` state to route completed children
+into their parents' pending rows and resume suspended sessions.
 """
 
 from __future__ import annotations
@@ -77,17 +70,11 @@ class LifecycleMixin:
         return aid
 
     def create_init_process(self, launch: LaunchSpec) -> int:
-        """Create and register agent 0 — the init process (aid=0).
+        """Build, launch and register agent 0 through the session factory.
 
-        The factory owns construction (env, tools, prompt, store); the
-        scheduler owns the launch lifecycle: build via the factory, apply the
-        launch spec (resume or seed), then register. The root-process mirror of
-        ``spawn``.
-
-        The budget handed to the factory is what agent 0 may actually spend, not
-        the team total — under a declared roster its ``per_agent_cap``. The
-        session turns that number into the ``[Budget: ...]`` line the model reads
-        every turn, so the two must be the same number.
+        The factory receives agent 0's spendable budget, including its per-agent
+        cap on a declared roster, because the session displays that allowance
+        to the model on every turn.
         """
         session = self._session_factory.create_lead_session(
             scheduler=self,

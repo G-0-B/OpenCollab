@@ -35,27 +35,16 @@ _STRUCTURED_RETRY = (
 )
 
 def _named_tool_choice(tool_name: str) -> dict[str, Any]:
-    """OpenAI-style named-function ``tool_choice`` forcing exactly ``tool_name``.
+    """Build an OpenAI-style choice forcing ``tool_name``.
 
-    More precise than the bare ``"required"`` (force *some* tool) string: it
-    names the single tool the corrective turn must call. Stricter
-    OpenAI-compatible endpoints (observed: DashScope 400-rejects a bare
-    ``"required"`` for several repos and silently degrades to ``auto``) are more
-    likely to honour this explicit dict. It rides through the LLM stack
-    unchanged (the OpenAI SDK accepts a dict ``tool_choice``); if an endpoint
-    still rejects it, ``SessionRunUseCase._complete`` degrades it ONCE to
-    ``"auto"`` on a 400 exactly as it does for ``"required"`` today.
+    ``SessionRunUseCase._complete`` can retry with ``auto`` after a 400 rejection.
     """
     return {"type": "function", "function": {"name": tool_name}}
 
 def _schema_satisfied(captured: Any, schema: dict[str, Any]) -> bool:
-    """Minimal acceptance check for a captured structured payload.
+    """Require a captured dict with every required top-level key.
 
-    The ``StructuredOutputTool`` already validated the payload against the full
-    schema before storing it, so this is light hardening, not a re-validation:
-    it rejects a missing capture and a dict that omits any of the schema's
-    required top-level keys (e.g. an empty ``{}`` that slipped through), which
-    are treated like a miss so the forced corrective turn runs.
+    ``StructuredOutputTool`` validates the full schema before capture.
     """
     if not isinstance(captured, dict):
         return False
@@ -181,21 +170,11 @@ class WorkflowStructuredMixin:
         timeout: float | None,
         budget: int | None,
     ) -> dict | None:
-        """Build a single-tool, forced-``tool_choice`` corrective session.
+        """Run a corrective session restricted to the named capture tool.
 
-        The session is pinned to a named-function ``tool_choice`` (force exactly
-        ``structured_output``) and seeded with an explicit 'you MUST call the
-        tool, do not answer in prose' instruction. This strongly pushes — but,
-        on endpoints that 400-reject a forced choice and degrade to ``auto``,
-        does not guarantee — a structured commit.
-
-        The first pass's conversation (its grep/file_read tool results and the
-        understanding the model built) is copied from ``prior_session`` into the
-        corrective session before the retry message is added, so the forced
-        commit fills the schema from real exploration rather than from the bare
-        prompt — without this carry-over the ``_STRUCTURED_RETRY`` instruction to
-        commit "based on what you have already gathered" would address a blank
-        session that gathered nothing.
+        Carry the first pass's conversation before adding the retry instruction,
+        so submission can use its exploration results. Provider compatibility
+        fallback can change a rejected forced choice to ``auto``.
         """
         deadline = self._timeout_deadline(timeout)
         retry_prompt = prompt + "\n\n" + _STRUCTURED_RETRY
@@ -239,19 +218,11 @@ class WorkflowStructuredMixin:
 
     @staticmethod
     def _carry_exploration(prior_session: Any, session: Any) -> bool:
-        """Copy the first pass's conversation into the corrective session.
+        """Carry prior exploration while preserving the corrective system messages.
 
-        The corrective session is built fresh (seeded only with the system
-        prompt), so without this it would have none of the first pass's
-        exploration. The fresh session's system messages govern its current
-        role and tool permissions. Keep those messages and append a shallow
-        copy of the prior conversation. The new list is independent while the
-        message dicts are shared, because neither side mutates them in place.
-
-        The workflow-session port promises ``state.messages``. A top-level
-        ``messages`` property remains a compatibility fallback for older custom
-        factories. Failure is reported to the caller so it can emit a visible
-        recovery-degradation event without aborting the corrective turn.
+        Use an independent list with shared message dicts, which callers leave intact.
+        Read ``state.messages``, falling back to ``messages`` for older factories.
+        Return False on failure so the caller can report degraded recovery and proceed.
         """
         prior_state = getattr(prior_session, "state", None)
         prior = getattr(prior_state, "messages", None)

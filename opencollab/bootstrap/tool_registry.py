@@ -122,30 +122,16 @@ def build_tools_for_role(
     allow_file_creation: bool = True,
     tool_limits: dict[str, dict[str, int]] | None = None,
 ) -> list[Tool]:
-    """Resolve tool names to Tool instances.
+    """Resolve tool names with separate human-input and shell permissions.
 
-    Two capability questions reach this function, and they are deliberately two
-    parameters rather than one:
+    ``ask_user_available`` controls inclusion of ``ask_user``.
+    ``allow_unisolated_shell`` controls ``bash.require_process_isolation``.
+    Prebuilt peers can share the entry agent's shell permission while human
+    questions remain available to the entry role.
 
-    * ``ask_user_available`` — is there a human this agent may put a question
-      to? ``ask_user`` is dropped when there is not.
-    * ``allow_unisolated_shell`` — may this agent execute commands the OS does
-      not sandbox? It sets ``bash``'s ``require_process_isolation``.
-
-    They used to be one ``interactive`` flag, because one fact — "a human is
-    sitting at this run" — happened to answer both: a human can be asked a
-    question, and a human can be shown a risky command before it runs, which is
-    what let the shell run outside an OS sandbox. A prebuilt team pulls them
-    apart: its teammates are declared in the team file and seated before the
-    first model call, so they must get the entry agent's shell, while
-    ``ask_user`` still belongs to the entry role alone — a peer has no human to
-    ask. Folding them back into one boolean would hand every teammate a shell
-    the entry agent does not have, or take away one it does.
-
-    Scheduler-bound tools require a ``scheduler``;
-    skill-bound tools require a ``skill_store``. ``tool_limits`` maps a tool name
-    to constructor kwargs (output caps) so a team file can tune per-tool output
-    budgets to its backend. Unknown names or kwargs raise — fail fast at startup.
+    Scheduler tools require ``scheduler`` and skill tools require ``skill_store``.
+    ``tool_limits`` supplies per-tool output-cap kwargs. Unknown names or kwargs
+    raise during construction.
     """
     validate_unique_tool_names(tool_names)
     limits = validate_tool_limits(tool_limits or {})

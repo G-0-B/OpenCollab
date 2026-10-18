@@ -115,13 +115,9 @@ _WIND_DOWN_RETRY = (
 )
 
 def _submit_tool_choice(name: str) -> dict[str, Any]:
-    """OpenAI-style named-function ``tool_choice`` forcing exactly ``name``.
+    """Build an OpenAI-style choice forcing the named submit function.
 
-    Constrained decoding for the wind-down turn: more precise than the bare
-    ``"required"`` string and more likely honoured by stricter OpenAI-compatible
-    endpoints. It rides through the LLM stack unchanged (the OpenAI SDK accepts a
-    dict ``tool_choice``); if an endpoint still 400-rejects it, ``_complete``
-    degrades it ONCE to ``"auto"`` and the wind-down retry (text instruction +
-    submit-only toolset) is the remaining guarantee.
+    A provider rejection can fall back once to ``auto``. The submit-only
+    wind-down toolset and retry instruction still apply.
     """
     return {"type": "function", "function": {"name": name}}

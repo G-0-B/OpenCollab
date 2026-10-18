@@ -1,11 +1,7 @@
-"""Single source of truth for run-loop and scheduler event construction.
+"""Construct session-runtime and scheduler events.
 
-Every session-runtime event — run loop, tool execution — is built here so the
-event vocabulary lives in one place and each event carries the owning agent's
-``aid`` for TUI routing. The use cases hold a frozen ``SessionEventFactory``
-(injected in tests, defaulted otherwise) and call only the builders they need.
-The ``Scheduler`` holds a ``SchedulerEventFactory`` for the same reason on the
-orchestration side.
+``SessionEventFactory`` attaches the owning ``aid`` for TUI routing.
+``SchedulerEventFactory`` supplies orchestration events.
 """
 
 from __future__ import annotations

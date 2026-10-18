@@ -1,12 +1,4 @@
-"""Role -> Agent assembly: ``SpawnConfig`` + ``ContextBuilder``.
-
-``ContextBuilder`` owns the single role -> ``Agent`` assembly used for both the
-lead and spawned agents. ``build_plan`` is the editorial step: it emits an
-ordered set of ``ContextSource`` objects, each tagged with its layer /
-load-timing / structural position; ``build_agent`` resolves the role's tool
-*names* to concrete Tools and folds the plan's SYSTEM sources into the agent's
-system prompt.
-"""
+"""Shared role-to-agent and layered-context assembly for entry and child sessions."""
 
 from __future__ import annotations
 
@@ -85,16 +77,11 @@ class SpawnConfig:
         self.thinking_params = dict(DEFAULT_THINKING_PARAMS if self.thinking_params is None else self.thinking_params)
 
 class ContextBuilder:
-    """Turns a role name into a ready-to-run ``Agent`` + its context plan.
+    """Build an agent and context plan for an entry or spawned role.
 
-    Owns the single role -> ``Agent`` assembly used for both the lead and
-    spawned agents. ``build_plan`` is the editorial step: it emits an ordered
-    set of ``ContextSource`` objects, each tagged with its layer and structural
-    position. Identity, team and (when present) the project repo map land in the
-    system prompt; the task lands as a user-context message. ``build_agent``
-    resolves the role's tool *names* to concrete Tools and folds the plan's
-    SYSTEM sources into ``Agent.system_prompt``. Tool schemas are NOT injected
-    as prose — they already reach the LLM as function-calling schemas.
+    Identity, team and repository context form the system prompt. The task is
+    user context. Tool names resolve to concrete tools whose schemas reach the
+    provider through function calling.
     """
 
     def __init__(
@@ -119,13 +106,10 @@ class ContextBuilder:
         task: str | None = None,
         context: str = "",
     ) -> ContextPlan:
-        """Emit the ordered context sources for ``role_name``.
+        """Emit populated context sources in order for ``role_name``.
 
-        Identity, the team section, the skill catalog and (when present) the
-        project repo map carry content and assemble into the system prompt; the
-        task, when given, becomes the sole user-context message. A source is
-        emitted only when it has content — reserved long-term layers (memory,
-        RAG) are an honest gap, not registered-but-empty placeholders.
+        Identity, team, skills and repository context form the system prompt.
+        The task, when supplied, becomes the sole startup user message.
         """
         role = self._team.role_for(role_name)
         sources: list[ContextSource] = []
@@ -204,13 +188,10 @@ class ContextBuilder:
         allow_unisolated_shell: bool = False,
         plan: ContextPlan | None = None,
     ) -> Agent:
-        """Assemble the ``Agent`` for ``role_name``.
+        """Assemble the agent with separate human-input and shell-isolation permissions.
 
-        ``ask_user_available`` (is there a human to ask?) and
-        ``allow_unisolated_shell`` (may this agent run commands the OS does not
-        sandbox?) are two separate inputs on purpose — see
-        ``build_tools_for_role`` for why they were once a single ``interactive``
-        flag and what a prebuilt team does to that conflation.
+        See ``build_tools_for_role`` for ``ask_user_available`` and
+        ``allow_unisolated_shell`` semantics.
         """
         role = self._team.role_for(role_name)
         if plan is None:

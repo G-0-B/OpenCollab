@@ -1,12 +1,9 @@
-"""Workflow registry and the ``@workflow`` decorator.
+"""Register async workflows by name with duplicate rejection.
 
-A workflow is a plain async function ``async def fn(ctx, args) -> Any``. The
-``@workflow`` decorator attaches a frozen :class:`WorkflowSpec` (name,
-description, phases, fn) to the function as ``__workflow_spec__`` and returns the
-function unchanged, so the function stays directly callable. A :class:`Registry`
-collects specs by name and rejects duplicate registrations.
+``@workflow`` attaches ``WorkflowSpec`` and returns the function unchanged.
+Description defaults to the first docstring line, then the function name.
 
-Pure application layer: stdlib only (no domain, no adapters).
+This application module depends only on the standard library.
 """
 
 from __future__ import annotations

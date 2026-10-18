@@ -172,14 +172,10 @@ class _SessionRunCompletionMixin(_SessionRunTraceMixin):
             self.state.submitted_summary = getattr(result, "submitted_summary", None) or ""
 
     async def autosave_pending_step(self) -> None:
-        """Emit step_end (the autosave trigger), then PRECHECK -- or DONE.
+        """Emit the autosave-triggering ``step_end``, then choose PRECHECK or DONE.
 
-        DONE when the step that just ran called ``submit``. The summary the
-        model gave it is appended as this turn's assistant answer first, so a
-        submitted turn returns the agent's own account of what it handed over
-        rather than whatever text happened to precede the tool call. Everything
-        before the branch is unchanged, so a submitted step is saved exactly
-        like any other.
+        A submitted step first appends the submitted summary as the turn's answer
+        and follows the same autosave path before returning DONE.
         """
         pending = self._pending
         latency = (
@@ -808,15 +804,10 @@ class _SessionRunCompletionMixin(_SessionRunTraceMixin):
             raise
 
     async def _invoke_llm(self, **kwargs: Any) -> CompletionResponse:
-        """Call the provider, bounding a single generation by ``_per_call_timeout``.
+        """Bound one provider generation by ``_per_call_timeout``.
 
-        Without a per-call ceiling one slow generation (a 595s thinking turn was
-        observed) can consume the entire run wall, so the outer
-        ``asyncio.wait_for`` on the whole workflow truncates everything before any
-        patch lands. ``asyncio.wait_for`` cancels the in-flight ``complete`` call
-        on expiry; the resulting ``TimeoutError`` propagates and is handled by the
-        workflow/agent wrapper as a dead step (the run continues with whatever is
-        already in the working tree). ``None`` disables the ceiling.
+        ``None`` disables the ceiling. Expiry raises ``GenerationTimeoutError``
+        and tracks unfinished provider work for cleanup and late usage accounting.
         """
         await self._start_llm_step()
         if self._run_control is not None:

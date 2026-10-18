@@ -1,11 +1,7 @@
-"""Spawn-session wiring used by the scheduler.
+"""Build, restore and snapshot sessions for scheduler entry and child agents.
 
-``build_session`` is the self-wiring ``Session`` factory (with its
-``load_session``/``snapshot_session`` companions); ``build_spawn_session`` and
-``DefaultSessionFactory`` assemble the Agent + Session bundle for spawned
-children and for agent 0 (the lead), delegating role -> Agent assembly to a
-``ContextBuilder``. The ``SessionRuntime`` core stays in ``container``
-(``build_session_runtime`` — the only place ``LLMClient`` is instantiated).
+``ContextBuilder`` assembles role definitions. Shared runtime and LLM client
+construction live in ``container.build_session_runtime``.
 """
 
 from __future__ import annotations
@@ -421,14 +417,10 @@ def build_spawn_session(
     task: str | None = None,
     context: str = "",
 ) -> Session:
-    """Build the Agent + Session bundle for a spawned child agent.
+    """Build a child session through ``DefaultSessionFactory``.
 
-    ``team_cfg`` defaults to the Self-Collaboration team, so roles resolve to the
-    generic spec (base tools). The safety policy is derived from the child's
-    environment. When ``task`` is given it is seeded as the agent's first
-    user-context message (the TASK-layer source), so no separate
-    ``add_user_message`` is needed. Delegates to ``DefaultSessionFactory`` so the
-    spawn-session assembly lives in one place.
+    ``team_cfg`` defaults to the Self-Collaboration team. Safety follows the
+    child environment. ``task``, when supplied, seeds its first user-context message.
     """
     role = validate_role_identity(role)
     factory = DefaultSessionFactory(cfg, team_cfg=team_cfg)
@@ -558,15 +550,10 @@ class DefaultSessionFactory:
         return self._allow_unisolated_shell
 
     def _lead_workspace_is_readable_by_the_agents(self) -> bool:
-        """Whether the agents' repository is readable on this host.
+        """Whether the agents' repository can be mapped on this host.
 
         A local environment's workspace holds the repository. The lead workspace
-        anchors configuration and may point to a different directory.
-
-        Only the repository map turns on this. A skill package is read off this
-        host once, at build time, and reaches the agent as text it can use from
-        anywhere; a repository map is a claim about a directory the agent is
-        expected to go and read.
+        anchors configuration and may point elsewhere.
         """
         env = self._lead_environment
         if env is None:
@@ -673,14 +660,10 @@ class DefaultSessionFactory:
         budget: int,
         aid: int = 0,
     ) -> Session:
-        """Build agent 0 with its local env, entry-role tools, and prompt.
+        """Build agent 0 from the configured entry role and scheduler-bound tools.
 
-        The entry role comes from the team config (``team_cfg.entry``), so agent
-        0 is whichever root the team declares — not a hardcoded ``lead``. The
-        scheduler-bound tools are resolved against ``scheduler`` here, so the
-        lead<->scheduler cycle is closed inside this single handshake.
-        ``launch.auto_save_path`` wires the auto-save subscriber; resume/seed is
-        left to ``Session.apply_launch``.
+        ``launch.auto_save_path`` wires autosave. ``Session.apply_launch`` handles
+        resume or seed messages.
         """
         cfg = self._cfg
         # Agent 0 shares the supplied environment or the lead host workspace.

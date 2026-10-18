@@ -664,17 +664,11 @@ def load_team_config(
     *,
     path: str | os.PathLike[str] | None = None,
 ) -> TeamConfig:
-    """Load an explicitly selected team file or the built-in Self-Collaboration team.
+    """Load an explicit team file or the built-in Self-Collaboration team.
 
-    ``workspace`` remains accepted for compatibility but is intentionally not
-    searched for conventional filenames. An explicit ``path`` takes precedence
-    over ``OPENCOLLAB_TEAM_FILE``.
-
-    A team file must arrive as the keyword ``path``. Passing one positionally
-    lands it in ``workspace``, which is discarded — the call then returns the
-    built-in team and reports nothing, so a run configured with a team file
-    would silently execute a different team than the one it named. Refuse that
-    call instead: a caller holding a team file is never asking for the default.
+    Keyword ``path`` takes precedence over ``OPENCOLLAB_TEAM_FILE``.
+    ``workspace`` remains accepted for compatibility. Conventional filenames
+    are never discovered implicitly, and team files passed positionally raise.
     """
     if workspace is not None and _looks_like_a_team_file(workspace):
         raise ValueError(

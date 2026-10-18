@@ -83,21 +83,11 @@ class InvalidPhaseTransition(Exception):
 
 @dataclass
 class TurnEnforcementState:
-    """The per-turn enforcement window — the brake panel's per-turn half.
+    """Per-turn progress and enforcement state, checkpointed and reset together.
 
-    These nine fields are the unit that ``checkpoint_user_turn`` /
-    ``restore_user_turn`` snapshot and roll back as a whole, and that
-    ``reset_for_user_turn`` clears on a fresh user turn. They live in their own
-    record — rather than smeared flat on ``SessionState`` — precisely because
-    one mechanism (the user-turn boundary) saves, restores, and resets them
-    together, the same reason a kernel PCB carves its saved-register set into a
-    dedicated ``struct``. The durable wind-down latches stay flat on
-    ``SessionState`` because they also survive persistence and rollback within
-    the current turn; a fresh user turn resets them alongside this record.
-
-    All eight are maintained ALWAYS (cheap, observational); only the precheck
-    brakes that READ them are gated behind ``enforcement_strength``, so a
-    self-regulating run is byte-for-byte unchanged.
+    Counters are maintained regardless of ``enforcement_strength``. Wind-down
+    latches live on ``SessionState`` to survive within-turn persistence and
+    rollback, and reset alongside this record on a fresh user turn.
     """
 
     # Path-normalized call hashes drive repeated-call blocking.
@@ -428,26 +418,12 @@ class SessionState:
         *,
         card: dict[str, Any] | None = None,
     ) -> None:
-        """Fold one executed tool result into the information-gain counters (STEP 1)
-        and, when ``card`` is given, the evidence ledger (STEP 2).
+        """Record result novelty and optionally append a classified evidence card.
 
-        ``intrinsic_low_yield`` flags an empty read or a "No matches"-class result
-        (low-yield regardless of novelty). A result is INFORMATIVE only when it is
-        not intrinsically low-yield AND both its result content and its
-        (tool, normalized-args) call key are unseen. An
-        informative result resets ``low_yield_since_progress`` and increments
-        ``distinct_evidence_count``; a low-yield result increments
-        ``low_yield_since_progress``. Both hashes are remembered, so a later exact
-        re-issue of a known read range or result content scores zero gain.
-        A different read range can contribute new evidence. Observational only: STEP 1
-        wires no behavior to these counters.
-
-        STEP 2: the SAME novelty + intrinsic decision determines the ledger
-        ``outcome`` (``hit`` | ``NO-MATCH`` | ``duplicate``) — no second
-        classification. When ``card`` (carrying ``tool`` / ``target`` / ``snippet``
-        from the tool-result envelope) is supplied, a completed card is appended to
-        ``scout_ledger``. ``card=None`` keeps the pre-STEP-2 path (counters only),
-        so callers that do not produce cards are byte-for-byte unchanged.
+        A hit requires unseen content and call hashes plus a false
+        ``intrinsic_low_yield`` flag. Empty/no-match results remain low-yield even
+        when new. Remember both hashes and classify cards as ``hit``, ``NO-MATCH``
+        or ``duplicate`` using that same decision. ``card=None`` updates counters only.
         """
         already_seen = (
             content_hash in self.turn.seen_result_hashes

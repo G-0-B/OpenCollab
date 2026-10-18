@@ -48,15 +48,10 @@ class WorkflowAgentsMixin:
         commit_reserve: int | None,
         harvest_fallback: str | None = None,
     ) -> str | None:
-        """Run a scout under the enforcement wind-down (STEP 0).
+        """Run a scout with submit capture and the enforcement wind-down.
 
-        Mirrors ``_run_agent`` but injects a ``submit_findings`` capture tool, arms
-        the runner's structural commit brake, and HARVESTS a usable report: the
-        captured payload if present, else the final text, else a "(partial …)"
-        salvage from the transcript — so a chopped scout never yields a bare
-        "(scout died)". A successful capture sets the cancel event so the loop halts
-        at once (commit-first friendly), exactly as the structured path does. Emits
-        one ``commitment_terminus`` metric per scout to the orchestration trace.
+        Successful capture sets the cancellation event. Harvest captured findings,
+        final text or transcript evidence, and emit one ``commitment_terminus`` metric.
         """
         deadline = self._timeout_deadline(timeout)
         session_budget = self._capped_session_budget(budget)
@@ -133,17 +128,13 @@ class WorkflowAgentsMixin:
         commit_reserve: int,
         caller_deadline: float | None,
     ) -> str | None:
-        """Salvage a dead/empty scout with ONE bounded transcript-only LLM call.
+        """Recover an empty scout report with one bounded submission call.
 
-        Its ONLY input is the scout's runtime-authored evidence ledger + raw tool
-        results; its ONLY tool is ``submit_findings`` with a forced (named-function)
-        ``tool_choice`` and the cite-or-abstain post-validation — NO exploration
-        tools, so the salvage cannot wander or fabricate. Returns the formatted
-        findings (or a valid ``insufficient_evidence`` abstention) on a successful
-        capture, else ``None`` so the caller keeps the harvested partial. Bounded by
-        ``commit_reserve`` (the reserve sized for a single submit turn) and clamped
-        to the live global remaining. A caller-supplied absolute deadline is
-        clamped with the internal commit cap, never replaced by it.
+        Seed it with the evidence ledger and raw tool results, offering only
+        ``submit_findings`` with a named tool choice and cite-or-abstain validation.
+        Return formatted findings or an insufficient-evidence abstention on capture,
+        otherwise ``None``. Clamp ``commit_reserve`` to the remaining pool and use
+        the earlier of the caller deadline and internal commit deadline.
         """
         ledger = self._scout_ledger(dead_session)
         messages = self._session_messages(dead_session)
@@ -196,18 +187,11 @@ class WorkflowAgentsMixin:
     async def draft_findings(
         self, prompt: str, *, label: str | None = None, budget: int | None = None
     ) -> dict[str, Any] | None:
-        """STEP 5b commit-first: ONE bounded submit-only call that commits a
-        structured ``submit_findings`` DRAFT from STATIC context (the pre-recon fact
-        sheet) BEFORE any exploration, returning the captured payload (or ``None``).
+        """Capture a structured draft from static context before scout exploration.
 
-        Reuses the validated dead-scout-synth wiring exactly — ``tools=[submit_findings]``
-        only, a named-function (forced) ``tool_choice``, the configured reasoning policy — so the
-        draft cannot wander or fabricate and the call is a single constrained turn.
-        It touches NO part of the session FSM: the exploring scout that consumes this
-        draft runs the unchanged capture→cancel→harvest path. Cost is one bounded
-        call per scout, clamped to ``budget`` (sized to ``commit_reserve``) and to the
-        live global remaining. Skips gracefully (``None``) if the shared pool is spent
-        or the factory/session errors, so a failed draft never aborts the fleet.
+        Use one submit-only call with a named tool choice and the configured
+        reasoning policy. Clamp its budget to the shared pool. Return ``None``
+        on exhausted budget or factory/session failure so other scouts can proceed.
         """
         # Import locally because workflow composes this mixin and defines the
         # SDK-exported WorkflowBudgetExceeded raised by _acquire_budget_lease.

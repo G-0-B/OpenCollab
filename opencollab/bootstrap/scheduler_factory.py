@@ -49,26 +49,12 @@ from opencollab.domain.agent import DEFAULT_MAX_TOKENS_PER_STEP
 _MESSAGING_TOOL_NAME = "message_agent"
 
 def _reject_unwalkable_edges(team: TeamConfig) -> None:
-    """Refuse a prebuilt team whose declared edges no agent can walk.
+    """Reject prebuilt-team edges whose source lacks ``message_agent``.
 
-    Only under ``prebuild_team``. There, ``spawn_agent`` is refused for the
-    whole run (``SchedulerTeamMixin._refuse_spawn_when_prebuilt``), so
-    ``message_agent`` is the only channel left between two seated agents. A role
-    that is given an outgoing edge but not that tool is seated mute: the
-    topology says it may address a teammate and nothing it can call will do so.
-    The run still starts, still records that edge as ``assigned.topology_edges``,
-    and produces a transcript in which the edge was simply never used — which
-    reads as a finding about the model rather than about the config.
-
-    Under the product default (``prebuild_team=False``) the same shape is
-    legitimate and must not be touched: the built-in Analyst has two outgoing
-    edges and no ``message_agent``, because it walks them with ``spawn_agent``
-    and receives results back through the join path. That is why this is called
-    from behind the switch and nowhere else.
-
-    Raised before anything is wired, so the failure lands before agent 0 exists
-    and before a single token is spent — the same bargain
-    ``ensure_team_prebuilt`` already makes for a seat it cannot fill.
+    Prebuilt teams refuse spawning, leaving messages as the channel between
+    seated agents. Missing tools would make recorded edges unusable. Call only
+    under ``prebuild_team`` because dynamic teams can communicate through spawn
+    and join. Raise ``ValueError`` before session construction or model calls.
     """
     offenders: list[tuple[str, list[str], list[str]]] = []
     for source in sorted(team.topology.edges):

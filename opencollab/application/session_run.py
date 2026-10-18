@@ -464,26 +464,20 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
         return self._enforcement_strength != ENFORCEMENT_OFF
 
     def _brake_on(self) -> bool:
-        """DISTINCT gate for the STEP-3 watchdog / low-yield brakes.
+        """Enable watchdog and low-yield brakes under scout enforcement.
 
-        Deliberately a separate predicate from the ``has_write``-driven write-nudge
-        in ``_build_steering_block``: the write-nudge keys on repo-mutation
-        (``has_write``) and is disabled for read-only scouts, whereas these brakes
-        MUST fire for scouts. They are gated on enforcement (on only for scouts) and
-        keyed on the STEP-1 information-gain sensor — never on ``has_write``, whose
-        flip would leak into verify/diff/integrity accounting.
+        These use information gain because read-only scouts still need progress
+        brakes. ``has_write`` separately drives write nudges and integrity accounting.
         """
         return self._enforcement_on()
 
     def _enter_wind_down(self) -> None:
-        """Trip the single protected submit turn: latch the flag, mark the token
-        cost baseline, narrow the toolset to submit-only, FORCE ``tool_choice`` to
-        the submit function (constrained decoding — without it DeepSeek-class models
-        reflexively re-issue their prior tool, now unknown, and are chopped on the
-        error), and inject the commit instruction. The agent is per-session here, so
-        mutating its tools / tool_choice cannot leak across sessions. If the submit
-        tool is somehow absent the toolset is left as-is (the injected message + the
-        one allowed turn still apply)."""
+        """Allocate the protected submit turn and restrict it to the submit tool.
+
+        Force ``tool_choice`` to avoid spending this turn on a removed exploration
+        tool. Tool mutations stay within the session. If the submit tool
+        is absent, retain the current tools and apply the nudge and turn limit.
+        """
         self.state.wind_down_done = True
         self.state.wind_down_attempts += 1
         self.state.wind_down_token_mark = self.state.used_tokens
@@ -550,20 +544,12 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
         self.state.transition_to(SessionPhase.STOPPED, reason=reason)
 
     async def _apply_enforcement_gate(self) -> bool:
-        """The enforcement funnel: THREE triggers -> ONE actuator. Returns whether
-        it chose the next phase (so the caller yields the transition to it).
+        """Choose the next phase when an enforcement brake fires.
 
-        Off unless enforcement is on (the self-regulating default never enters).
-        When on, three independent brakes converge on a single actuator
-        (``_enter_wind_down``, which narrows the toolset to submit-only and forces
-        the commit): the token budget spent past the commit reserve, the progress
-        watchdog (``steps_since_progress`` >= K), and the low-yield sensor
-        (``low_yield_since_progress`` >= M). Any one trips it; none fires while a
-        tool result is still un-ingested (``pending_events`` non-empty).
-
-        Once wound down, the durable attempt count grants EXACTLY ONE protected
-        commit turn and a single retry if that turn strays, then a terminal
-        STOPPED — never an unbounded forced loop, including after restore.
+        With enforcement enabled and pending results consumed, budget reserve,
+        watchdog or low-yield exhaustion enters ``_enter_wind_down``. Durable
+        attempt counts allow one protected submit turn and one compatibility retry,
+        then STOPPED, including after restore. Return whether a phase was selected.
         """
         if not self._enforcement_on():
             return False
@@ -674,14 +660,10 @@ class SessionRunUseCase(_SessionRunControlMixin, _SessionRunCompletionMixin):
         self.state.transition_to(SessionPhase.CALLING_LLM)
 
     async def run_llm_call(self) -> None:
-        """One model call: track tokens, trace, append the assistant message,
-        and stash the response as the pending step for HANDLING_RESPONSE.
+        """Run one model call and retain its response for HANDLING_RESPONSE.
 
-        Context-overflow safety net: ``call_llm`` already force-compacts and
-        retries once on an overflow rejection. If the retry still overflows it
-        raises ``_ContextOverflowStop``; we catch it here and stop the session
-        gracefully (CONTEXT_OVERFLOW) instead of letting it crash as an
-        unhandled ERROR — mirroring the BUDGET_EXCEEDED degradation.
+        If ``call_llm`` still overflows after forced compaction and one retry,
+        catch ``_ContextOverflowStop`` and stop with CONTEXT_OVERFLOW.
         """
         self._llm_step_started = False
         self._ensure_tool_environment_active()

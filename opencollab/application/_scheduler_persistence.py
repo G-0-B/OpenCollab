@@ -140,58 +140,36 @@ class SchedulerPersistenceMixin:
         return max(1, len(self._roles))
 
     def _per_agent_cap(self) -> int | None:
-        """The most any one agent may spend, or ``None`` on a dynamic roster.
+        """Return the declared roster's per-agent cap, or ``None`` for a dynamic roster.
 
-        A number only when the roster is an input to the run: the team config
-        declares the roles and the scheduler was built to seat them
-        (``prebuild_team``), so N is known before the first model call and the
-        rule ``c * total / N`` has a divisor. See ``PER_AGENT_BUDGET_SHARE``.
-
-        ``None`` otherwise. Without a declared roster the team is whatever the
-        model spawns, N is not known while the run is still deciding it, and
-        there is nothing to divide by; that path reserves ``dynamic_roster_share``
-        per agent at creation instead.
+        ``prebuild_team`` fixes N for ``PER_AGENT_BUDGET_SHARE * total / N``.
+        Dynamic rosters reserve ``dynamic_roster_share`` at creation instead.
         """
         if not self._prebuild_team:
             return None
         return per_agent_cap(self._max_budget_tokens, self._declared_team_size())
 
     def _entry_agent_takes_the_pool(self, aid: int) -> bool:
-        """True where agent 0's turn is leased the whole remaining pool.
+        """Whether agent 0 may lease the entire unallocated pool this turn.
 
-        The dynamic-roster path only, and the budget privilege the declared path
-        removes. With no N there is no per-agent cap to hold agent 0 to, so its
-        turn takes the entire unallocated remainder while every other agent is
-        held to one ``dynamic_roster_share``. Under a declared roster agent 0 is
-        leased through ``per_agent_cap`` like every teammate.
+        This applies to dynamic rosters. Declared rosters cap agent 0 like its peers.
         """
         return aid == 0 and self._per_agent_cap() is None
 
     def _entry_start_budget(self) -> int:
-        """The budget agent 0's session is built with — what it may truly spend.
+        """Return agent 0's spendable allowance for session construction.
 
-        Under a declared roster that is its ``per_agent_cap``, the same figure
-        every seated teammate gets. It has to be the figure it can actually
-        spend: the session injects ``[Budget: ~Xk/Yk tokens left, ...]`` into the
-        model's context from exactly this value on every turn, so passing the
-        team total would overstate agent 0's allowance by ``N / c`` once per
-        turn, for the whole run.
+        The session's budget prompt uses this value, so declared rosters must pass
+        the agent's cap rather than the team total.
         """
         cap = self._agent_cap(0)
         return self._max_budget_tokens if cap is None else cap
 
     def _seed_entry_lease(self) -> None:
-        """Book agent 0's own share of the pool when it registers (idempotent).
+        """Idempotently reserve agent 0's dynamic-roster share before children spawn.
 
-        Reserve-at-allocation divides the pool as agents appear, so agent 0 has
-        to book its share before any child books one — otherwise the children
-        would divide a pool nobody had left room in. It books exactly what a
-        child books, ``dynamic_roster_share(total)``, and into the same lease
-        table: agent 0 has no account of its own.
-
-        Nothing to seed under a declared roster: the pool is shared, each agent
-        is bounded by ``per_agent_cap`` instead of by a booking, and an idle
-        agent 0 must hold no tokens.
+        Booking it first prevents children from consuming agent 0's allowance.
+        Declared rosters use per-agent caps and require no reservation.
         """
         if self._per_agent_cap() is not None:
             return
@@ -218,16 +196,10 @@ class SchedulerPersistenceMixin:
         )
 
     def _budget_committed(self) -> int:
-        """Tokens the team can no longer spend on something else.
+        """Return spent tokens plus reserved dynamic-roster headroom.
 
-        Under a declared roster that is exactly what has been spent. The pool is
-        shared, and a lease there sets a ceiling rather than taking tokens out of
-        it, so an agent that was seated and never used commits nothing and the
-        agents that are working can still reach the whole remainder.
-
-        Under a dynamic roster a live lease still commits its unspent remainder,
-        because that reservation is the only thing stopping the next spawn from
-        oversubscribing the pool.
+        Declared rosters commit only actual spend. Dynamic rosters also commit
+        unspent live and provider-cleanup leases to prevent oversubscription.
         """
         committed = max(0, self.used_tokens)
         if self._per_agent_cap() is not None:
@@ -288,16 +260,11 @@ class SchedulerPersistenceMixin:
         self._pending_provider_budget_leases.pop(reservation, None)
 
     def _reserve_child_budget(self, aid: int, role: str | None = None) -> int:
-        """The budget a newly created agent's session is built with.
+        """Return the new session's cap or reserve a dynamic-roster share.
 
-        Declared roster: its ``per_agent_cap``, and nothing is booked. Seating an
-        agent takes no tokens out of the shared pool, so a team of any declared
-        size can be seated and a teammate that is never used holds nothing.
-
-        Dynamic roster: one ``dynamic_roster_share`` out of the unallocated
-        remainder, booked here. Synchronous (no await): a duplicate / batched
-        spawn that runs before the first child's await already sees the updated
-        allocation and cannot oversubscribe the pool.
+        Declared caps leave the shared pool unreserved. Dynamic grants are clamped
+        to the unallocated remainder and booked before any await, so batched spawns
+        observe each other's reservations.
         """
         cap = self._agent_cap(aid, role)
         if cap is not None:
