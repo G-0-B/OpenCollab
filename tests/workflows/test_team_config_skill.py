@@ -226,7 +226,7 @@ def test_build_can_replace_independent_output(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "cfg", ["team.example.yaml", "team.handoff.experiment.yaml"]
+    "cfg", ["team.example.yaml", "team.collab.yaml"]
 )
 def test_shipped_team_configs_render(cfg: str, tmp_path: Path) -> None:
     src = REPO_ROOT / "configs" / cfg

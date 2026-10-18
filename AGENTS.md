@@ -99,8 +99,9 @@ or measurement.
 - **English collaboration** — code, comments, canonical docs, commit messages,
   and PR titles and descriptions use English. Translations retain their declared language.
 - **Maintain one source for each instruction.** Link to existing setup, usage, and
-  testing guidance instead of copying it. Preserve runtime prompt files and generated
-  experiment cards; edit their source templates and run their existing checks.
+  testing guidance instead of copying it. Preserve runtime prompt files. Experiment
+  cards and their generation belong to OpenCollab-Eval; edit their source templates
+  and run the experiment checks there.
 - **Explain constraints, not syntax.** Comments and docstrings should retain caller
   contracts, reasons, edge cases, and tradeoffs. Avoid narrating the code or copying
   background from a guide. Check runtime and tooling consumers before editing strings.

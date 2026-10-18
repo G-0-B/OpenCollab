@@ -220,9 +220,9 @@ constraints into the maintained guide. Preserve release migrations and research
 evidence that have an independent reader or reproducibility purpose.
 
 Markdown under `configs/`, packaged prompts, and skill directories can be runtime
-input. Generated experiment cards must be changed through their source templates
-and checked with the existing generator and configuration tests (see the
-[scripts guide](scripts/README.md)). Their exact text is an experiment condition.
+input. Experiment-only cards and generation live in
+[OpenCollab-Eval](https://github.com/RISE-X-Lab/OpenCollab-Eval/tree/main/experiment/framework); edit their source templates and run their assembly and
+configuration checks there. Their exact text is an experiment condition.
 
 Comments explain reasons, assumptions, edge cases, and tradeoffs. Docstrings
 retain the inputs, outputs, failures, and ownership rules callers need. Before
