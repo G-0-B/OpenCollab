@@ -101,15 +101,11 @@ def rescue_empty_turn(
     tool_calls: list[dict[str, Any]],
     reasoning: str | None,
 ) -> str | None:
-    """Empty-stop rescue rung, shared by both providers.
+    """Use reasoning text when a completion contains neither answer nor tool call.
 
-    Providers keep chain-of-thought (``reasoning``) separate from the answer
-    (``content``). When a completion returns neither answer text nor a tool
-    call, an empty ``content`` would silently end the session; fall back to the
-    reasoning so the turn still carries something forward. Returns ``content``
-    unchanged whenever the turn already produced an answer or a tool call — so
-    this is the single source both ``openai_provider`` and ``anthropic_provider``
-    delegate to instead of hand-mirroring the guard.
+    Providers separate ``reasoning`` from ``content``. Falling back keeps an
+    empty answer from ending the session. Preserve ``content`` when an answer
+    or tool call already exists.
     """
     if (
         (content is None or not content.strip())

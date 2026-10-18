@@ -1,14 +1,7 @@
-"""The rules a worktree's change evidence follows, wherever the worktree lives.
+"""Interpret Git evidence for host and container worktrees.
 
-A worktree on the host and a worktree inside a task container answer the same
-three questions -- what did this agent start from, where does it stand now, and
-which commits did it make itself -- by reading the same Git output. Only the way
-Git is run differs, so the reading lives here and each environment supplies its
-own transport.
-
-Keeping one copy matters more than the line count saved: the base a diff is
-measured against is what makes a ``worktree_changes`` row attributable to one
-agent, and two copies of that rule could disagree without anything failing.
+Both environments supply Git output to the same attribution rules for the
+starting base, current HEAD, and own commits.
 """
 
 from __future__ import annotations

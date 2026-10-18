@@ -147,17 +147,11 @@ def _build_chat_response(
     tools: list[dict] | None,
     refusal: str | None = None,
 ) -> LLMResponse:
-    """Turn already-extracted response fields into an ``LLMResponse``.
+    """Build a response from a completion or reassembled stream.
 
-    Both wire shapes (one non-streaming ``ChatCompletion`` and a reassembled
-    chunk stream) end here, so the three contracts that live in this tail —
-    kimi markup recovery, usage parsing with its estimate fallback, and the
-    empty-turn rescue — apply to both by construction rather than by being
-    hand-mirrored on each path.
-
-    ``usage_source`` only needs a ``.usage`` attribute; ``usage_message`` is the
-    assistant message (SDK object or plain dict) used to estimate output tokens
-    when the endpoint reports none.
+    Shares markup recovery, usage estimation, and empty-turn rescue.
+    ``usage_source`` supplies ``.usage``. ``usage_message`` is the assistant SDK
+    object or dict used to estimate output tokens when usage is absent.
     """
     use_refusal = not (content or "").strip() and isinstance(refusal, str) and bool(refusal.strip())
 

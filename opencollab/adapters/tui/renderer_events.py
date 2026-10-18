@@ -1,8 +1,6 @@
-"""Event handling for the TUI: session-runtime + scheduler event dispatch.
+"""Update TUI state from session-runtime and scheduler events.
 
-Mixed into ``renderer.TUI`` — methods run on the TUI instance and feed the
-history/status/roster state that ``renderer_display`` renders. A block that
-settles here is handed straight to scrollback for the focused agent.
+Mixed into ``renderer.TUI``. Settled blocks reach focused-agent scrollback.
 """
 
 from __future__ import annotations

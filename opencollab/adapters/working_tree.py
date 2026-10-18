@@ -1,11 +1,7 @@
-"""Env-backed ``WorkingTreeProbe`` — answers "did the working tree change?".
+"""Implement ``WorkingTreeProbe`` through the task environment.
 
-The application-layer workflow uses a :class:`~opencollab.application.ports.WorkingTreeProbe`
-to verify that an agent actually edited the tree before declaring success. This
-concrete implementation backs that probe with the task ``Environment``, running
-``git -C <workspace> status --porcelain`` (and ``git diff`` for the optional
-diff). It lives in ``adapters`` because it depends on a concrete environment;
-the workflow only ever sees the abstract port.
+Use ``git status --porcelain`` to detect uncommitted changes and optionally
+capture ``git diff`` for the application workflow.
 """
 
 from __future__ import annotations

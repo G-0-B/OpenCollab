@@ -1,25 +1,12 @@
-"""The always-on input line, and the bottom region of the terminal it owns.
+"""Own the terminal's persistent input line and surrounding HUD.
 
-prompt_toolkit paints three things, top to bottom: the HUD the TUI renders to
-ANSI rows (the in-flight answer), the input line, and the status row under it.
-It stays up for the whole session — while a turn runs, between turns, and while
-an agent is waiting on an answer — because two in-place redrawers cannot share
-rows, which is what a Rich ``Live`` and a prompt used to try to do.
+prompt_toolkit paints the HUD, input, and status row. Top alignment and a
+non-growing input keep the status row flush beneath the input.
 
-The status row is a ``bottom_toolbar``, which prompt_toolkit places last in the
-prompt's layout. Two adjustments keep it *against* the input line rather than
-at the bottom of the claimed region: the layout stacks to the top, and the
-input window is stopped from growing into the slack. Without them the slack
-lands between the two and the row drifts down the screen.
-
-Everything printed while it is up goes above it: a standing ``patch_stdout``
-routes every write — this package's and anyone else's — through
-``run_in_terminal``, so scrollback stays the transcript and the prompt keeps
-its rows.
-
-One input line means one queue of readers. A permission y/N and an ``ask_user``
-question arrive from agents running concurrently, so they take the line in
-turn, ahead of whatever the user was typing.
+A session-wide ``patch_stdout`` routes writes through ``run_in_terminal``
+above the prompt, preserving scrollback and exclusive ownership of its rows.
+Concurrent permission and ``ask_user`` questions share a reader queue and
+take precedence over the user's unfinished message.
 """
 
 from __future__ import annotations
@@ -147,23 +134,11 @@ async def read_console_line(console: Any, prompt_text: str) -> str:
         return await reader.read(fd)
 
 def _pin_status_row_under_input(session: Any) -> None:
-    """Keep the toolbar row against the input line instead of the screen bottom.
+    """Keep the toolbar directly beneath the input.
 
-    A prompt claims every row between the cursor and the bottom of the screen
-    (``Renderer.render`` floors its height at the room it measured there), which
-    is slack whenever the prompt is not already at the bottom. By default that
-    slack is shared out among the layout's children, and both of them hand it
-    downward: the input window grows into it, and the toolbar — last in the
-    layout — is pushed to the far end of the claimed region, rows away from the
-    line it describes.
-
-    So: stack the layout to the top, where the leftover collects in a filler
-    below everything, and stop the input window from extending. The visible
-    rows then sit flush — HUD, input, status — and the slack falls under them.
-
-    Best-effort by design: this reaches into how a ``PromptSession`` assembles
-    its layout, so a prompt_toolkit that no longer looks like this leaves the
-    row at the bottom of the region rather than failing the run.
+    The renderer claims the remaining screen height. Top alignment and a
+    non-growing input window put that slack below the toolbar.
+    Layout access is best-effort so prompt_toolkit changes leave the run usable.
     """
     try:
         session.layout.container.align = VerticalAlign.TOP
@@ -178,11 +153,10 @@ def _pin_status_row_under_input(session: Any) -> None:
         pass
 
 class LivePrompt:
-    """The one input line, and the HUD painted above it.
+    """Own the input line and the HUD above it.
 
-    ``interactive`` is False for a redirected or piped run: there is no screen
-    to own, so nothing is patched, nothing is painted, and lines are read
-    straight from stdin.
+    With ``interactive=False``, read stdin directly and leave terminal output
+    unpatched.
     """
 
     def __init__(self, tui: Any, *, console: Any, interactive: bool = True):
@@ -201,10 +175,7 @@ class LivePrompt:
     def attached(self):
         """Own the bottom region for the duration of the block.
 
-        ``patch_stdout`` is the whole scrollback contract: it is stood up once,
-        around everything, rather than claimed and released per prompt. The
-        redraw callback is the other direction — an event that changes the HUD
-        has to ask this prompt to repaint it.
+        Keep ``patch_stdout`` active throughout and repaint when the TUI requests it.
         """
         if not self._interactive:
             yield self
@@ -282,13 +253,10 @@ class LivePrompt:
         return False
 
     def decline_pending(self) -> bool:
-        """Turn away every waiting question, as an interrupt should.
+        """Decline waiting questions on interrupt.
 
-        A question blocks the agent that asked it, and the turn's cooperative
-        cancel cannot reach a tool that is parked on an answer — so Ctrl+C has
-        to answer them, not only stop the turn. ``EOFError`` is the decline the
-        policies already understand: a permission goes to no, an ``ask_user``
-        reports that the user declined.
+        Cooperative turn cancellation cannot reach tools waiting for an answer.
+        ``EOFError`` makes permission prompts deny and ``ask_user`` report a decline.
         """
         pending = list(self._questions)
         self._questions.clear()
@@ -314,12 +282,9 @@ class LivePrompt:
         return self._session
 
     def _message(self) -> Any:
-        """The rows above the cursor: the HUD, then a question or the chevron.
+        """Render the HUD and question or chevron above the cursor.
 
-        The status row joins them only when the toolbar below cannot be drawn
-        (see ``_toolbar_renders``) — the row is the run's only evidence of what
-        the team is doing, so it moves back above the input rather than
-        vanishing on a terminal that answers no cursor-position request.
+        Include status here when the terminal cannot render the bottom toolbar.
         """
         rows: list[Any] = []
         hud = self._tui.hud_ansi()

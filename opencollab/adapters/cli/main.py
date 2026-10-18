@@ -1,24 +1,9 @@
-"""CLI entry point — Typer-based.
+"""Typer entry point for an interactive team and its REPL.
 
-Two surfaces:
-- the default (no subcommand): one interactive team. Agent 0 is the first
-  session and can spawn children; Tab selects any live session for follow-up.
-
-The input line is permanent: ``live_prompt`` owns the bottom of the terminal
-for the whole session and ``turn_queue`` runs turns behind it, so typing during
-a turn queues instead of waiting, and Ctrl+C interrupts the turn instead of
-ending the session.
-
-Split by concern: ``live_prompt`` (the prompt and the HUD above it),
-``turn_queue`` (background turn execution), ``config_resolve`` (CLI args + .env
-merge and API-key checks). This module keeps the Typer app, the read loop, and
-``main()``.
-
-Ref:
-- kimi-cli: Typer app with callback, async main, session management
-- opencode: bun run dev with agent mode selection
-- Design doc: cli/main.py as the interface layer — parses args and drives the
-  REPL only; all wiring lives in opencollab.bootstrap.
+Agent 0 starts the team. Tab selects a live session for follow-up.
+``live_prompt`` owns the persistent input and HUD while ``turn_queue`` runs
+turns in order. Typing queues a turn and Ctrl+C interrupts the running turn.
+Configuration merging and key checks live in ``config_resolve``.
 """
 
 from __future__ import annotations
@@ -158,11 +143,9 @@ def _resolve_one_shot_prompt(prompt: str | None, prompt_file: str | None) -> str
     )
 
 def _print_hint(label: str, value: str) -> None:
-    """One hairline-led chrome line, home-shortened and kept to a single row.
+    """Print one home-shortened hint row.
 
-    Session and trajectory paths are long enough to wrap into three or four rows
-    and push real output off the top. The head is elided rather than the tail:
-    the run id and filename at the end are what identify the file.
+    Elide the path head to preserve the identifying run id and filename.
     """
     home = os.path.expanduser("~")
     if home != "~" and value.startswith(home):
@@ -238,11 +221,9 @@ async def _read_loop(
     *,
     exit_words: frozenset[str] | set[str] = _EXIT_COMMANDS,
 ) -> None:
-    """Read the one input line until the user leaves it.
+    """Read until the user leaves, routing each line by priority.
 
-    Every line has three possible owners, in this order: an agent waiting on an
-    answer, a built-in command, and finally the queue of turns. The agent wins
-    because it asked first and the user can see whose question is on screen.
+    A waiting agent's answer takes precedence over a REPL command or queued turn.
     """
     while True:
         if not getattr(prompt, "interactive", True):
@@ -291,11 +272,9 @@ async def _drive(
     reader: Awaitable[None] | None,
     until_drained: bool,
 ) -> None:
-    """Run queued turns while the input line stays live, until one side ends.
+    """Drive queued turns until input ends, one-shot work drains, or a turn fails.
 
-    Three ways out: the user leaves the prompt, a one-shot run drains its
-    queue, or a turn fails outright — and that failure is re-raised here
-    because it is the same failure the REPL used to take inline.
+    Propagate turn failures to the caller.
     """
     if reader is None and not until_drained:
         raise ValueError("a run with nothing reading must end when its queue drains")

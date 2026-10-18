@@ -1,10 +1,6 @@
-"""Running user turns behind an input line that never goes away.
+"""Queue user turns behind the persistent input line.
 
-A turn used to be the foreground: the REPL awaited it and there was nothing to
-type into until it finished. Now the prompt is permanent, so a line submitted
-mid-turn has to go somewhere — and that somewhere is a queue, not an interrupt.
-Turns still run strictly one at a time, in the order they were typed, because
-that is the order the agents' transcripts have to read in.
+Run turns one at a time in submission order to preserve transcript order.
 """
 
 from __future__ import annotations
@@ -48,12 +44,10 @@ class TurnQueue:
         self._report_depth()
 
     def interrupt(self) -> bool:
-        """Stop the running turn and drop what was queued behind it.
+        """Stop the running turn cooperatively and drop queued turns.
 
-        Cooperative on purpose: the scheduler's ``cancel_event`` lets the agent
-        stop at its next step boundary with its session settled and persisted,
-        which cancelling the task cannot do. Returns whether there was anything
-        to interrupt.
+        ``cancel_event`` lets the scheduler settle and persist at its next step
+        boundary. Return whether any running or queued work was interrupted.
         """
         dropped = bool(self._waiting)
         self._waiting.clear()

@@ -23,18 +23,10 @@ class ProcessCleanupError(RuntimeError):
     """A subprocess group remained alive after bounded cleanup."""
 
 class ProcessTimeout(asyncio.TimeoutError):
-    """A command was killed at its deadline, carrying what it had written.
+    """A command deadline carrying captured output in ``partial``.
 
-    A timed-out command used to reach the model as an empty result and one
-    sentence saying it timed out. Everything the command had already printed --
-    which for a test run is the failures it got through before it hung, and for
-    a build is where it stopped -- was read into the capture buffers, then
-    discarded when the reader tasks were cancelled. The model was left to guess
-    whether the command had done nothing or nearly everything, and its only
-    move was to run it again.
-
-    Subclasses ``asyncio.TimeoutError`` so every existing ``except`` clause
-    still catches it; a caller that wants the partial output reads ``partial``.
+    Subclasses ``asyncio.TimeoutError`` so existing timeout handlers still catch
+    it. Callers can recover output produced before the command was killed.
     """
 
     def __init__(self, message: str, partial: ProcessResult | None = None):
@@ -401,11 +393,7 @@ async def _spawn_before_deadline(
 def timed_out_result(
     exc: BaseException, returncode: int, timeout: float
 ) -> ExecResult:
-    """A timeout the model can act on: the notice plus what was already written.
-
-    The notice goes at the top of stderr rather than replacing it, so a reader
-    scanning for why a command failed still finds it first.
-    """
+    """Preserve captured output and prefix stderr with the timeout notice."""
     notice = f"Command timed out after {timeout:g}s"
     partial = getattr(exc, "partial", None)
     if partial is None:
@@ -429,12 +417,9 @@ async def _drain_partial_output(
     *,
     returncode: int | None,
 ) -> ProcessResult | None:
-    """What the killed command had written, or ``None`` if it cannot be read.
+    """Read the killed command's remaining output within the drain grace period.
 
-    The process is already gone by the time this runs, so both readers are at
-    EOF and the gather returns at once; the grace period is there for the case
-    where a pipe is still being drained. Returning ``None`` rather than raising
-    keeps a failure here from replacing the timeout the caller is reporting.
+    Returns ``None`` on read failure so the caller can still report the timeout.
     """
     try:
         (stdout, stdout_dropped), (stderr, stderr_dropped) = await asyncio.wait_for(

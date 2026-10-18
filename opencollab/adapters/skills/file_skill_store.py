@@ -1,15 +1,8 @@
-"""File-backed skill store.
+"""Load ``skills/<name>/SKILL.md`` packages once at construction.
 
-Scans ``skills/<name>/SKILL.md`` once at construction. Each file carries
-``---``-delimited frontmatter (``name:`` / ``description:``); everything after
-the closing delimiter is the instruction body. The format aligns with Claude
-Code's ``SKILL.md`` so a skill is a self-contained, droppable file package.
-
-Robustness: a missing root directory yields an empty store, and a malformed or
-garbage ``SKILL.md`` is skipped (logged at debug, never raised into the
-constructor). The store is the SINGLE size-cap site (design decision #5): both
-the catalog description and the body are capped here, so downstream consumers
-trust the store and never re-cap.
+Files contain ``---``-delimited name and description frontmatter followed by
+the instruction body. A missing root yields an empty store. Malformed files
+are skipped with debug logging. Description and body size limits live here.
 """
 
 from __future__ import annotations

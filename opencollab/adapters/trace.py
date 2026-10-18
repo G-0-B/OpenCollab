@@ -1,10 +1,4 @@
-"""Tracer — JSONL trajectory recorder for observability.
-
-Pure Unix-style: append-write to a JSONL file. No databases, no heavy tracing
-frameworks. Scientists can analyze trajectories with simple Python scripts.
-
-Ref: tracer design with fine-grained steps for debugging agent failures.
-"""
+"""Append JSONL trajectory records for analysis and debugging."""
 
 from __future__ import annotations
 
@@ -178,20 +172,10 @@ def _trace_writer_loop(
             records.task_done()
 
 class Tracer:
-    """Transparent, append-only trajectory recorder (fail-soft Observer sink).
+    """Append trajectory steps with timestamps, token counts, and latencies.
 
-    Records every LLM call, tool execution, delegation, and compaction event
-    with timestamps, token counts, and latencies.
-
-    Fail-soft latch-and-drop: on the first write error it latches the error,
-    closes the file, and thereafter *counts* dropped steps instead of raising —
-    trajectory recording must never crash the run it observes, nor silently
-    pretend a dropped step was written.
-
-    Usage:
-        tracer = Tracer("my-session")
-        tracer.log_step("llm_call", {"model": "gpt-4o"}, tokens=1500, latency=2.3)
-        tracer.flush()
+    On the first write error, latch the error and close the file. Count subsequent
+    dropped steps while letting the observed run continue.
     """
 
     def __init__(

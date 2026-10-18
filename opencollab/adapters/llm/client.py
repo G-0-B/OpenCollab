@@ -59,11 +59,10 @@ async def _record_api_usage_async(**kwargs: Any) -> None:
         return
 
 class LLMClient:
-    """Provider-agnostic LLM client. Uses OpenAI SDK which works with any
-    compatible endpoint (OpenAI, DeepSeek, Together, Ollama, vLLM, etc.).
+    """Client for OpenAI-compatible endpoints and native Anthropic requests.
 
-    For Anthropic: set provider="anthropic" to use the dedicated Anthropic
-    SDK path (history is converted from OpenAI format per request).
+    Set ``provider="anthropic"`` for the Anthropic SDK path, which converts
+    OpenAI-format history per request.
     """
 
     def __init__(

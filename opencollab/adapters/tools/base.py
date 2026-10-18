@@ -1,14 +1,4 @@
-"""Tool base class — JSON Schema driven, async execution.
-
-First Principle: A Tool is a function with a JSON Schema input and string output.
-LLM calls tools via function calling; the framework routes to the right
-Tool.execute_with_runtime().
-
-Ref:
-- kimi-cli: CallableTool2[Params] with Pydantic schema + async __call__
-- opencode: ToolRegistry with init/execute pattern
-- openclaw: AnyAgentTool structural interface
-"""
+"""Async tools with JSON Schema inputs and string results."""
 
 from __future__ import annotations
 

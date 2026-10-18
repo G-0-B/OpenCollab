@@ -1,13 +1,4 @@
-"""File system tools — read, write (str_replace_editor), grep.
-
-Only 3 tools — the minimal set every coding agent needs.
-
-Ref:
-- kimi-cli: ReadFile with line_offset/n_lines, WriteFile with str_replace
-- opencode: read, edit (str_replace), write, glob, grep tools
-- claude-code: Read, Edit (str_replace), Grep, Glob
-- openclaw: wrapToolWorkspaceRootGuard for path safety
-"""
+"""Workspace file reading, writing, and search tools."""
 
 from __future__ import annotations
 
@@ -178,13 +169,7 @@ class FileReadTool(Tool):
         return body
 
 class FileWriteTool(Tool):
-    """Write to files using str_replace pattern (find-and-replace blocks).
-
-    This is the most token-efficient way for LLMs to edit files — they only
-    need to specify the old text and new text, not rewrite the entire file.
-
-    Ref: opencode edit tool, claude-code Edit tool — str_replace is the standard.
-    """
+    """Write files with ``str_replace`` find-and-replace blocks."""
 
     name = "file_write"
     description = (

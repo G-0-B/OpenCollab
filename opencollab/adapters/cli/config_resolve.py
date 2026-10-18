@@ -1,8 +1,6 @@
-"""CLI config resolution: merge CLI args with .env defaults + API-key checks.
+"""Merge CLI arguments with .env defaults and render missing-key hints.
 
-Provider→env-key knowledge (which keys satisfy a provider, which is missing)
-lives in ``bootstrap.config``; this module only merges CLI args and renders the
-missing-key hint.
+Provider-specific key knowledge lives in ``bootstrap.config``.
 """
 
 from __future__ import annotations

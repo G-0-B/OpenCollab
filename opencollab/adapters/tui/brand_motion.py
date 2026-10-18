@@ -1,15 +1,7 @@
-"""Brand-motion primitive for the TUI: a single, gently pulsing brand dot.
+"""A gently pulsing brand dot for the terminal HUD.
 
-A small, self-contained (stdlib + Rich) renderable — one ``●`` that *breathes*
-(its brightness eases up and down) in the OC brand violet. The frame is a pure
-function of *elapsed seconds*, computed at render time from ``time.monotonic()``.
-Because ``rich.live.Live`` re-renders on its own timer, dropping one of these
-into the live view animates it for free — no extra thread, loop, or ``sleep``,
-and it keeps pulsing even when no new events arrive (which is what fixes the old
-"frozen" LLM-wait line).
-
-Kept deliberately calm: one violet dot with a low-contrast breathe — not a
-saturated, multi-colour sweep — so it sits quietly inside the TUI's calm HUD.
+Brightness is a pure function of elapsed ``time.monotonic()`` seconds.
+Periodic rendering animates the violet dot even while events are idle.
 """
 
 from __future__ import annotations
@@ -55,15 +47,11 @@ def dot_color(elapsed: float) -> RGB:
     return _shade(DOT_COLOR, pulse_brightness(elapsed))
 
 class PulseDot:
-    """One-line Rich renderable: a single gently pulsing brand dot, an optional
-    status label, and a live seconds counter.
+    """Render a pulsing dot with an optional label and live seconds counter.
 
-    The rendered frame is a pure function of :meth:`elapsed`, so Live's periodic
-    re-render animates it without any incoming events or a background thread.
-
-    Elapsed is injectable for testing: pass ``elapsed=`` to pin a frame, or a
-    ``clock`` + ``start`` to control the time source; otherwise it defaults to
-    ``time.monotonic()`` measured from construction.
+    Periodic rendering supplies animation. Pass ``elapsed`` to pin a frame or
+    ``clock`` and ``start`` to control time. The default measures
+    ``time.monotonic()`` from construction.
     """
 
     def __init__(

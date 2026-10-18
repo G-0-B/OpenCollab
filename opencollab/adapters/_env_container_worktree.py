@@ -25,34 +25,17 @@ logger = logging.getLogger(__name__)
 CONTAINER_GIT_TIMEOUT_SECONDS = 60.0
 
 class ContainerWorktreeEnvironment(DockerEnvironment):
-    """One agent's own checkout of the task repository, inside the container.
+    """An isolated checkout of the task repository inside its container.
 
-    The host-side twin, ``WorktreeEnvironment``, makes its worktree on the host
-    file system. That is unusable where the repository under test exists only
-    inside a container: reaching it from the host would take a bind mount, and a
-    mount is exactly what a harness that extracts its patch from a bounded
-    container archive cannot allow. This puts the worktree on the far side of
-    the same boundary instead -- every Git command runs through ``docker exec``
-    -- so the repository never has to be exposed to the host at all.
+    Git runs through ``docker exec`` so a container-only repository needs no host
+    mount. Worktrees live outside the repository root to keep them out of the
+    harness's patch archive.
 
-    Worktrees are placed outside the repository root on purpose. An archive of
-    the repository root is what the surrounding harness reads the final patch
-    out of, and a worktree nested inside it would arrive there as a directory
-    full of files nobody wrote.
+    The root may contain a sibling agent's uncommitted edits. Each worktree still
+    starts from a clean checkout of the repository root's HEAD, excluding those edits.
 
-    Unlike the host twin this does not refuse a repository root with
-    uncommitted changes. There the root is a workspace handed in from outside
-    and dirt signals a setup mistake; here it is also an agent's own workspace,
-    so refusing would fail a teammate's seat for no reason other than that a
-    sibling had started working. The worktree is a clean checkout of the root's
-    HEAD either way, which is the isolation this class exists to provide: work
-    an agent has not committed is not in anyone else's tree.
-
-    The evidence it reports is the same as the host twin's -- ``get_diff`` plus
-    ``diff_base``, ``head_commit``, ``own_commits`` and ``own_commit_count`` --
-    because that is the whole surface the scheduler's ``worktree_changes``
-    record reads, and a handoff must join across the two the same way in either
-    place.
+    Reports the same ``get_diff``, ``diff_base``, ``head_commit``, ``own_commits``
+    and ``own_commit_count`` evidence as ``WorktreeEnvironment``.
     """
 
     def __init__(

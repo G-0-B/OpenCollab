@@ -1,11 +1,4 @@
-"""BashTool — terminal execution with safety and output truncation.
-
-Ref:
-- kimi-cli: Bash tool with runtime approval
-- opencode: bash tool with permission checking
-- openclaw: exec-safety.ts with sandbox context
-- User feedback: stdout/stderr truncation is critical (npm install can produce 100k chars)
-"""
+"""Shell execution with command safety checks and output truncation."""
 
 from __future__ import annotations
 

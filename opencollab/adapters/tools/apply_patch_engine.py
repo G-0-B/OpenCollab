@@ -1,8 +1,6 @@
-"""The diff engine behind ``apply_patch`` — pure text-to-text functions.
+"""Pure text-to-text diff application for ``apply_patch``.
 
-Both modes build the full new file in memory and report failure without
-side effects, so the calling tool can stay all-or-nothing. Independently
-unit-testable: no I/O, no tool plumbing.
+Build the full result or report failure before the caller writes anything.
 """
 
 from __future__ import annotations

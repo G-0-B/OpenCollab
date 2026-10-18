@@ -1,13 +1,8 @@
-"""``workflow`` CLI subcommands: list and run.
+"""CLI commands to list workflows and run one with progress and JSON output.
 
-``opencollab workflow list``        — print registered workflows.
-``opencollab workflow run <name>``  — run a workflow, printing phase/log
-progress lines followed by the final result as a JSON block on stdout.
-
-Installed workflows and modules in a ``workflows/`` directory are available
-(override the directory with ``OPENCOLLAB_WORKFLOWS_DIR``). Config resolution reuses the same file-first
-machinery as the rest of the CLI, so a stale shell ``ANTHROPIC_API_KEY`` cannot
-shadow the configured provider key.
+Loads installed workflows and ``workflows/`` under the workspace, overridable
+with ``OPENCOLLAB_WORKFLOWS_DIR``. File-first config resolution keeps stale
+shell API keys from overriding the configured provider key.
 """
 
 from __future__ import annotations

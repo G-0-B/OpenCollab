@@ -72,13 +72,9 @@ class MessageAgentTool(Tool):
         self._scheduler = scheduler
 
     def _resolve_target(self, params: dict[str, Any]) -> int | str:
-        """The aid to send to, or an error string naming what went wrong.
+        """Resolve a run-specific aid or a declared role name.
 
-        Addressing by role exists because addressing by aid alone cost a turn:
-        an aid is not knowable from the role card, so every first message had to
-        be preceded by a team_status call. On a team whose roles are declared
-        before the run, the role name is the stable name and the aid is an
-        implementation detail of this particular run.
+        Return the target aid, or an error string when resolution fails.
         """
         to_aid = params.get("to_aid")
         to_role = params.get("to_role")

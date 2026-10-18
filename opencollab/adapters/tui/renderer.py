@@ -1,25 +1,10 @@
-"""TUI — Rich-based terminal interface with streaming and nested spinners.
+"""Render session and scheduler events for the terminal UI.
 
-Ref:
-- kimi-cli: Wire pattern — bidirectional channel between agent and UI
-- opencode: processor.ts events — text_delta, tool_start, tool_end, etc.
-- openclaw: Rich terminal palette with dynamic updates
+Settled output goes to scrollback. The in-flight HUD becomes ANSI rows for
+``adapters.cli.live_prompt``, which exclusively owns the bottom screen region.
 
-Settled output goes to ordinary terminal scrollback the moment it settles, so
-the terminal's own scrollback is the transcript and nothing is ever erased. The
-in-flight remainder — streaming text, tool spinners, the wait indicator, the
-roster — is not printed at all: it is rendered to ANSI rows and handed to the
-prompt that owns the bottom of the screen (see ``adapters.cli.live_prompt``).
-
-One renderer per region is the whole point. Two in-place redrawers cannot share
-rows, so the HUD stopped being a Rich ``Live`` the moment the prompt became
-permanent.
-
-Split by concern (``self`` is unchanged — mixins run on the one TUI instance):
-
-- ``renderer_events``  — event dispatch + history/status/roster updates
-- ``renderer_display`` — Rich renderable building + style palette
-- this module          — ``TUI`` state, scrollback writes, and turn-level API
+``renderer_events`` updates state and ``renderer_display`` builds renderables.
+Their mixins share the same ``TUI`` instance.
 """
 
 from __future__ import annotations
@@ -81,13 +66,9 @@ class _AgentFocusTarget:
     role: str
 
 class TUI(_RendererEventsMixin, _RendererDisplayMixin):
-    """Terminal UI that renders runtime + scheduler events in real-time.
+    """Render streaming text, tools, and status from runtime and scheduler events.
 
-    Consumes the event stream from Session (subscribed to its event bus)
-    and renders streaming text, tool execution spinners, and status updates.
-    The single ``event_handler`` accepts both ``SessionRuntimeEvent`` and
-    ``SchedulerEvent`` and dispatches to the appropriate handler so that the
-    spawn/review lifecycle no longer overloads session tool events.
+    ``event_handler`` dispatches both event families to their dedicated handlers.
     """
 
     def __init__(self, console: Console | None = None, *, filter_messages: bool = False):
@@ -134,13 +115,10 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
             state.printed_blocks = max(0, state.printed_blocks - overflow)
 
     def set_redraw(self, redraw: Callable[[], None] | None) -> None:
-        """Register the owner of the bottom region, or ``None`` to detach.
+        """Register the bottom-region redraw callback, or ``None`` to detach.
 
-        Scrollback writes need no cooperation from it: the CLI stands a
-        ``patch_stdout`` up for the whole session, so every print — this
-        renderer's and anyone else's — is routed above the prompt already. What
-        the callback buys is the other direction: an event that changes the HUD
-        has to ask the prompt to repaint, because nothing else will.
+        CLI ``patch_stdout`` handles scrollback writes. This callback repaints changed
+        HUD state.
         """
         self._redraw = redraw
         self._hud_cache = None
@@ -154,13 +132,10 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
         self._drain_agent_tail(target_aid)
 
     def _drain_agent_tail(self, aid: int) -> None:
-        """Print one agent's not-yet-printed blocks, focused or not.
+        """Print an agent's unprinted tail, adding a band when it lacks focus.
 
-        The tail, never a full reprint: a full reprint is what a focus switch
-        owes the user (see ``_reprint_focused_agent``), but everything this
-        agent settled while it *held* focus already reached scrollback, so
-        replaying it would print the transcript twice. An unfocused agent gets
-        a band first, because the rows above it belong to a teammate.
+        Already printed blocks must be skipped here to avoid duplicating the
+        transcript.
         """
         state = self._state_for(aid)
         pending = state.history_blocks[state.printed_blocks:]
@@ -180,20 +155,11 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
             self.console.print(block)
 
     def _screen_top_prelude(self) -> list[Any]:
-        """Renderables that push the visible screen into scrollback and home the
-        cursor, or nothing when there is no screen to scroll.
+        """Return the scroll-and-home prelude, or nothing without a screen.
 
-        A focus switch reads as a change of view, so the newly focused agent has
-        to open on the terminal's first row. Erasing (``ESC[2J``) would clear the
-        screen too, but erased rows never reach scrollback: the previous agent's
-        last screenful would vanish while its older rows survived, leaving a hole
-        in the very transcript this renderer exists to keep. Scrolling loses
-        nothing — the screen of blank rows is the separator between two agents.
-
-        Returned rather than printed because the scroll, the home, and the
-        redraw have to leave as *one* write: the prompt repaints itself after
-        every write it sees, and a repaint landing between the newlines and the
-        home would scroll a prompt's worth of rows into scrollback.
+        Scroll the visible screen into scrollback before a focus switch so the
+        previous agent's transcript survives. Return the prelude for one combined
+        write because a prompt repaint between scrolling and homing would add rows.
         """
         height = self.console.height
         if not self.console.is_terminal or height < 1:
@@ -375,18 +341,10 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
         return self._selected_aid
 
     def _reprint_focused_agent(self) -> None:
-        """Redraw the newly focused agent from the top of the screen, under a
-        labelled band.
+        """Redraw the focused agent's retained trajectory under a labelled band.
 
-        A full redraw rather than only the unprinted tail: focus is how the user
-        asks to look at an agent, and the answer to that has to be its whole
-        retained trajectory, not whatever happened to accumulate since they last
-        looked. Blocks evicted by the per-agent bound are named, not silently dropped.
-
-        The redraw opens at the first row (see ``_screen_top_prelude``) so the
-        agent the user asked for is the only one on screen. A trajectory taller
-        than the terminal still scrolls off the top — the guarantee is where the
-        redraw starts, not that all of it fits.
+        Name blocks evicted by the history bound. Start on the first screen row via
+        ``_screen_top_prelude`` and let trajectories taller than the terminal scroll.
         """
         state = self._selected_state
         band = self._focus_band(self._selected_aid)
@@ -448,12 +406,9 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
             self._redraw()
 
     def status_ansi(self, width: int | None = None) -> str | None:
-        """The one status row as ANSI, or ``None`` when it has nothing to say.
+        """Return ANSI status below the input, or ``None`` when empty.
 
-        Rendered apart from ``hud_ansi`` because the two are painted on
-        opposite sides of the input line: the in-flight frame above it, this
-        row below it. Same cache discipline as the frame — the prompt asks on
-        every keystroke, the row moves only when the state or the pulse does.
+        Cache until state or pulse changes because prompts request it per keystroke.
         """
         width = self.console.width if width is None else width
         key = (width, int(time.monotonic() / HUD_FRAME_INTERVAL))
@@ -466,16 +421,10 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
         return rendered or None
 
     def hud_ansi(self, width: int | None = None) -> str | None:
-        """The in-flight frame as ANSI rows, or ``None`` when nothing is live.
+        """Return in-flight ANSI rows, or ``None`` when idle.
 
-        Rich builds it, prompt_toolkit paints it. Handing over rows instead of
-        printing them is what keeps the region single-owned: the prompt already
-        redraws these rows on every keystroke, and a second renderer writing to
-        them would be drawing over a surface it does not control.
-
-        Cached between repaints because the prompt asks far more often than the
-        state changes — several times per keystroke, plus its own refresh tick —
-        while the frame it renders only moves when an event or the pulse does.
+        The prompt owns their redraws. Cache between state or pulse changes because
+        prompt repaints request the frame repeatedly.
         """
         width = self.console.width if width is None else width
         key = (width, int(time.monotonic() / HUD_FRAME_INTERVAL))
@@ -494,11 +443,7 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
         return capture.get().rstrip("\n")
 
     def set_queued_turns(self, count: int) -> None:
-        """Report how many typed messages are waiting for the running turn.
-
-        Typing during a turn queues rather than interrupts, so the count is the
-        only evidence the user has that their line landed at all.
-        """
+        """Show queued-message count so typing during a turn has visible confirmation."""
         if count == self._queued_turns:
             return
         self._queued_turns = count
@@ -513,15 +458,10 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
         self._refresh()
 
     def settle_turn(self, final_aid: int | None = None) -> None:
-        """Close a turn, settling whatever the HUD still held.
+        """Settle trailing streamed text and clear live-only chrome at turn end.
 
-        Everything settled during the turn already reached scrollback, so this
-        only has to commit the trailing streamed text and drop live-only chrome.
-
-        ``final_aid`` names an agent that must not leave anything unprinted —
-        the one a one-shot run asked, which has no later turn in which the user
-        could Tab back to it. Its tail is flushed even if focus wandered off to
-        a teammate.
+        Flush ``final_aid`` even when another agent has focus, since a one-shot run
+        has no later opportunity to display that agent's tail.
         """
         for state in self._agent_states.values():
             self._flush_current_text_to_timeline(state)
@@ -539,13 +479,10 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
         self._refresh()
 
     def drained_partial_answer(self, aid: int) -> bool:
-        """Did this agent's text reach scrollback by the last ``settle_turn()``?
+        """Report whether this agent's text reached scrollback at ``settle_turn``.
 
-        A turn that ends in ``SchedulerTurnError`` carries the half-finished
-        answer as ``partial_answer``, and the CLI used to print it because the
-        transient Live frame discarded whatever it still held. It no longer
-        does — the text settles into scrollback — so the salvage print now has
-        to ask first, or the user reads the same partial answer twice.
+        The CLI checks this before printing ``SchedulerTurnError.partial_answer``
+        to avoid displaying the same partial answer twice.
         """
         return aid in self._drained_partial_aids
 

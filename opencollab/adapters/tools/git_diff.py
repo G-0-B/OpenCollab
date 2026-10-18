@@ -1,17 +1,7 @@
-"""git_diff — focused working-tree diff and status.
+"""Read working-tree status and the uncommitted diff against HEAD.
 
-Reviewers and the lead need to see *what actually changed* in the working tree
-to judge a fix, without burning budget reconstructing it from a transcript of
-edits. This tool returns ``git status --short`` plus the working-tree diff
-against HEAD (all uncommitted changes), focused by an optional pathspec and
-truncated so a large diff can't blow up the context.
-
-Read-only: it never stages, commits, or resets — only ``git status`` and
-``git diff``.
-
-Ref:
-- bash.py: same env handling + head/tail truncation.
-- grep.py: read-only tools skip the command-safety gate.
+An optional pathspec focuses the result. Head-and-tail truncation bounds output.
+The tool runs ``git status`` and ``git diff`` without modifying Git state.
 """
 
 from __future__ import annotations
