@@ -5,6 +5,15 @@ the framework runtime. The [project homepage](../README.md) gives the quick
 start. Run repository commands from the repository root unless a command says
 otherwise.
 
+| Task | Read |
+| --- | --- |
+| Install or start the terminal | [Install](#install) · [Commands](#commands) |
+| Embed an agent, team, or workflow | [Python SDK](#python-sdk) |
+| Add a tool or workflow | [Custom tools](#custom-tools) · [Workflow authoring](#workflow-authoring) |
+| Understand team delivery | [Cooperative teams](#cooperative-teams) |
+| Set providers, models, or teams | [Configuration](../configs/README.md) |
+| Control budgets, cancellation, and cleanup | [Runtime controls](../docs/evaluation-runtime.md) |
+
 ## Install
 
 This guide describes the current source checkout. Weave, `RunControl`, and
@@ -22,7 +31,7 @@ capability error when the host lacks a required primitive.
 Install the project and development dependencies with `uv`.
 
 ```bash
-uv sync --extra dev
+uv sync --locked --extra dev
 ```
 
 Or create a conventional virtual environment with `pip`.
@@ -122,129 +131,41 @@ must be new or empty because each run claims it for executable evidence.
 argument names a team YAML file. Its `cleanup_timeout` bounds scheduler
 shutdown and must be a finite positive number.
 
-Team configuration command hooks for `PreToolUse` and `PostToolUse` run in the
-calling agent's execution environment, including its isolated worktree or
-container. Each command receives the event's JSON payload on stdin and the
-`OPENCOLLAB_HOOK_EVENT`, `OPENCOLLAB_TOOL`, and `OPENCOLLAB_AID` environment
-variables. Lifecycle hooks run in the team's host workspace. `SubagentStop`
-occurs after the child's changes have been extracted for delivery to its parent.
-An unavailable or released tool environment produces a warning and skips that
-tool hook. Hook commands retain their configured timeout and process cleanup.
+### Select a run and handle its result
 
-`agent(...)` uses Base, which currently maps to the
-[Single2 profile](../docs/single2.md). `agent(..., profile="base")` follows the
-same mapping. `agent(..., profile="single2")` and the `agent2(...)` convenience
-method select Single2 explicitly. The `default` and `single` spellings are
-compatibility aliases for Base. Run metrics record the concrete profile name.
-`opencollab.profiles.resolve_profile_name(...)` exposes this resolution to
-integrations. Team configuration and workflow role configuration keep their
-own selection paths.
+| Call | Selection and limits |
+| --- | --- |
+| `agent(...)` / `agent2(...)` | Base currently maps to [Single2](../docs/single2.md); `agent2` selects it explicitly. `max_steps` limits steps; `steps` is its older alias. |
+| `team(...)` | `config=` selects a team file; otherwise the built-in team is used. See [team settings and hooks](../configs/README.md#team) and [delivery](#cooperative-teams). |
+| `workflow(...)` | Accepts an installed or discovered name, a decorated function, or a workflow spec. `concurrency` limits agent sessions; `task_concurrency` independently limits active parallel/pipeline units and defaults to `concurrency`. Mixed work can peak at their sum. |
 
-`agent(...)` and `agent2(...)` accept an optional `run_control`. The effective
-`budget` authorizes a hard token ceiling. `initial_soft_budget_tokens` starts a
-smaller allowance, clipped to that actual authorization. A synchronous or async
-`decide_budget(snapshot)` callback may keep or increase the soft allowance by
-returning `BudgetDecision(soft_budget_tokens, final_prompt=None)`. The runner
-calls the callback at each PRECHECK after cancellation and loop checks, before
-budget-driven wind-down, and after input estimation for each session-level model
-request. Context-overflow and tool-choice retries issue new session requests.
-Transport retries occur inside the model client as part of the same request.
-The host policy chooses when to extend or issue a closing prompt while there
-is still enough allowance for the current request. Each snapshot includes the run and session IDs, token and step
-counters, both allowances, input reservation, minimum output requirement, and
-trigger reason. Suggestions that decrease the allowance, increase it to a value below actual
-spend, or exceed the hard authorization produce a failed result carrying the
-policy error. Keeping the current allowance after usage crosses it produces
-the ordinary soft-budget stop. Exhausting the hard authorization produces the ordinary budget
-stop. A `final_prompt` enters the current request and its input reservation is
-recomputed before the provider call.
+Workflow runs also accept `max_steps`, `system_prompt`, and `cleanup_timeout`.
+Named calls use the same workspace discovery as the CLI; functions and specs
+run directly.
 
-```python
-from opencollab import BudgetDecision, RunControl
+`RunResult.status` is `completed`, `stopped`, or `failed`. Only `completed` has
+`ok=True`; a stop retains its `reason` and partial work. `raise_for_status()`
+returns completed results or raises `RunError`; `exception.result` retains the
+original outcome. Invalid arguments raise before execution; lifecycle or
+persistence failures can raise `RunError` directly. Execution completion still
+requires task-specific verification before claiming the application is correct.
 
+`RunControl` adds per-request budget decisions and session events to `agent`
+and `agent2`; workflow roles use `ctx.agent_run`. The
+[runtime control reference](../docs/evaluation-runtime.md#budget-decisions-and-session-events)
+contains the callback contract and an example. It also explains
+[limits and deadlines](../docs/evaluation-runtime.md#limits-and-deadlines),
+[cancellation and resource ownership](../docs/evaluation-runtime.md#cancellation-usage-and-resource-ownership),
+run identity, late usage, and failure recovery. `timeout` bounds execution and
+`cleanup_timeout` separately bounds owned shutdown.
 
-def decide(snapshot):
-    allowance = snapshot.soft_budget_tokens
-    if snapshot.used_tokens > 0 and progress_evidence_is_available():
-        allowance = min(snapshot.hard_budget_tokens, allowance + 50_000)
-    return BudgetDecision(allowance)
+`OpenCollab.configuration` is a read-only snapshot of effective provider, model,
+protocol, context, token, timeout, sampling, and thinking settings.
+`thinking_params` is deep-copied. Keys and base URLs are excluded;
+`base_url_sha256` identifies the endpoint without exposing embedded credentials.
+See [configuration](../configs/README.md) for resolution and transport settings.
 
-
-result = await oc.agent2(
-    "Fix the failing regression.",
-    budget=200_000,
-    run_control=RunControl(initial_soft_budget_tokens=100_000, decide_budget=decide),
-)
-```
-
-An `on_event(event)` receiver runs synchronously and independently of `trace`.
-Its compact `RunEvent` carries `type`, `run_id`, `session_id`, `aid`,
-`used_tokens`, `steps`, and a detached `data` mapping. `usage` events report
-normalized input, output, and total tokens when the session accounts for a
-completed model call or a failed call with reported usage, including summary
-and late responses. Internal transport retries share the enclosing call's
-accounting event, which can contain combined reported usage.
-The `purpose` and `late` fields identify those paths. Cache-read,
-cache-creation, reasoning, and estimated-usage fields preserve provider
-metadata. Cached input is already included in input and total token counters. `context_shaping` events
-report normal and emergency compaction. `budget_decision`, `error`, and
-`session_stopped` events expose decisions and lifecycle state. The stopped
-event records outstanding provider requests. The receiver stays attached to its
-original run through late accounting and cleanup, then receives
-`cleanup_completed`. Receiver exceptions remain readable in
-`result.metrics["observation_errors"]` after accounting and cleanup finish.
-
-`RunControl.history_trigger_tokens` optionally caps the history-compaction
-trigger for this run. It must be an integer of at least two. For a known model
-window, the effective trigger is the smaller of the cap and the model-derived
-trigger, and the target remains 75 percent of that trigger. Unknown windows
-retain the fixed default thresholds. Omission uses the ordinary model-derived
-thresholds. Enabled trajectories record the effective threshold and its source.
-`RunControl.tool_cancellation_cleanup_timeout` sets this session's existing
-tool cancellation cleanup wait. It accepts a finite positive number of seconds.
-Omission retains the configured runtime default.
-
-`RunResult.status` can be `completed`, `stopped`, or `failed`. A completed result
-has `ok=True`, while stopped and failed results have `ok=False`. Stopped results
-include a `reason` field (such as a token limit or run timeout). The
-`raise_for_status()` method returns completed results unchanged and raises
-`RunError` for stopped or failed results, with the original result accessible
-via `exception.result`. Invalid arguments raise their validation error before
-the run starts. Lifecycle and persistence failures can raise `RunError` directly.
-
-All three methods accept a caller-chosen `run_id`. When omitted, OpenCollab
-generates an ID for that run. `result.metrics["run_id"]` matches the saved
-agent snapshot, team manifest, or workflow manifest and any enabled trajectory.
-This identity is available with `trace=False` as well.
-
-`OpenCollab.configuration` is a read-only snapshot of effective model,
-provider, budget, timeout, sampling, output-token, and thinking settings.
-`thinking_params` is deep-copied, so callers receive an independent snapshot. API keys
-and base URLs are excluded. `base_url_sha256` provides a stable endpoint
-fingerprint without exposing credentials embedded in a URL. Agent runs accept
-`max_steps` and `cleanup_timeout`. The older `steps` spelling remains a supported
-alias.
-`timeout` bounds the whole agent, team, or workflow run. The resolved
-`llm_timeout` and connection and stream timeouts control model transport.
-`cleanup_timeout` separately bounds owned shutdown. See
-[configured evaluation runtime](../docs/evaluation-runtime.md) for cancellation,
-token accounting, and unbounded limits, and [configuration](../configs/README.md)
-for protocol selection and transport settings.
-Workflow runs accept `max_steps`, `system_prompt`, and `cleanup_timeout`.
-Their first argument accepts an installed workflow name such as `"duo"`, a
-caller-authored name, or a workflow function or spec. Names use the same
-workspace directory resolution as the CLI. Functions and specs run directly.
-Their `concurrency` option limits agent sessions only. `task_concurrency`
-separately limits active `parallel` and `pipeline` units across the workflow,
-including candidate child workflows;
-omitting it inherits `concurrency`. The two limits are independent, so mixed
-agent and task work may peak at their sum.
-Completed, stopped, and failed workflow results report aggregate session,
-step, token, and markup-recovery metrics. Sanitized child-provider failures are
-available through `RunResult.agent_failures`. Nested failures and operating-system
-errors also include a bounded `exception_chain` with exception types, modules,
-integer `errno` values, and HTTP status codes when available. Messages, request
-bodies, and filesystem paths are excluded from this structured evidence.
+### Tools and environments
 
 Use `builtin_tools` to compose tools through the public package.
 
@@ -290,11 +211,9 @@ environments also accept `mount_dir`. Host and worktree environments raise an
 argument error for `mount_dir`. The caller controls setup, mount, and cleanup
 timing. Concrete adapter classes live in `adapters`, and Bootstrap wires them.
 
-Run metrics separate OpenCollab-owned session quiescence from environment
-quiescence. `session_quiesced` proves that session and persistence work has
-finished. For a caller-owned environment, `environment_quiesced`,
-`cleanup_quiesced`, and `execution_quiesced` remain `None` until the caller
-performs and verifies its own environment cleanup.
+A caller-supplied environment remains caller-owned. The
+[runtime ownership reference](../docs/evaluation-runtime.md#cancellation-usage-and-resource-ownership)
+explains which cleanup and quiescence fields the SDK can establish.
 
 ### Custom tools
 
@@ -402,45 +321,19 @@ structured cite-or-abstain draft before exploration. OpenCollab owns this
 generic capture primitive. OpenCollab-Eval owns benchmark prompts, policies,
 datasets, and runners.
 
-For current internals, see [runtime design](../docs/runtime-design.md). The
-[SDK 0.4 walkthrough](../docs/sdk-0.4-explainer.html) is a historical visual guide,
-not a current API reference.
-
-OpenCollab owns built-in collaboration protocols such as Duo. OpenCollab-Eval
-contains evaluation runners and benchmark-specific workflows. Topology
-research uses `team(...)` and `workflow(...)`. External harnesses define
-ablations, and Bootstrap binds each treatment through the Clean Architecture
-ports.
+For current internals, see [runtime design](../docs/runtime-design.md) and the
+[contributor architecture rule](../CONTRIBUTING.md#the-architecture-rule-enforced-by-lint-imports).
+OpenCollab owns generic sessions and collaboration protocols; OpenCollab-Eval
+owns benchmark prompts, policies, datasets, and runners.
 
 ## Architecture
 
-OpenCollab follows strict clean architecture. Dependencies point inward along
-`adapters → application → domain`.
-
-- `domain/` contains pure value objects and the session state machine. It uses
-  the standard library and performs no I/O.
-- `application/` contains use cases, scheduling, messaging, and the Protocol
-  ports in `application/ports.py`.
-- `adapters/` contains the CLI, TUI, LLM providers, tools, environments,
-  tracing, and persistence implementations.
-- `bootstrap/` is the composition root and the only layer that wires concrete
-  types together.
-- `sdk/` is the versioned integration surface for external packages.
-
-Boundary tests enforce the dependency direction. An outer capability needed by
-the application becomes a port. Its concrete implementation is wired in
-`bootstrap/`. This keeps the domain and application testable without network or
-filesystem access.
+Dependencies point inward: `bootstrap → adapters → application → domain`.
+The [contributor guide](../CONTRIBUTING.md#project-layout) describes each layer
+and the enforced exceptions. The [runtime guide](../docs/runtime-design.md#session-progress-and-restoration)
+explains session transitions, persistence, and restoration.
 
 ## How it works
-
-### Validated agent sessions
-
-A single agent is a validated state machine in `domain/session.py`. Invalid
-edges raise an error. The state machine has three terminal states. `DONE`
-contains a final answer, `ERROR` records an unhandled fault, and `STOPPED`
-records a graceful halt. Its `reason` identifies a budget, step, loop, or
-context overflow.
 
 ### Cooperative teams
 
@@ -466,47 +359,17 @@ recovery patch in the run's artifacts, or a private temporary recovery directory
 when artifacts are disabled. Export that patch before releasing the run.
 Custom teams without the tool retain their configured diff-return protocol.
 
-### Swappable components
-
-| Component | Responsibility |
-| --- | --- |
-| **Context manager** | Builds a bounded view from prioritized context sources while keeping the persisted transcript lossless. |
-| **Tool manager** | Provides a name-keyed registry, stateless execution, safety checks, and loop detection. |
-| **LLM provider** | Isolates OpenAI-compatible and native Anthropic behavior behind `LLMPort`. |
-| **Workflow engine** | Gives Python explicit control over agent fan-out, pipelines, phases, and verification. |
-| **Skill store** | Loads named instruction sets on demand through the generic `use_skill` tool. |
-
-## Status
-
-The test suite pins core invariants such as session transitions, budget
-reservation, context shaping, and import boundaries.
-
-The runtime ports support component replacement and controlled comparisons.
-See [benchmark results](../docs/results.md) and
-[collaboration adherence](../docs/adherence.md) for experiment settings and
-reported observations.
-
-Responses requests carry a `prompt_cache_key` scoped to the model
-client and response session. Provider-reported cache reads and cache creation
-are retained in usage records. Cache availability and reuse follow the endpoint.
-Session snapshots restore token usage and recoverable terminal or awaiting-event
-phases. In-flight provider and tool
-phases resume from `IDLE` because their process-local coroutines do not survive
-a restart. See [`../docs/`](../docs/) for design records and research notes.
+The runtime exposes ports for model clients, execution environments, tools,
+context shaping, and skills. See [runtime design](../docs/runtime-design.md)
+for the constraints a replacement must preserve and
+[benchmark results](../docs/results.md) and [adherence](../docs/adherence.md)
+for recorded comparisons.
 
 ## Development
 
-Respect the dependency direction and keep public names re-exported when modules
-move. Run the checks from the repository root.
-
-```bash
-uv run ruff check .
-uv run pytest -q
-```
-
-See [`../CONTRIBUTING.md`](../CONTRIBUTING.md) for contributor guidance and
-[runtime design](../docs/runtime-design.md) for context, allocation, and steering
-invariants. The current source and tests define the module layout.
+Follow [CONTRIBUTING.md](../CONTRIBUTING.md) for the development environment,
+architecture checks, tests, and contribution rules. The [documentation index](../docs/README.md)
+routes feature guides, migration records, and historical evidence by task.
 
 ## License
 

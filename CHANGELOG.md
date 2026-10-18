@@ -285,6 +285,23 @@ continues to propagate unlimited token and step budgets.
 
 ## [0.8.3] - 2026-10-01
 
+### ICLR source integration
+
+PR #154 merged the cumulative `integrate/iclr-2027` series at `a10d99ce`.
+The original ICLR boundary `45fdf22a` and the completed series remain ancestors
+of `main`. [Source coverage](docs/iclr-source-coverage.json) records path
+dispositions at integration time, including adapted code and relocated tests;
+its target paths describe that snapshot rather than the current layout.
+The [original integration record](https://github.com/RISE-X-Lab/OpenCollab/blob/501f825eb247aac08506d2d5b9b0e62b2aaed7cc/docs/iclr-integration.md)
+retains all eight stages, treatment names, and staged test results. Inspect the
+ancestry with `git merge-base --is-ancestor 45fdf22a HEAD` and
+`git merge-base --is-ancestor a10d99ce HEAD` in a full checkout.
+
+The later 0.8.4 synchronization through `86cfe810` retained both histories.
+Historical experiments must use their recorded framework and evaluation
+revisions. Their exact cards and current ownership are described in
+[OpenCollab-Eval](https://github.com/RISE-X-Lab/OpenCollab-Eval/tree/main/experiment/framework).
+
 ### Fixed
 
 Duo V7 compares each candidate's concrete behavior against public requirements,
@@ -470,6 +487,10 @@ including pipes, ordinary files, encodings and concurrent questions.
   malformed or orphaned call identities.
 
 ## [0.4.1] - 2026-07-31
+
+The [SDK 0.4 visual walkthrough](https://github.com/RISE-X-Lab/OpenCollab/blob/501f825eb247aac08506d2d5b9b0e62b2aaed7cc/docs/sdk-0.4-explainer.html)
+illustrates the historical API. Use the [package guide](opencollab/README.md)
+for current signatures and runtime behavior.
 
 ### Added
 - Added immutable non-secret effective configuration metadata, public stateless

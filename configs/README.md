@@ -2,6 +2,14 @@
 
 Runtime configuration lives in this directory.
 
+| Task | Section |
+| --- | --- |
+| Set an endpoint and credentials | [Model settings](#model-settings) · [Wire protocol](#wire-protocol) |
+| Bound requests and retries | [Timeouts and retries](#timeouts-and-retries) |
+| Configure reasoning and sampling | [Thinking](#thinking) · [Sampling](#sampling) |
+| Select roles, prompts, budgets, and hooks | [Team](#team) |
+| Inspect usage and cost | [Usage records](#usage-records) |
+
 Create `configs/.env` from the example.
 
 ```bash
@@ -25,17 +33,8 @@ of that search. The selected file must exist and be a regular UTF-8 file.
 OpenCollab supports OpenAI-compatible APIs through the OpenAI client path. Set
 `provider=openai` and a compatible `base_url` for those providers.
 
-Set the shell environment variables directly.
-
-```bash
-export OPENCOLLAB_PROVIDER=openai
-export OPENCOLLAB_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-export OPENCOLLAB_MODEL=glm-5.1
-export OPENCOLLAB_API_KEY='your-api-key' # pragma: allowlist secret
-export OPENCOLLAB_LLM_TIMEOUT=600
-```
-
-The same settings can be written to `configs/.env`.
+Write settings to `configs/.env`, or export the same variables from the shell.
+Replace placeholder values before use and never commit real keys.
 
 ```dotenv
 OPENCOLLAB_PROVIDER=openai
@@ -125,18 +124,11 @@ and reported token usage to complete successfully.
 
 ## Model capability metadata
 
-Compatibility differences are recorded in
-`opencollab.adapters.llm.types.model_capabilities` and consumed by the provider
-and workflow adapters. Those adapters handle product-specific behavior.
-
-| Exact model id | Context window | Forced tool choice | Per-role thinking override |
-| --- | ---: | --- | --- |
-| `kimi-for-coding` | 262,144 | Falls back to `auto` | Keeps global thinking enabled |
-| `qwen3.8-flash` | 983,616 | Falls back to `auto` | Supports role override |
-| `deepseek-v4-flash` | 1,048,576 | Falls back to `auto` | Supports role override |
-
-Unlisted models use provider-neutral defaults and the
-best-effort context-window families in the same module.
+Use [offline model inspection](../docs/model-inspection.md) to read the installed
+runtime's context windows and request capabilities. The provider and workflow
+adapters consume that same capability table. Unlisted models use provider-neutral
+defaults and best-effort context-window families. Explicit client overrides
+remain visible in `OpenCollab.configuration`; inspection does not probe an endpoint.
 
 ## Sampling
 
@@ -161,6 +153,8 @@ precedence over `temperature`, following the
 With `top_p` unset, ordinary requests retain the configured temperature.
 
 ## Thinking
+
+### Protocol settings
 
 OpenCollab defaults `thinking` to `false`. For `qwen3.8-flash`, Chat requests
 send `enable_thinking=false`. For `deepseek-flash`, `deepseek-v4-pro` and
@@ -187,6 +181,8 @@ OpenAI-compatible Chat Completions requests receive
 OPENCOLLAB_THINKING=true
 OPENCOLLAB_THINKING_PARAMS={"enable_thinking":true}
 ```
+
+### Native Anthropic thinking
 
 The native Anthropic provider accepts manual or adaptive thinking. Manual
 thinking requires a budget of at least 1,024 tokens and below
@@ -226,6 +222,8 @@ Signed thinking blocks and their original ordering survive tool calls.
 Invalid or incompatible thinking parameters fail before the provider request
 is sent.
 
+### Budget boundary
+
 A finite session reserves input tokens before selecting the call's output
 allowance. Manual thinking requires room for both its thinking budget and answer
 tokens. When the remaining token allowance falls below this combined minimum,
@@ -254,6 +252,8 @@ Define a multi-agent team in a YAML file. The file can set role prompts, model
 and temperature overrides, tool allowlists, each role's token allowance, the
 context policy every session runs, and the directed spawn and message topology.
 
+### Select and inspect a team
+
 ```bash
 uv run opencollab team init team.yaml
 uv run opencollab team show --team-config team.yaml
@@ -276,6 +276,8 @@ Coder and Tester each work within their own tool bundle. To add a role such as
 file through one of the explicit inputs. See `team.example.yaml` for the schema.
 A selected file that is missing or unsafe raises an error.
 
+### Budgets and context
+
 `budget: { tokens: N }`, at the top level or on a role, gives each role its
 own token allowance. Each agent is held to its allowance, and the team's total
 is their sum. Note: once any role has an allowance, every role must have one
@@ -287,14 +289,8 @@ team file supply the budget. Teams with this setting reject a separate SDK
 allowance and pressure-triggered history compaction. `no_history_compaction`
 retains the cap on each tool result, which `tool_result_budget` can set.
 
-History pressure uses the selected provider's message representation. After a
-completed request, reported input usage calibrates the sent history, and reported
-output usage sizes the new assistant reply, including its reasoning. Newly added
-tool results use the local estimate. Calibration is session-local and additive
-so each compaction layer can estimate the history it retains. New or edited
-messages and restored sessions use the provider-aware fallback until measured.
-Encrypted reasoning and signed native blocks are replayed unchanged. Summary
-usage is accounted separately, and the existing overflow retry remains active.
+See [runtime context design](../docs/runtime-design.md#shaping-under-pressure)
+for usage calibration, preserved native reasoning blocks, and overflow recovery.
 
 A Team run's trajectory opens with the declared organization, listing every
 role with its model, tools and allowance, and every edge. A role that never acts
@@ -302,6 +298,8 @@ still appears. A run started with `team()` gets its own `run_id`, which its
 trajectory, `team.json` and the result's metrics share. `opencollab.teams` reads
 the same facts from a file before a run (`declared_role_budgets`,
 `declared_context_policy`).
+
+### Prebuilt collaborating team
 
 `team.collab.yaml` is a ready-made three-role team (Analyst, Coder, Tester) with
 every role prompt inline. It requires a prebuilt roster. The root CLI starts the
@@ -333,6 +331,17 @@ The historical handoff study and experiment-only configurations are maintained
 in [OpenCollab-Eval](https://github.com/RISE-X-Lab/OpenCollab-Eval/tree/main/experiment/framework). Original batches must use their recorded framework
 revision; moving a prompt or changing its wording does not create a comparable
 rerun automatically.
+
+### Command hooks
+
+Team `PreToolUse` and `PostToolUse` hooks run in the calling agent's execution
+environment, including its worktree or container. Commands receive the event's
+JSON payload on stdin and `OPENCOLLAB_HOOK_EVENT`, `OPENCOLLAB_TOOL`, and
+`OPENCOLLAB_AID` in the environment. Lifecycle hooks run in the host workspace;
+`SubagentStop` follows extraction of the child's changes for delivery.
+An unavailable or released execution environment skips the tool hook with a
+warning. Configured command timeouts and process cleanup still apply.
+See [team.example.yaml](team.example.yaml) for hook declarations.
 
 ## Usage records
 

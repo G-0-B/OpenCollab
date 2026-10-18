@@ -142,6 +142,6 @@ ran.
 ## ICLR integration history
 
 The cumulative `integrate/iclr-2027` series was merged into `main` through PR
-#154 on October 1, 2026. [docs/iclr-integration.md](docs/iclr-integration.md)
-records its original sequence, source boundary, and validation results. Continue
+#154 on October 1, 2026. The [release provenance](CHANGELOG.md#iclr-source-integration)
+records its source boundary and links the original sequence and validation. Continue
 new contributions from current `main` while retaining the existing ancestry.
