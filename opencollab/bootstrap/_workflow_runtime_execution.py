@@ -34,7 +34,6 @@ def _note_failure(primary: BaseException, label: str, failure: BaseException | N
     if failure is not None:
         _add_failure_note(primary, f"{label}: {type(failure).__name__}: {failure}")
 
-
 def _runtime_result(
     ctx: Any,
     *,
@@ -59,14 +58,12 @@ def _runtime_result(
         evidence_complete=evidence_complete,
     )
 
-
 def _attach_runtime_result(
     error: BaseException | None,
     result: WorkflowRuntimeResult,
 ) -> None:
     if error is not None:
         error.runtime_result = result  # type: ignore[attr-defined]
-
 
 async def run_workflow(
     spec_or_fn: Any,
@@ -113,8 +110,7 @@ async def run_workflow(
     run_id = getattr(tracer, "run_id", None) or run_id or f"workflow-{uuid.uuid4().hex}"
     owns_tracer = tracer is None and save_dir is not None and trace
     if owns_tracer:
-        # A unique id rather than the workflow's name, which every run of the
-        # workflow shares; ``workflow.json`` records the same id.
+        # Join each run to ``workflow.json`` through its unique id.
         tracer = Tracer(
             run_id=run_id,
             output_dir=save_dir,

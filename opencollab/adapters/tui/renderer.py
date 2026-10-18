@@ -39,8 +39,7 @@ from opencollab.adapters.tui.renderer_display import _RendererDisplayMixin
 from opencollab.adapters.tui.renderer_events import _RendererEventsMixin
 from opencollab.domain.session import TERMINAL_PHASES
 
-# The HUD is re-rendered at most once per tick; the prompt asks far more often
-# than that. 20 ticks a second is finer than the eye reads a breathing dot.
+# Throttle HUD rendering independently of the prompt's faster refresh.
 HUD_FRAME_INTERVAL = 0.05
 MAX_HISTORY_BLOCKS_PER_AGENT = 400
 MAX_TERMINAL_AGENT_STATES = 128
@@ -53,7 +52,6 @@ _TERMINAL_RENDER_STATES = frozenset(
         *(phase.value for phase in TERMINAL_PHASES),
     }
 )
-
 
 @dataclass
 class _AgentRenderState:
@@ -75,14 +73,12 @@ class _AgentRenderState:
     step: int = 0
     thinking: PulseDot | None = None
 
-
 @dataclass(frozen=True)
 class _AgentFocusTarget:
     """One keyboard-selectable live agent."""
 
     aid: int
     role: str
-
 
 class TUI(_RendererEventsMixin, _RendererDisplayMixin):
     """Terminal UI that renders runtime + scheduler events in real-time.
@@ -113,8 +109,7 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
         self._queued_turns = 0
         self._hud_cache: tuple[Any, str] | None = None
         self._status_cache: tuple[Any, str] | None = None
-        # Retained as a compatibility input while the renderer moves to one
-        # lossless per-agent view. It must never control event collection.
+        # Compatibility input that must not control event collection.
         self._filter_messages = filter_messages
         self._selected_aid = 0
         self._state_for(0)
@@ -511,9 +506,8 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
 
     def start_turn(self, aid: int) -> None:
         """Open a turn on ``aid``: show its wait indicator and repaint."""
-        # The turn begins by waiting on the model — show the animated wait bar so
-        # first-token latency doesn't read as frozen. step_start refines it with
-        # the step counter; text/tool progress clears it.
+        # Animate model wait until text or tool progress arrives. ``step_start``
+        # adds the step counter.
         label = self._agent_label(aid)
         self._state_for(aid).thinking = self._new_thinking_bar(f"{label} thinking…")
         self._refresh()
@@ -601,7 +595,7 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
             meta = Text(no_wrap=True, overflow="ellipsis")
             for i, (key, val) in enumerate(fields):
                 if i:
-                    meta.append("   ", style=self._STYLE_MUTED)  # 3-space gutter
+                    meta.append("   ", style=self._STYLE_MUTED)
                 meta.append(f"{key} ", style=self._STYLE_KEY)
                 meta.append(val, style=self._STYLE_SUBTLE)
             body += [Rule(style=self._STYLE_MUTED), meta]
@@ -614,7 +608,7 @@ class TUI(_RendererEventsMixin, _RendererDisplayMixin):
 
     def print_stats(self, tokens: int, steps: int) -> None:
         """Quiet hairline-led receipt under a completed turn."""
-        self.console.print()  # one breathing line
+        self.console.print()
         self.console.print(Text.assemble(
             ("─ ", self._STYLE_MUTED),
             (f"{tokens:,}", self._STYLE_SUBTLE), (" tokens", self._STYLE_MUTED),

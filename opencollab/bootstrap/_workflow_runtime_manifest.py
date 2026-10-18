@@ -50,7 +50,6 @@ def _workflow_manifest_payload(
         }
     )
 
-
 def _write_workflow_manifest(
     save_dir: str,
     *,

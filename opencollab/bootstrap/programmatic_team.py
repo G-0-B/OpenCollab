@@ -77,8 +77,7 @@ async def run_team(
     )
     context = build_runtime_context(workspace, run_config, trace=False)
     _programmatic._claim_artifacts(artifacts)
-    # One id per run, written to the trajectory, the team.json manifest and the
-    # result, so the three join on it and two runs never share one.
+    # Use one run id across trajectories, ``team.json``, and the result.
     run_id = run_id if run_id is not None else f"team-{uuid.uuid4().hex}"
     if artifacts is not None and trace:
         context.tracer = Tracer(
@@ -90,9 +89,8 @@ async def run_team(
         scheduler = _programmatic.build_scheduler(
             context,
             use_worktrees=use_worktrees,
-            # No human is at a programmatic run, so nobody can answer
-            # ``ask_user``. Whether an agent may open an unsandboxed shell is a
-            # separate question, and the caller answers it.
+            # Programmatic runs cannot answer ``ask_user``. The caller separately
+            # chooses whether to allow an unsandboxed shell.
             interactive=False,
             allow_unisolated_shell=allow_unisolated_shell,
             auto_save=artifacts is not None,

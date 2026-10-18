@@ -17,13 +17,11 @@ class TestCommand:
     workspace: str | None
     provable: bool = True
 
-
 def relative_target(target: str, workspace: str | None) -> str:
     path, separator, selector = target.partition("::")
     if workspace and posixpath.isabs(path):
         path = posixpath.relpath(path, workspace)
     return posixpath.normpath(path) + separator + selector
-
 
 def _targets(arguments: list[str], value_options: set[str]) -> tuple[str, ...] | None:
     targets = []
@@ -42,7 +40,6 @@ def _targets(arguments: list[str], value_options: set[str]) -> tuple[str, ...] |
             targets.append(item)
         index += 1
     return tuple(targets) or (".",)
-
 
 def parse_test_command(command: str, workspace: str | None) -> TestCommand | None:
     """Recognize direct pytest, Go and Django invocations, never shell output replay."""

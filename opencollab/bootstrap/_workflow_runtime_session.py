@@ -42,7 +42,6 @@ _WORKFLOW_ENV_OVERRIDE: contextvars.ContextVar[Any | None] = contextvars.Context
     default=None,
 )
 
-
 class _CandidateSourceTreeProbe:
     """Read source evidence through the supplied candidate workspace port."""
 
@@ -65,7 +64,6 @@ class _CandidateSourceTreeProbe:
         if isinstance(self._workspace, EnvCandidateWorkspace):
             return await self._workspace._source_changed(paths)
         return bool(await self._workspace.source_diff(paths))
-
 
 class WorkflowSessionFactory:
     """``WorkflowSessionFactoryPort`` bound to the concrete ``build_session``.
@@ -146,20 +144,13 @@ class WorkflowSessionFactory:
             if provider_error_time_budget > 0
             else None
         )
-        # Run folder where each one-shot session's transcript is autosaved. When
-        # set, every ``build_workflow_session`` gets its own ``<seq>_<role>.json``
-        # so the AutoSaveSubscriber (wired by ``build_session`` once an
-        # ``auto_save_path`` is present) persists it — the same per-role mechanism
-        # chat/team sessions use. ``None`` keeps sessions ephemeral (the prior
-        # behaviour).
+        # Each session autosaves to ``<seq>_<role>.json`` under this run folder.
+        # ``None`` keeps sessions ephemeral.
         self._save_dir = save_dir
         self._env = env
         self._session_seq = 0
-        # Created on the first ``isolation=True`` build, so a run that isolates
-        # nobody never touches git. The pool is the same one the scheduler lends
-        # teammate worktrees from, which is the point: an isolated workflow agent
-        # and an isolated teammate get the same kind of workspace, so a handoff
-        # between two agents means the same thing in either arm.
+        # Create the shared WorktreePool on the first isolated session so workflow
+        # agents and teammates use the same workspace and handoff semantics.
         self._worktree_pool: WorktreePool | None = None
         self._candidate_isolation_leases: list[tuple[Any, Any]] = []
         self._owned_source_environment: LocalEnvironment | None = None
@@ -435,7 +426,6 @@ class WorkflowSessionFactory:
             if owned_environment:
                 await resolved_environment.cleanup()
 
-
 def build_workflow_context(
     *,
     cfg: dict[str, Any],
@@ -553,7 +543,6 @@ def build_workflow_context(
         deadline_monotonic=deadline_monotonic,
         deadline_margin_seconds=deadline_margin_seconds,
     )
-
 
 def _resolve_spec_fn(spec_or_fn: Any) -> Any:
     """Return the callable workflow function from a spec or a raw function."""

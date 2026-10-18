@@ -88,5 +88,4 @@ class TurnQueue:
         if self._on_depth is not None:
             self._on_depth(len(self._waiting))
 
-
 __all__ = ["TurnQueue"]

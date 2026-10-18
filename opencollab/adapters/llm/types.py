@@ -12,10 +12,6 @@ from opencollab.domain.token_estimation import (  # noqa: F401 - compatibility r
     estimate_tokens,
 )
 
-# ---------------------------------------------------------------------------
-# Response containers
-# ---------------------------------------------------------------------------
-
 
 @dataclass
 class Usage:
@@ -34,11 +30,8 @@ class Usage:
     reasoning_tokens: int | None = None
     estimated: bool = False
     raw_usage: dict[str, Any] = field(default_factory=dict)
-    # Observability counter: 1 when this completion leaked kimi tool-call markup
-    # as literal text (in ``content`` or ``reasoning_content``) that the provider
-    # recovered into structured ``tool_calls`` (P6), else 0. Summed up the chain
-    # so a run's metrics surface how often the recovery fired — a regression alarm
-    # if it spikes or (after a provider fix) silently drops to zero.
+    # Count Kimi completions whose literal tool markup was recovered into
+    # structured tool calls. Run metrics sum this counter.
     markup_recovered: int = 0
     # A retried completion accounts for all attempts while context shaping
     # observes only the final request's input size.
@@ -49,7 +42,6 @@ class Usage:
     @property
     def total_tokens(self) -> int:
         return self.input_tokens + self.output_tokens
-
 
 @dataclass
 class LLMResponse:
@@ -69,13 +61,9 @@ class LLMResponse:
     # The application stores it without interpreting it, and each provider
     # removes data that does not belong on its request path.
     provider_state: dict[str, Any] | None = None
-    # When the first token of this response arrived, or why nobody could see it
-    # (``adapters.llm.first_token``). Filled by ``LLMClient.complete`` after the
-    # provider returns, so it is set on every arm's path and on none of the
-    # provider modules' own return contracts. ``None`` means the response was
-    # built outside the client (a test double, a replayed fixture).
+    # Transport timing set by ``LLMClient.complete`` on every provider path.
+    # ``None`` identifies responses built outside the client.
     transport_timing: dict[str, Any] | None = None
-
 
 def to_plain_data(value: Any) -> Any:
     """Convert SDK model objects into JSON-compatible Python values."""
@@ -103,12 +91,10 @@ def to_plain_data(value: Any) -> Any:
         }
     return str(value)
 
-
 def usage_to_dict(value: Any) -> dict[str, Any]:
     """Return one provider usage object as a plain mapping."""
     plain = to_plain_data(value)
     return plain if isinstance(plain, dict) else {}
-
 
 def rescue_empty_turn(
     content: str | None,
@@ -132,12 +118,6 @@ def rescue_empty_turn(
         return reasoning
     return content
 
-
-# ---------------------------------------------------------------------------
-# Model context windows
-# ---------------------------------------------------------------------------
-
-
 @dataclass(frozen=True)
 class ModelCapabilities:
     """Provider-facing behavior known for one exact model identifier."""
@@ -155,7 +135,6 @@ class ModelCapabilities:
     chat_thinking_protocol: str | None = None
     requires_anthropic_thinking_budget: bool = True
     supports_anthropic_thinking_top_p: bool = False
-
 
 # Best-effort context-window sizes (tokens), keyed by a model family. Used to
 # derive history-compaction triggers (see ``shaping.history_trigger_target``);
@@ -286,7 +265,6 @@ _BOUNDED_CAPABILITY_FAMILIES = frozenset({"k3", "kimi-for-coding"})
 # Conservative default output reservation when a model is recognised.
 DEFAULT_MAX_OUTPUT_TOKENS = DEFAULT_MAX_TOKENS_PER_STEP
 
-
 def model_matches_family(model: str | None, family: str) -> bool:
     """Whether ``model`` is an exact or hyphen-suffixed family identifier."""
     if not model:
@@ -299,7 +277,6 @@ def model_matches_family(model: str | None, family: str) -> bool:
         f"{normalized_family}-"
     )
 
-
 def _canonical_model_id(model: str) -> str:
     leaf = model.strip().lower().rsplit("/", 1)[-1]
     if re.fullmatch(r"deepseek-v4-flash-vision-exp(?:-\d{4}(?:-\d{2}){0,2})?", leaf):
@@ -311,18 +288,15 @@ def _canonical_model_id(model: str) -> str:
             return known
     return leaf
 
-
 def _is_responses_reasoning_family(model: str) -> bool:
     leaf = model.strip().lower().rsplit("/", 1)[-1]
     return re.match(r"^(?:gpt-5|o[134])(?:$|[-.])", leaf) is not None
-
 
 def _is_responses_sampling_restricted_family(model: str) -> bool:
     """Return provider-independent families with unsupported sampling controls."""
 
     leaf = model.strip().lower().rsplit("/", 1)[-1]
     return re.match(r"^o[134](?:$|[-.])", leaf) is not None
-
 
 def responses_sampling_supported(
     model: str,
@@ -344,7 +318,6 @@ def responses_sampling_supported(
     if re.fullmatch(rf"gpt-5\.(?:1|2|4){dated}", model):
         return reasoning_effort in (None, "none")
     return True
-
 
 def model_capabilities(model: str | None) -> ModelCapabilities:
     """Return exact capability metadata plus a best-effort context window.
@@ -373,7 +346,6 @@ def model_capabilities(model: str | None) -> ModelCapabilities:
         supports_responses_sampling=not sampling_restricted_family,
         supports_responses_reasoning=reasoning_family,
     )
-
 
 def model_context_window(model: str | None) -> int | None:
     """The known context window for ``model``, or ``None`` if unrecognised."""

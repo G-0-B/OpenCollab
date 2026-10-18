@@ -45,28 +45,20 @@ from opencollab.domain.hooks import (
 from opencollab.domain.identity import role_collision_key, validate_role_identity
 from opencollab.domain.team import Topology
 
-# Built-in Self-Collaboration tool bundles. The division of labour is enforced
-# by capability: the Analyst can adopt completed coding children, the Tester
-# has no tool that writes, and neither the Coder
-# nor the Tester carries a coordination tool, so they cannot fan the work out
-# further. ``ask_user`` is the Analyst's alone and is moot for the other two —
-# they are built non-interactive, so the registry resolver drops it regardless.
-# Sorted for a deterministic, reproducible tool order.
+# Analyst owns coordination and ``ask_user``. Coder and Tester omit
+# coordination tools, and Tester omits file-edit tools. Keep bundles sorted
+# for stable tool order.
 ANALYST_TOOL_NAMES: tuple[str, ...] = ("adopt_agent", "ask_user", "file_read", "grep", "spawn_agent", "use_skill")
 CODER_TOOL_NAMES: tuple[str, ...] = ("apply_patch", "bash", "file_read", "grep")
 TESTER_TOOL_NAMES: tuple[str, ...] = ("bash", "file_read", "git_diff", "grep")
 
-# Fallback bundle for a role an ``allow_all`` team file spawns without declaring
-# it. Derived from the registry so it stays the single source of truth — add a
-# tool there and the fallback picks it up, no hand-maintained list to drift. It
-# is work tools only: no coordination (it must not fan out further) and no skill
-# dispatch.
+# Undeclared roles inherit registry work tools, excluding coordination
+# and skill dispatch.
 BASE_TOOL_NAMES: tuple[str, ...] = tuple(
     sorted(KNOWN_TOOL_NAMES - COORDINATION_TOOL_NAMES - {"use_skill"})
 )
 
-# The three bundles above are hand-written subsets, so a rename in the registry
-# would silently leave a role short a tool. Fail at import instead.
+# Catch stale built-in tool names when the registry changes.
 for _role_bundle in (ANALYST_TOOL_NAMES, CODER_TOOL_NAMES, TESTER_TOOL_NAMES):
     _unknown = sorted(set(_role_bundle) - KNOWN_TOOL_NAMES)
     if _unknown:
@@ -74,14 +66,10 @@ for _role_bundle in (ANALYST_TOOL_NAMES, CODER_TOOL_NAMES, TESTER_TOOL_NAMES):
             f"built-in team declares tools missing from the registry: {_unknown}"
         )
 
-# Built-in default prompts live as data files next to this module (``prompts/``)
-# so they read as prose, not Python string literals, and ship with the package —
-# loading regardless of cwd or install layout. A team file can still override any
-# role's prompt via ``prompt`` / ``prompt_file`` (see ``_resolve_prompt``).
+# Load packaged prompts relative to this module, independent of cwd.
 _PROMPT_DIR = Path(__file__).resolve().parent / "prompts"
 MAX_TEAM_CONFIG_BYTES = 4 * 1024 * 1024
 MAX_ROLE_PROMPT_BYTES = 4 * 1024 * 1024
-
 
 def _validate_thinking_params(
     value: dict[Any, Any] | None,
@@ -93,7 +81,6 @@ def _validate_thinking_params(
     except (TypeError, ValueError) as exc:
         raise ValueError("thinking_params must be JSON-serializable") from exc
     return value
-
 
 def _normalize_profile(value: str | None) -> str | None:
     """Validate a role's ``profile`` name, resolving ``"default"`` to ``None``.
@@ -115,16 +102,13 @@ def _normalize_profile(value: str | None) -> str | None:
     resolve_agent_profile(name)
     return None if name == "default" else name
 
-
 def _load_default_prompt(filename: str) -> str:
     return (_PROMPT_DIR / filename).read_text(encoding="utf-8")
-
 
 DEFAULT_ANALYST_PROMPT = _load_default_prompt("analyst.md")
 DEFAULT_CODER_PROMPT = _load_default_prompt("coder.md")
 DEFAULT_TESTER_PROMPT = _load_default_prompt("tester.md")
 DEFAULT_ROLE_PROMPT = _load_default_prompt("role.md")
-
 
 class RoleConfig(BaseModel):
     """A single role definition: prompt + optional model override + tool names."""
@@ -133,26 +117,20 @@ class RoleConfig(BaseModel):
 
     prompt: str = Field(min_length=1)
     model: str | None = None
-    # Optional per-role sampling-temperature override. ``None`` falls back to the
-    # global ``OpenCollabConfig.temperature`` (resolved in ``ContextBuilder``).
+    # ``None`` inherits the global temperature in ``ContextBuilder``.
     temperature: float | None = Field(
         default=None,
         ge=0.0,
         le=2.0,
         allow_inf_nan=False,
     )
-    # Optional per-role thinking overrides. ``None`` falls back to the global
-    # ``OpenCollabConfig`` values (resolved in ``ContextBuilder``), mirroring how
-    # ``temperature`` is resolved.
+    # ``None`` inherits global thinking settings in ``ContextBuilder``.
     thinking: bool | None = None
     thinking_params: dict | None = None
     tools: list[str] = Field(default_factory=list)
-    # Optional agent profile for this seat. ``None`` is OpenCollab's own agent;
-    # a named profile supplies the base system prompt, the shaper, the safety
-    # wrapper and the tool output caps the seat runs under, and the role's own
-    # card is appended to that base rather than replacing it. Resolved in
-    # ``ContextBuilder`` (prompt, tool limits) and ``DefaultSessionFactory``
-    # (shaper, safety), which is where the profile's other halves are wired.
+    # A named profile supplies the base prompt, shaper, safety wrapper, and
+    # tool caps. ``ContextBuilder`` appends the role card and applies tool caps.
+    # ``DefaultSessionFactory`` wires the shaper and safety wrapper.
     profile: str | None = None
     # This role's own token allowance, from the team file (``budget.tokens`` at
     # the team level, overridable per role). ``None`` on every role leaves the
@@ -216,7 +194,6 @@ class _BudgetFileModel(BaseModel):
         if isinstance(value, bool):
             raise ValueError("budget tokens must not be a boolean")
         return value
-
 
 class _RoleFileModel(BaseModel):
     """On-disk role entry; ``prompt`` or ``prompt_file`` (resolved at load)."""
@@ -292,7 +269,6 @@ class _HookActionFileModel(BaseModel):
             raise ValueError("hook timeout must not be a boolean")
         return value
 
-
 class _TeamFileModel(BaseModel):
     """Top-level team file schema."""
 
@@ -301,13 +277,10 @@ class _TeamFileModel(BaseModel):
     roles: dict[str, _RoleFileModel] = Field(default_factory=dict)
     topology: dict[str, list[str]] = Field(default_factory=dict)
     hooks: dict[str, list[_HookActionFileModel]] = Field(default_factory=dict)
-    # Which role is agent 0 (the root that receives the user task and spawns the
-    # rest). Optional; see ``_resolve_entry_role`` for the fallback order.
+    # Agent 0's role, with fallback order in ``_resolve_entry_role``.
     entry: str | None = None
-    # Per-tool output-cap overrides, e.g. {"bash": {"max_output_chars": 6000}}.
-    # Keys are tool names; values are constructor kwargs for that tool. Lets a
-    # team tune output budgets to its backend's context size (see
-    # ``bootstrap.tool_registry.build_tools_for_role``).
+    # Tool names mapped to constructor output-cap kwargs, applied by
+    # ``build_tools_for_role``.
     tool_limits: dict[str, dict[str, int]] = Field(default_factory=dict)
     # The context policy every seat's session runs (see
     # ``bootstrap.context_policy``): a name, or ``{policy:, tool_result_budget:}``.
@@ -326,7 +299,6 @@ class _TeamFileModel(BaseModel):
     def _validate_context(cls, value: object) -> ContextPolicy:
         return resolve_context_policy(value)
 
-
 @dataclass(frozen=True)
 class TeamConfig:
     """Resolved team: role definitions + topology, with an unknown-role fallback.
@@ -341,8 +313,6 @@ class TeamConfig:
     entry: str | None = None
     # Tool name -> constructor kwargs (output caps); applied by the registry.
     tool_limits: dict[str, dict[str, int]] = field(default_factory=dict)
-    # Applied to every seat; the default is the pipeline every session ran
-    # before a team file could name one.
     context: ContextPolicy = field(default_factory=ContextPolicy)
 
     def __post_init__(self) -> None:
@@ -438,12 +408,10 @@ class TeamConfig:
                 return config
         return default_role(name)
 
-
 def default_role(name: str) -> RoleConfig:
     """Generic spec for a role not declared in the team file."""
     validate_role_identity(name)
     return RoleConfig(prompt=DEFAULT_ROLE_PROMPT, model=None, tools=list(BASE_TOOL_NAMES))
-
 
 def default_team_config() -> TeamConfig:
     """The built-in Self-Collaboration team (the no-file default).
@@ -482,7 +450,6 @@ def default_team_config() -> TeamConfig:
         entry="analyst",
     )
 
-
 def _resolve_entry_role(explicit: str | None, roles: dict[str, RoleConfig]) -> str:
     """Pick the entry role (agent 0).
 
@@ -513,7 +480,6 @@ def _resolve_entry_role(explicit: str | None, roles: dict[str, RoleConfig]) -> s
         return next(iter(roles))
     return "lead"
 
-
 def _configured_team_path(
     path: str | os.PathLike[str] | None = None,
 ) -> Path | None:
@@ -522,7 +488,6 @@ def _configured_team_path(
         return Path(path)
     explicit = os.environ.get("OPENCOLLAB_TEAM_FILE")
     return Path(explicit) if explicit else None
-
 
 def _resolve_prompt(entry: _RoleFileModel, base_dir: Path, role_name: str) -> str:
     if entry.prompt is not None:
@@ -554,7 +519,6 @@ def _resolve_prompt(entry: _RoleFileModel, base_dir: Path, role_name: str) -> st
         return text
     raise ValueError(f"Role '{role_name}': must set 'prompt' or 'prompt_file'.")
 
-
 def _build_hook_specs(hooks: dict[str, list[_HookActionFileModel]]) -> tuple[HookSpec, ...]:
     specs: list[HookSpec] = []
     for event_name, actions in hooks.items():
@@ -584,7 +548,6 @@ def _build_hook_specs(hooks: dict[str, list[_HookActionFileModel]]) -> tuple[Hoo
                 )
             )
     return tuple(specs)
-
 
 def _build_team_config(data: Any, base_dir: Path) -> TeamConfig:
     model = _TeamFileModel.model_validate(data or {})
@@ -650,7 +613,6 @@ def _build_team_config(data: Any, base_dir: Path) -> TeamConfig:
         context=resolve_context_policy(model.context),
     )
 
-
 def resolve_team_file(workspace: str | None = None) -> Path | None:
     """Return the explicitly configured environment team file, or ``None``.
 
@@ -669,7 +631,6 @@ def resolve_team_file(workspace: str | None = None) -> Path | None:
         return Path(os.path.abspath(candidate))
     return None
 
-
 def _looks_like_a_team_file(workspace: str) -> bool:
     """True when a ``workspace`` argument is really a team file taking a wrong turn.
 
@@ -678,7 +639,6 @@ def _looks_like_a_team_file(workspace: str) -> bool:
     Anything else — a real directory, a path with no suffix — is left alone.
     """
     return Path(workspace).suffix.lower() in {".yaml", ".yml"}
-
 
 class _TeamConfigLoader(yaml.SafeLoader):
     def compose_mapping_node(self, anchor: str | None) -> yaml.MappingNode:
@@ -698,7 +658,6 @@ class _TeamConfigLoader(yaml.SafeLoader):
                 )
             keys.add(key)
         return node
-
 
 def load_team_config(
     workspace: str | None = None,
@@ -741,7 +700,6 @@ def load_team_config(
         raise ValueError(f"team config cannot be read safely: {candidate}") from exc
     data = yaml.load(text, Loader=_TeamConfigLoader)
     return _build_team_config(data, Path(os.path.abspath(candidate)).parent)
-
 
 __all__ = [
     "ANALYST_TOOL_NAMES",

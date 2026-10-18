@@ -48,30 +48,19 @@ from opencollab.adapters.safe_files import read_regular_text
 
 MAX_DOTENV_BYTES = 1024 * 1024
 
-# Authoritative LLM sampling-temperature default. Every runtime path resolves
-# its effective temperature from here (env/.env override → per-role override),
-# so this is the single source of truth referenced by SpawnConfig, workflow
-# execution, and SDK consumers.
+# Global sampling default, overridden by configuration and then the role.
 DEFAULT_TEMPERATURE = 0.2
 
-# Authoritative top_p (nucleus-sampling) default. ``None`` means "do not send a
-# top_p" so every existing request stays byte-for-byte unchanged — only an
-# explicit OPENCOLLAB_TOP_P (or per-call override) adds the knob. Mirrors the
-# temperature flow: resolved once here, then threaded through the LLM client,
-# providers, and SDK consumers.
+# ``None`` omits ``top_p`` from provider requests.
 DEFAULT_TOP_P: float | None = None
 
-# Provider "thinking"/reasoning passthrough. OFF by default. The default payload
-# targets OpenAI-compatible APIs such as DashScope. Native Anthropic thinking
-# requires explicit provider parameters because its budget depends on the
-# selected model and maximum output length.
+# Default thinking parameters target OpenAI-compatible APIs. Native
+# Anthropic needs explicit parameters matched to its model and output limit.
 DEFAULT_THINKING = False
 DEFAULT_THINKING_PARAMS: dict[str, Any] = {"enable_thinking": True}
 
-# Truthy string tokens for boolean env vars ("1/true/yes/on").
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 _FALSY = frozenset({"0", "false", "no", "off"})
-
 
 def _parse_bool(value: str | None, *, default: bool = False) -> bool:
     """Parse a supported boolean env string; default only on absence."""
@@ -87,7 +76,6 @@ def _parse_bool(value: str | None, *, default: bool = False) -> bool:
         "1/true/yes/on or 0/false/no/off"
     )
 
-
 def _parse_top_p(value: str | None) -> float | None:
     """Parse the top_p env string to ``float`` or ``None``.
 
@@ -102,7 +90,6 @@ def _parse_top_p(value: str | None) -> float | None:
         return None
     return float(stripped)
 
-
 def _parse_thinking_params(value: str | None) -> dict[str, Any]:
     """Parse a JSON object string and reject unusable provider parameters."""
     if not value:
@@ -115,7 +102,6 @@ def _parse_thinking_params(value: str | None) -> dict[str, Any]:
         raise ValueError("OPENCOLLAB_THINKING_PARAMS must contain a JSON object")
     return parsed
 
-
 def _validate_thinking_params(value: dict[str, Any]) -> dict[str, Any]:
     try:
         json.dumps(value, allow_nan=False)
@@ -123,18 +109,15 @@ def _validate_thinking_params(value: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("thinking_params must be JSON-serializable") from exc
     return value
 
-
 def resolve_thinking_params(value: dict[str, Any] | None) -> dict[str, Any]:
     """Copy explicit provider parameters, defaulting only when absent."""
     return dict(DEFAULT_THINKING_PARAMS if value is None else value)
-
 
 def _optional_string(value: Any) -> Any:
     """Normalize optional credentials and endpoints before source selection."""
     if isinstance(value, str):
         return value.strip() or None
     return value
-
 
 class OpenCollabConfig(BaseModel):
     """Runtime configuration for OpenCollab."""
@@ -205,9 +188,6 @@ class OpenCollabConfig(BaseModel):
     @field_validator("top_p", mode="before")
     @classmethod
     def _coerce_top_p(cls, value: Any) -> Any:
-        # Accept the env/.env string form: empty/whitespace → None (unchanged
-        # request), a real number → float. Mirrors temperature accepting its
-        # string form, but defaults to None rather than a numeric default.
         if isinstance(value, str):
             return _parse_top_p(value)
         return value
@@ -215,8 +195,6 @@ class OpenCollabConfig(BaseModel):
     @field_validator("thinking", mode="before")
     @classmethod
     def _coerce_thinking(cls, value: Any) -> Any:
-        # Accept the env/.env truthy string form ("1/true/yes/on") as well as a
-        # real bool, mirroring how temperature accepts its string form.
         if isinstance(value, str):
             return _parse_bool(value)
         return value
@@ -224,8 +202,6 @@ class OpenCollabConfig(BaseModel):
     @field_validator("thinking_params", mode="before")
     @classmethod
     def _coerce_thinking_params(cls, value: Any) -> Any:
-        # A JSON object string (from env/.env) parses to a dict. Invalid values
-        # fail during configuration instead of silently changing model behavior.
         if isinstance(value, str):
             return _validate_thinking_params(_parse_thinking_params(value))
         if value is None:
@@ -271,7 +247,6 @@ class OpenCollabConfig(BaseModel):
     def _empty_string_as_none(cls, value: Any) -> Any:
         return _optional_string(value)
 
-
 def _dotenv_value(value: str) -> str:
     """Remove unquoted whitespace-delimited comments, then outer quotes."""
     quote: str | None = None
@@ -292,7 +267,6 @@ def _dotenv_value(value: str) -> str:
     if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
         return value[1:-1]
     return value
-
 
 def load_dotenv(path: str | None = None) -> dict[str, str]:
     """Parse a .env file into a dict. Handles quotes and comments."""
@@ -325,7 +299,6 @@ def load_dotenv(path: str | None = None) -> dict[str, str]:
 
     return result
 
-
 def _candidate_env_paths(workspace: str | None = None) -> list[str]:
     """Return config file candidates in priority order."""
     explicit = os.environ.get("OPENCOLLAB_CONFIG_FILE")
@@ -349,7 +322,6 @@ def _candidate_env_paths(workspace: str | None = None) -> list[str]:
                 seen.add(key)
     return paths
 
-
 def load_config_env(workspace: str | None = None) -> dict[str, str]:
     """Load env-file defaults from configs/.env and legacy .env locations.
 
@@ -363,11 +335,9 @@ def load_config_env(workspace: str | None = None) -> dict[str, str]:
             values.setdefault(key, value)
     return values
 
-
 def _is_dashscope_base_url(base_url: str | None) -> bool:
     lowered = (base_url or "").lower()
     return "dashscope" in lowered or "aliyuncs" in lowered
-
 
 def api_key_env_precedence(provider: str | None, base_url: str | None = None) -> tuple[str, ...]:
     """Ordered API-key env vars to consult, most provider-specific first.
@@ -382,7 +352,6 @@ def api_key_env_precedence(provider: str | None, base_url: str | None = None) ->
         return ("ANTHROPIC_API_KEY", "OPENCOLLAB_API_KEY")
     return ("OPENCOLLAB_API_KEY", "OPENAI_API_KEY")
 
-
 def accepted_api_key_envs(provider: str | None, base_url: str | None = None) -> list[str]:
     """The env-var names a user can set to satisfy the API-key requirement.
 
@@ -394,7 +363,6 @@ def accepted_api_key_envs(provider: str | None, base_url: str | None = None) -> 
     else:
         names = ["OPENCOLLAB_API_KEY", required_env_key(provider)]
     return list(dict.fromkeys(names))
-
 
 def missing_api_key(provider: str | None, api_key: str | None, base_url: str | None = None) -> bool:
     """Whether no usable API key is resolvable for ``provider``.
@@ -411,13 +379,11 @@ def missing_api_key(provider: str | None, api_key: str | None, base_url: str | N
             return False
     return True
 
-
 def resolve_provider_base_url(provider: str | None, base_url: str | None) -> str:
     """Select an endpoint from resolved config, including the provider default."""
     if base_url:
         return base_url
     return "https://api.anthropic.com" if is_anthropic(provider) else "https://api.openai.com/v1"
-
 
 def build_config(workspace: str | None = None, overrides: dict[str, Any] | None = None) -> OpenCollabConfig:
     """Build and validate runtime configuration.
@@ -427,7 +393,6 @@ def build_config(workspace: str | None = None, overrides: dict[str, Any] | None 
     dotenv = load_config_env(workspace)
 
     def resolve(key: str, *fallback_keys: str, default: str | None = None) -> str | None:
-        # Check env vars first (highest priority)
         val = os.environ.get(key)
         if val and val.strip():
             return val
@@ -435,7 +400,6 @@ def build_config(workspace: str | None = None, overrides: dict[str, Any] | None 
             val = os.environ.get(fk)
             if val and val.strip():
                 return val
-        # Check .env file
         val = dotenv.get(key)
         if val and val.strip():
             return val
@@ -513,7 +477,6 @@ def build_config(workspace: str | None = None, overrides: dict[str, Any] | None 
     # its source before validation replaces None with that default mapping.
     values.setdefault("thinking_params_explicit", values["thinking_params"] is not None)
     return OpenCollabConfig.model_validate(values)
-
 
 def get_config(workspace: str | None = None) -> dict[str, Any]:
     """Get resolved configuration as a dict for existing callers."""

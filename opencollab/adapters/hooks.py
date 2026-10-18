@@ -18,7 +18,6 @@ from opencollab.domain.hooks import TOOL_SCOPED_EVENTS, HookOutcome, HookSpec, m
 logger = logging.getLogger(__name__)
 CommandExecutor = Callable[[HookSpec, dict[str, Any]], Awaitable[None]]
 
-
 class ShellHookRunner(HookPort):
     """Run configured shell hooks without letting failures stop the agent."""
 
@@ -125,6 +124,5 @@ class ShellHookRunner(HookPort):
             return
         if result.returncode != 0:
             logger.warning("hook command exited %s: %s", result.returncode, spec.command)
-
 
 __all__ = ["ShellHookRunner"]

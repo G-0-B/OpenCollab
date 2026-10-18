@@ -10,7 +10,6 @@ SUCCESS = "#94A3B8"
 WARNING = "#B59A60"
 ERROR = "#C56F6F"
 
-
 __all__ = [
     "BRAND_VIOLET",
     "BRAND_VIOLET_RGB",

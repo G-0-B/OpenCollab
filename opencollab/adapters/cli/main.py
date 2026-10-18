@@ -69,7 +69,6 @@ MAX_CLI_PROMPT_FILE_BYTES = 4 * 1024 * 1024
 app.add_typer(workflow_app, name="workflow")
 app.add_typer(build_team_app(default_team_config, load_team_config), name="team")
 
-
 @app.callback(invoke_without_command=True)
 def main_callback(
     ctx: typer.Context,
@@ -149,7 +148,6 @@ def main_callback(
         )
     )
 
-
 def _resolve_one_shot_prompt(prompt: str | None, prompt_file: str | None) -> str | None:
     return resolve_text_input(
         prompt,
@@ -158,12 +156,6 @@ def _resolve_one_shot_prompt(prompt: str | None, prompt_file: str | None) -> str
         file_option="--prompt-file",
         max_bytes=MAX_CLI_PROMPT_FILE_BYTES,
     )
-
-
-# ---------------------------------------------------------------------------
-# Async implementations
-# ---------------------------------------------------------------------------
-
 
 def _print_hint(label: str, value: str) -> None:
     """One hairline-led chrome line, home-shortened and kept to a single row.
@@ -184,19 +176,14 @@ def _print_hint(label: str, value: str) -> None:
     line.append(f"{label} → {value}", style="grey58")
     console.print(line)
 
-
 _EXIT_COMMANDS = frozenset({"exit", "quit", "/exit", "/quit"})
-# ``--hold`` inherits the word the old post-run inspection view used for the
-# same intent, now that there is no raw key listener to press it against.
 _HOLD_EXIT_COMMANDS = _EXIT_COMMANDS | {"q"}
-
 
 def _save_session(lead: Any) -> None:
     """`/save` REPL command: write the lead session to a fresh JSONL file."""
     path = f"session-{uuid.uuid4().hex[:8]}.jsonl"
     lead.save(path)
     console.print(f"[dim]Session saved to {path}[/dim]")
-
 
 def _print_repl_help() -> None:
     table = Table(title="Interactive team help", show_header=False, box=None, padding=(0, 2))
@@ -214,7 +201,6 @@ def _print_repl_help() -> None:
     console.print(table)
     console.print(Text("From your shell, use 'opencollab team --help' to set up a team, "
                        "or 'opencollab workflow run duo --help' to run Duo."))
-
 
 def _dispatch_repl_command(
     line: str,
@@ -243,7 +229,6 @@ def _dispatch_repl_command(
             )
         return True
     raise KeyError(line)
-
 
 async def _read_loop(
     prompt: LivePrompt,
@@ -289,7 +274,6 @@ async def _read_loop(
             pass
         queue.submit(line, tui.selected_aid)
 
-
 def _report_turn_failure(tui: Any, exc: SchedulerTurnError) -> None:
     """Print what a failed turn left behind, without repeating what it printed."""
     # The half-finished answer is salvage: print it only if the turn's cleanup
@@ -300,7 +284,6 @@ def _report_turn_failure(tui: Any, exc: SchedulerTurnError) -> None:
     reason = exc.terminal_reason or exc.phase.value
     style = "yellow" if exc.phase.value == "stopped" else "red"
     console.print(Text(f"Agent {exc.aid} {exc.phase.value}: {reason}", style=style))
-
 
 async def _drive(
     queue: TurnQueue,
@@ -333,7 +316,6 @@ async def _drive(
         if not task.cancelled() and task.exception() is not None:
             raise task.exception()
 
-
 async def _await_scheduler_cleanup(scheduler: Any) -> asyncio.CancelledError | None:
     """Keep the CLI-owned scheduler teardown alive through repeated cancel."""
     cleanup_task = asyncio.create_task(scheduler.cleanup())
@@ -348,7 +330,6 @@ async def _await_scheduler_cleanup(scheduler: Any) -> asyncio.CancelledError | N
                 return repeated_cancellation or exc
             if repeated_cancellation is None:
                 repeated_cancellation = exc
-
 
 async def _run(
     workspace: str,
@@ -431,8 +412,6 @@ async def _run(
             _print_hint("session", str(lead.auto_save_path))
 
         one_shot = one_shot_prompt is not None
-        # Holding means staying at the prompt, so a run with no screen to hold
-        # it on has nothing to stay for.
         holding = hold_after_run and has_screen
         one_shot_error = False
 
@@ -448,14 +427,10 @@ async def _run(
             except SchedulerTurnError as exc:
                 failure = exc
             except KeyboardInterrupt:
-                pass  # abandon the turn, return to the prompt
+                pass
             finally:
-                # Only the focused agent's blocks reach scrollback, and a
-                # one-shot run has no "later" in which to Tab back. If the
-                # user wandered off to watch a teammate, flush the tail of
-                # the agent that owes them an answer. The tail, not a focus
-                # switch: a switch reprints in full and would repeat every
-                # row this agent already put on screen.
+                # Flush the answering agent's unprinted tail when focus moved to a teammate.
+                # Switching focus would reprint rows already in scrollback.
                 tui.settle_turn(
                     final_aid=target_aid if one_shot else None
                 )
@@ -474,8 +449,7 @@ async def _run(
                 ):
                     one_shot_error = True
             if not one_shot or holding:
-                # The rule separates turns. A run that ends with this one has
-                # nothing to separate it from.
+                # A final one-shot turn needs no separator.
                 tui.print_turn_divider()
 
         queue = TurnQueue(turn, on_depth=tui.set_queued_turns)
@@ -583,10 +557,8 @@ async def _run(
         raise tracer_failure
     console.print("\n[grey46]─[/grey46] [grey58]session ended.[/grey58]")
 
-
 def main():
     app()
-
 
 if __name__ == "__main__":
     main()

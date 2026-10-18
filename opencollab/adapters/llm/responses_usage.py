@@ -20,7 +20,6 @@ def _positive_usage_int(source: Any, key: str) -> int | None:
     value = _optional_usage_int(source, key)
     return value if value is not None and value > 0 else None
 
-
 def _reported_responses_usage(response: Any) -> Usage | None:
     """Retain only counters actually returned by a failed attempt."""
     raw = usage_to_dict(getattr(response, "usage", None))
@@ -42,7 +41,6 @@ def _reported_responses_usage(response: Any) -> Usage | None:
         estimated=input_tokens is None or output_tokens is None,
         raw_usage=raw,
     )
-
 
 def parse_responses_usage(
     response: Any,
@@ -88,6 +86,5 @@ def parse_responses_usage(
         estimated=estimated,
         raw_usage=raw,
     )
-
 
 __all__ = ["parse_responses_usage"]

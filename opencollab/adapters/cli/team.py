@@ -16,17 +16,13 @@ from rich.text import Text
 if TYPE_CHECKING:
     from opencollab.bootstrap.team_config import TeamConfig
 
-
 class _TeamDumper(yaml.SafeDumper):
     """Keep multiline prompts editable without changing their contents."""
-
 
 def _represent_string(dumper: yaml.SafeDumper, value: str) -> yaml.ScalarNode:
     return dumper.represent_scalar("tag:yaml.org,2002:str", value, style="|" if "\n" in value else None)
 
-
 _TeamDumper.add_representer(str, _represent_string)
-
 
 def _team_document(team: TeamConfig) -> dict[str, object]:
     roles = {}
@@ -45,7 +41,6 @@ def _team_document(team: TeamConfig) -> dict[str, object]:
         "context": context,
         "tool_limits": team.tool_limits,
     }
-
 
 def build_team_app(
     default_factory: Callable[[], TeamConfig],
@@ -118,6 +113,5 @@ def build_team_app(
             console.print(Text(f"{name} → {destinations}"), soft_wrap=True)
 
     return app
-
 
 __all__ = ["build_team_app"]

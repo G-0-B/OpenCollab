@@ -69,7 +69,6 @@ class AskUserTool(Tool):
 
         return answer
 
-
 def _prompt_user(question: str) -> str:
     """Synchronous prompt — runs in executor thread."""
     try:

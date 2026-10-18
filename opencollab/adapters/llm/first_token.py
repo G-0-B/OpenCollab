@@ -18,21 +18,14 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
 
-#: Why a call has no TTFT. One reason today: the response was not streamed.
 NOT_STREAMED = "response_not_streamed"
 
-#: No provider attempt ever started, so there is nothing to say about one —
-#: a request rejected during validation, before any socket was opened.
 NO_ATTEMPT = "no_provider_attempt_started"
 
-#: Sources, so a reader can tell which wire format produced the measurement
-#: rather than assuming every stream reports the same event.
 CHAT_STREAM = "chat_stream_first_chunk"
 RESPONSES_STREAM = "responses_stream_first_event"
 
-#: Exactly the keys ``snapshot`` writes. Tests assert against this so a key
-#: added here without a decision downstream shows up as a failure, not as a
-#: field nobody reads.
+# Keys emitted by ``snapshot`` and consumed by timing readers.
 TRANSPORT_TIMING_KEYS: tuple[str, ...] = (
     "ttft_s",
     "ttft_measured",
@@ -45,7 +38,6 @@ TRANSPORT_TIMING_KEYS: tuple[str, ...] = (
     "attempt_s",
     "attempts",
 )
-
 
 @dataclass
 class FirstTokenTimer:
@@ -114,11 +106,9 @@ class FirstTokenTimer:
             "attempts": self.attempts,
         }
 
-
 _CURRENT: ContextVar[FirstTokenTimer | None] = ContextVar(
     "opencollab_llm_first_token_timer", default=None
 )
-
 
 @contextmanager
 def recording() -> Iterator[FirstTokenTimer]:
@@ -130,20 +120,17 @@ def recording() -> Iterator[FirstTokenTimer]:
     finally:
         _CURRENT.reset(token)
 
-
 def begin_attempt(*, streamed: bool, unavailable_reason: str | None = None) -> None:
     """Stamp the moment one provider request goes out. No-op outside a call."""
     timer = _CURRENT.get()
     if timer is not None:
         timer.begin_attempt(streamed=streamed, unavailable_reason=unavailable_reason)
 
-
 def mark_first_token(source: str) -> None:
     """Stamp the arrival of the current attempt's first chunk or event."""
     timer = _CURRENT.get()
     if timer is not None:
         timer.mark_first_token(source)
-
 
 __all__ = [
     "CHAT_STREAM",

@@ -24,14 +24,12 @@ from opencollab.adapters.safe_paths import canonicalize_system_path
 
 _HAS_DIRFD_OPEN = os.open in os.supports_dir_fd
 
-
 def _directory_open_flags() -> int:
     directory = getattr(os, "O_DIRECTORY", 0)
     nofollow = getattr(os, "O_NOFOLLOW", 0)
     if not directory or not nofollow or not _HAS_DIRFD_OPEN:
         raise NotImplementedError("race-safe local file access requires POSIX dirfd and O_NOFOLLOW support")
     return os.O_RDONLY | directory | nofollow | getattr(os, "O_CLOEXEC", 0)
-
 
 def open_directory_anchor(path: str | os.PathLike[str]) -> int:
     """Open and pin one real directory for descriptor-relative access."""
@@ -45,10 +43,8 @@ def open_directory_anchor(path: str | os.PathLike[str]) -> int:
         os.close(fd)
         raise
 
-
 def _same_file(left: os.stat_result, right: os.stat_result) -> bool:
     return (left.st_dev, left.st_ino) == (right.st_dev, right.st_ino)
-
 
 def _require_anchor_path(
     root_fd: int,
@@ -68,7 +64,6 @@ def _require_anchor_path(
     finally:
         os.close(current_fd)
 
-
 def _relative_components(
     path: str | os.PathLike[str],
 ) -> tuple[list[str], str]:
@@ -82,7 +77,6 @@ def _relative_components(
     if any(part in {"", ".", ".."} for part in parts):
         raise PermissionError(f"path escapes anchored directory: {value}")
     return parts[:-1], parts[-1]
-
 
 def _open_parent_beneath(
     root_fd: int,
@@ -121,7 +115,6 @@ def _open_parent_beneath(
     except BaseException:
         os.close(current_fd)
         raise
-
 
 def read_regular_bytes_at(
     root_fd: int,
@@ -166,7 +159,6 @@ def read_regular_bytes_at(
         if fd >= 0:
             os.close(fd)
         os.close(parent_fd)
-
 
 def read_regular_text_range_at(
     root_fd: int,
@@ -305,7 +297,6 @@ def read_regular_text_range_at(
             os.close(fd)
         os.close(parent_fd)
 
-
 def _current_regular_at(
     parent_fd: int,
     name: str,
@@ -320,12 +311,10 @@ def _current_regular_at(
         raise OSError(f"{context} target is not a regular file: {name}")
     return info
 
-
 def _content_identity(info: os.stat_result | None) -> tuple[int, ...] | None:
     if info is None:
         return None
     return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
-
 
 def _observe_content_change(
     parent_fd: int, name: str, temporary: BinaryIO, current: os.stat_result | None, payload: bytes | None = None
@@ -379,7 +368,6 @@ def _observe_content_change(
     finally:
         if fd >= 0:
             os.close(fd)
-
 
 def write_regular_file_atomic_at(
     root_fd: int,
@@ -466,7 +454,6 @@ def write_regular_file_atomic_at(
             finally:
                 os.close(parent_fd)
 
-
 def write_regular_bytes_atomic_at(
     root_fd: int,
     root_path: str | os.PathLike[str],
@@ -493,7 +480,6 @@ def write_regular_bytes_atomic_at(
         observed_payload=payload,
     )
 
-
 def create_regular_bytes_atomic_at(
     root_fd: int,
     root_path: str | os.PathLike[str],
@@ -516,7 +502,6 @@ def create_regular_bytes_atomic_at(
         create_only=True,
     )
 
-
 def unlink_regular_file_durable_at(
     root_fd: int,
     root_path: str | os.PathLike[str],
@@ -537,7 +522,6 @@ def unlink_regular_file_durable_at(
         return True
     finally:
         os.close(parent_fd)
-
 
 __all__ = [
     "create_regular_bytes_atomic_at",

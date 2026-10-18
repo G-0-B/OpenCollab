@@ -100,11 +100,6 @@ if TYPE_CHECKING:
         snapshot_session,
     )
 
-# ---------------------------------------------------------------------------
-# Session runtime construction (the LLMClient-bound core)
-# ---------------------------------------------------------------------------
-
-
 def _build_initial_state(
     agent: Agent,
     seed_user_messages: list[dict[str, Any]] | None = None,
@@ -118,7 +113,6 @@ def _build_initial_state(
     if seed_user_messages:
         messages.extend(seed_user_messages)
     return SessionState(messages=messages)
-
 
 def _resolve_llm(
     agent: Agent,
@@ -145,7 +139,6 @@ def _resolve_llm(
         provider_error_time_budget=getattr(agent, "provider_error_time_budget", 0.0),
         provider_retry_budget=provider_retry_budget,
     )
-
 
 def _build_summarizer(
     agent: Agent,
@@ -280,7 +273,6 @@ def _build_summarizer(
         output_limit=_summary_output_limit if output_limit is not None else None,
     )
 
-
 def _history_compaction_settings(
     resolved_llm: LLMPort, history_trigger_tokens: int | None = None,
     *, max_output_tokens: int = DEFAULT_MAX_TOKENS_PER_STEP,
@@ -313,17 +305,13 @@ def _history_compaction_settings(
         "context_window_tokens": context_window,
         "history_trigger_tokens": history_trigger,
         "history_target_tokens": history_target,
-        # Which branch of ``history_trigger_target`` produced the pair: scaled to
-        # the model's real window, or the fixed 120k/90k fallback an unknown
-        # window degrades to. Stated rather than left to be re-derived from
-        # ``context_window_tokens`` by a reader who knows the rule.
+        # Record whether thresholds came from a known window or fixed defaults.
         "history_thresholds_from": (
             ("context_window_with_run_control" if history_trigger_tokens is not None else "context_window")
             if context_window and context_window > 0
             else "fixed_default"
         ),
     }
-
 
 def _trace_history_compaction(
     tracer: TracePort | None,
@@ -357,7 +345,6 @@ def _trace_history_compaction(
             "context_policy": None if shaper_injected else context_policy.name,
         }
         if not shaper_injected and not context_policy.history_compaction:
-            # The policy runs no history layer, so no threshold is in force.
             payload.update(
                 {
                     "context_window_tokens": None,
@@ -367,9 +354,7 @@ def _trace_history_compaction(
                 }
             )
         elif shaper_injected:
-            # A caller-supplied shaper carries its own thresholds; this wiring
-            # never derived any. Writing the numbers we would have used would
-            # name a setting no layer is enforcing.
+            # Injected shapers own their thresholds, so these settings are unknown.
             payload.update(
                 {
                     "context_window_tokens": None,
@@ -386,7 +371,6 @@ def _trace_history_compaction(
         tracer.log_step(step_type="session.history_compaction", payload=payload)
     except Exception as exc:  # noqa: BLE001 - observability is non-authoritative
         logger.error("history compaction trace failed: %s", exc)
-
 
 def _build_default_shaper(
     resolved_llm: LLMPort,
@@ -434,10 +418,7 @@ def _build_default_shaper(
     ``opencollab.application.shaping`` still exports it, and a caller that
     wants an always-on front rung can compose one.
     """
-    # Trigger/target scale to the active model's real context window, degrading
-    # to fixed defaults when the model is unrecognised. Resolved through
-    # ``_history_compaction_settings`` so the trajectory record and the wiring
-    # read the SAME two numbers rather than each deriving its own.
+    # Resolve thresholds once for both runtime wiring and trajectory records.
     per_result = PerToolResultBudgetShaper(
         tool_result_budget,
         preserve_tail=preserve_tool_result_tail,
@@ -475,7 +456,6 @@ def _build_default_shaper(
         )
     )
 
-
 def agent_trace_view(tracer: TracePort | None, aid: int, agent: Agent) -> TracePort | None:
     """Bind ``tracer`` to one agent so every record it writes names that agent.
 
@@ -484,7 +464,6 @@ def agent_trace_view(tracer: TracePort | None, aid: int, agent: Agent) -> TraceP
     """
     for_agent = getattr(tracer, "for_agent", None)
     return for_agent(aid, agent) if callable(for_agent) else tracer
-
 
 def build_skill_store(workspace: str | None) -> SkillStorePort:
     """Resolve the workspace's ``skills/`` directory into a skill store.
@@ -500,7 +479,6 @@ def build_skill_store(workspace: str | None) -> SkillStorePort:
         if skills_root.is_dir():
             return FileSkillStore(skills_root)
     return NullSkillStore()
-
 
 def build_session_runtime(
     *,
@@ -609,14 +587,10 @@ def build_session_runtime(
         team_budget_exhausted=team_budget_exhausted,
         run_control=run_control,
         run_id=run_id,
-        # The context-overflow classifier lives in the adapter layer; injected
-        # as a plain callable so the application use case never imports it (same
-        # boundary pattern as the team-budget predicate). Enables the
-        # force-compact-and-retry + graceful-stop safety net in ``call_llm``.
+        # Inject the adapter's context-overflow classifier to preserve the
+        # application layer's dependency direction.
         is_context_overflow=is_context_overflow_error,
-        # Cooperative per-generation ceiling: bound a single model call to the
-        # configured provider timeout so one slow (thinking) generation cannot
-        # eat the whole run wall (P7).
+        # Bound each generation by the provider timeout to preserve the run budget.
         per_call_timeout=llm_timeout,
     )
     if run_control is not None:
@@ -646,10 +620,8 @@ def build_session_runtime(
         resolved_shaper = _build_default_shaper(
             resolved_llm, summarizer, **shaper_options
         )
-    # A profile shaper is NOT an injected one: ``build_shaper`` routes back
-    # through ``_build_default_shaper``, so it runs on the very thresholds
-    # derived above. Only a caller-supplied shaper carries thresholds this
-    # wiring never chose.
+    # Profile shapers use ``_build_default_shaper`` and its derived thresholds.
+    # Only caller-supplied shapers have independently chosen thresholds.
     _trace_history_compaction(
         tracer,
         aid=aid,
@@ -675,16 +647,8 @@ def build_session_runtime(
         context_summarizer=summarizer,
     )
 
-
-# ---------------------------------------------------------------------------
-# Lazy re-exports of the higher-level factories.
-#
-# ``session_factory`` and ``scheduler_factory`` import names from THIS module,
-# so importing them eagerly here would create an import cycle. PEP 562 module
-# ``__getattr__`` defers their import until first attribute access, by which
-# point this module is fully initialised — keeping load order acyclic no matter
-# which module is imported first.
-# ---------------------------------------------------------------------------
+# Factory modules import this module. Defer their re-exports through
+# PEP 562 ``__getattr__`` to avoid an import cycle.
 
 _SESSION_FACTORY_EXPORTS = frozenset(
     {
@@ -700,7 +664,6 @@ _SESSION_FACTORY_EXPORTS = frozenset(
 )
 _SCHEDULER_FACTORY_EXPORTS = frozenset({"build_scheduler"})
 
-
 def __getattr__(name: str) -> Any:
     if name in _SESSION_FACTORY_EXPORTS:
         from opencollab.bootstrap import session_factory
@@ -711,7 +674,6 @@ def __getattr__(name: str) -> Any:
 
         return getattr(scheduler_factory, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 __all__ = [
     "ContextBuilder",

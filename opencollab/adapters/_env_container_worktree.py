@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 CONTAINER_GIT_TIMEOUT_SECONDS = 60.0
 
-
 class ContainerWorktreeEnvironment(DockerEnvironment):
     """One agent's own checkout of the task repository, inside the container.
 
@@ -371,7 +370,6 @@ class ContainerWorktreeEnvironment(DockerEnvironment):
         if failures:
             raise OSError("container worktree cleanup failed: " + "; ".join(failures))
 
-
 def _absolute_container_path(path: str, label: str) -> str:
     if not isinstance(path, str) or not path.startswith("/") or "\0" in path:
         raise ValueError(f"container {label} must be an absolute path without NUL bytes")
@@ -379,6 +377,5 @@ def _absolute_container_path(path: str, label: str) -> str:
     if normalized == "/":
         raise ValueError(f"container {label} must not be the container root")
     return normalized
-
 
 __all__ = ["CONTAINER_GIT_TIMEOUT_SECONDS", "ContainerWorktreeEnvironment"]

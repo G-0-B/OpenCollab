@@ -28,5 +28,4 @@ def build_agent_navigation_bindings(tui: Any) -> KeyBindings:
 
     return bindings
 
-
 __all__ = ["build_agent_navigation_bindings"]

@@ -59,10 +59,9 @@ KNOWN_TOOL_NAMES: frozenset[str] = (
 # Tools that let a role act on teammates — used to decide whether to render the
 # topology-aware "Your team" prompt section.
 COORDINATION_TOOL_NAMES: frozenset[str] = frozenset(SCHEDULER_TOOL_FACTORIES)
-# Bulky, reconstructible read-only tool outputs whose OLD results may be cleared
-# in place by ``ToolOutputClearShaper``. Intersected with the real registry so a
-# renamed/removed tool drops out automatically (driven from real names, not a
-# hardcoded library set). Edits/writes and coordination tools are excluded.
+# Reconstructible read-only outputs eligible for ``ToolOutputClearShaper``.
+# Intersect with the registry to track tool renames and removals.
+# Exclude edits, writes, and coordination tools.
 COMPACTABLE_TOOL_NAMES: frozenset[str] = (
     frozenset({"bash", "file_read", "grep", "git_diff"}) & KNOWN_TOOL_NAMES
 )
@@ -73,7 +72,6 @@ TOOL_LIMIT_FIELDS: dict[str, frozenset[str]] = {
     "file_read": frozenset({"max_read_chars"}),
     "grep": frozenset({"max_grep_chars"}),
 }
-
 
 def validate_tool_limits(
     raw: object,
@@ -113,7 +111,6 @@ def validate_tool_limits(
             normalized_kwargs[key] = value
         normalized[tool_name] = normalized_kwargs
     return normalized
-
 
 def build_tools_for_role(
     tool_names: list[str],
@@ -190,7 +187,6 @@ def build_tools_for_role(
             )
     return tools
 
-
 def _instantiate(
     name: str,
     factory: Callable[..., Tool],
@@ -214,7 +210,6 @@ def _instantiate(
         raise ValueError(
             f"tool_limits for '{name}' has unsupported keys {sorted(kwargs)}: {e}"
         ) from e
-
 
 __all__ = [
     "STATELESS_TOOL_FACTORIES",

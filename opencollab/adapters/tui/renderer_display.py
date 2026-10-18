@@ -30,12 +30,8 @@ from opencollab.adapters.tui.theme import (
 )
 from opencollab.application.scheduler_types import roster_display_state
 
-# Ceiling on the HUD body, in terminal rows. The frame carries only in-flight
-# chrome, so it is normally far shorter; this bounds the pathological case (a
-# long streamed answer) so the HUD can never push the input line off the screen
-# it shares with the transcript.
+# Cap the HUD body so a long streamed answer cannot push input off screen.
 MAX_LIVE_BODY_LINES = 12
-
 
 def collapse_rows(value: str) -> str:
     """Fold CR/LF into spaces so one line of chrome stays one terminal row.
@@ -49,7 +45,6 @@ def collapse_rows(value: str) -> str:
         return value
     return " ".join(value.replace("\r\n", "\n").replace("\r", "\n").split("\n"))
 
-
 def collapse_text_rows(text: Text) -> Text:
     """``collapse_rows`` for a styled ``Text``.
 
@@ -60,7 +55,6 @@ def collapse_text_rows(text: Text) -> Text:
     if "\n" not in plain and "\r" not in plain:
         return text
     return Text(collapse_rows(plain), style=text.style)
-
 
 class _LineViewport:
     """A pre-rendered, bottom-aligned view of a taller body.
@@ -81,12 +75,9 @@ class _LineViewport:
             if self.close or index < len(self.lines) - 1:
                 yield Segment.line()
 
-
 class _RendererDisplayMixin:
     """Builds Rich renderables from the TUI's current state."""
 
-    # Neutral terminal chrome with one sparse OC-violet focus color. Warning and
-    # error hues are reserved for exceptional outcomes, not ordinary activity.
     _STYLE_MUTED = MUTED
     _STYLE_SUBTLE = SUBTLE
     _STYLE_ACCENT = BRAND_VIOLET
@@ -96,7 +87,6 @@ class _RendererDisplayMixin:
     _STYLE_HEADING = f"bold {PRIMARY}"
     _STYLE_KEY = SUBTLE
 
-    # Bold marker glyphs for activity lines — a marker reads louder than its sentence.
     _MARK_START = ("▸ ", BRAND_VIOLET)
     _MARK_DONE = ("▪ ", SUCCESS)
     _MARK_FAIL = ("✗ ", f"bold {ERROR}")
@@ -291,8 +281,8 @@ class _RendererDisplayMixin:
         from rich.table import Table
 
         grid = Table.grid(padding=(0, 1))
-        grid.add_column(no_wrap=True)   # narrow ◆ gutter (top-aligned by default)
-        grid.add_column(ratio=1)        # markdown body
+        grid.add_column(no_wrap=True)
+        grid.add_column(ratio=1)
         grid.add_row(Text("◆", style=MARK_HEX), body)
         return grid
 
@@ -334,7 +324,6 @@ class _RendererDisplayMixin:
         """
         if not self._current_text:
             return None
-        # Current streaming chunk — fronted by the brand ◆ gutter marker.
         return self._assistant_block(Markdown(self._current_text))
 
     def _build_display(self) -> Any:
@@ -342,8 +331,7 @@ class _RendererDisplayMixin:
         body = self._build_body()
         status = self._build_status_row()
         if body is None:
-            # Nothing yet — still animate the wait so first-token latency doesn't
-            # look frozen. Route the placeholder through the same pulsing dot.
+            # Keep the pulsing wait indicator until the first content arrives.
             return status or self._thinking or self._new_thinking_bar("Thinking…")
         return Group(body, status) if status is not None else body
 

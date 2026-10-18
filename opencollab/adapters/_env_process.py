@@ -19,10 +19,8 @@ PROCESS_TERM_GRACE_SECONDS = 0.05
 PROCESS_KILL_GRACE_SECONDS = 2.0
 _BACKGROUND_SPAWN_CLEANUPS: set[asyncio.Task[None]] = set()
 
-
 class ProcessCleanupError(RuntimeError):
     """A subprocess group remained alive after bounded cleanup."""
-
 
 class ProcessTimeout(asyncio.TimeoutError):
     """A command was killed at its deadline, carrying what it had written.
@@ -42,7 +40,6 @@ class ProcessTimeout(asyncio.TimeoutError):
     def __init__(self, message: str, partial: ProcessResult | None = None):
         super().__init__(message)
         self.partial = partial
-
 
 @dataclass(slots=True)
 class ProcessResult:
@@ -64,7 +61,6 @@ class ProcessResult:
             self.stderr_dropped_bytes,
             stdout_bytes=self.stdout,
         )
-
 
 async def _read_bounded(
     stream: asyncio.StreamReader | None,
@@ -92,7 +88,6 @@ async def _read_bounded(
     retained = bytes(head + tail)
     return retained, max(0, total - len(retained))
 
-
 def _read_proc_stat(pid: str) -> tuple[int, int, int, bytes]:
     with open(f"/proc/{pid}/stat", "rb") as stat_file:
         value = stat_file.read()
@@ -104,7 +99,6 @@ def _read_proc_stat(pid: str) -> tuple[int, int, int, bytes]:
     if name_end <= name_start or len(fields) < 20 or len(fields[0]) != 1:
         raise ValueError("incomplete process stat")
     return int(value[:name_start]), int(fields[2]), int(fields[19]), fields[0]
-
 
 def _proc_has_complete_visibility() -> bool:
     """Require an unrestricted proc mount in our own PID namespace."""
@@ -143,7 +137,6 @@ def _proc_has_complete_visibility() -> bool:
     except (OSError, ValueError, IndexError, UnicodeError):
         return False
 
-
 def _exited_proc_group_members(group_id: int) -> frozenset[tuple[int, int, int]] | None:
     """Return exited identities after a complete scan, or an unknown/live result."""
     if not _proc_has_complete_visibility():
@@ -179,7 +172,6 @@ def _exited_proc_group_members(group_id: int) -> frozenset[tuple[int, int, int]]
         return None
     return frozenset(members)
 
-
 def _group_exists(group_id: int) -> bool:
     if os.name != "posix":
         return False
@@ -198,7 +190,6 @@ def _group_exists(group_id: int) -> bool:
             return False
     return True
 
-
 async def _wait_for_group_exit(group_id: int, timeout: float) -> bool:
     deadline = asyncio.get_running_loop().time() + timeout
     while _group_exists(group_id):
@@ -206,7 +197,6 @@ async def _wait_for_group_exit(group_id: int, timeout: float) -> bool:
             return False
         await asyncio.sleep(0.01)
     return True
-
 
 async def terminate_process(
     process: asyncio.subprocess.Process,
@@ -235,7 +225,6 @@ async def terminate_process(
         return False
     return await _wait_for_group_exit(group_id, kill_grace)
 
-
 async def _require_process_exit(
     process: asyncio.subprocess.Process,
     message: str,
@@ -249,7 +238,6 @@ async def _require_process_exit(
     )
     if not quiesced:
         raise ProcessCleanupError(message) from cause
-
 
 class ProcessRegistry:
     """Track commands owned by one environment for abort and cleanup."""
@@ -340,7 +328,6 @@ class ProcessRegistry:
     async def abort(self) -> None:
         await await_owned_operation(self._abort_owned(), propagate_cancellation=True)
 
-
 async def _spawn_owned(
     factory: Callable[[], Awaitable[asyncio.subprocess.Process]],
 ) -> asyncio.subprocess.Process:
@@ -356,7 +343,6 @@ async def _spawn_owned(
             ) from None
         raise cancellation
 
-
 def _retain_spawn_cleanup(task: asyncio.Task[None]) -> None:
     """Keep a late spawn reaper alive and consume its terminal result."""
     _BACKGROUND_SPAWN_CLEANUPS.add(task)
@@ -369,7 +355,6 @@ def _retain_spawn_cleanup(task: asyncio.Task[None]) -> None:
             pass
 
     task.add_done_callback(finish)
-
 
 async def _reap_late_spawn(
     spawn_owner: asyncio.Task[asyncio.subprocess.Process],
@@ -387,7 +372,6 @@ async def _reap_late_spawn(
     )
     if registry is not None:
         registry.discard(process)
-
 
 async def _spawn_before_deadline(
     spawn_awaitable: Awaitable[asyncio.subprocess.Process],
@@ -414,7 +398,6 @@ async def _spawn_before_deadline(
         raise asyncio.TimeoutError("subprocess spawn exceeded command timeout")
     return spawn_owner.result()
 
-
 def timed_out_result(
     exc: BaseException, returncode: int, timeout: float
 ) -> ExecResult:
@@ -439,7 +422,6 @@ def timed_out_result(
         result.stderr_dropped_bytes,
         timed_out=True,
     )
-
 
 async def _drain_partial_output(
     stdout_task: asyncio.Task,
@@ -468,7 +450,6 @@ async def _drain_partial_output(
         stdout_dropped_bytes=stdout_dropped,
         stderr_dropped_bytes=stderr_dropped,
     )
-
 
 async def run_process(
     command: str | Sequence[str],
@@ -581,7 +562,6 @@ async def run_process(
             asyncio.gather(stdout_task, stderr_task, return_exceptions=True),
             propagate_cancellation=True,
         )
-
 
 __all__ = [
     "PROCESS_OUTPUT_CAPTURE_BYTES",

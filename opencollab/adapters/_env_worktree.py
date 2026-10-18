@@ -29,7 +29,6 @@ from opencollab.application.exception_notes import add_exception_note
 WORKTREE_GIT_TIMEOUT_SECONDS = 30.0
 _PORCELAIN_STATUS_CHARS = frozenset(" MADRCU?!")
 
-
 def _dirty_path_preview(output: str, *, limit: int = 12) -> str:
     paths: list[str] = []
     for record in filter(None, output.split("\0")):
@@ -46,7 +45,6 @@ def _dirty_path_preview(output: str, *, limit: int = 12) -> str:
     if len(paths) > limit:
         preview += f", ... ({len(paths) - limit} more)"
     return preview
-
 
 class WorktreeEnvironment(Environment):
     """Give one agent an isolated Git worktree or copied plain directory.
@@ -98,15 +96,11 @@ class WorktreeEnvironment(Environment):
         self._source_subdir = ""
         self._repository_root: str | None = None
         self._git_diff_delivery_pending = False
-        # The revision the last ``get_diff`` measured against. Read by the
-        # scheduler's ``worktree_changes`` record so a row states its own
-        # baseline; ``None`` until a diff has been taken, and on the non-Git
-        # copy path, which has no revision to name.
+        # Revision measured by the last ``get_diff`` and recorded in
+        # ``worktree_changes``. ``None`` before a diff or on the non-Git copy path.
         self._diff_base: str | None = None
-        # Where HEAD stood at that same moment, and the commits this worktree
-        # put between the two. Resolved with ``_diff_base`` so the three always
-        # describe one reading. ``_own_commit_count`` is ``None`` when the list
-        # could not be read at all, which is not the same as having made none.
+        # HEAD and own commits from the same reading as ``_diff_base``.
+        # ``_own_commit_count=None`` means the commit list could not be read.
         self._head_commit: str | None = None
         self._own_commits: tuple[str, ...] = ()
         self._own_commit_count: int | None = None

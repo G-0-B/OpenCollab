@@ -18,7 +18,6 @@ _PROFILE_TOOL_LIMITS: contextvars.ContextVar[Mapping[str, Mapping[str, int]] | N
     contextvars.ContextVar("agent_profile_tool_limits", default=None)
 )
 
-
 @dataclass(frozen=True, slots=True)
 class SingleAgentProfile:
     """Fresh per-session configuration for one named agent implementation."""
@@ -35,7 +34,6 @@ class SingleAgentProfile:
         default_factory=lambda: MappingProxyType({})
     )
 
-
 def _single2_tools(value: str | Sequence[Any] | None) -> tuple[Any, ...]:
     from opencollab.adapters.tools.single2 import build_single2_tools
     from opencollab.bootstrap.programmatic import resolve_tools
@@ -48,7 +46,6 @@ def _single2_tools(value: str | Sequence[Any] | None) -> tuple[Any, ...]:
         return tuple(by_name[name] for name in ("file_read", "grep", "git_diff"))
     return resolve_tools(value)
 
-
 def _single2_shaper(llm: LLMPort, summarizer: Any, **policy_options: Any) -> ShaperPort:
     from opencollab.bootstrap.container import _build_default_shaper
 
@@ -58,7 +55,6 @@ def _single2_shaper(llm: LLMPort, summarizer: Any, **policy_options: Any) -> Sha
         preserve_tool_result_tail=True,
         **policy_options,
     )
-
 
 def _build_single2_profile() -> SingleAgentProfile:
     from opencollab.adapters.single2_safety import wrap_single2_safety
@@ -77,11 +73,9 @@ def _build_single2_profile() -> SingleAgentProfile:
         }),
     )
 
-
 _PROFILE_FACTORIES: dict[str, Callable[[], SingleAgentProfile]] = {
     "single2": _build_single2_profile,
 }
-
 
 def resolve_profile_name(name: str | None) -> str:
     """Return the implementation selected by Base or an explicit profile name."""
@@ -95,10 +89,8 @@ def resolve_profile_name(name: str | None) -> str:
         )
     return resolved
 
-
 def resolve_agent_profile(name: str | None) -> SingleAgentProfile:
     """Build an independent session profile using the selected named factory."""
     return _PROFILE_FACTORIES[resolve_profile_name(name)]()
-
 
 __all__ = ["BASE_PROFILE", "SingleAgentProfile", "resolve_agent_profile", "resolve_profile_name"]

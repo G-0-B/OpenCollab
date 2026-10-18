@@ -26,7 +26,6 @@ SECRET_ASSIGNMENT_RE = re.compile(
     r"(?:(['\"])(.*?)\2|([^\s,;'\")\]}]+))"
 )
 
-
 def usage_log_path() -> Path | None:
     raw = os.environ.get("OPENCOLLAB_API_USAGE_LOG")
     if raw is None:
@@ -36,7 +35,6 @@ def usage_log_path() -> Path | None:
         return None
     return Path(stripped).expanduser()
 
-
 def _float_env(name: str, default: float) -> float:
     value = os.environ.get(name)
     if value in (None, ""):
@@ -45,7 +43,6 @@ def _float_env(name: str, default: float) -> float:
         return float(value)
     except ValueError:
         return default
-
 
 def pricing_for_model(model: str | None) -> dict[str, float | str]:
     if model_matches_family(model, "glm-5.2"):
@@ -76,7 +73,6 @@ def pricing_for_model(model: str | None) -> dict[str, float | str]:
         "output_usd_per_mtok": _float_env("OPENCOLLAB_OUTPUT_USD_PER_MTOK", 0.0),
     }
 
-
 def usage_cost_usd(usage: Usage, model: str | None) -> float | None:
     pricing = pricing_for_model(model)
     raw_cached = getattr(usage, "cache_read_tokens", 0)
@@ -106,7 +102,6 @@ def usage_cost_usd(usage: Usage, model: str | None) -> float | None:
         + int(usage.output_tokens or 0) / 1_000_000 * output_price
     )
 
-
 def _safe_base_url(base_url: str | None) -> dict[str, str | None]:
     if not base_url:
         return {"base_url": None, "base_url_host": None}
@@ -123,7 +118,6 @@ def _safe_base_url(base_url: str | None) -> dict[str, str | None]:
         safe = f"{parsed.scheme}://{host_with_port}"
         return {"base_url": safe, "base_url_host": host_with_port}
     return {"base_url": "(unparsed)", "base_url_host": None}
-
 
 def _redact_secrets(text: str) -> str:
     redacted = URL_RE.sub(lambda match: str(_safe_base_url(match.group(0))["base_url"]), text)
@@ -146,14 +140,12 @@ def _redact_secrets(text: str) -> str:
     redacted = SECRET_ASSIGNMENT_RE.sub(_redact_secret_assignment, redacted)
     return redacted
 
-
 def _redact_secret_assignment(match: re.Match[str]) -> str:
     prefix = match.group(1)
     quote = match.group(2)
     if quote:
         return f"{prefix}{quote}[redacted]{quote}"
     return f"{prefix}[redacted]"
-
 
 def _usage_payload(usage: Usage, model: str | None) -> dict[str, Any]:
     raw_cached = getattr(usage, "cache_read_tokens", 0)
@@ -183,7 +175,6 @@ def _usage_payload(usage: Usage, model: str | None) -> dict[str, Any]:
     if raw_usage:
         payload["raw_usage"] = raw_usage
     return payload
-
 
 def build_usage_record(
     *,
@@ -219,8 +210,7 @@ def build_usage_record(
         **_safe_base_url(base_url),
         "usage": _usage_payload(usage, model),
     }
-    # Added, never in place of anything: readers of the six batches already on
-    # disk key off the fields above and must keep working unchanged.
+    # Retain the fields above for readers of existing batch records.
     if transport_timing is not None:
         record["transport_timing"] = transport_timing
     if response is not None:
@@ -232,7 +222,6 @@ def build_usage_record(
         }
     return record
 
-
 def append_usage_record(record: dict[str, Any], path: Path | None = None) -> None:
     target = path if path is not None else usage_log_path()
     if target is None:
@@ -243,7 +232,6 @@ def append_usage_record(record: dict[str, Any], path: Path | None = None) -> Non
             f.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
     except Exception:
         return
-
 
 def record_api_usage(
     *,
@@ -275,7 +263,6 @@ def record_api_usage(
         )
     except Exception:
         return
-
 
 __all__ = [
     "append_usage_record",

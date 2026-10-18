@@ -25,7 +25,6 @@ def _pytest_target(target: str, workspace: str | None, local_filesystem: bool) -
     path = os.path.realpath(path) if local_filesystem else posixpath.normpath(path)
     return path + separator + selector
 
-
 class _ExecutionObserver:
     def __init__(self, environment: Any, owner: BashEvidence):
         self._environment = environment
@@ -49,7 +48,6 @@ class _ExecutionObserver:
             self._owner.record(command, spec, result, workspace_root=workspace, local_filesystem=local_filesystem)
         return result
 
-
 class _ObservedRuntime:
     def __init__(self, runtime: Any, owner: BashEvidence):
         self._runtime = runtime
@@ -58,7 +56,6 @@ class _ObservedRuntime:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._runtime, name)
-
 
 class _WriteObservations:
     def __init__(self, delegate: Any, owner: BashEvidence):
@@ -73,7 +70,6 @@ class _WriteObservations:
             self._delegate.record_write(completed=completed, changed=changed, path=path)
         if completed is True and changed is True:
             self._owner.record_edit(path)
-
 
 class _ObservedEdit:
     """Retain the native write facts and their order relative to test completion."""
@@ -92,7 +88,6 @@ class _ObservedEdit:
         observed = _ObservedRuntime(runtime, self._owner)
         observed.observations = _WriteObservations(getattr(runtime, "observations", None), self._owner)
         return await self._delegate.execute_with_runtime(params, observed)
-
 
 class BashEvidence:
     """Delegate commands unchanged to OC's Bash and retain actual test results."""

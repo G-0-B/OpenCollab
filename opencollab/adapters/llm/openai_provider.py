@@ -53,7 +53,6 @@ _FRAMEWORK_CONTROLLED_THINKING_FIELDS = frozenset({
 })
 _OPENAI_REASONING_MODEL_RE = re.compile(r"^(?:o(?:1|3|4)|gpt-5)(?:$|[-.])")
 
-
 def _validated_thinking_params(
     thinking_params: dict | None,
     *,
@@ -70,11 +69,9 @@ def _validated_thinking_params(
         )
     return dict(thinking_params)
 
-
 def _uses_reasoning_request_fields(model: str) -> bool:
     leaf = model.strip().lower().rsplit("/", 1)[-1]
     return _OPENAI_REASONING_MODEL_RE.match(leaf) is not None
-
 
 def _thinking_request_params(
     model: str, thinking: bool, params: dict | None,
@@ -99,14 +96,12 @@ def _thinking_request_params(
             disabled["thinking"] = {"type": "disabled"}
     return disabled
 
-
 def _openai_tool_choice(choice: NormalizedToolChoice | None) -> Any:
     if choice is None:
         return "auto"
     if choice.mode == "named":
         return {"type": "function", "function": {"name": choice.name}}
     return choice.mode
-
 
 def _keeps_reasoning_content(
     model: str, thinking: bool, thinking_params: dict | None
@@ -125,7 +120,6 @@ def _keeps_reasoning_content(
         if thinking_params.get("enable_thinking") is False:
             return False
     return thinking
-
 
 def _build_request_kwargs(
     model: str,
@@ -156,8 +150,6 @@ def _build_request_kwargs(
     }
     if sampling_supported:
         kwargs["temperature"] = temperature
-    # Nucleus sampling rides along ONLY when explicitly set; when None the key is
-    # omitted so the request is byte-for-byte identical to today's behavior.
     if top_p is not None and sampling_supported:
         kwargs["top_p"] = top_p
     if max_output_tokens is not None:
@@ -186,7 +178,6 @@ def _build_request_kwargs(
         kwargs["extra_body"] = extra_body
     return kwargs
 
-
 # Message keys an OpenAI-compatible endpoint accepts on the request path.
 _REQUEST_MESSAGE_FIELDS = frozenset({
     "role",
@@ -196,7 +187,6 @@ _REQUEST_MESSAGE_FIELDS = frozenset({
     "tool_call_id",
     "name",
 })
-
 
 def _normalize_request_messages(
     messages: list[dict], *, keep_reasoning_content: bool = True
@@ -221,7 +211,6 @@ def _normalize_request_messages(
             item["content"] = " "
         normalized.append(item)
     return normalized
-
 
 async def complete_openai(
     client: Any,
@@ -262,8 +251,7 @@ async def complete_openai(
     if not stream:
 
         async def unstreamed_once() -> Any:
-            # Same call as before, wrapped only so the attempt's start time and
-            # "this one has no first token" are on the record.
+            # Record the non-streamed attempt's start and unavailable first-token timing.
             begin_attempt(streamed=False, unavailable_reason=NOT_STREAMED)
             return await client.chat.completions.create(**kwargs)
 
@@ -278,10 +266,8 @@ async def complete_openai(
     failed_usages: list[Usage | None] = []
 
     async def request_once() -> LLMResponse:
-        # create() and the drain belong to the SAME retry unit. create()
-        # returns as soon as the response headers land, so wrapping only it
-        # would leave a mid-stream break outside the retry — a silent
-        # degradation, since a half-received answer looks like a whole one.
+        # Retry stream creation and draining together. Creation returns at headers,
+        # so its success alone cannot cover a later stream failure.
         state = None
         try:
             state = await _create_and_consume_chat_stream(

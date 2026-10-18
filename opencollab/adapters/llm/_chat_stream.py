@@ -16,34 +16,18 @@ from opencollab.adapters.llm.errors import StreamedUsageUnavailableError, Transi
 from opencollab.adapters.llm.first_token import CHAT_STREAM, begin_attempt, mark_first_token
 from opencollab.adapters.llm.types import LLMResponse
 
-# ---------------------------------------------------------------------------
-# Streaming (opt-in): reassembling one chat completion from its chunks
-# ---------------------------------------------------------------------------
-
-# Extra request keys the streaming path adds, and the ONLY difference between a
-# streamed request and today's. When streaming is off these are never built, so
-# the OpenAI SDK omits both from the JSON body entirely (it drops parameters
-# left at their ``omit`` sentinel) and the request stays byte-for-byte the one
-# the existing runs were produced with. Both keys are also in
-# ``_FRAMEWORK_CONTROLLED_THINKING_FIELDS``, so ``extra_body`` cannot switch
-# streaming on from the side.
+# Streaming request fields stay framework-controlled so ``extra_body``
+# cannot enable streaming. Omit both fields for non-streamed requests.
 _STREAM_REQUEST_FIELDS: dict[str, Any] = {
     "stream": True,
     "stream_options": {"include_usage": True},
 }
 
-# Candidate delta keys carrying chain-of-thought text. The SDK's ``ChoiceDelta``
-# declares neither, but its BaseModel is ``extra="allow"``, so an unknown wire
-# key lands in pydantic extras and ``getattr`` finds it.
-#   reasoning_content — DeepSeek / DashScope compatible mode (verified against
-#                       the configured endpoint) and the spelling the
-#                       non-streaming path already reads
-#   reasoning         — OpenRouter-style gateways
-# The first spelling that carries text wins and is then locked for the turn: a
-# gateway that sends both would otherwise duplicate the whole chain-of-thought,
-# and duplicated reasoning is invisible to a human reader.
+# The SDK retains undeclared delta keys in Pydantic extras. DeepSeek and
+# DashScope use ``reasoning_content``, while OpenRouter uses ``reasoning``.
+# Lock onto the first spelling carrying text to avoid duplicating reasoning
+# when a gateway sends both.
 _REASONING_DELTA_FIELDS: tuple[str, ...] = ("reasoning_content", "reasoning")
-
 
 @dataclass
 class _ToolCallSlot:
@@ -52,7 +36,6 @@ class _ToolCallSlot:
     call_id: str | None = None
     name_parts: list[str] = field(default_factory=list)
     argument_parts: list[str] = field(default_factory=list)
-
 
 @dataclass
 class _ChatStreamState:
@@ -67,13 +50,11 @@ class _ChatStreamState:
     provider_model: str | None = None
     chunk_count: int = 0
 
-
 @dataclass
 class _UsageCarrier:
     """Minimal stand-in for the response object ``_parse_usage`` reads."""
 
     usage: Any = None
-
 
 def _absorb_reasoning_delta(delta: Any, state: _ChatStreamState) -> None:
     fields = (
@@ -88,7 +69,6 @@ def _absorb_reasoning_delta(delta: Any, state: _ChatStreamState) -> None:
             state.reasoning_parts.append(piece)
             return
 
-
 def _absorb_tool_call_delta(call_delta: Any, state: _ChatStreamState) -> None:
     """Merge one tool-call fragment into the slot its ``index`` names.
 
@@ -102,8 +82,7 @@ def _absorb_tool_call_delta(call_delta: Any, state: _ChatStreamState) -> None:
     """
     index = getattr(call_delta, "index", None)
     if not isinstance(index, int) or isinstance(index, bool):
-        # Guessing an owner for an unlabelled fragment is exactly the move that
-        # answers wrongly in silence, so fail loudly instead.
+        # An unlabelled fragment has no safe owner.
         raise TransientProviderError("streamed tool_call delta has no index")
 
     slot = state.tool_slots.get(index)
@@ -127,15 +106,12 @@ def _absorb_tool_call_delta(call_delta: Any, state: _ChatStreamState) -> None:
 
     name = getattr(function, "name", None)
     if isinstance(name, str) and name:
-        # Append rather than assign: the configured endpoint sends the whole
-        # name in the first fragment, but a gateway that splits it would
-        # otherwise leave only the last piece ('apply_patch' -> 'patch').
+        # Gateways may split tool names across fragments, so append each piece.
         slot.name_parts.append(name)
 
     arguments = getattr(function, "arguments", None)
     if isinstance(arguments, str) and arguments:
         slot.argument_parts.append(arguments)
-
 
 def _absorb_chunk(chunk: Any, state: _ChatStreamState) -> None:
     state.chunk_count += 1
@@ -144,23 +120,18 @@ def _absorb_chunk(chunk: Any, state: _ChatStreamState) -> None:
     if state.provider_model is None:
         state.provider_model = _clean_provider_model(model)
 
-    # Usage rides on the final chunk, whose ``choices`` is an EMPTY list — so it
-    # must be read before touching choices, and choices must never be indexed
-    # blindly the way the non-streaming path indexes ``resp.choices[0]``.
+    # The final usage chunk has an empty ``choices`` list. Read usage before
+    # accessing choices.
     usage = getattr(chunk, "usage", None)
     if usage is not None:
         state.usage_object = usage
 
     for choice in getattr(chunk, "choices", None) or ():
-        # ``n`` is never set today, so there is only ever one choice. Filtering
-        # costs nothing and stops a future ``n>1`` from interleaving two
-        # completions into one answer.
+        # Filter by choice index so future ``n>1`` requests cannot interleave answers.
         if getattr(choice, "index", 0) != 0:
             continue
 
-        # finish_reason is not necessarily on the last chunk: with
-        # include_usage the configured endpoint puts it on the second to last.
-        # Record whichever chunk carries it.
+        # With ``include_usage``, finish_reason can precede the final chunk.
         finish = getattr(choice, "finish_reason", None)
         if isinstance(finish, str) and finish:
             state.finish_reason = finish
@@ -181,7 +152,6 @@ def _absorb_chunk(chunk: Any, state: _ChatStreamState) -> None:
 
         for call_delta in getattr(delta, "tool_calls", None) or ():
             _absorb_tool_call_delta(call_delta, state)
-
 
 def _finalize_tool_calls(
     state: _ChatStreamState, tools: list[dict] | None
@@ -231,7 +201,6 @@ def _finalize_tool_calls(
         })
     return finalized
 
-
 def _stream_state_to_response(
     state: _ChatStreamState,
     request_messages: list[dict],
@@ -242,21 +211,16 @@ def _stream_state_to_response(
     if state.chunk_count == 0:
         raise TransientProviderError("chat completion stream produced no chunks")
 
-    # A finish_reason always exists on the non-streaming path, so its absence
-    # here means the stream broke, never that "the turn simply ended". Treating
-    # a truncated turn as a complete one is the worst failure available: the
-    # session's provider-truncation guard reads this field, and a tool call cut
-    # in half would be stored and then actually executed, with nothing in the
-    # trajectory marking it as damaged.
+    # A missing finish_reason indicates a broken stream. The session truncation
+    # guard needs it to stop incomplete tool calls from being stored or executed.
     if state.finish_reason is None:
         raise TransientProviderError(
             "chat completion stream ended without a finish_reason after "
             f"{state.chunk_count} chunks"
         )
 
-    # No content fragments yields None, not "": both behave identically in the
-    # rescue and history rungs, but the trajectory stores this value verbatim
-    # and '"content": ""' is not '"content": null' to an analysis script.
+    # Preserve ``None`` for absent content because trajectories distinguish it
+    # from an empty string.
     content: str | None = "".join(state.content_parts) or None
     refusal: str | None = "".join(state.refusal_parts) or None
     reasoning: str | None = "".join(state.reasoning_parts) or None
@@ -280,16 +244,14 @@ def _stream_state_to_response(
         refusal=refusal,
     )
 
-    # The stream asked for usage explicitly. Not getting it means the budget
-    # meter, the USD ledger and every cross-arm token comparison would run on
-    # ``_parse_usage``'s estimate, flagged only by a boolean nobody reads.
+    # Missing requested usage would replace provider counters with estimates in
+    # budget accounting and the USD ledger.
     if require_reported_usage and response.usage.estimated:
         raise StreamedUsageUnavailableError(
             "chat completion stream reported no usable usage block "
             "(endpoint may not honor stream_options.include_usage)"
         )
     return response
-
 
 async def _next_chunk(iterator: Any, budget: float | None, *, stage: str) -> Any:
     try:
@@ -302,7 +264,6 @@ async def _next_chunk(iterator: Any, budget: float | None, *, stage: str) -> Any
             f"chat completion {stage} timeout {detail}"
         ) from exc
 
-
 async def _close_stream(stream: Any) -> None:
     close = getattr(stream, "close", None)
     if close is None:
@@ -310,7 +271,6 @@ async def _close_stream(stream: Any) -> None:
     result = close()
     if asyncio.iscoroutine(result):
         await result
-
 
 async def _consume_chat_stream(
     stream: Any, first_chunk_timeout: float | None, idle_timeout: float | None
@@ -331,7 +291,6 @@ async def _consume_chat_stream(
             exc.usage = usage
         raise
     return state
-
 
 async def _drain_chat_stream(
     stream: Any, state: _ChatStreamState, first_chunk_timeout: float | None, idle_timeout: float | None
@@ -356,7 +315,6 @@ async def _drain_chat_stream(
             _absorb_chunk(chunk, state)
     finally:
         await _close_stream(stream)
-
 
 async def _create_and_consume_chat_stream(
     client: Any,

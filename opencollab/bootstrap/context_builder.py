@@ -61,15 +61,12 @@ class SpawnConfig:
     permission_policy: PermissionPort | None
     ask_policy: AskUserPort | None = None
     safety_policy_factory: SafetyPolicyFactory | None = None
-    # Global sampling-temperature default; a role may override it (see
-    # ``ContextBuilder.build_agent``). Defaulted so the field stays optional for
-    # the many call sites that construct a ``SpawnConfig`` by keyword.
+    # Global sampling default, with per-role overrides in ``build_agent``.
     temperature: float = DEFAULT_TEMPERATURE
     top_p: float | None = DEFAULT_TOP_P
     max_output_tokens: int = DEFAULT_MAX_TOKENS_PER_STEP
     context_window: int | None = None
-    # Global thinking passthrough; a role may override it (resolved in
-    # ``ContextBuilder.build_agent``). Defaulted (OFF) so the field stays optional.
+    # Global thinking defaults, with per-role overrides in ``build_agent``.
     thinking: bool = DEFAULT_THINKING
     thinking_params: dict | None = None
     wire_protocol: str = "chat_completions"
@@ -86,7 +83,6 @@ class SpawnConfig:
         if self.thinking_params_explicit is None:
             self.thinking_params_explicit = self.thinking_params is not None
         self.thinking_params = dict(DEFAULT_THINKING_PARAMS if self.thinking_params is None else self.thinking_params)
-
 
 class ContextBuilder:
     """Turns a role name into a ready-to-run ``Agent`` + its context plan.
@@ -111,12 +107,9 @@ class ContextBuilder:
     ):
         self._team = team_cfg
         self._cfg = cfg
-        # The skill store is a construction dep: a role's catalog is injected at
-        # plan time and the dispatcher tool is bound to this store. Defaults to
-        # an empty store so call sites that do not wire skills behave as before.
+        # The catalog and dispatcher share this store. Unwired callers get an
+        # empty catalog.
         self._skill_store: SkillStorePort = skill_store or NullSkillStore()
-        # Startup content for the PROJECT layer (e.g. a repo map built by the
-        # composition root). Empty string means "none".
         self._project_context = project_context or None
 
     def build_plan(
@@ -136,11 +129,7 @@ class ContextBuilder:
         """
         role = self._team.role_for(role_name)
         sources: list[ContextSource] = []
-        # A profiled seat is that profile's agent first and this team's role
-        # second: the profile's own system prompt leads, and the role card is
-        # appended to it rather than replacing it. Same order the workflow
-        # runtime uses (``_workflow_runtime_session._profile_prompt``), so a
-        # seat and a workflow agent of the same profile read the same base.
+        # Append the role card after the profile prompt, matching workflow sessions.
         profile = self._profile_for(role)
         if profile is not None:
             sources.append(
@@ -169,9 +158,8 @@ class ContextBuilder:
                     content=team_section,
                 )
             )
-        # Skill catalog — injected only when the role may invoke ``use_skill``
-        # (no invoke permission → no catalog), and only when at least one skill
-        # exists. SYSTEM position folds it into the cache-stable system prefix.
+        # Inject the catalog only for roles allowed to invoke ``use_skill``.
+        # SYSTEM placement keeps it in the cache-stable prefix.
         if "use_skill" in role.tools:
             catalog = _render_skill_catalog(self._skill_store.list_manifests())
             if catalog:
@@ -183,10 +171,8 @@ class ContextBuilder:
                         content=catalog,
                     )
                 )
-        # Project layer: a repo map from the composition root, when present,
-        # ships at startup in the system prompt — SYSTEM so both the lead and
-        # spawn paths pick it up (only spawns seed user-context messages). With
-        # no repo map the layer simply does not appear.
+        # SYSTEM placement shares the project map with lead and spawn paths.
+        # Only spawns seed user-context messages.
         if self._project_context:
             sources.append(
                 ContextSource(
@@ -253,8 +239,7 @@ class ContextBuilder:
         temperature = (
             role.temperature if role.temperature is not None else cfg.temperature
         )
-        # Thinking resolves the same way: an explicit per-role value (incl. an
-        # explicit False) wins; otherwise inherit the global SpawnConfig value.
+        # Preserve explicit per-role False instead of falling back to the default.
         thinking = role.thinking if role.thinking is not None else cfg.thinking
         thinking_params = (
             role.thinking_params
@@ -331,7 +316,6 @@ class ContextBuilder:
             ]
         return "\n".join(lines)
 
-
 def _render_skill_catalog(manifests: tuple[SkillManifest, ...]) -> str:
     """Render the model-facing skill catalog, or ``""`` when there are none.
 
@@ -351,6 +335,5 @@ def _render_skill_catalog(manifests: tuple[SkillManifest, ...]) -> str:
     ]
     lines += [f"- {m.name}: {m.description}" for m in manifests]
     return "\n".join(lines)
-
 
 __all__ = ["ContextBuilder", "SpawnConfig"]

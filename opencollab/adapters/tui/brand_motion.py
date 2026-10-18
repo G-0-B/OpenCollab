@@ -22,30 +22,23 @@ from rich.text import Text
 
 from opencollab.adapters.tui.theme import BRAND_VIOLET, BRAND_VIOLET_RGB
 
-# The canonical OC violet is used on one small moving mark only. Keeping the
-# surrounding chrome neutral makes the exact brand color read without taking
-# over the viewport.
 DOT_COLOR = BRAND_VIOLET_RGB
-DOT_GLYPH = "●"              # ● U+25CF
-MARK_HEX = BRAND_VIOLET       # the static ◆ reply / banner marker — same violet
+DOT_GLYPH = "●"
+MARK_HEX = BRAND_VIOLET
 
-# Breathing model — a slow, smooth brightness pulse (a calm breathe, not a blink).
 PULSE_PERIOD = 1.4     # seconds per full breath (dim → bright → dim)
 PULSE_TROUGH = 0.45    # brightness factor at the dimmest point
 PULSE_PEAK = 1.0       # brightness factor at the brightest point
 
 RGB = tuple[int, int, int]
 
-
 def _shade(color: RGB, k: float) -> RGB:
     """Scale an RGB triple by brightness factor ``k``, clamped to [0, 255]."""
     return tuple(max(0, min(255, round(channel * k))) for channel in color)  # type: ignore[return-value]
 
-
 def _hex(color: RGB) -> str:
     """Rich-style truecolor hex (e.g. ``#7C3AED``) for a Text segment style."""
     return "#{:02X}{:02X}{:02X}".format(*color)
-
 
 def pulse_brightness(elapsed: float) -> float:
     """Eased breathing curve → brightness factor at ``elapsed`` seconds.
@@ -57,11 +50,9 @@ def pulse_brightness(elapsed: float) -> float:
     eased = 0.5 - 0.5 * math.cos(2 * math.pi * phase)     # 0 → 1 → 0
     return PULSE_TROUGH + (PULSE_PEAK - PULSE_TROUGH) * eased
 
-
 def dot_color(elapsed: float) -> RGB:
     """OC-violet dot colour at ``elapsed`` seconds (its brightness breathes)."""
     return _shade(DOT_COLOR, pulse_brightness(elapsed))
-
 
 class PulseDot:
     """One-line Rich renderable: a single gently pulsing brand dot, an optional

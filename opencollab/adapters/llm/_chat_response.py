@@ -16,10 +16,9 @@ from opencollab.adapters.llm.types import (
     usage_to_dict,
 )
 
-# kimi (DashScope OpenAI-compat) sometimes emits tool calls as literal text in
-# ``message.content`` using these special-token delimiters, with
-# finish_reason='stop' and an EMPTY parsed ``tool_calls`` list. Parse the markup
-# back into a normal tool-call response so the intended tool actually runs.
+# Kimi may return special-token tool markup in ``content`` or
+# ``reasoning_content`` with ``finish_reason=stop`` and no parsed tool calls.
+# Recover it so tools run.
 _MARKUP_SECTION_BEGIN = "<|tool_calls_section_begin|>"
 _MARKUP_SECTION_END = "<|tool_calls_section_end|>"
 _MARKUP_CALL_BEGIN = "<|tool_call_begin|>"
@@ -37,10 +36,8 @@ _MARKUP_CALL_RE = re.compile(
     re.DOTALL,
 )
 
-
 _FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 _CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)", re.DOTALL)
-
 
 def _unquoted_markup_text(content: str) -> str:
     """Mask Markdown examples while retaining the original text offsets."""
@@ -60,7 +57,6 @@ def _unquoted_markup_text(content: str) -> str:
         else:
             lines.append(line)
     return _CODE_SPAN_RE.sub(lambda match: " " * len(match[0]), "".join(lines))
-
 
 def _extract_markup_tool_calls(
     content: str,
@@ -119,11 +115,9 @@ def _extract_markup_tool_calls(
     if not tool_calls or section[cursor:].strip():
         return [], content
 
-    # Strip the validated markup section while preserving surrounding prose.
     cleaned = content[:start] + content[end_idx + len(_MARKUP_SECTION_END):]
     cleaned = cleaned.strip()
     return tool_calls, (cleaned or None)
-
 
 def _normalize_tool_arguments(arguments: str | None) -> str:
     raw = (arguments or "").strip()
@@ -136,11 +130,9 @@ def _normalize_tool_arguments(arguments: str | None) -> str:
         return candidate
     return raw
 
-
 def _clean_provider_model(value: Any) -> str | None:
     """The provider-reported model id, or ``None`` when absent/blank."""
     return value if isinstance(value, str) and value else None
-
 
 def _build_chat_response(
     content: str | None,
@@ -169,11 +161,6 @@ def _build_chat_response(
     """
     use_refusal = not (content or "").strip() and isinstance(refusal, str) and bool(refusal.strip())
 
-    # kimi (DashScope compat) sometimes emits tool calls as literal special-token
-    # markup instead of structured ``tool_calls`` — in ``content`` or, under
-    # thinking mode, inside ``reasoning_content`` (finish_reason='stop', empty
-    # ``message.tool_calls``). Recover them so the tool actually runs instead of
-    # being treated as a prose stop.
     markup_recovered = False
     if not tool_calls and not use_refusal:
         markup_calls, cleaned = _extract_markup_tool_calls(content)
@@ -193,8 +180,7 @@ def _build_chat_response(
         content = refusal
 
     usage = _parse_usage(usage_source, request_messages, usage_message, tools)
-    # Surface the P6 recovery as an observability counter (summed up the chain
-    # into the run metrics) without altering the recovered response itself.
+    # Record recovered tool markup in run metrics.
     usage.markup_recovered = 1 if markup_recovered else 0
     # Thinking providers (e.g. kimi-k2.6 with ``enable_thinking``) put the
     # chain-of-thought in ``reasoning_content`` and the answer in ``content``.
@@ -209,7 +195,6 @@ def _build_chat_response(
         reasoning=reasoning,
         provider_model=provider_model,
     )
-
 
 def _parse_response(
     resp: Any, request_messages: list[dict], tools: list[dict] | None = None
@@ -251,7 +236,6 @@ def _parse_response(
         tools=tools,
         refusal=getattr(message, "refusal", None),
     )
-
 
 def _parse_usage(
     resp: Any,
@@ -314,7 +298,6 @@ def _parse_usage(
         raw_usage=raw_usage,
     )
 
-
 def _reported_chat_usage(usage: Any) -> Usage | None:
     """Retain reported counters from an interrupted attempt without estimating."""
     raw = usage_to_dict(usage)
@@ -331,7 +314,6 @@ def _reported_chat_usage(usage: Any) -> Usage | None:
         raw_usage=raw,
     )
 
-
 def _usage_int(source: Any, key: str) -> int:
     if not isinstance(source, dict):
         return 0
@@ -343,7 +325,6 @@ def _usage_int(source: Any, key: str) -> int:
     except (TypeError, ValueError, OverflowError):
         return 0
     return max(0, parsed)
-
 
 def _estimate_output_tokens(message: Any) -> int:
     """Estimate visible reply text and the supported structured output fields."""

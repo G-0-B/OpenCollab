@@ -18,5 +18,4 @@ class NullSkillStore:
     def get_body(self, name: str) -> str | None:
         return None
 
-
 __all__ = ["NullSkillStore"]

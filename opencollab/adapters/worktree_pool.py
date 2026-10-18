@@ -38,10 +38,8 @@ logger = logging.getLogger(__name__)
 # full of files no agent wrote.
 CONTAINER_WORKTREE_ROOT = "/tmp/opencollab-worktrees"
 
-
 async def _finish_cleanup(operation):
     return await await_owned_operation(operation, propagate_cancellation=True)
-
 
 class WorktreePool:
     """Lends out worktree-isolated environments and tracks them for cleanup.

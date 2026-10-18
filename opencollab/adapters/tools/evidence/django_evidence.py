@@ -15,7 +15,6 @@ _RESULT = re.compile(
 )
 _OK = re.compile(r"OK(?: \((?:skipped=\d+|expected failures=\d+)(?:, (?:skipped=\d+|expected failures=\d+))*\))?")
 
-
 def is_django_runner(runner: str) -> bool:
     try:
         parts = shlex.split(runner)
@@ -27,10 +26,8 @@ def is_django_runner(runner: str) -> bool:
         and parts[1] in {"tests/runtests.py", "./tests/runtests.py"}
     )
 
-
 class InvalidDjangoTargetError(ValueError):
     """The requested selector cannot be represented by one Django label."""
-
 
 def django_target(target: str) -> str:
     if target in {"", ".", "./", "tests", "tests/", "./tests", "./tests/"}:
@@ -45,7 +42,6 @@ def django_target(target: str) -> str:
     if _LABEL.fullmatch(label) is None:
         raise InvalidDjangoTargetError("Django target must be one dotted test label or repository test path")
     return label
-
 
 def django_evidence(output: str) -> tuple[dict[str, int], list[str], list[str], int | None, bool]:
     """Require one complete unittest run, not just a successful exit status."""
@@ -81,7 +77,6 @@ def django_evidence(output: str) -> tuple[dict[str, int], list[str], list[str], 
         and not counts["error"]
     )
     return counts, passed, failed, total, valid
-
 
 def django_has_pass_proof(target: str, output: str) -> bool:
     try:

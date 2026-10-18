@@ -82,15 +82,12 @@ class SpawnAgentTool(Tool):
                 f"can act on it then."
             )
         except TeamPrebuiltError as exc:
-            # A fixed roster is a fact about the team, not a fault in the call.
-            # The scheduler already wrote the attempt down and phrased the reply
-            # for the model; pass it through unchanged rather than wrapping it in
-            # an error shape that reads as a malfunction.
+            # The scheduler already records and explains fixed-roster attempts.
+            # Preserve its reply as a normal tool result.
             return str(exc)
         # Defer with the child aid so the deferral path can register a pending
         # row keyed by this tool call; the child's result fills it on completion.
         return DeferredCall(ref=aid)
-
 
 class SpawnWithReviewTool(Tool):
     """Tool for coding tasks requiring mandatory code review."""
@@ -144,6 +141,5 @@ class SpawnWithReviewTool(Tool):
         return await self._scheduler.spawn_with_review(
             parent_aid, task, context, max_iter
         )
-
 
 __all__ = ["SpawnAgentTool", "SpawnWithReviewTool"]

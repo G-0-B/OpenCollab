@@ -15,7 +15,6 @@ def require_positive_int(value: int, name: str) -> int:
         raise ValueError(f"{name} must be a positive integer")
     return value
 
-
 def truncate(text: str, max_chars: int, label: str | None = None) -> str:
     """Keep head + tail, drop the middle to avoid context explosion."""
     require_positive_int(max_chars, "max_chars")
@@ -41,6 +40,5 @@ def truncate(text: str, max_chars: int, label: str | None = None) -> str:
     result = text[:head] + marker + suffix
     assert len(result) <= max_chars
     return result
-
 
 __all__ = ["require_positive_int", "truncate"]

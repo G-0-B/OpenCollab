@@ -21,7 +21,6 @@ def _output_text(item: dict[str, Any]) -> str:
             parts.append(content["refusal"])
     return "".join(parts)
 
-
 def _reasoning_text(item: dict[str, Any]) -> str:
     if item.get("type") != "reasoning":
         return ""
@@ -30,7 +29,6 @@ def _reasoning_text(item: dict[str, Any]) -> str:
         if isinstance(summary, dict) and isinstance(summary.get("text"), str):
             parts.append(summary["text"])
     return "\n".join(parts)
-
 
 def _semantic_output_item(item: dict[str, Any]) -> tuple[Any, ...]:
     """Return the stable meaning shared by streamed and terminal output items."""
@@ -74,7 +72,6 @@ def _semantic_output_item(item: dict[str, Any]) -> tuple[Any, ...]:
         return item_type, tuple(summaries)
     raise ResponsesProtocolError("response output contains an unsupported item")
 
-
 def _output_items_agree(streamed: dict[str, Any], terminal: dict[str, Any]) -> bool:
     if _semantic_output_item(streamed) != _semantic_output_item(terminal):
         return False
@@ -96,7 +93,6 @@ def _output_items_agree(streamed: dict[str, Any], terminal: dict[str, Any]) -> b
         if value is not None and not isinstance(value, str):
             raise ResponsesProtocolError("reasoning output contains invalid encrypted content")
     return streamed_encrypted is None or terminal_encrypted is None or streamed_encrypted == terminal_encrypted
-
 
 def _merge_terminal_projection(
     streamed: dict[str, Any],

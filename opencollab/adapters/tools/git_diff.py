@@ -29,10 +29,8 @@ MAX_DIFF_CHARS = 8_000
 MAX_STATUS_CHARS = 2_000
 MAX_UNTRACKED_DIFF_FILES = 50
 
-
 class _GitConfigurationRejected(Exception):
     pass
-
 
 async def _read_git(environment: Any, command: str) -> Any:
     git, guard = _git_command_and_config_guard()
@@ -40,7 +38,6 @@ async def _read_git(environment: Any, command: str) -> Any:
     if result.returncode == 125:
         raise _GitConfigurationRejected(result.stderr or result.stdout or "repository configuration rejected")
     return result
-
 
 def _captured_git_output(result: Any) -> str:
     output = result.stdout.strip()
@@ -52,7 +49,6 @@ def _captured_git_output(result: Any) -> str:
             "The displayed output is incomplete.\n\n" + output
         )
     return output
-
 
 class GitDiffTool(Tool):
     """Show the current working-tree diff (and status) vs HEAD.

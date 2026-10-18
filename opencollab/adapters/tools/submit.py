@@ -27,7 +27,6 @@ from opencollab.application.tool_execution import ToolRuntime
 
 MAX_SUMMARY_CHARS = 4000
 
-
 class SubmitTool(Tool):
     """End this agent's turn and record what it is handing over."""
 
@@ -80,6 +79,5 @@ class SubmitTool(Tool):
         if runtime is not None and runtime.observations is not None:
             runtime.observations.record_submission(self.submitted_summary)
         return "Submitted. Your turn ends here."
-
 
 __all__ = ["MAX_SUMMARY_CHARS", "SubmitTool"]

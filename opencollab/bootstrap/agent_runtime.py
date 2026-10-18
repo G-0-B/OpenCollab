@@ -25,7 +25,6 @@ from opencollab.domain.agent import Agent
 class AgentRuntimeLifecycleError(RuntimeError):
     """Agent-owned work could not reach a proven terminal state."""
 
-
 @dataclass(slots=True)
 class AgentRuntimeResult:
     output: str | None
@@ -42,11 +41,9 @@ class AgentRuntimeResult:
     persistence_errors: tuple[str, ...]
     observation_errors: tuple[str, ...] = ()
 
-
 async def _run_session(session: Any, prompt: str) -> str:
     await session.add_user_message(prompt)
     return await session.run_loop()
-
 
 async def run_environment_hook(environment: Any, name: str, timeout: float) -> bool:
     """Run one environment hook with bounded cancellation and honest failure."""
@@ -72,7 +69,6 @@ async def run_environment_hook(environment: Any, name: str, timeout: float) -> b
         return False
     return True
 
-
 async def revoke_and_abort_environment(environment: Any, timeout: float) -> bool:
     revoke = getattr(environment, "revoke", None)
     revoked = True
@@ -84,7 +80,6 @@ async def revoke_and_abort_environment(environment: Any, timeout: float) -> bool
     aborted = await run_environment_hook(environment, "abort", timeout)
     return revoked and aborted
 
-
 async def _wait_session_tasks(session: Any, timeout: float) -> bool:
     pending = {
         task
@@ -94,7 +89,6 @@ async def _wait_session_tasks(session: Any, timeout: float) -> bool:
     if pending:
         _done, pending = await asyncio.wait(pending, timeout=timeout)
     return not pending and not session.pending_cleanup_tasks
-
 
 async def _terminate_session_tasks(session: Any, timeout: float) -> bool:
     """Cancel overdue session owners and wait one bounded phase for quiescence."""
@@ -111,7 +105,6 @@ async def _terminate_session_tasks(session: Any, timeout: float) -> bool:
     return not pending and not any(
         not task.done() for task in session.pending_cleanup_tasks
     )
-
 
 async def _finalize_session(
     session: Any,
@@ -148,7 +141,6 @@ async def _finalize_session(
         and not session.persistence_errors
     )
 
-
 def _result(
     session: Any,
     *,
@@ -173,7 +165,6 @@ def _result(
         persistence_errors=tuple(str(error) for error in session.persistence_errors),
         observation_errors=getattr(getattr(session, "runner", None), "observation_errors", ()),
     )
-
 
 @_with_native_retry_budget_scope
 async def run_agent(
@@ -352,7 +343,6 @@ async def run_agent(
         elif not finalization_succeeded:
             await finalize_with_retry()
         raise
-
 
 __all__ = [
     "AgentRuntimeLifecycleError",

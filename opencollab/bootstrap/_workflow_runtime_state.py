@@ -15,7 +15,6 @@ MAX_WORKFLOW_DIRECTORY_ENTRIES = 4_096
 MAX_WORKFLOW_FILES = 256
 MAX_WORKFLOW_SOURCE_BYTES = 4 * 1024 * 1024
 
-
 @dataclass(frozen=True, slots=True)
 class WorkflowRuntimeResult:
     """Internal output plus live metrics from one hardened workflow run."""

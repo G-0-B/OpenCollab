@@ -16,7 +16,6 @@ from opencollab.bootstrap.config import accepted_api_key_envs, missing_api_key
 def missing_api_key_for(provider: str | None, api_key: str | None, base_url: str | None = None) -> bool:
     return missing_api_key(provider, api_key, base_url)
 
-
 def print_missing_key_hint(
     console: Console, provider: str | None, base_url: str | None = None
 ) -> None:
@@ -29,15 +28,12 @@ def print_missing_key_hint(
         f"[red]Missing API key[/red]: pass [bold]--api-key[/bold] or set [bold]{accepted}[/bold]."
     )
 
-
 def resolve_config(workspace: str, model: str | None, provider: str | None,
                    api_key: str | None, base_url: str | None, budget: int | None) -> dict:
     """Merge CLI args with .env defaults. CLI args take precedence."""
     from opencollab.bootstrap.config import build_config
 
-    # ``build_config`` returns a validated ``OpenCollabConfig`` (budget is
-    # ``int`` with ``ge=1``), so ``model_dump`` already yields correctly-typed
-    # values. ``filter_messages`` remains threaded as a compatibility input.
+    # ``filter_messages`` remains a compatibility input.
     try:
         cfg = build_config(
             workspace,

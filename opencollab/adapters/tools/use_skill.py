@@ -61,8 +61,6 @@ class UseSkillTool(Tool):
                     f"Unknown skill '{name}'. No skills are available in the catalog."
                 )
             return f"Unknown skill '{name}'. Available skills: {available}"
-        # Option A: the body IS the tool result — tail-appended, cache-friendly.
         return body
-
 
 __all__ = ["UseSkillTool"]

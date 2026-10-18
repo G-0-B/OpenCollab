@@ -15,11 +15,8 @@ from __future__ import annotations
 
 import re
 
-# One HEAD reflog entry as ``git log -g --format=%H%x09%P%x09%gs`` writes it:
-# the commit HEAD moved to, its parents, and the message saying how it got there. Object ids
-# are 40 hexadecimal characters in a SHA-1 repository and 64 in a SHA-256 one;
-# a rule that recognised only the first would read every entry of a SHA-256
-# repository as unparseable and silently report the creation base forever.
+# ``git log -g --format=%H%x09%P%x09%gs`` emits HEAD, parents, and action.
+# Object ids have 40 characters in SHA-1 repositories and 64 in SHA-256.
 REFLOG_ENTRY_RE = re.compile(r"^([0-9a-f]{40}|[0-9a-f]{64})\t([0-9a-f ]*)\t(.*)$")
 # Reflog messages for a commit this worktree made itself: ``commit: <subject>``,
 # and the parenthesised variants ``commit (initial)``, ``commit (amend)``,
@@ -28,24 +25,18 @@ OWN_COMMIT_REFLOG_PREFIX = ("commit", "cherry-pick:", "revert:")
 # Pull prefixes the same rebase lifecycle with its command line. Try bare pull
 # first, then its arguments lazily, before any markers in the commit subject.
 REBASE_REFLOG_RE = re.compile(r"^(?:rebase(?: -i)?|pull|pull [^\r\n]*?) \(([^)]+)\):")
-# How many of a worktree's own commits are listed to a caller. The true total is
-# reported separately, so a capped list never reads as a shorter one.
+# The capped list has a separately reported uncapped total.
 OWN_COMMIT_LIMIT = 64
-# The old value ``git update-ref`` reads as "this ref must not exist yet", which
-# is how a worktree branch is claimed without a check-then-write gap. The
-# all-zero object id means the same thing but has to be as long as the
-# repository's hash, so it silently stops being a valid old value in a SHA-256
-# repository; the empty string says it in a way no hash length can invalidate.
+# An empty old value atomically claims an absent ref with ``git update-ref``.
+# Unlike an all-zero object id, it works with every repository hash length.
 ABSENT_REF_OLD_VALUE = ""
 BRANCH_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,180}$")
-
 
 def validate_worktree_branch(name: str) -> str:
     """Return ``name`` if it is one safe Git ref component, else raise."""
     if not isinstance(name, str) or BRANCH_NAME_RE.fullmatch(name) is None:
         raise ValueError("worktree branch name must be one safe Git ref component")
     return name
-
 
 def _previous_work_entry(
     entries: list[tuple[str, str, str]], index: int, commit: str,
@@ -70,7 +61,6 @@ def _previous_work_entry(
             continue
         return None
     return None
-
 
 def select_diff_base(reflog: str, *, fallback: str) -> str:
     """The external history this worktree's current work grew from, or ``fallback``.
@@ -132,7 +122,6 @@ def select_diff_base(reflog: str, *, fallback: str) -> str:
             continue
         return commit
     return fallback
-
 
 def parse_own_commits(rev_list: str) -> tuple[tuple[str, ...], int]:
     """Split ``git rev-list <base>..HEAD`` output into a capped list and its total.

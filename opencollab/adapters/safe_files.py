@@ -33,10 +33,8 @@ from opencollab.adapters.safe_paths import canonicalize_system_path
 
 _LOCK_TIMEOUT_SECONDS = 10.0
 
-
 def _absolute(path: str | os.PathLike[str]) -> Path:
     return canonicalize_system_path(path)
-
 
 def _check_directory_components(path: str | os.PathLike[str], *, create: bool) -> None:
     target = _absolute(path)
@@ -57,11 +55,9 @@ def _check_directory_components(path: str | os.PathLike[str], *, create: bool) -
         if not stat.S_ISDIR(info.st_mode):
             raise OSError(f"directory is not a real directory: {current}")
 
-
 def ensure_directory_no_symlinks(path: str | os.PathLike[str]) -> None:
     """Create a directory after one static check of every existing component."""
     _check_directory_components(path, create=True)
-
 
 def _open_regular_read(path: str | os.PathLike[str]) -> int:
     """Open an existing regular file with the path-based read protections."""
@@ -78,7 +74,6 @@ def _open_regular_read(path: str | os.PathLike[str]) -> int:
     except BaseException:
         os.close(fd)
         raise
-
 
 def read_regular_bytes(
     path: str | os.PathLike[str],
@@ -108,7 +103,6 @@ def read_regular_bytes(
     finally:
         os.close(fd)
 
-
 def read_regular_text(
     path: str | os.PathLike[str],
     *,
@@ -116,7 +110,6 @@ def read_regular_text(
     encoding: str = "utf-8",
 ) -> str:
     return read_regular_bytes(path, max_bytes=max_bytes).decode(encoding)
-
 
 def read_regular_text_range(
     path: str | os.PathLike[str],
@@ -240,7 +233,6 @@ def read_regular_text_range(
         if fd >= 0:
             os.close(fd)
 
-
 def open_regular_text_append(
     path: str | os.PathLike[str],
     *,
@@ -263,7 +255,6 @@ def open_regular_text_append(
         os.close(fd)
         raise OSError(f"append target is not a regular file: {target}")
     return os.fdopen(fd, "a", encoding="utf-8")
-
 
 def acquire_exclusive_lock(
     fd: int,
@@ -290,10 +281,8 @@ def acquire_exclusive_lock(
                 raise TimeoutError(f"timed out acquiring {context}") from exc
             time.sleep(0.01)
 
-
 def _acquire_append_lock(fd: int) -> None:
     acquire_exclusive_lock(fd, context="append lock")
-
 
 def write_locked_text(handle: TextIO, text: str) -> None:
     fd = handle.fileno()
@@ -308,11 +297,9 @@ def write_locked_text(handle: TextIO, text: str) -> None:
     finally:
         fcntl.flock(fd, fcntl.LOCK_UN)
 
-
 def append_regular_text(path: str | os.PathLike[str], text: str) -> None:
     with open_regular_text_append(path) as handle:
         write_locked_text(handle, text)
-
 
 def _current_regular(path: Path, *, context: str) -> os.stat_result | None:
     try:
@@ -322,7 +309,6 @@ def _current_regular(path: Path, *, context: str) -> os.stat_result | None:
     if not stat.S_ISREG(info.st_mode):
         raise OSError(f"{context} target is not a regular file: {path}")
     return info
-
 
 def _fsync_directory(path: Path) -> None:
     fd = os.open(
@@ -335,7 +321,6 @@ def _fsync_directory(path: Path) -> None:
         os.fsync(fd)
     finally:
         os.close(fd)
-
 
 def write_regular_file_atomic(
     path: str | os.PathLike[str],
@@ -384,7 +369,6 @@ def write_regular_file_atomic(
         except FileNotFoundError:
             pass
 
-
 def write_regular_bytes_atomic(
     path: str | os.PathLike[str],
     payload: bytes,
@@ -405,7 +389,6 @@ def write_regular_bytes_atomic(
         create_only=False,
     )
 
-
 def create_regular_bytes_atomic(
     path: str | os.PathLike[str],
     payload: bytes,
@@ -424,7 +407,6 @@ def create_regular_bytes_atomic(
         create_only=True,
     )
 
-
 def unlink_regular_file_durable(path: str | os.PathLike[str]) -> bool:
     target = _absolute(path)
     _check_directory_components(target.parent, create=False)
@@ -434,7 +416,6 @@ def unlink_regular_file_durable(path: str | os.PathLike[str]) -> bool:
     os.unlink(target)
     _fsync_directory(target.parent)
     return True
-
 
 __all__ = [
     "acquire_exclusive_lock",

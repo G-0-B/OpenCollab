@@ -29,16 +29,13 @@ _AUTOSAVE_JOURNAL_SUFFIX = ".journal"
 _AUTOSAVE_JOURNAL_LOCK_SUFFIX = ".lock"
 _JOURNAL_LOCK_TIMEOUT_SECONDS = 10.0
 
-
 @dataclass
 class _JournalLockEntry:
     lock: threading.Lock = field(default_factory=threading.Lock)
     users: int = 0
 
-
 _JOURNAL_LOCKS: dict[str, _JournalLockEntry] = {}
 _JOURNAL_LOCKS_GUARD = threading.Lock()
-
 
 @contextmanager
 def _journal_thread_lock(path: str) -> Iterator[None]:
@@ -60,7 +57,6 @@ def _journal_thread_lock(path: str) -> Iterator[None]:
             if entry.users == 0 and _JOURNAL_LOCKS.get(key) is entry:
                 del _JOURNAL_LOCKS[key]
 
-
 def _has_journal_sidecars(path: str) -> bool:
     """Check sidecar absence without treating inaccessible paths as missing."""
     journal_path = f"{path}{_AUTOSAVE_JOURNAL_SUFFIX}"
@@ -71,7 +67,6 @@ def _has_journal_sidecars(path: str) -> bool:
             continue
         return True
     return False
-
 
 @contextmanager
 def _journal_operation_lock(path: str, *, reading: bool = False) -> Iterator[bool]:
@@ -117,7 +112,6 @@ def _journal_operation_lock(path: str, *, reading: bool = False) -> Iterator[boo
             finally:
                 fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
-
 class _BoundedUTF8Writer:
     """Text writer used by ``json.dump`` with an exact UTF-8 byte budget."""
 
@@ -145,7 +139,6 @@ class _BoundedUTF8Writer:
                 )
             self._bytes_written = next_size
         return len(text)
-
 
 class SessionStore:
     allowed_roles = {"system", "user", "assistant", "tool"}

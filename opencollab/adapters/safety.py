@@ -36,14 +36,12 @@ BLOCKED_PATTERNS = [
 RISKY_RE = [re.compile(p) for p in RISKY_PATTERNS]
 BLOCKED_RE = [re.compile(p) for p in BLOCKED_PATTERNS]
 
-
 _GIT_VALUE_OPTIONS = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"}
 _GIT_FLAG_OPTIONS = {
     "-p", "-P", "--paginate", "--no-pager", "--bare", "--no-replace-objects",
     "--no-lazy-fetch", "--no-optional-locks", "--literal-pathspecs",
     "--glob-pathspecs", "--noglob-pathspecs", "--icase-pathspecs",
 }
-
 
 def _git_risky_after_global_options(command: str) -> bool:
     try:
@@ -88,7 +86,6 @@ def _git_risky_after_global_options(command: str) -> bool:
         if any(pattern.search(normalized) for pattern in RISKY_RE):
             return True
     return False
-
 
 class SandboxInterceptor:
     """Transparent safety layer for all environment operations.

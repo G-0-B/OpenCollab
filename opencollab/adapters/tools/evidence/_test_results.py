@@ -29,14 +29,12 @@ _PYTEST_MISSING_RE = re.compile(
     r"No module named pytest"
 )
 
-
 def _normalize_verification_target(target: str) -> str:
     path, separator, selectors = target.partition("::")
     normalized_path = posixpath.normpath(path)
     if separator:
         return f"{normalized_path}::{selectors}"
     return normalized_path
-
 
 def _verification_target_covers(parent: str, child: str) -> bool:
     normalized_parent = _normalize_verification_target(parent)
@@ -51,15 +49,12 @@ def _verification_target_covers(parent: str, child: str) -> bool:
     child_path, _, _ = normalized_child.partition("::")
     return not parent_separator and child_path.startswith(f"{parent_path}/")
 
-
 def _verification_targets_overlap(left: str, right: str) -> bool:
     return _verification_target_covers(left, right) or _verification_target_covers(right, left)
-
 
 _ENV_ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*", re.DOTALL)
 _PYTHON_EXECUTABLE_RE = re.compile(r"(?:python(?:\d+(?:\.\d+)*)?|pypy\d*)")
 _PYTHON_FLAG_OPTIONS = frozenset({"-B", "-E", "-I", "-O", "-OO", "-P", "-q", "-s", "-S", "-u", "-v"})
-
 
 def _python_invokes_pytest(parts: list[str]) -> bool:
     executable = parts[0].rsplit("/", 1)[-1]
@@ -82,7 +77,6 @@ def _python_invokes_pytest(parts: list[str]) -> bool:
         return False
     return False
 
-
 def _parts_invoke_pytest(parts: list[str], *, depth: int = 0) -> bool:
     """Recognize supported direct wrappers without accepting shell interpreters."""
     if not parts or depth > 3:
@@ -104,7 +98,6 @@ def _parts_invoke_pytest(parts: list[str], *, depth: int = 0) -> bool:
         return _parts_invoke_pytest(parts[index:], depth=depth + 1)
     return executable in {"coverage", "coverage3"} and len(parts) >= 4 and parts[1:4] == ["run", "-m", "pytest"]
 
-
 def _is_pytest_runner(runner: str) -> bool:
     """Whether ``runner`` directly invokes pytest (so pytest flags are safe)."""
     if any(token in runner for token in ("\n", "\r", ";", "&", "|", "<", ">", "`", "$(")):
@@ -115,11 +108,9 @@ def _is_pytest_runner(runner: str) -> bool:
         return False
     return _parts_invoke_pytest(parts)
 
-
 def _pytest_no_tests(returncode: int, output: str) -> bool:
     """Whether pytest ran successfully enough to report an empty selection."""
     return returncode == 5 and "no tests ran" in output.lower()
-
 
 def _summary_lines(output: str) -> list[str]:
     """Return every complete pytest result summary in emission order."""
@@ -130,12 +121,10 @@ def _summary_lines(output: str) -> list[str]:
             summaries.append(candidate)
     return summaries
 
-
 def _summary_line(output: str) -> str | None:
     """The last complete pytest result summary, with or without ``====``."""
     summaries = _summary_lines(output)
     return summaries[-1] if summaries else None
-
 
 def _parse_counts(summary: str | None) -> tuple[dict[str, int], int]:
     """Parse the summary line into (decision-relevant counts, warnings).
@@ -157,7 +146,6 @@ def _parse_counts(summary: str | None) -> tuple[dict[str, int], int]:
         key = token.rstrip("s") if token.startswith("error") else token
         counts[key] = counts.get(key, 0) + int(m.group(1))
     return counts, warnings
-
 
 def _target_has_pass_proof(target: str, passed_lines: list[str]) -> bool:
     """Whether pytest's per-test summary proves the requested target ran."""
@@ -184,7 +172,6 @@ def _target_has_pass_proof(target: str, passed_lines: list[str]) -> bool:
         ):
             return True
     return False
-
 
 def has_pass_evidence(
     returncode: int,
@@ -231,7 +218,6 @@ def has_pass_evidence(
     # output can authorize a GREEN verdict. A bare exit code is forgeable via
     # no-op commands and zero-test modes.
     return False
-
 
 def _passed_tests(output: str) -> list[str]:
     """Node-ids reported as PASSED in the -rA short summary (default pytest)."""

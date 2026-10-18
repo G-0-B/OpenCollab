@@ -60,7 +60,6 @@ from opencollab.domain.identity import role_storage_slug, validate_role_identity
 class SnapshotSessionError(RuntimeError):
     """An independent session snapshot could not be created safely."""
 
-
 def validate_responses_model_controls(
     model: str | None,
     *,
@@ -91,7 +90,6 @@ def validate_responses_model_controls(
             f"role {role_name!r} model {model!r} does not support Responses reasoning_effort"
         )
 
-
 def _team_budget_guard(scheduler: SchedulerPort | None) -> Callable[[], bool] | None:
     """A zero-arg predicate over the scheduler's aggregate budget, or ``None``.
 
@@ -101,7 +99,6 @@ def _team_budget_guard(scheduler: SchedulerPort | None) -> Callable[[], bool] | 
     if scheduler is None:
         return None
     return lambda: scheduler.budget_exhausted
-
 
 def agent_save_path(save_dir: str, aid: int, role: str) -> str:
     """Per-agent transcript path within a run folder: ``agent_<aid>_<role>.json``."""
@@ -116,23 +113,15 @@ def agent_save_path(save_dir: str, aid: int, role: str) -> str:
         raise ValueError("agent transcript path escapes run directory")
     return path
 
-
-# A workflow run folder groups one workflow's per-role conversation transcripts
-# (``<seq>_<role>.json``) the way a team run folder groups ``agent_<aid>_<role>``
-# transcripts. Its orchestration signals (phases, logs, step metrics) go to one
-# ``orchestration.jsonl``; a ``workflow.json`` manifest ties the folder together.
+# Workflow folders hold ``<seq>_<role>.json`` transcripts,
+# ``orchestration.jsonl`` signals, and a ``workflow.json`` manifest.
 ORCHESTRATION_FILENAME = "orchestration.jsonl"
 WORKFLOW_MANIFEST_FILENAME = "workflow.json"
 
-# Prefix on a workflow run folder's name so ``ls .opencollab/sessions/`` tells a
-# workflow run (``wf-<timestamp>``) apart from a team run (``<timestamp>``) at a
-# glance — both share the same parent dir. The manifest filename
-# (``workflow.json`` vs ``team.json``) is the in-folder discriminator.
+# The ``wf-`` prefix distinguishes workflow folders from team folders.
 WORKFLOW_RUN_PREFIX = "wf-"
 
-# Longest slug kept from an agent label when naming its transcript file.
 _MAX_LABEL_SLUG_LEN = 40
-
 
 def slug_label(label: str | None) -> str:
     """Filename-safe slug from an agent label (``coder:s1r2`` -> ``coder-s1r2``).
@@ -147,7 +136,6 @@ def slug_label(label: str | None) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-._")
     return cleaned[:_MAX_LABEL_SLUG_LEN]
 
-
 def workflow_transcript_path(save_dir: str, seq: int, label: str | None) -> str:
     """Per-session transcript path within a workflow run folder.
 
@@ -161,7 +149,6 @@ def workflow_transcript_path(save_dir: str, seq: int, label: str | None) -> str:
     slug = slug_label(label)
     stem = f"{seq:03d}_{slug}" if slug else f"{seq:03d}"
     return os.path.join(save_dir, f"{stem}.json")
-
 
 def make_run_dir(workspace: str, *, prefix: str = "") -> str:
     """A timestamped run folder under ``<workspace>/.opencollab/sessions``.
@@ -196,7 +183,6 @@ def make_run_dir(workspace: str, *, prefix: str = "") -> str:
     run_dir = base / f"{prefix}{stamp}-{uuid.uuid4().hex}"
     run_dir.mkdir(mode=0o700)
     return str(run_dir)
-
 
 def build_session(
     *,
@@ -272,7 +258,6 @@ def build_session(
     )
     return session
 
-
 def load_session(
     path: str,
     agent: Agent,
@@ -288,7 +273,6 @@ def load_session(
     session = build_session(agent=agent, **kwargs)
     session.restore(path)
     return session
-
 
 def _snapshot_identity(path: str, agent: Agent, store: SessionStorePort | None) -> dict[str, Any]:
     """The saved identity fields available before constructing the session.
@@ -308,7 +292,6 @@ def _snapshot_identity(path: str, agent: Agent, store: SessionStorePort | None) 
     except Exception:  # noqa: BLE001 - restore raises the real error
         pass
     return identity
-
 
 def snapshot_session(
     session: Session,
@@ -372,13 +355,11 @@ def snapshot_session(
     new.runner.shaper = shaper
     return new
 
-
 def _clone_snapshot_component(value: Any, *, label: str, memo: dict[int, Any] | None = None) -> Any:
     try:
         return copy.deepcopy(value, memo)
     except Exception as exc:  # noqa: BLE001 - snapshot must not share mutable state
         raise SnapshotSessionError(f"cannot clone {label} for an independent snapshot") from exc
-
 
 def _fork_snapshot_environment(environment: Any) -> Environment:
     fork = getattr(environment, "fork_snapshot", None)
@@ -401,7 +382,6 @@ def _fork_snapshot_environment(environment: Any) -> Environment:
             "environment.fork_snapshot() must synchronously return a distinct environment"
         )
     return snapshot_environment
-
 
 SESSION_MAX_STEPS = 100
 """The step ceiling every session in a run is built with.
@@ -427,7 +407,6 @@ The value is the same for every seat. A teammate used to get half the entry
 agent's allowance for no reason anyone could state, which is the same kind of
 unearned privilege difference the shell gate had.
 """
-
 
 def build_spawn_session(
     *,
@@ -463,7 +442,6 @@ def build_spawn_session(
         task=task,
         context=context,
     )
-
 
 class DefaultSessionFactory:
     """Default ``SessionFactoryPort`` implementation used by the scheduler.
@@ -660,9 +638,8 @@ class DefaultSessionFactory:
         context: str = "",
     ) -> Session:
         role = validate_role_identity(role)
-        # ``None`` means "whatever this run is using", which is the run's single
-        # ceiling. A caller that names a number still gets it, so the standalone
-        # ``build_spawn_session`` helper keeps its own documented default.
+        # ``None`` inherits the run ceiling. Explicit values retain the standalone
+        # ``build_spawn_session`` override.
         max_steps = self._max_steps if max_steps is None else int(max_steps)
         cfg = self._cfg
         safety_policy = (
@@ -675,8 +652,7 @@ class DefaultSessionFactory:
         agent = context_builder.build_agent(
             role,
             scheduler=scheduler,
-            # Never: a spawned agent is not the entry role, and a peer has no
-            # human of its own to ask.
+            # Spawned agents have no independent human to answer their questions.
             ask_user_available=False,
             allow_unisolated_shell=self._unisolated_shell_allowed(
                 seated_at_start=self._prebuilt_roster
@@ -739,9 +715,7 @@ class DefaultSessionFactory:
         left to ``Session.apply_launch``.
         """
         cfg = self._cfg
-        # Agent 0 works where the run works. A caller that supplied an
-        # environment -- a container holding the repository under test, say --
-        # gets that one; otherwise the lead workspace on this host.
+        # Agent 0 shares the supplied environment or the lead host workspace.
         env = self._lead_environment or LocalEnvironment(self._lead_workspace)
         context_builder = self._fresh_context_builder()
         plan = context_builder.build_plan(self._team.entry)
@@ -774,7 +748,6 @@ class DefaultSessionFactory:
             agent_profile=self._role_profile(self._team.entry),
             run_id=self._run_id,
         )
-
 
 __all__ = [
     "ORCHESTRATION_FILENAME",

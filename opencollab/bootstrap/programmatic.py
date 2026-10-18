@@ -79,10 +79,8 @@ _TOOL_PRESETS: dict[str, tuple[str, ...]] = {
     "read": ("file_read", "grep", "git_diff"),
 }
 
-
 class ProgrammaticLifecycleError(RuntimeError):
     """A run could not reach a proven quiescent and persisted state."""
-
 
 @dataclass(slots=True)
 class ProgrammaticResult:
@@ -97,7 +95,6 @@ class ProgrammaticResult:
     metrics: dict[str, Any] = field(default_factory=dict)
     agent_failures: tuple[dict[str, Any], ...] = ()
 
-
 def resolve_tools(value: str | Sequence[Any] | None) -> tuple[Any, ...]:
     """Resolve a named built-in preset or preserve caller-supplied tools."""
     if value is None:
@@ -109,13 +106,11 @@ def resolve_tools(value: str | Sequence[Any] | None) -> tuple[Any, ...]:
             raise ValueError(
                 f"unknown tool preset {value!r}; choose from {sorted(_TOOL_PRESETS)}"
             ) from exc
-        # No preset contains ``ask_user``; what the old ``interactive=True``
-        # bought here was the unsandboxed shell, so that is what is asked for.
+        # Presets allow an unsandboxed shell without adding human-input tools.
         return tuple(build_tools_for_role(list(names), allow_unisolated_shell=True))
     if not isinstance(value, Sequence):
         raise TypeError("tools must be a preset name or a sequence")
     return tuple(value)
-
 
 def _trimmed(value: object, name: str) -> str:
     if (
@@ -128,7 +123,6 @@ def _trimmed(value: object, name: str) -> str:
             f"{name} must be non-empty trimmed text without control characters"
         )
     return value
-
 
 def attach_container(
     *,
@@ -156,7 +150,6 @@ def attach_container(
         timeout_returncode=timeout_returncode,
     )
 
-
 async def build_repo_map_via_env(env: Any, **budgets: int) -> str:
     """A bounded listing of the paths an environment's workspace holds.
 
@@ -170,18 +163,15 @@ async def build_repo_map_via_env(env: Any, **budgets: int) -> str:
     """
     return await _build_repo_map_via_env(env, **budgets)
 
-
 def local_environment(workspace: str | os.PathLike[str]) -> EnvironmentPort:
     """Create a host environment rooted at an existing workspace."""
     return LocalEnvironment(os.fspath(workspace))
-
 
 def worktree_environment(
     source_workspace: str | os.PathLike[str],
 ) -> EnvironmentPort:
     """Create an uninitialized isolated worktree owned by the caller."""
     return WorktreeEnvironment(os.fspath(source_workspace))
-
 
 def docker_environment(
     image: str,
@@ -192,7 +182,6 @@ def docker_environment(
         image=image,
         backing_environment=backing_environment,
     )
-
 
 def _claim_artifacts(path: Path | None) -> None:
     if path is None:
@@ -209,7 +198,6 @@ def _claim_artifacts(path: Path | None) -> None:
     except FileExistsError as exc:
         raise ValueError("artifacts directory is already claimed") from exc
 
-
 def _verify_artifact_claim(path: Path | None) -> None:
     if path is None:
         return
@@ -225,7 +213,6 @@ def _verify_artifact_claim(path: Path | None) -> None:
             f"run artifact claim changed during execution: {claim_path}"
         )
 
-
 def _require_json_workflow_inputs(inputs: Mapping[str, Any]) -> None:
     """Reject inputs that the workflow artifact manifest could not persist."""
     try:
@@ -235,7 +222,6 @@ def _require_json_workflow_inputs(inputs: Mapping[str, Any]) -> None:
             "workflow inputs must be JSON-serializable when artifacts are enabled"
         ) from exc
 
-
 def _require_json_object(path: Path, description: str) -> dict[str, Any]:
     try:
         value = json.loads(read_regular_text(path, max_bytes=64 * 1024 * 1024))
@@ -244,7 +230,6 @@ def _require_json_object(path: Path, description: str) -> dict[str, Any]:
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ProgrammaticLifecycleError(f"{description} is incomplete: {path}") from exc
     return value
-
 
 def _settle_programmatic_workflow_manifest(
     artifacts: Path | None,
@@ -268,7 +253,6 @@ def _settle_programmatic_workflow_manifest(
     except BaseException as exc:
         return exc
     return None
-
 
 def _require_agent_evidence(
     result: AgentRuntimeResult,
@@ -299,7 +283,6 @@ def _require_agent_evidence(
                 tracer.write_error, tracer.dropped_steps, error_number=getattr(tracer, "write_error_errno", None),
             )
 
-
 def _agent_status(
     result: AgentRuntimeResult,
 ) -> tuple[Literal["completed", "stopped", "failed"], str | None]:
@@ -310,7 +293,6 @@ def _agent_status(
     if result.phase == "stopped":
         return "stopped", result.terminal_reason
     return "completed", None
-
 
 def _quiescence_metrics(
     *,
@@ -334,7 +316,6 @@ def _quiescence_metrics(
         "execution_quiesced": aggregate,
     }
 
-
 async def run_agent(
     *,
     prompt: str,
@@ -356,8 +337,7 @@ async def run_agent(
     run_control: RunControl | None = None,
 ) -> ProgrammaticResult:
     """Run the selected single-agent implementation behind the owned lifecycle."""
-    # One id per run, on every trajectory record and in the result, so two
-    # runs of one agent never share one and a caller's own files join on it.
+    # Use one run id across trajectories and the result for joins.
     run_id = run_id if run_id is not None else f"agent-{uuid.uuid4().hex}"
     resolved_profile = agent_profile if agent_profile is not None else resolve_agent_profile(None)
     resolved_tools = resolved_profile.resolve_tools(tools)
@@ -467,12 +447,10 @@ async def run_agent(
                     "agent trajectory persistence failed"
                 ) from tracer_failure
 
-
 def _environment_paths(environment: Any, workspace: str) -> tuple[str, str]:
     workdir = getattr(environment, "workspace", None) or workspace
     source_root = getattr(environment, "source_workspace", None) or workspace
     return str(workdir), str(source_root)
-
 
 def _workflow_metrics(
     details: WorkflowRuntimeResult | None,
@@ -500,7 +478,6 @@ def _workflow_metrics(
     if agent_profile is not None:
         metrics["agent_profile"] = agent_profile.name
     return metrics
-
 
 async def run_workflow(
     *,
@@ -696,7 +673,6 @@ async def run_workflow(
         agent_failures=details.agent_failures,
     )
 
-
 def _close_tracer(tracer: Tracer | None) -> BaseException | None:
     if tracer is None:
         return None
@@ -709,7 +685,6 @@ def _close_tracer(tracer: Tracer | None) -> BaseException | None:
             tracer.write_error, tracer.dropped_steps, error_number=getattr(tracer, "write_error_errno", None),
         )
     return None
-
 
 def _team_agent_failures(scheduler: Any) -> tuple[dict[str, Any], ...]:
     """Return bounded, message-free summaries for terminal child agents."""
@@ -742,7 +717,6 @@ def _team_agent_failures(scheduler: Any) -> tuple[dict[str, Any], ...]:
             }
         )
     return tuple(failures)
-
 
 async def run_team(
     *,
@@ -795,7 +769,6 @@ async def run_team(
         budget_explicit=budget_explicit,
         run_id=run_id,
     )
-
 
 __all__ = [
     "DEFAULT_TEAM_CLEANUP_TIMEOUT_SECONDS",

@@ -13,21 +13,9 @@ from opencollab.application.ports import SchedulerPort
 from opencollab.application.tool_execution import ToolRuntime
 from opencollab.domain.identity import role_collision_key
 
-#: Appended to every acknowledgement. The scheduler's own ack says the message
-#: was queued and nothing else, which reads like the end of an exchange -- and
-#: an agent that expects an answer on this call and gets a queue receipt has no
-#: way to tell "still working" from "never arrived". Both facts here are things
-#: a sender has to know to decide whether to wait or to carry on.
-#:
-#: The third fact is the one a sender cannot find out by trying: finishing is
-#: how you wait. A reply reopens a finished turn (a terminal session resumes to
-#: IDLE when a message is delivered, ``domain/session.py`` PHASE_TRANSITIONS)
-#: and the run is not over until nobody is running and no inbox is left
-#: holding a message (``_scheduler_run._quiescent``). Without that sentence a
-#: sender with nothing else to do has to guess between two wrong moves: spend
-#: turns on ``team_status`` until the answer shows up, which bills a full
-#: conversation to the provider each time, or finish believing the exchange
-#: died with it.
+# Replies reopen finished turns through ``PHASE_TRANSITIONS``. A run remains
+# active until ``_scheduler_run._quiescent`` finds no running agents or queued
+# messages, so senders can finish while waiting instead of polling.
 _DELIVERY_NOTE = (
     "The teammate runs on its next turn, not now, and nothing about its work "
     "comes back through this call. If it answers, the answer arrives as a "
@@ -42,7 +30,6 @@ _SERIALIZED_DELIVERY_NOTE = (
     "end your turn. Call submit now with what you have so far. If it answers, "
     "the answer arrives as a message and reopens your turn."
 )
-
 
 class MessageAgentTool(Tool):
     """Queue a message for an existing agent and return immediately."""
@@ -150,7 +137,6 @@ class MessageAgentTool(Tool):
         note = _SERIALIZED_DELIVERY_NOTE if serialized else _DELIVERY_NOTE
         return f"{ack} {note}"
 
-
 def _display_team_state(entry: dict[str, Any]) -> str:
     if entry.get("turn_queued"):
         return "queued (runs after the agent now running ends its turn)"
@@ -162,7 +148,6 @@ def _display_team_state(entry: dict[str, Any]) -> str:
     if phase == "awaiting_events":
         return "awaiting"
     return phase
-
 
 class TeamStatusTool(Tool):
     """Report the current team roster (aids, roles, display states)."""
@@ -196,6 +181,5 @@ class TeamStatusTool(Tool):
                 f"- aid {entry['aid']}: {entry.get('role', '?')} ({parent_str}) — {state}"
             )
         return "\n".join(lines)
-
 
 __all__ = ["MessageAgentTool", "TeamStatusTool"]

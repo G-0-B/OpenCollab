@@ -65,5 +65,4 @@ class JsonlEventSink(EventPublisherPort):
     def dropped_events(self) -> int:
         return self._dropped_events
 
-
 __all__ = ["JsonlEventSink"]

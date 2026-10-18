@@ -9,7 +9,6 @@ import shlex
 class InvalidGoTargetError(ValueError):
     """Raised when a Go target cannot be verified by one exact invocation."""
 
-
 def is_go_runner(runner: str) -> bool:
     """Whether ``runner`` invokes ``go test``."""
     try:
@@ -17,7 +16,6 @@ def is_go_runner(runner: str) -> bool:
     except ValueError:
         return False
     return len(parts) >= 2 and (parts[0] == "go" or parts[0].endswith("/go")) and parts[1] == "test"
-
 
 def normalize_go_package(package: str) -> str:
     package = package.strip()
@@ -28,7 +26,6 @@ def normalize_go_package(package: str) -> str:
     if package not in {".", "./..."} and not package.startswith(("./", "../", "/")):
         package = "./" + package.strip("/")
     return package
-
 
 def go_target_specs(target: str) -> list[tuple[str, str | None]]:
     """Return Go packages and optional exact selectors for one invocation."""
@@ -61,7 +58,6 @@ def go_target_specs(target: str) -> list[tuple[str, str | None]]:
         )
     return specs
 
-
 def go_package_matches(requested: str, reported: str) -> bool:
     """Match a CLI package path to ``go test -json``'s import path."""
     requested = requested.rstrip("/")
@@ -75,7 +71,6 @@ def go_package_matches(requested: str, reported: str) -> bool:
     if not relative or requested.startswith(("../", "/")):
         return reported == requested
     return reported == relative or reported.endswith("/" + relative)
-
 
 def _go_pass_events(output: str) -> list[tuple[str, str]]:
     events: list[tuple[str, str]] = []
@@ -92,7 +87,6 @@ def _go_pass_events(output: str) -> list[tuple[str, str]]:
             events.append((package, test_name))
     return events
 
-
 def _spec_has_pass_event(
     requested_package: str,
     requested_test: str | None,
@@ -105,7 +99,6 @@ def _spec_has_pass_event(
             continue
         return True
     return False
-
 
 def go_has_pass_proof(target: str, output: str) -> bool:
     """Require a matching JSON pass event for every requested Go target."""

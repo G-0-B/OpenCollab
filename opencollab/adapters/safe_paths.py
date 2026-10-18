@@ -11,7 +11,6 @@ _MACOS_SYSTEM_ALIASES = (
     (Path("/var"), Path("/private/var")),
 )
 
-
 def _canonicalize_system_alias(path: Path) -> Path:
     if sys.platform != "darwin":
         return path
@@ -23,7 +22,6 @@ def _canonicalize_system_alias(path: Path) -> Path:
         if Path(os.path.realpath(alias)) == canonical and canonical.is_dir():
             return canonical / relative
     return path
-
 
 def canonicalize_system_path(path: str | os.PathLike[str]) -> Path:
     """Return one absolute path with stable macOS system-directory aliases."""

@@ -45,12 +45,8 @@ from opencollab.bootstrap.team_config import (
 )
 from opencollab.domain.agent import DEFAULT_MAX_TOKENS_PER_STEP
 
-# The one tool that carries a message from one live agent to another
-# (``adapters.tools.message.MessageAgentTool``). Named here rather than
-# imported from the registry so the composition root states the dependency it
-# actually has: a topology edge is walkable only if the source role holds this.
+# A topology edge requires the source role to hold the message tool.
 _MESSAGING_TOOL_NAME = "message_agent"
-
 
 def _reject_unwalkable_edges(team: TeamConfig) -> None:
     """Refuse a prebuilt team whose declared edges no agent can walk.
@@ -101,8 +97,6 @@ def _reject_unwalkable_edges(team: TeamConfig) -> None:
         f"'{_MESSAGING_TOOL_NAME}' to the `tools:` list of {named}, or remove "
         "those roles' entries from `topology:`."
     )
-
-
 
 def build_scheduler(
     ctx: RuntimeContext,
@@ -210,8 +204,7 @@ def build_scheduler(
         _reject_unwalkable_edges(team_cfg)
     event_bus = EventBus(ctx.event_sink)
 
-    # Per-run folder: every agent's transcript plus a team.json manifest land
-    # here. Known before the factory so spawned children inherit the same dir.
+    # Resolve the run folder before construction so children inherit it.
     run_dir: str | None = None
     if auto_save:
         run_dir = (
@@ -285,10 +278,8 @@ def build_scheduler(
         owned_output_paths=getattr(ctx.tracer, "owned_paths", ()),
     )
 
-    # The graded tree is where agent 0 works: the environment when the run was
-    # given one (a container the repository lives in), the host workspace
-    # otherwise. Same choice ``_workflow_runtime_session`` makes for the probe
-    # it hands a workflow, so both regimes measure the same directory.
+    # Measure the supplied environment or host workspace where agent 0 works,
+    # matching the workflow probe.
     delivery_tree_probe = (
         EnvWorkingTreeProbe(
             environment if environment is not None else LocalEnvironment(ctx.workspace),
@@ -329,9 +320,8 @@ def build_scheduler(
         candidate_diff_writer=write_candidate_diff,
     )
 
-    # Attach hooks after the scheduler exists so the runner can hold its handle
-    # (the coordination-ready seam for a future ``agent`` executor). Subscribing
-    # appends to the same bus, leaving the TUI sink at target[0] untouched.
+    # Attach hooks after construction so the runner holds the scheduler.
+    # Appending preserves the TUI subscriber at target[0].
     if enable_hooks and team_cfg.hooks:
         runner = ShellHookRunner(
             team_cfg.hooks,
@@ -378,6 +368,5 @@ def build_scheduler(
         LaunchSpec(session_file=session_file, auto_save_path=lead_save_path)
     )
     return scheduler
-
 
 __all__ = ["build_scheduler"]

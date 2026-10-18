@@ -46,21 +46,16 @@ from prompt_toolkit.styles import Style
 from opencollab.adapters.cli.prompt_view import build_agent_navigation_bindings
 from opencollab.adapters.tui.theme import BRAND_VIOLET
 
-# Fast enough that a breathing dot and a seconds counter read as live, slow
-# enough that an idle prompt is not re-rendering for nothing.
 REFRESH_INTERVAL = 0.1
 
 _PROMPT_STYLE = Style.from_dict({
     "prompt.chevron": f"{BRAND_VIOLET} bold",
-    # The default toolbar style is a reverse-video bar across the width. The
-    # row carries its own Rich colors, so all this has to do is stay out of
-    # their way.
+    # The row supplies Rich colors instead of the default reverse-video bar.
     "bottom-toolbar": "noreverse bg:default",
     "bottom-toolbar.text": "noreverse bg:default",
 })
 _CHEVRON = [("class:prompt.chevron", "❯"), ("", " ")]
 _FALLBACK_PROMPT = "> "
-
 
 @dataclass
 class _Question:
@@ -68,7 +63,6 @@ class _Question:
 
     text: str
     future: asyncio.Future
-
 
 class _ConsoleInput:
     """One buffered, serialized reader for a redirected input stream."""
@@ -125,9 +119,7 @@ class _ConsoleInput:
         finally:
             loop.remove_reader(fd)
 
-
 _CONSOLE_INPUTS: weakref.WeakKeyDictionary[Any, _ConsoleInput] = weakref.WeakKeyDictionary()
-
 
 async def read_console_line(console: Any, prompt_text: str) -> str:
     """Read a line while preserving input order, buffering, and cancellation."""
@@ -153,7 +145,6 @@ async def read_console_line(console: Any, prompt_text: str) -> str:
                 raise EOFError
             return line.rstrip("\r\n")
         return await reader.read(fd)
-
 
 def _pin_status_row_under_input(session: Any) -> None:
     """Keep the toolbar row against the input line instead of the screen bottom.
@@ -185,7 +176,6 @@ def _pin_status_row_under_input(session: Any) -> None:
                 container.dont_extend_height = to_filter(True)
     except Exception:
         pass
-
 
 class LivePrompt:
     """The one input line, and the HUD painted above it.
@@ -232,8 +222,6 @@ class LivePrompt:
         app = getattr(session, "app", None)
         if app is not None and getattr(app, "is_running", False):
             app.invalidate()
-
-    # -- reading ------------------------------------------------------------
 
     async def read(self) -> str:
         """Read one line: a user turn, or an answer an agent is waiting for."""
@@ -315,9 +303,6 @@ class LivePrompt:
     def pending_question(self) -> str | None:
         """The question currently holding the input line, if any."""
         return self._questions[0].text if self._questions else None
-
-
-    # -- internals ----------------------------------------------------------
 
     def _ensure_session(self) -> Any:
         if self._session is None:
@@ -403,6 +388,5 @@ class LivePrompt:
         except ValueError:
             return
         self._settle_questions()
-
 
 __all__ = ["LivePrompt", "REFRESH_INTERVAL", "read_console_line"]

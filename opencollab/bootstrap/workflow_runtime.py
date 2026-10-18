@@ -44,7 +44,6 @@ from opencollab.bootstrap.session_factory import build_session
 # into a spurious WorkflowLifecycleError.
 _OWNER_CLEANUP_GRACE_PHASES = 4
 
-
 class WorkflowDeadlineExceeded(TimeoutError):
     """The caller-owned workflow wall-clock deadline expired."""
 
@@ -57,10 +56,8 @@ class WorkflowDeadlineExceeded(TimeoutError):
         super().__init__(message)
         self.result = result
 
-
 class WorkflowLifecycleError(RuntimeError):
     """Workflow-owned work failed to reach a terminal state."""
-
 
 async def _wait_for_owner(
     owner: asyncio.Task[Any],
@@ -68,7 +65,6 @@ async def _wait_for_owner(
     timeout: float,
 ) -> tuple[set[asyncio.Task[Any]], set[asyncio.Task[Any]]]:
     return await asyncio.wait({owner}, timeout=timeout)
-
 
 @_with_native_retry_budget_scope
 async def run_workflow(

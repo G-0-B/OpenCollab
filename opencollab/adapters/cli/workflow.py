@@ -39,7 +39,6 @@ console = Console()
 DEFAULT_WORKFLOWS_DIR = "workflows"
 MAX_CLI_TASK_FILE_BYTES = 4 * 1024 * 1024
 
-
 def load_registry(workspace: str = ".") -> Registry:
     """Combine installed workflows with the workspace's workflow directory.
 
@@ -50,7 +49,6 @@ def load_registry(workspace: str = ".") -> Registry:
     if not os.path.isabs(directory):
         directory = os.path.join(workspace, directory)
     return discover_workflows(directory, include_builtin=True)
-
 
 class _ConsoleEventSink:
     """Prints workflow phase/log events as simple progress lines."""
@@ -63,7 +61,6 @@ class _ConsoleEventSink:
         message = getattr(event, "message", str(event))
         marker = "==" if kind == "phase" else "--"
         self._console.print(Text(f"{marker} {message}", style="dim"))
-
 
 @app.command(name="list")
 def list_cmd(
@@ -79,7 +76,6 @@ def list_cmd(
         console.print(f"[bold]{spec.name}[/bold]  {spec.description}")
     next_name = "duo" if any(spec.name == "duo" for spec in specs) else specs[0].name
     console.print(Text(f"Next run opencollab workflow run {shlex.quote(next_name)} --help", style="dim"))
-
 
 @app.command(name="run")
 def run_cmd(
@@ -157,10 +153,8 @@ def run_cmd(
         print_missing_key_hint(console, cfg["provider"], cfg["base_url"])
         raise typer.Exit(code=1)
 
-    # Workflows fan out many one-shot sessions (mirroring main.py's spawn-aware
-    # default), so lift the fallback budget when --budget was not given. The
-    # explicit budget arg stays None below, so run_workflow falls back to this
-    # raised cfg["budget"].
+    # Fan-out workflows raise the fallback budget. Leave an explicit budget
+    # unset so ``run_workflow`` uses the raised configuration value.
     if budget is None:
         cfg["budget"] = max(cfg["budget"], 1_000_000)
 
@@ -191,6 +185,5 @@ def run_cmd(
     typer.echo(json.dumps(result.output, indent=2, default=str))
     if result.stop_reason is not None:
         raise typer.Exit(code=1)
-
 
 __all__ = ["app", "load_registry", "run_workflow"]

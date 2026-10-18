@@ -74,11 +74,9 @@ _TRANSIENT_GATEWAY_MESSAGE_FRAGMENTS = (
     "stream failed",
 )
 
-# Small random jitter (seconds) added to each backoff to reduce thundering herd.
 RETRY_JITTER_MAX_SECONDS = 0.25
 MAX_RETRY_AFTER_SECONDS = 300.0
 MAX_EXPONENTIAL_RETRY_DELAY_SECONDS = 60.0
-
 
 @dataclass
 class RetryTimeBudget:
@@ -105,13 +103,11 @@ class RetryTimeBudget:
         self.remaining_seconds -= seconds
         return True
 
-
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
 _NATIVE_RUN_RETRY_BUDGETS: contextvars.ContextVar[dict[int, tuple[RetryTimeBudget, RetryTimeBudget]] | None] = (
     contextvars.ContextVar("native_run_retry_budgets", default=None)
 )
-
 
 def _with_native_retry_budget_scope(operation: Callable[_P, Awaitable[_T]]) -> Callable[_P, Awaitable[_T]]:
     """Give one runtime owner a retry scope inherited by its child tasks."""
@@ -125,7 +121,6 @@ def _with_native_retry_budget_scope(operation: Callable[_P, Awaitable[_T]]) -> C
 
     return run
 
-
 def _scoped_native_retry_budget(budget: RetryTimeBudget | None) -> RetryTimeBudget | None:
     scope = _NATIVE_RUN_RETRY_BUDGETS.get()
     if budget is None or scope is None:
@@ -138,7 +133,6 @@ def _scoped_native_retry_budget(budget: RetryTimeBudget | None) -> RetryTimeBudg
         entry = (budget, RetryTimeBudget(budget.total_seconds))
         scope[key] = entry
     return entry[1]
-
 
 async def with_retry(
     call_factory,
@@ -177,7 +171,6 @@ async def with_retry(
             await asyncio.sleep(delay)
             attempt += 1
 
-
 def _http_status_of(error: BaseException) -> int | None:
     """Read an SDK HTTP status from its direct attribute or response."""
     status = getattr(error, "status_code", None)
@@ -189,17 +182,13 @@ def _http_status_of(error: BaseException) -> int | None:
         return status
     return None
 
-
 def is_retryable_error(error: Exception) -> bool:
     """Whether ``error`` looks transient (retryable status code or message)."""
     if isinstance(error, TransientProviderError):
         return True
 
-    # A context overflow is never transient: the identical prompt will overflow
-    # again. The session layer handles it (force-compact then retry once), so it
-    # must not be futilely retried here — guard explicitly even though 400 is
-    # absent from RETRYABLE_STATUS_CODES, in case an overflow's message ever
-    # happens to contain a retryable fragment ("overloaded", "timeout", ...).
+    # The session handles context overflow by compacting before retry. Exclude
+    # it here even when its message contains a transient-error fragment.
     if is_context_overflow_error(error):
         return False
 
@@ -250,7 +239,6 @@ def is_retryable_error(error: Exception) -> bool:
         current = current.__cause__ or current.__context__
     # A wrapper or cause carrying a status also excludes the gateway rule.
     return gateway_refusal and not has_http_status
-
 
 def extract_retry_after_seconds(
     error: Exception,

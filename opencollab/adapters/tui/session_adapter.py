@@ -22,7 +22,6 @@ class TuiEventSink(EventPublisherPort):
         if asyncio.iscoroutine(result):
             await result
 
-
 class TuiPermissionPolicy(PermissionPort):
     """Permission policy that asks its y/N through the terminal's one input line.
 
@@ -40,7 +39,6 @@ class TuiPermissionPolicy(PermissionPort):
         except (EOFError, KeyboardInterrupt):
             return False
         return answer.strip().lower() in ("y", "yes")
-
 
 class TuiAskUserPolicy(AskUserPort):
     """Ask policy that reads a free-text answer from the same input line.

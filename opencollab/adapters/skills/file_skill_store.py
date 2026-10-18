@@ -38,7 +38,6 @@ MAX_SKILL_ROOT_ENTRIES = 4_096
 
 _FRONTMATTER_DELIMITER = "---"
 
-
 def _parse_skill(text: str) -> tuple[str, str, str] | None:
     """Parse a SKILL.md into ``(name, description, body)`` or ``None`` if malformed.
 
@@ -69,7 +68,6 @@ def _parse_skill(text: str) -> tuple[str, str, str] | None:
         return None
     body = "".join(lines[close_idx + 1 :]).strip()
     return name, description, body
-
 
 class FileSkillStore:
     """A ``SkillStorePort`` backed by ``<root>/<name>/SKILL.md`` packages."""
@@ -158,6 +156,5 @@ class FileSkillStore:
     def load_diagnostics(self) -> tuple[str, ...]:
         """Explicit reasons that otherwise valid skill packages were rejected."""
         return tuple(self._load_diagnostics)
-
 
 __all__ = ["FileSkillStore", "SKILL_BODY_MAX_CHARS", "SKILL_DESCRIPTION_MAX_CHARS"]
