@@ -12,6 +12,7 @@ when extending a runtime or reproducing a result.
 | Choose the default or a concrete agent profile | [Base and Single2](single2.md) |
 | Compare and adopt two isolated candidates | [Duo](duo.md) · [Chinese translation](duo/README.zh-CN.md) |
 | Run ordered work with checks, repair, and continuation | [Weave](weave.md) |
+| Reconstruct a hidden program through active exploration | [Reconstruct](reconstruct.md) |
 | Control workflow agent limits, results, and cleanup | [Controlled workflow calls](controlled-workflow-agents.md) |
 | Integrate evaluation execution, usage, and cancellation | [Evaluation runtime](evaluation-runtime.md) |
 | Inspect model capabilities and effective profiles offline | [Model inspection](model-inspection.md) |
