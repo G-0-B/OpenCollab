@@ -214,21 +214,21 @@ human authorship.
 
 ## Documentation and comments
 
-Keep setup, usage, and testing instructions at their existing entry points and
-link to them. Remove superseded plans after moving still-useful decisions and
-constraints into the maintained guide. Preserve release migrations and research
-evidence that have an independent reader or reproducibility purpose.
+Keep setup, usage, and testing at their existing entry points and link to them. Move useful decisions and constraints
+from superseded plans into maintained guides before removing the plans. Preserve release migrations and research evidence.
 
-Markdown under `configs/`, packaged prompts, and skill directories can be runtime
-input. Experiment-only cards and generation live in
-[OpenCollab-Eval](https://github.com/RISE-X-Lab/OpenCollab-Eval/tree/main/experiment/framework); edit their source templates and run their assembly and
-configuration checks there. Their exact text is an experiment condition.
+Use clear names and types. Comments and docstrings explain reasons, behavior, failures, ownership, assumptions, or constraints
+the code leaves implicit, including caller requirements, edge cases, and tradeoffs. Self-explanatory functions need no
+docstring. Avoid repeating parameter and return signatures, line-by-line narration, section banners, and past fixes.
+Keep brief explanations near code, longer design rationale in maintained guides, and change history in Git or PRs.
+Link to existing documentation instead of duplicating it.
 
-Comments explain reasons, assumptions, edge cases, and tradeoffs. Docstrings
-retain the inputs, outputs, failures, and ownership rules callers need. Before
-shortening one, check for CLI help, workflow discovery, documentation, or static
-analysis consumers. Comment cleanup must preserve executable behavior and lint
-directives.
+Before editing text, inspect CLI help, workflow discovery and descriptions, tool/schema metadata, prompts, documentation, and
+static source analysis consumers, then verify affected behavior. Preserve executable behavior, test inputs, safety and tool
+instructions, lint directives, and copyright.
+Markdown under `configs/`, packaged prompts, and skill directories can be runtime input. Experiment cards and generation
+belong to [OpenCollab-Eval](https://github.com/RISE-X-Lab/OpenCollab-Eval/tree/main/experiment/framework). Edit their source templates
+and run assembly and configuration checks there. Their exact text is an experiment condition.
 
 ## Contribution license
 
