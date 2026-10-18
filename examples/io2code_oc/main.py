@@ -1,8 +1,15 @@
-"""Run IO2Code tasks through the built-in ``reconstruct`` workflow.
+"""Reconstruct IO2Code's hidden programs with OpenCollab's built-in ``reconstruct`` workflow.
 
-Each task gets a Git workspace, an offline Docker container and results under
-``--runs``. The harness retains the oracle and held-out tests; agents see only
-protocol examples and tools. See README for launch commands.
+Run from the OpenCollab repository root:
+
+    export IO2CODE_ROOT=/path/to/IO2Code      # git checkout, see README
+    uv run python examples/io2code_oc/main.py Abs_Current Extra_PolishRPN \
+        --random-share 0.5 --coverage-gate --docker python:3.12-slim
+
+Each task gets its own git workspace, Docker container (network off) and
+result directory under ``--runs``. The oracle function and the 15 held-out
+tests stay in this process; the agent only sees the examples the protocol
+hands it and the tools in ``io2code_oc/tools.py``.
 """
 
 from __future__ import annotations
