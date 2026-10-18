@@ -17,7 +17,6 @@ from opencollab.application.tool_execution import ToolRuntime
 def run(coro):
     return asyncio.run(coro)
 
-
 class ProxyEnvironment:
     """Delegate to Git while allowing a selected audit result to be damaged."""
 
@@ -39,16 +38,13 @@ class ProxyEnvironment:
             stdout_truncated=True,
         )
 
-
 def _runtime(environment):
     return ToolRuntime(environment=environment, safety_policy=None, permission_policy=None)
-
 
 def _git(repo, *args):
     return subprocess.run(
         ["git", *args], cwd=repo, check=True, capture_output=True, text=True
     ).stdout.strip()
-
 
 @pytest.mark.parametrize("include_status", [True, False])
 async def test_git_diff_reports_truncated_untracked_enumeration(tmp_path, include_status):
@@ -74,7 +70,6 @@ async def test_git_diff_reports_truncated_untracked_enumeration(tmp_path, includ
 
     assert "incomplete" in result.lower() or "truncated" in result.lower()
     assert "untracked" in result.lower()
-
 
 @pytest.mark.parametrize(
     ("damaged_command", "damage"),

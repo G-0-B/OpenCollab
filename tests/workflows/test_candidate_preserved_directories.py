@@ -14,7 +14,6 @@ from opencollab.environments import local_environment
 def _git(root: Path, *arguments: str) -> str:
     return subprocess.check_output(["git", "-C", str(root), *arguments], text=True)
 
-
 def _source(tmp_path: Path, monkeypatch) -> Path:
     config = tmp_path / "gitconfig"
     config.write_text("")
@@ -37,7 +36,6 @@ def _source(tmp_path: Path, monkeypatch) -> Path:
     _git(root, "add", "app.py")
     (root / "notes.txt").write_text("user notes\n")
     return root
-
 
 @pytest.mark.parametrize(("preserved", "target"), [
     ("tests", "tests/check.py"),
@@ -71,7 +69,6 @@ async def test_candidate_rejects_changes_under_preserved_paths(
     finally:
         await lease.cleanup()
         await environment.cleanup()
-
 
 @pytest.mark.parametrize(("preserved", "target"), [
     ("tests", "tests-other/check.py"),

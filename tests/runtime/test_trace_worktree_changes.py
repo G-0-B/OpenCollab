@@ -42,11 +42,9 @@ class _Env:
     async def read_file(self, path: str) -> str:
         return self._files[path]
 
-
 class _UnreadableEnv(_Env):
     async def read_file(self, path: str) -> str:
         raise RuntimeError("no reading today")
-
 
 class _RebasedEnv(_Env):
     """A worktree that took a handoff: its diff is measured against that commit."""
@@ -56,7 +54,6 @@ class _RebasedEnv(_Env):
     own_commits = ()
     own_commit_count = 0
 
-
 class _CommittedEnv(_Env):
     """A worktree that committed twice on top of the base it started from."""
 
@@ -64,7 +61,6 @@ class _CommittedEnv(_Env):
     head_commit = "2" * 40
     own_commits = ("2" * 40, "3" * 40)
     own_commit_count = 2
-
 
 class _BudgetStoppedSession(_ChildSession):
     """A child that spends its whole budget and is stopped, not finished.
@@ -78,23 +74,19 @@ class _BudgetStoppedSession(_ChildSession):
         self.state.terminal_reason = "budget exhausted"
         return "ran out of budget"
 
-
 class _CrashingSession(_ChildSession):
     """A child whose run loop raises instead of returning."""
 
     async def run_loop(self) -> str:
         raise RuntimeError("provider fell over")
 
-
 def _payloads(path: str, step_type: str) -> list[dict]:
     with open(path, encoding="utf-8") as handle:
         records = [json.loads(line) for line in handle if line.strip()]
     return [record["payload"] for record in records if record["type"] == step_type]
 
-
 def _sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
 
 def _run_one_child(
     tmp_path, env, run_id: str, *, session_class=None
@@ -142,7 +134,6 @@ def _run_one_child(
 
     return _payloads(trace_path, "worktree_changes"), lead.state.pending_events.rows["tc-1"]
 
-
 ADDED = "print('brand new')\n"
 MODIFIED = "print('changed')\n"
 
@@ -169,7 +160,6 @@ index b023018..0000000
 -print('bye')
 """
 
-
 def test_added_modified_and_deleted_files_are_recorded_with_content_shas(tmp_path):
     env = _Env(THREE_FILE_DIFF, {"pkg/new.py": ADDED, "pkg/mod.py": MODIFIED})
 
@@ -189,7 +179,6 @@ def test_added_modified_and_deleted_files_are_recorded_with_content_shas(tmp_pat
     ]
     assert row.status is RowStatus.DONE
 
-
 def test_the_row_names_the_revision_its_files_were_measured_against(tmp_path):
     """A file counts as changed only relative to a base, so name the base."""
     env = _RebasedEnv(THREE_FILE_DIFF, {"pkg/new.py": ADDED, "pkg/mod.py": MODIFIED})
@@ -197,7 +186,6 @@ def test_the_row_names_the_revision_its_files_were_measured_against(tmp_path):
     payloads, _ = _run_one_child(tmp_path, env, "worktree-base")
 
     assert payloads[0]["diff_base"] == "9" * 40
-
 
 def test_an_environment_that_names_no_base_records_a_null_one(tmp_path):
     """A non-Git worktree has no revision to name, and must not invent one."""
@@ -208,10 +196,8 @@ def test_an_environment_that_names_no_base_records_a_null_one(tmp_path):
     assert payloads[0]["diff_base"] is None
     assert payloads[0]["head_commit"] is None
     assert payloads[0]["commits"] == []
-    # Not zero: an environment with no revisions did not make no commits, it
-    # has nowhere for a commit to be counted.
+    # An environment without revision support cannot measure commits.
     assert payloads[0]["commit_count"] is None
-
 
 def test_the_row_lists_the_commits_this_agent_could_hand_a_teammate(tmp_path):
     """A checked-out sha is only attributable if someone's row claims it."""
@@ -224,7 +210,6 @@ def test_the_row_lists_the_commits_this_agent_could_hand_a_teammate(tmp_path):
     assert payloads[0]["commits"] == ["2" * 40, "3" * 40]
     assert payloads[0]["commit_count"] == 2
 
-
 def test_an_agent_that_only_took_a_handoff_claims_no_commits(tmp_path):
     """Adopting a base is not producing one, and the row must not blur them."""
     env = _RebasedEnv(THREE_FILE_DIFF, {"pkg/new.py": ADDED, "pkg/mod.py": MODIFIED})
@@ -234,7 +219,6 @@ def test_an_agent_that_only_took_a_handoff_claims_no_commits(tmp_path):
     assert payloads[0]["diff_base"] == payloads[0]["head_commit"] == "9" * 40
     assert payloads[0]["commits"] == []
     assert payloads[0]["commit_count"] == 0
-
 
 def _long_diff(file_count: int) -> tuple[str, dict[str, str]]:
     """A diff whose middle is guaranteed to be cut from the parent's copy."""
@@ -254,7 +238,6 @@ def _long_diff(file_count: int) -> tuple[str, dict[str, str]]:
         files[path] = body.replace("+", "")
     return "".join(blocks), files
 
-
 def test_truncated_delivery_still_records_every_file_and_the_full_diff_length(tmp_path):
     from opencollab.application._scheduler_constants import WORKTREE_DIFF_MAX_CHARS
 
@@ -264,8 +247,7 @@ def test_truncated_delivery_still_records_every_file_and_the_full_diff_length(tm
 
     payloads, row = _run_one_child(tmp_path, env, "worktree-truncated")
 
-    # The parent's copy really is the mutilated one — that is what makes the
-    # structured record necessary, and it must stay that way.
+    # The parent copy is truncated, so attribution requires the structured record.
     assert "chars truncated" in row.result
     assert len(row.result) < len(diff)
 
@@ -280,7 +262,6 @@ def test_truncated_delivery_still_records_every_file_and_the_full_diff_length(tm
         entry["content_sha"] == _sha(files[entry["path"]]) for entry in payload["files"]
     )
 
-
 def test_unreadable_file_records_a_null_sha_and_an_error_without_failing_the_run(tmp_path):
     env = _UnreadableEnv(THREE_FILE_DIFF, {})
 
@@ -292,10 +273,8 @@ def test_unreadable_file_records_a_null_sha_and_an_error_without_failing_the_run
     assert entries["pkg/new.py"]["content_sha"] is None
     assert entries["pkg/new.py"]["sha_error"] == "RuntimeError"
     assert entries["pkg/mod.py"]["sha_error"] == "RuntimeError"
-    # A deleted file is never read, so it carries no read error.
     assert entries["pkg/gone.py"]["content_sha"] is None
     assert "sha_error" not in entries["pkg/gone.py"]
-
 
 # Verbatim `git diff --binary` output: a binary payload (which git emits with
 # no ``---``/``+++`` pair), a path containing a space (git appends a tab), a
@@ -333,7 +312,6 @@ REAL_GIT_DIFF = (
     "+u\n"
 )
 
-
 def test_parser_survives_the_header_shapes_real_git_actually_emits():
     from opencollab.application._scheduler_team import _parse_worktree_diff
 
@@ -341,19 +319,16 @@ def test_parser_survives_the_header_shapes_real_git_actually_emits():
         ("bin.dat", "modified"),
         ("has space.txt", "added"),
         ("keep.txt", "modified"),
-        # A rename is split into its two endpoints.
         ("ren_old.txt", "deleted"),
         ("ren_new.txt", "added"),
         ("café.txt", "added"),
     ]
-
 
 def test_parser_returns_nothing_for_input_that_is_not_a_diff():
     from opencollab.application._scheduler_team import _parse_worktree_diff
 
     assert _parse_worktree_diff("") == []
     assert _parse_worktree_diff("no headers here\n") == []
-
 
 def test_an_agent_that_changed_nothing_still_gets_a_row(tmp_path):
     """Absence of a row must not be the only signal for "changed nothing".
@@ -375,7 +350,6 @@ def test_an_agent_that_changed_nothing_still_gets_a_row(tmp_path):
     assert payload["diff_chars"] == 0
     assert payload["truncated_in_result"] is False
     assert row.status is RowStatus.DONE
-
 
 def test_an_agent_stopped_at_its_budget_still_records_what_it_left_behind(tmp_path):
     """A cap must not erase the evidence of the work it interrupted.
@@ -399,7 +373,6 @@ def test_an_agent_stopped_at_its_budget_still_records_what_it_left_behind(tmp_pa
     assert payload["aid"] == 1
     assert payload["role"] == "coder"
     assert payload["diff_sha"] == _sha(THREE_FILE_DIFF)
-    # The half of the row a handoff is joined on survives the stop too.
     assert payload["commits"] == ["2" * 40, "3" * 40]
     assert payload["head_commit"] == "2" * 40
     assert [entry["path"] for entry in payload["files"]] == [
@@ -407,7 +380,6 @@ def test_an_agent_stopped_at_its_budget_still_records_what_it_left_behind(tmp_pa
         "pkg/mod.py",
         "pkg/gone.py",
     ]
-
 
 def test_an_agent_whose_run_loop_raised_still_records_what_it_left_behind(tmp_path):
     """Same argument as the budget stop, reached down the exception path."""

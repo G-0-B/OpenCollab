@@ -17,7 +17,6 @@ from tests.support.tool_execution_test_support import (
 def run(coro):
     return asyncio.run(coro)
 
-
 def test_tool_trace_failure_does_not_discard_executed_result():
     class FailingTracer:
         def log_step(self, **kwargs):
@@ -30,7 +29,6 @@ def test_tool_trace_failure_does_not_discard_executed_result():
     )
     result = run(use_case.process([tool_call()]))
     assert result.messages_to_append[0]["content"] == "runtime result"
-
 
 def test_tool_execution_use_case_preserves_trace_payload_capping():
     raw_output = "a" * 10_000
@@ -48,7 +46,6 @@ def test_tool_execution_use_case_preserves_trace_payload_capping():
     assert payload["args"] == {"value": 1}
     assert payload["result_len"] == len(raw_output)
     assert "\n...[truncated]...\n" in payload["result"]
-
 
 def test_tool_observations_bound_large_nested_arguments():
     content = "x" * (4 * 1024 * 1024)
@@ -76,7 +73,6 @@ def test_tool_observations_bound_large_nested_arguments():
     assert event_args["nested"] == {"small": "kept"}
     assert tool.runtime_calls[0][0] == arguments
 
-
 def test_tool_observation_budget_accounts_for_large_numeric_scalars():
     huge_integer = int("9" * 4000)
     arguments = {"values": [huge_integer] * 64}
@@ -100,7 +96,6 @@ def test_tool_observation_budget_accounts_for_large_numeric_scalars():
         for value in event_args["values"]
     )
     assert tool.runtime_calls[0][0] == arguments
-
 
 def test_tool_execution_use_case_persists_full_tool_output():
     raw_output = "a" * 50_000

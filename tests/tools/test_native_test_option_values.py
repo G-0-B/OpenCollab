@@ -31,12 +31,10 @@ def test_native_test_options_do_not_become_targets(command, targets):
     assert parsed is not None and parsed.provable
     assert parsed.targets == targets
 
-
 @pytest.mark.parametrize("command", ["python -m pytest -r", "go test -json -coverprofile"])
 def test_missing_native_option_value_cannot_prove_execution(command):
     parsed = parse_test_command(command, "/workspace")
     assert parsed is None or not parsed.provable
-
 
 def test_pytest_core_required_values_follow_installed_option_metadata():
     for group in get_config()._parser._groups:
@@ -51,7 +49,6 @@ def test_pytest_core_required_values_follow_installed_option_metadata():
                 missing = parse_test_command(f"python -m pytest {name}", "/workspace")
                 assert missing is not None and not missing.provable, name
 
-
 @pytest.mark.parametrize(("arguments", "targets"), [
     ("--durations 5 -v --disable-warnings 2026.py 5", ("2026.py", "5")),
     ("--durations 5 -- --durations 5", ("--durations", "5")),
@@ -61,7 +58,6 @@ def test_pytest_option_values_preserve_positional_targets(arguments, targets):
     parsed = parse_test_command(f"python -m pytest {arguments}", "/workspace")
     assert parsed is not None and parsed.provable
     assert parsed.targets == targets
-
 
 async def verify(workspace, command, name):
     environment = local_environment(workspace)
@@ -82,7 +78,6 @@ async def verify(workspace, command, name):
     finally:
         await environment.cleanup()
 
-
 @pytest.mark.parametrize("report_option", ["-rA", "-r A"])
 async def test_real_pytest_report_option_checks_actual_target(tmp_path, report_option):
     target = tmp_path / "test_example.py"
@@ -98,7 +93,6 @@ async def test_real_pytest_report_option_checks_actual_target(tmp_path, report_o
     failed = await verify(tmp_path, command, "failed-artifacts")
     assert failed["executed"] and not failed["ok"]
     assert failed["checks"][0]["exit_code"] == 1
-
 
 @pytest.mark.parametrize("target", ["test_example.py", "5"])
 async def test_real_pytest_core_option_values_check_the_same_nodes(tmp_path, target):
@@ -132,7 +126,6 @@ async def test_real_pytest_core_option_values_check_the_same_nodes(tmp_path, tar
         nodes.append(re.findall(r"^PASSED (.+)$", check["output"], re.MULTILINE))
     expected = [f"{test_path}::test_example[{value}]" for value in range(4)]
     assert nodes == [expected, expected]
-
 
 @pytest.mark.skipif(shutil.which("go") is None, reason="Go is required for native coverage execution")
 @pytest.mark.parametrize("coverage_options", [

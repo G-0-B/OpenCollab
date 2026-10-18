@@ -18,7 +18,6 @@ EXPLICIT_KEY = "fake-explicit-override-key"  # pragma: allowlist secret
 MAPPING_KEY = "fake-valid-mapping-key"  # pragma: allowlist secret
 EXPLICIT_BASE_URL = "https://explicit.example/custom"
 
-
 @pytest.fixture(params=["openai", "anthropic", "dashscope"])
 def configured_request(request, monkeypatch, tmp_path):
     for name in tuple(os.environ):
@@ -65,11 +64,9 @@ def configured_request(request, monkeypatch, tmp_path):
         mapping_base_url=f"https://mapping.{route}.example" + ("" if provider == "anthropic" else "/v1"),
     )
 
-
 def _request(provider, base_url, key):
     path = "v1/messages" if provider == "anthropic" else "chat/completions"
     return {"url": f"{base_url}/{path}", "key": key}
-
 
 def _expected_request(configured, field=None):
     base_url = EXPLICIT_BASE_URL if field == "base_url" else configured.base_url
@@ -77,7 +74,6 @@ def _expected_request(configured, field=None):
     if field == "base_url" and configured.route == "dashscope":
         key = FALLBACK_KEY
     return _request(configured.provider, base_url, key)
-
 
 async def _complete(client, entry="model"):
     if entry == "agent":
@@ -88,7 +84,6 @@ async def _complete(client, entry="model"):
         async with client.create_model_client() as model:
             response = await model.complete([{"role": "user", "content": "Connect once."}])
         assert response.content == "connected"
-
 
 @pytest.mark.parametrize("field", ["api_key", "base_url"])
 @pytest.mark.parametrize("value", ["", " \t\n ", None], ids=["empty", "whitespace", "none"])
@@ -104,7 +99,6 @@ async def test_sdk_unset_optional_override_keeps_file_request(
     await _complete(OpenCollab(tmp_path, **kwargs))
     assert configured_request.requests == [_expected_request(configured_request)]
 
-
 @pytest.mark.parametrize("field", ["api_key", "base_url"])
 @pytest.mark.parametrize("source", ["config", "argument"])
 async def test_sdk_explicit_optional_override_controls_request(
@@ -119,7 +113,6 @@ async def test_sdk_explicit_optional_override_controls_request(
     await _complete(OpenCollab(tmp_path, **kwargs))
     assert configured_request.requests == [_expected_request(configured_request, field)]
 
-
 def _mapping_config(configured, monkeypatch, fallback):
     if not fallback:
         configured.config_file.write_text("", encoding="utf-8")
@@ -129,7 +122,6 @@ def _mapping_config(configured, monkeypatch, fallback):
         "api_key": MAPPING_KEY, "base_url": configured.mapping_base_url,
         "llm_max_retries": 0,
     }
-
 
 @pytest.mark.parametrize("field", ["api_key", "base_url"])
 @pytest.mark.parametrize("value", ["", " \t\n ", None], ids=["empty", "whitespace", "none"])
@@ -144,7 +136,6 @@ async def test_sdk_unset_argument_keeps_mapping_request(
         _request(configured_request.provider, configured_request.mapping_base_url, MAPPING_KEY),
     ]
 
-
 @pytest.mark.parametrize("field", ["api_key", "base_url"])
 @pytest.mark.parametrize("fallback", [False, True], ids=["no-fallback", "with-fallback"])
 @pytest.mark.parametrize("entry", ["model", "agent"])
@@ -157,7 +148,6 @@ async def test_sdk_explicit_argument_overrides_mapping_request(
     base_url = EXPLICIT_BASE_URL if field == "base_url" else configured_request.mapping_base_url
     key = EXPLICIT_KEY if field == "api_key" else MAPPING_KEY
     assert configured_request.requests == [_request(configured_request.provider, base_url, key)]
-
 
 def _invoke_cli(tmp_path, configured, field, value):
     team = tmp_path / "team.yaml"
@@ -175,7 +165,6 @@ def _invoke_cli(tmp_path, configured, field, value):
     assert result.exit_code == 0, result.output
     assert "connected" in result.output
 
-
 @pytest.mark.parametrize("field", ["api_key", "base_url"])
 @pytest.mark.parametrize("value", ["", " \t ", None], ids=["empty", "whitespace", "omitted"])
 def test_cli_unset_optional_override_keeps_file_request(
@@ -183,7 +172,6 @@ def test_cli_unset_optional_override_keeps_file_request(
 ):
     _invoke_cli(tmp_path, configured_request, field, value)
     assert configured_request.requests == [_expected_request(configured_request)]
-
 
 @pytest.mark.parametrize("field", ["api_key", "base_url"])
 def test_cli_explicit_optional_override_controls_request(tmp_path, configured_request, field):

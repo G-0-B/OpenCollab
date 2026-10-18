@@ -29,12 +29,6 @@ from tests.tools.scout_test_support import _FakeState, _ReadStub
 def run(coro):
     return asyncio.run(coro)
 
-
-# --------------------------------------------------------------------------- #
-# scripted workflow-engine harness (mirrors test_evidence_ledger)
-# --------------------------------------------------------------------------- #
-
-
 def _cited(summary="root cause located", anchor="fs.py:42"):
     return {
         "findings": [
@@ -50,11 +44,9 @@ def _cited(summary="root cause located", anchor="fs.py:42"):
         "insufficient_evidence": False,
     }
 
-
 class _FakeRunner:
     def configure_enforcement(self, **kw):
         pass
-
 
 class _FakeSession:
     def __init__(self, *, capture=None, reply="", scout_ledger=None, messages=None,
@@ -74,7 +66,6 @@ class _FakeSession:
             self.submit_tool.captured = self._capture
         return self.reply
 
-
 class _ScriptedFactory:
     def __init__(self, sessions):
         self.sessions = list(sessions)
@@ -92,34 +83,15 @@ class _ScriptedFactory:
                 session.submit_tool = tool
         return session
 
-
 def _ctx(factory):
     return WorkflowContext(factory, budget_total=None)
-
-
-# --------------------------------------------------------------------------- #
-# harvest priority (unit): captured > draft > prose/ledger; no-draft unchanged
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# draft_findings: bounded submit-only forced call returning the captured payload
-# --------------------------------------------------------------------------- #
-
 
 def test_draft_findings_none_when_no_capture():
     sess = _FakeSession(capture=None, reply="")
     ctx = _ctx(_ScriptedFactory([sess]))
     assert run(ctx.draft_findings("draft", label="d", budget=25_000)) is None
 
-
-# --------------------------------------------------------------------------- #
-# T1/T2 — harvest_fallback plumbing through the enforced scout path
-# --------------------------------------------------------------------------- #
-
-
 def test_t1_enforced_scout_harvests_refine_not_draft():
-    # The scout commits its OWN refined submit -> that wins over the seeded draft.
     scout = _FakeSession(capture=_cited(summary="scout refined this"), reply="")
     ctx = _ctx(_ScriptedFactory([scout]))
     out = run(
@@ -131,9 +103,7 @@ def test_t1_enforced_scout_harvests_refine_not_draft():
     assert "scout refined this" in out
     assert "DRAFT-ANCHORS" not in out
 
-
 def test_t2_dead_scout_falls_back_to_draft():
-    # No own capture, no reads (empty ledger) -> the draft is the salvage.
     dead = _FakeSession(capture=None, reply="", scout_ledger=[], messages=[])
     ctx = _ctx(_ScriptedFactory([dead]))
     out = run(
@@ -143,7 +113,6 @@ def test_t2_dead_scout_falls_back_to_draft():
         )
     )
     assert out == "DRAFT-ANCHORS"
-
 
 def test_enforced_scout_build_failure_preserves_existing_fallback():
     class FailingFactory:
@@ -163,9 +132,7 @@ def test_enforced_scout_build_failure_preserves_existing_fallback():
     assert out == "DRAFT-ANCHORS"
     assert ctx.agent_failures[0]["exception_type"] == "OSError"
 
-
 def test_t2_dead_scout_with_reads_prefers_grounded_synth_over_draft():
-    # A dead scout that DID read (ledger) -> the grounded synth overrides the draft.
     ledger = [{"tool": "grep", "target": "slice", "outcome": "hit", "snippet": "fs.py:42"}]
     dead = _FakeSession(capture=None, reply="", scout_ledger=list(ledger),
                         messages=[{"role": "tool", "tool_call_id": "c1", "content": "fs.py:42"}])
@@ -180,9 +147,7 @@ def test_t2_dead_scout_with_reads_prefers_grounded_synth_over_draft():
     assert "grounded synth" in out
     assert "DRAFT-ANCHORS" not in out
 
-
 def test_off_path_ignores_harvest_fallback():
-    # enforcement off -> the unchanged _run_agent path; harvest_fallback is inert.
     sess = _FakeSession(capture=None, reply="plain reply")
     ctx = _ctx(_ScriptedFactory([sess]))
     out = run(
@@ -192,6 +157,3 @@ def test_off_path_ignores_harvest_fallback():
         )
     )
     assert out == "plain reply"
-
-
-# --------------------------------------------------------------------------- #

@@ -29,7 +29,6 @@ _LAST_USAGE = {
     "completion_tokens_details": {"reasoning_tokens": 5},
 }
 
-
 class ReportedUsageStream(httpx.AsyncByteStream):
     def __init__(self, usage, *, disconnect=False, text="ok"):
         self.usage = usage
@@ -58,13 +57,11 @@ class ReportedUsageStream(httpx.AsyncByteStream):
     async def aclose(self):
         self.closed = True
 
-
 def _client(*, max_retries, stream_chat=True):
     return LLMClient(
         model=_MODEL, api_key="controlled-test",  # pragma: allowlist secret
         base_url="https://controlled.invalid/v1", max_retries=max_retries, stream_chat=stream_chat,
     )
-
 
 def _session(client):
     return build_session(
@@ -72,17 +69,14 @@ def _session(client):
         llm=client, max_budget_tokens=50_000,
     )
 
-
 @pytest.fixture
 def usage_log(monkeypatch, tmp_path):
     path = tmp_path / "usage.jsonl"
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(path))
     return path
 
-
 def _ledger(path):
     return [json.loads(line) for line in path.read_text().splitlines()]
-
 
 @pytest.mark.parametrize(
     ("attempts", "expected_tokens", "estimated"),
@@ -155,7 +149,6 @@ async def test_session_charges_reported_usage_from_every_chat_attempt(
                 )
             )
 
-
 async def test_cancelling_chat_retry_backoff_retains_reported_usage(monkeypatch, usage_log):
     entered_backoff = asyncio.Event()
     requests = []
@@ -191,7 +184,6 @@ async def test_cancelling_chat_retry_backoff_retains_reported_usage(monkeypatch,
     assert records[0]["error"]["type"] == "CancelledError"
     assert records[0]["usage"]["total_tokens"] == 27
 
-
 async def test_chat_retry_preserves_successful_markup_recovery(monkeypatch, usage_log):
     requests = []
     markup = (
@@ -222,7 +214,6 @@ async def test_chat_retry_preserves_successful_markup_recovery(monkeypatch, usag
     assert response.usage.total_tokens == 68
     assert response.usage.context_tokens == 30
     assert _ledger(usage_log)[0]["usage"]["total_tokens"] == 68
-
 
 async def test_nonstreaming_chat_usage_retains_its_original_shape(monkeypatch, usage_log):
     requests = []

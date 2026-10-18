@@ -88,7 +88,6 @@ async def test_default_team_executes_with_initialized_dependency(
     assert len(executions) == 1, (steps, result.output)
     assert all(not path.exists() for path in workspaces)
 
-
 @pytest.mark.parametrize("mode", ["git", "plain", "shared", "exported", "custom"])
 async def test_default_team_delivers_two_rounds_through_real_tools(tmp_path, monkeypatch, mode):
     source = tmp_path / "project"
@@ -200,7 +199,6 @@ async def test_default_team_delivers_two_rounds_through_real_tools(tmp_path, mon
             cwd=source, check=True, capture_output=True, text=True,
         )
         assert executed.stdout == "SDK_DELIVERY_PASS\n"
-
 
 @pytest.mark.parametrize("save_artifacts", [False, True])
 async def test_large_conflict_is_recoverable_after_a_fresh_coder_succeeds(tmp_path, monkeypatch, save_artifacts):

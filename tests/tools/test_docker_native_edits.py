@@ -37,7 +37,6 @@ async def test_two_shared_container_sessions_retain_both_edits(tmp_path, monkeyp
     assert all(call["wrapped"] for call in result["calls"])
     assert all("OC_NATIVE_EDIT_PROBE=wrapped" in call["command"] for call in result["calls"])
 
-
 @pytest.mark.parametrize(("backend", "parallel", "separate"), [
     ("docker", False, False), ("local", True, False), ("docker", True, True),
 ])
@@ -51,7 +50,6 @@ async def test_native_edit_controls(tmp_path, monkeypatch, backend, parallel, se
     assert result["errors"] == []
     if separate:
         assert result["max_real_exec_tracking"] == 2
-
 
 async def test_two_container_views_share_the_normalized_target_lock(tmp_path):
     target = tmp_path / "module.py"
@@ -69,7 +67,6 @@ async def test_two_container_views_share_the_normalized_target_lock(tmp_path):
 
     assert all(not output.startswith("Error") for output in outputs)
     assert target.read_text() == "alpha = 2\nbeta = 2\n"
-
 
 @pytest.mark.parametrize("second_mode", ["str_replace", "line_replace"])
 async def test_conflicting_edits_recheck_current_content(tmp_path, second_mode):
@@ -89,7 +86,6 @@ async def test_conflicting_edits_recheck_current_content(tmp_path, second_mode):
     assert sum(output.startswith("Error") for output in outputs) == 1
     assert target.read_text() in {"alpha = 2\nbeta = 1\n", "alpha = 3\nbeta = 1\n"}
     assert len([call for call in transport.calls if call["write"]]) == 1
-
 
 async def test_unique_match_and_overwrite_checks_survive_container_lock(tmp_path):
     target = tmp_path / "module.py"
@@ -115,7 +111,6 @@ async def test_unique_match_and_overwrite_checks_survive_container_lock(tmp_path
     assert stale.startswith("Error")
     assert target.read_text() == original
     assert not any(call["write"] for call in transport.calls)
-
 
 async def test_cancelled_lock_owner_releases_waiting_native_edit(tmp_path):
     target = tmp_path / "module.py"
@@ -145,7 +140,6 @@ async def test_cancelled_lock_owner_releases_waiting_native_edit(tmp_path):
     assert not output.startswith("Error")
     assert target.read_text() == "alpha = 2\nbeta = 1\n"
     assert not env.revoked
-
 
 async def test_child_task_waits_and_cancelled_waiter_keeps_owner_usable(tmp_path):
     target = tmp_path / "module.py"

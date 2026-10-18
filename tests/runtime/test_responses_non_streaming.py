@@ -32,7 +32,6 @@ def test_non_streaming_text_and_missing_usage_are_supported():
     assert estimated.usage.cache_read_tokens is None
     assert estimated.usage.reasoning_tokens is None
 
-
 @pytest.mark.asyncio
 async def test_missing_usage_estimate_includes_responses_tool_schemas():
     messages = [{"role": "user", "content": "use the tool"}]
@@ -73,7 +72,6 @@ async def test_missing_usage_estimate_includes_responses_tool_schemas():
     assert result.usage.input_tokens == estimate_messages_tokens(messages, converted_tools)
     assert result.usage.input_tokens > estimate_messages_tokens(messages)
 
-
 def test_non_streaming_usage_accepts_top_level_cache_write_fallback():
     response = completed_response(output=[message_item("done")])
     del response.usage.input_tokens_details.cache_write_tokens
@@ -87,7 +85,6 @@ def test_non_streaming_usage_accepts_top_level_cache_write_fallback():
 
     assert parsed.usage.cache_creation_tokens == 4
 
-
 def test_non_streaming_requires_provider_model_identity():
     response = completed_response(output=[message_item("done")], model="")
 
@@ -97,7 +94,6 @@ def test_non_streaming_requires_provider_model_identity():
             [{"role": "user", "content": "work"}],
             expected_model="gpt-fake",
         )
-
 
 def test_non_streaming_records_provider_resolved_model_alias_and_estimates_invalid_usage():
     aliased = completed_response(output=[message_item("done")], model="other-model")

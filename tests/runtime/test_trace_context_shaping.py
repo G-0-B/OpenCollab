@@ -28,8 +28,7 @@ from tests.support.session_run_loop_test_support import FakeLLM, build_runner, l
 SESSION_AID = 11
 STEP_COUNT = 4
 
-# The frozen vocabulary the paper's ``assigned.context_policy`` field uses; a
-# per-turn record outside it cannot be joined against the assigned policy.
+# Policy names must join against the assigned.context_policy record.
 RUNG_VOCABULARY = {
     "eager_clear",
     "per_tool_budget",
@@ -39,12 +38,10 @@ RUNG_VOCABULARY = {
     "none",
 }
 
-
 def _payloads(path: str, step_type: str) -> list[dict]:
     with open(path, encoding="utf-8") as handle:
         records = [json.loads(line) for line in handle if line.strip()]
     return [record["payload"] for record in records if record["type"] == step_type]
-
 
 def _tool_exchange(call_id: str, tool_name: str, content: str) -> list[dict]:
     return [
@@ -64,7 +61,6 @@ def _tool_exchange(call_id: str, tool_name: str, content: str) -> list[dict]:
         },
         {"role": "tool", "tool_call_id": call_id, "content": content},
     ]
-
 
 def _run_one_call(tmp_path, *, shaper, messages) -> list[dict]:
     """Run a single-turn session under a real Tracer; return shaping payloads."""
@@ -87,7 +83,6 @@ def _run_one_call(tmp_path, *, shaper, messages) -> list[dict]:
         tracer.close()
     return _payloads(path, "context_shaping")
 
-
 def test_one_rung_firing_is_recorded_by_its_frozen_name(tmp_path):
     """A single triggered rung yields one record naming it, with both sizes."""
     payloads = _run_one_call(
@@ -105,7 +100,6 @@ def test_one_rung_firing_is_recorded_by_its_frozen_name(tmp_path):
     assert record["aid"] == SESSION_AID
     assert record["seq"] == STEP_COUNT
     assert record["tokens_before"] > record["tokens_after"]
-
 
 def test_every_rung_that_fires_gets_its_own_record_in_order(tmp_path):
     """Two rungs firing in one turn yield two records, in pipeline order."""
@@ -135,7 +129,6 @@ def test_every_rung_that_fires_gets_its_own_record_in_order(tmp_path):
     # The chain is sequential: each rung starts from the previous one's output.
     assert payloads[0]["tokens_after"] == payloads[1]["tokens_before"]
 
-
 def test_a_turn_that_triggers_nothing_still_records_none(tmp_path):
     """No rung firing is recorded as ``none`` — not as an absent record."""
     payloads = _run_one_call(
@@ -161,7 +154,6 @@ def test_a_turn_that_triggers_nothing_still_records_none(tmp_path):
     assert record["aid"] == SESSION_AID
     assert record["seq"] == STEP_COUNT
     assert record["tokens_before"] == record["tokens_after"] > 0
-
 
 def test_recorded_rung_names_stay_inside_the_frozen_vocabulary(tmp_path):
     """Never a class name: the wired production chain reports frozen labels."""
@@ -190,4 +182,4 @@ def test_recorded_rung_names_stay_inside_the_frozen_vocabulary(tmp_path):
     assert payloads
     for record in payloads:
         assert record["rung"] in RUNG_VOCABULARY
-        assert record["rung"] != "none"  # something did fire
+        assert record["rung"] != "none"

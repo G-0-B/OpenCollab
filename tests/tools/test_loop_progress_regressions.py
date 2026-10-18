@@ -25,7 +25,6 @@ class _RecordingEnvironment(LocalEnvironment):
         self.commands.append((cmd, timeout))
         return await super().exec_cmd(cmd, timeout=timeout)
 
-
 @pytest.fixture
 async def local_tools(tmp_path):
     environment = _RecordingEnvironment(tmp_path)
@@ -38,10 +37,8 @@ async def local_tools(tmp_path):
     yield executor, state, environment
     await environment.cleanup()
 
-
 def _call(name, args, call_id):
     return tool_call(name, json.dumps(args), call_id=call_id)
-
 
 async def _step(executor, state, *calls):
     state.advance_step()
@@ -49,10 +46,8 @@ async def _step(executor, state, *calls):
     result.apply_to(state)
     return result
 
-
 def _read(call_id, *, timeout=10):
     return _call("bash", {"command": "cat observed.txt", "timeout": timeout}, call_id)
-
 
 def _write(content, call_id):
     return _call(
@@ -60,7 +55,6 @@ def _write(content, call_id):
         {"path": "observed.txt", "mode": "create", "content": content, "overwrite": True},
         call_id,
     )
-
 
 @pytest.mark.parametrize("same_batch", [False, True])
 async def test_confirmed_edit_allows_one_retest_without_recounting_the_call(local_tools, tmp_path, same_batch):
@@ -85,7 +79,6 @@ async def test_confirmed_edit_allows_one_retest_without_recounting_the_call(loca
     assert len(blocked.loop_detections) == 1
     assert len(environment.commands) == 3
 
-
 async def test_same_content_overwrite_keeps_physical_write_without_progress_reward(local_tools, tmp_path):
     executor, state, environment = local_tools
     target = tmp_path / "observed.txt"
@@ -105,7 +98,6 @@ async def test_same_content_overwrite_keeps_physical_write_without_progress_rewa
     assert state.turn.loop_blocked_since_progress == 2
     assert environment.commands == []
 
-
 async def test_noop_overwrite_cannot_reopen_an_exhausted_read(local_tools, tmp_path):
     executor, state, environment = local_tools
     (tmp_path / "observed.txt").write_text("same\n")
@@ -114,7 +106,6 @@ async def test_noop_overwrite_cannot_reopen_an_exhausted_read(local_tools, tmp_p
     result = await _step(executor, state, _write("same\n", "noop"), _read("still-blocked"))
     assert len(result.loop_detections) == 1
     assert len(environment.commands) == 2
-
 
 async def test_timeout_drift_preserves_actual_parameters_but_shares_repeat_identity(local_tools, tmp_path):
     executor, state, environment = local_tools
@@ -126,7 +117,6 @@ async def test_timeout_drift_preserves_actual_parameters_but_shares_repeat_ident
     assert [timeout for _, timeout in environment.commands] == [10, 11]
     assert outputs[0].loop_detections == outputs[1].loop_detections == []
     assert len(outputs[2].loop_detections) == len(outputs[3].loop_detections) == 1
-
 
 async def test_two_actual_timeouts_allow_one_larger_attempt_and_no_further_credit(local_tools):
     executor, state, environment = local_tools
@@ -145,7 +135,6 @@ async def test_two_actual_timeouts_allow_one_larger_attempt_and_no_further_credi
     assert len(results[3].loop_detections) == 1
     assert [timeout for _, timeout in environment.commands] == [0.02, 0.04, 2.0]
 
-
 async def test_timeout_epsilon_after_exhausted_recovery_stays_blocked(local_tools):
     executor, state, environment = local_tools
     program = "import time; time.sleep(1)"
@@ -158,7 +147,6 @@ async def test_timeout_epsilon_after_exhausted_recovery_stays_blocked(local_tool
     assert len(environment.commands) == 3
     assert all("timed out" in item.messages_to_append[0]["content"] for item in results[:3])
     assert all(len(item.loop_detections) == 1 for item in results[3:])
-
 
 async def test_requested_timeout_above_the_outer_deadline_does_not_buy_recovery(local_tools, monkeypatch):
     from opencollab.application import tool_execution_runtime
@@ -176,7 +164,6 @@ async def test_requested_timeout_above_the_outer_deadline_does_not_buy_recovery(
     assert len(results[2].loop_detections) == 1
     assert len(environment.commands) == 2
 
-
 async def test_printing_timeout_text_and_exiting_124_does_not_grant_recovery(local_tools):
     executor, state, environment = local_tools
     command = "printf 'Command timed out after 10s\\n'; exit 124"
@@ -189,7 +176,6 @@ async def test_printing_timeout_text_and_exiting_124_does_not_grant_recovery(loc
     assert len(results[2].loop_detections) == 1
     assert len(environment.commands) == 2
 
-
 async def test_variable_output_cannot_create_recovery_credits(local_tools):
     executor, state, environment = local_tools
     command = "printf 'noise-%s\\n' \"$$\""
@@ -201,7 +187,6 @@ async def test_variable_output_cannot_create_recovery_credits(local_tools):
     assert results[0].messages_to_append[0]["content"] != results[1].messages_to_append[0]["content"]
     assert len(environment.commands) == 2
     assert all(len(item.loop_detections) == 1 for item in results[2:])
-
 
 async def test_quoted_shell_commands_keep_distinct_execution_semantics(local_tools):
     executor, state, environment = local_tools
@@ -217,7 +202,6 @@ async def test_quoted_shell_commands_keep_distinct_execution_semantics(local_too
     assert "$LABEL" in results[0].messages_to_append[0]["content"]
     assert "ALPHA" in results[1].messages_to_append[0]["content"]
     assert [command for command, _ in environment.commands] == commands
-
 
 async def test_custom_tool_named_bash_retains_its_timeout_parameter():
     class SemanticTimeoutTool(RuntimeNativeTool):
@@ -235,7 +219,6 @@ async def test_custom_tool_named_bash_retains_its_timeout_parameter():
         assert result.loop_detections == []
     assert [args["timeout"] for args, _ in tool.runtime_calls] == [10, 11, 12]
 
-
 async def test_fresh_read_evidence_resets_warning_when_an_old_operation_is_blocked(local_tools, tmp_path):
     executor, state, environment = local_tools
     (tmp_path / "observed.txt").write_text("old\n")
@@ -250,7 +233,6 @@ async def test_fresh_read_evidence_resets_warning_when_an_old_operation_is_block
         assert len(result.loop_detections) == 1
         assert state.turn.loop_blocked_since_progress == 0
     assert len(environment.commands) == 2
-
 
 async def test_unknown_bash_effect_cannot_mask_confirmed_repeat_blocks(local_tools):
     executor, state, environment = local_tools

@@ -17,13 +17,11 @@ _CLAUDE_4_MODELS = [
     "claude-haiku-4-5-20251001", "gateway/claude-sonnet-4-6-20260217",
 ]
 
-
 @pytest.fixture(autouse=True)
 def isolate_configuration(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(tmp_path / "usage.jsonl"))
     monkeypatch.delenv("OPENCOLLAB_TEMPERATURE", raising=False)
     monkeypatch.delenv("OPENCOLLAB_TOP_P", raising=False)
-
 
 @pytest.mark.parametrize("model", _CLAUDE_4_MODELS)
 @pytest.mark.parametrize("top_p", [0.8, 0.0])
@@ -71,7 +69,6 @@ async def test_public_agent_sends_only_top_p(monkeypatch, tmp_path, model, top_p
     assert "temperature" not in requests[1]
     assert "thinking" not in requests[1]
 
-
 @pytest.mark.parametrize("model", [
     "claude-3-7-sonnet-20250219", "claude-3-5-haiku-20241022",
     "gateway/claude-3-5-sonnet-20241022", "compatible-unknown-model", "deepseek-flash",
@@ -96,7 +93,6 @@ async def test_public_agent_keeps_legacy_and_compatible_sampling(monkeypatch, tm
     assert result.output == "ok" and len(requests) == 1
     assert requests[0]["temperature"] == 0.2
     assert requests[0]["top_p"] == 0.8
-
 
 @pytest.mark.parametrize("model,expected_temperature", [
     ("claude-sonnet-4", 0.2), ("claude-sonnet-4-6", 0.2),

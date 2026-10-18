@@ -22,15 +22,12 @@ from opencollab.adapters.llm.usage_ledger import (
 def _read_jsonl(path):
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
-
 @pytest.mark.parametrize("model", ["glm-4", "glm-5.1", "my-glm-proxy"])
 def test_non_glm52_models_do_not_receive_glm52_pricing(model):
     assert pricing_for_model(model)["mode"] == "unset"
 
-
 def test_provider_prefixed_glm52_model_uses_glm52_pricing():
     assert pricing_for_model("zhipu/glm-5.2")["mode"] == "glm-5.2-default"
-
 
 def test_glm_usage_cost_accounts_for_cache_discount(monkeypatch):
     monkeypatch.delenv("GLM_INPUT_USD_PER_MTOK", raising=False)
@@ -48,7 +45,6 @@ def test_glm_usage_cost_accounts_for_cache_discount(monkeypatch):
 
     expected = (200 * 1.4 + 600 * 0.26 + 200 * 1.4 + 50 * 4.4) / 1_000_000
     assert cost == pytest.approx(expected)
-
 
 @pytest.mark.parametrize(
     "model, prefix, input_price, cached_price, output_price",
@@ -101,7 +97,6 @@ def test_cache_creation_count_is_optional_only_at_input_price(
     assert payload["raw_usage"] == raw_usage
     assert usage.cache_creation_tokens == creation_count
 
-
 @pytest.mark.parametrize("model, prefix", [("gpt-4o", "OPENCOLLAB"), ("glm-5.2", "GLM")])
 @pytest.mark.parametrize("creation_count", [None, 500])
 def test_unknown_cache_read_count_keeps_cost_unknown(monkeypatch, model, prefix, creation_count):
@@ -114,7 +109,6 @@ def test_unknown_cache_read_count_keeps_cost_unknown(monkeypatch, model, prefix,
     )
 
     assert usage_cost_usd(usage, model) is None
-
 
 def test_append_usage_record_writes_jsonl(tmp_path):
     path = tmp_path / "api_usage.jsonl"
@@ -134,7 +128,6 @@ def test_append_usage_record_writes_jsonl(tmp_path):
     assert rows[0]["base_url"] == "http://127.0.0.1:18788"
     assert "hidden" not in json.dumps(rows[0])
 
-
 def test_usage_log_is_disabled_without_explicit_path(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENCOLLAB_API_USAGE_LOG", raising=False)
     monkeypatch.chdir(tmp_path)
@@ -143,7 +136,6 @@ def test_usage_log_is_disabled_without_explicit_path(tmp_path, monkeypatch):
 
     assert usage_log_path() is None
     assert not (tmp_path / ".opencollab").exists()
-
 
 def test_usage_record_strips_base_url_userinfo_and_query():
     record = build_usage_record(
@@ -160,7 +152,6 @@ def test_usage_record_strips_base_url_userinfo_and_query():
     assert "user" not in record_text
     assert "secret" not in record_text
     assert "hidden" not in record_text
-
 
 def test_error_message_redacts_secrets_without_hiding_plain_text(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "local-secret-token")
@@ -188,7 +179,6 @@ def test_error_message_redacts_secrets_without_hiding_plain_text(monkeypatch):
     assert "message=plain input" in record_text
     assert "local-secret-token" not in record_text
 
-
 def test_error_message_redacts_quoted_secret_assignments():
     error = RuntimeError(
         "failed password=\"my-secret\" {'token': 'abc123'} "
@@ -213,7 +203,6 @@ def test_error_message_redacts_quoted_secret_assignments():
     assert "abc123" not in message
     assert "top secret value" not in message
 
-
 def test_record_api_usage_is_fail_safe(monkeypatch):
     def boom(**kwargs):
         raise RuntimeError("ledger build failed")
@@ -227,7 +216,6 @@ def test_record_api_usage_is_fail_safe(monkeypatch):
         latency_s=0.1,
         status="success",
     )
-
 
 def test_async_usage_recording_runs_under_lock(monkeypatch):
     events = []
@@ -262,7 +250,6 @@ def test_async_usage_recording_runs_under_lock(monkeypatch):
 
     assert events == ["to_thread", "enter", "record", "exit"]
 
-
 class _FakeCompletions:
     async def create(self, **kwargs):
         usage = SimpleNamespace(
@@ -274,11 +261,9 @@ class _FakeCompletions:
         choice = SimpleNamespace(message=message, finish_reason="stop")
         return SimpleNamespace(choices=[choice], usage=usage)
 
-
 class _BoomCompletions:
     async def create(self, **kwargs):
         raise RuntimeError("upstream failed bearer local-secret-token")
-
 
 def test_llm_client_records_success_without_prompt_or_key(tmp_path, monkeypatch):
     path = tmp_path / "api_usage.jsonl"
@@ -305,7 +290,6 @@ def test_llm_client_records_success_without_prompt_or_key(tmp_path, monkeypatch)
     assert "very secret prompt" not in record_text
     assert "local-secret-token" not in record_text
 
-
 def test_llm_client_records_error_with_redaction(tmp_path, monkeypatch):
     path = tmp_path / "api_usage.jsonl"
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(path))
@@ -329,7 +313,6 @@ def test_llm_client_records_error_with_redaction(tmp_path, monkeypatch):
     assert "[redacted]" in rows[0]["error"]["message"]
     assert "very secret prompt" not in record_text
     assert "local-secret-token" not in record_text
-
 
 def test_unknown_responses_cache_usage_remains_unknown():
     usage = Usage(

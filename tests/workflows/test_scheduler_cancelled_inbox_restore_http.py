@@ -31,7 +31,6 @@ def tool_reply(request, name, arguments):
         "usage": {"prompt_tokens": 2, "completion_tokens": 2, "total_tokens": 4},
     })
 
-
 class ReceiptTool(Tool):
     name = "write_receipt"
     description = "Record the accepted teammate request in a local file."
@@ -45,7 +44,6 @@ class ReceiptTool(Tool):
         self.calls += 1
         self.path.write_text("accepted teammate work executed\n", encoding="utf-8")
         return "receipt written"
-
 
 class BoundaryTool(Tool):
     name = "finish_operation"
@@ -61,7 +59,6 @@ class BoundaryTool(Tool):
         await self.release.wait()
         return "operation finished"
 
-
 class Factory:
     def __init__(self, client):
         self.client = client
@@ -74,14 +71,12 @@ class Factory:
             seed_user_messages=[{"role": "user", "content": kwargs["task"]}],
         )
 
-
 class Pool:
     async def acquire(self, role):
         return None
 
     async def release(self):
         pass
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("boundary", ["generation", "tool"])

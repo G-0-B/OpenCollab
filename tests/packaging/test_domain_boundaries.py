@@ -7,7 +7,6 @@ stays here is the part an import graph cannot check: that the concrete tool
 adapter and the application-layer port still satisfy the domain's ``ToolSpec``.
 """
 
-
 def test_tool_base_satisfies_tool_spec():
     from opencollab.adapters.tools.base import Tool
     from opencollab.domain.tools import ToolSpec
@@ -17,7 +16,6 @@ def test_tool_base_satisfies_tool_spec():
     assert isinstance(instance.description, str)
     assert isinstance(instance.parameters, dict)
     assert callable(instance.to_openai_schema)
-
 
 def test_tool_port_carries_tool_spec_schema_surface():
     from opencollab.application.ports import ToolPort

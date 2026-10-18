@@ -50,7 +50,6 @@ from opencollab.domain.team import Topology
 def run(coro):
     return asyncio.run(coro)
 
-
 class FakeSession:
     def __init__(self, role: str):
         self.used_tokens = 0
@@ -64,17 +63,14 @@ class FakeSession:
     async def run_loop(self) -> str:
         return ""
 
-
 class FakeFactory:
     def build_spawn_session(self, **kwargs):
         return FakeSession("coder")
-
 
 def _payloads(path: str, step_type: str) -> list[dict]:
     with open(path, encoding="utf-8") as handle:
         records = [json.loads(line) for line in handle if line.strip()]
     return [record["payload"] for record in records if record["type"] == step_type]
-
 
 def _scheduler(tracer, *, topology=None):
     """Agent 0 ``lead`` plus one live teammate aid 1 ``coder``."""
@@ -99,13 +95,11 @@ def _scheduler(tracer, *, topology=None):
     scheduler._sessions[1] = child
     return scheduler, child
 
-
 def _hold_target_busy(scheduler, aid: int) -> asyncio.Task:
     """Park a never-finishing driver on ``aid`` so its inbox cannot drain."""
     task = asyncio.get_running_loop().create_future()
     scheduler._tasks[aid] = task
     return task
-
 
 @pytest.fixture
 def tracer(tmp_path):
@@ -116,7 +110,6 @@ def tracer(tmp_path):
         tracer.flush()
         tracer.close()
 
-
 def test_a_message_the_topology_forbids_is_recorded_in_full(tracer):
     """The role-boundary observation: who tried to reach whom, and was stopped."""
     closed = Topology(edges={"lead": frozenset(), "coder": frozenset()})
@@ -125,7 +118,6 @@ def test_a_message_the_topology_forbids_is_recorded_in_full(tracer):
     error = run(scheduler.send_message(0, 1, "please review", "the patch is ready"))
     tracer.flush()
 
-    # Enforcement unchanged: same refusal string, and nothing was queued.
     assert error == (
         "Error: role 'lead' is not permitted to message 'coder' "
         "under the team topology."
@@ -145,12 +137,9 @@ def test_a_message_the_topology_forbids_is_recorded_in_full(tracer):
             "summary_chars": 13,
             "content_chars": 18,
             "content_bytes": 18,
-            # Nothing in this message is shaped like a git object id, and the
-            # count says so rather than the list being merely empty.
             "commit_refs": [],
             "commit_refs_found": 0,
-            # No envelope is built on this branch, and a zero would read as an
-            # empty message rather than as "not measured here".
+            # No envelope is built, so its size remains unmeasured.
             "message_bytes": None,
             "message_id": None,
             "inbox_messages": 0,
@@ -158,13 +147,10 @@ def test_a_message_the_topology_forbids_is_recorded_in_full(tracer):
             "max_message_bytes": MAX_TEAMMATE_MESSAGE_BYTES,
             "max_inbox_messages": MAX_TEAMMATE_INBOX_MESSAGES,
             "max_inbox_bytes": MAX_TEAMMATE_INBOX_BYTES,
-            # A model reaching for a forbidden edge, not a message the reload
-            # could no longer route. Same row shape, opposite finding.
             "restored": False,
         }
     ]
     assert _payloads(tracer.path, "message_sent") == []
-
 
 def test_every_refusal_branch_records_its_own_reason(tracer):
     """One row per rule, and the rule is named by an enumerated token."""
@@ -218,16 +204,12 @@ def test_every_refusal_branch_records_its_own_reason(tracer):
     seen = run(scenario())
     tracer.flush()
 
-    # Enforcement unchanged: every branch still refused.
     assert all(error.startswith("Error: ") for _, error in seen)
 
     refusals = _payloads(tracer.path, "message_refused")
     assert [payload["reason"] for payload in refusals] == [reason for reason, _ in seen]
-    # Two aids and two roles on every row: that pair is what attributes a
-    # refusal to a declared topology edge.
     for payload in refusals:
         assert {"from_aid", "from_role", "to_aid", "to_role"} <= set(payload)
-
 
 def test_a_recipient_that_does_not_exist_has_a_null_role_not_a_question_mark(tracer):
     """``_role_of`` answers ``"?"`` for the model; the record must not store it."""
@@ -240,7 +222,6 @@ def test_a_recipient_that_does_not_exist_has_a_null_role_not_a_question_mark(tra
     payload = _payloads(tracer.path, "message_refused")[0]
     assert payload["to_aid"] == 99
     assert payload["to_role"] is None
-
 
 def test_backpressure_records_the_queue_the_decision_was_taken_against(tracer):
     """A dropped collaboration message must not read as "never sent one"."""
@@ -258,7 +239,6 @@ def test_backpressure_records_the_queue_the_decision_was_taken_against(tracer):
     scheduler, child, error = run(scenario())
     tracer.flush()
 
-    # Enforcement unchanged: refused, and the inbox stayed at its ceiling.
     assert error == "Error: teammate inbox for aid 1 is full (backpressure)."
     assert len(scheduler._message_inbox[1]) == MAX_TEAMMATE_INBOX_MESSAGES
     assert child.added == []
@@ -270,9 +250,7 @@ def test_backpressure_records_the_queue_the_decision_was_taken_against(tracer):
     assert refusals[0]["inbox_messages"] == MAX_TEAMMATE_INBOX_MESSAGES
     assert refusals[0]["message_bytes"] > 0
 
-    # The denominator: the 32 that did get through are countable in the same
-    # file, on the same fields, so "how much traffic did this edge carry" and
-    # "how much was refused" are one query.
+    # Accepted and refused messages use the same attribution fields for traffic counts.
     accepted = _payloads(tracer.path, "message_sent")
     assert len(accepted) == MAX_TEAMMATE_INBOX_MESSAGES
     assert [payload["inbox_messages"] for payload in accepted] == list(
@@ -281,7 +259,6 @@ def test_backpressure_records_the_queue_the_decision_was_taken_against(tracer):
     assert all("reason" not in payload for payload in accepted)
     assert {payload["from_role"] for payload in accepted} == {"lead"}
     assert {payload["to_role"] for payload in accepted} == {"coder"}
-
 
 def test_a_queued_message_is_recorded_with_the_id_it_was_queued_under(tracer):
     """``message_id`` joins the record to the durable sidecar entry."""
@@ -303,7 +280,6 @@ def test_a_queued_message_is_recorded_with_the_id_it_was_queued_under(tracer):
     assert payloads[0]["content_chars"] == 8
     assert payloads[0]["summary"] == "handoff"
 
-
 def test_a_long_summary_is_capped_but_still_measures_as_long(tracer):
     scheduler, _ = _scheduler(tracer)
     summary = "s" * (MESSAGE_TRACE_SUMMARY_CHARS + 500)
@@ -314,7 +290,6 @@ def test_a_long_summary_is_capped_but_still_measures_as_long(tracer):
     payload = _payloads(tracer.path, "message_refused")[0]
     assert len(payload["summary"]) == MESSAGE_TRACE_SUMMARY_CHARS
     assert payload["summary_chars"] == MESSAGE_TRACE_SUMMARY_CHARS + 500
-
 
 def test_a_tracer_that_fails_does_not_change_any_decision(tmp_path):
     """Observation is non-authoritative: a broken recorder must not rewrite a rule."""
@@ -343,13 +318,11 @@ def test_a_tracer_that_fails_does_not_change_any_decision(tmp_path):
     assert run(scenario()) == "Message queued to aid 1."
     assert len(scheduler._message_inbox[1]) == 1
 
-
 def test_no_tracer_means_no_records_and_no_failure(tmp_path):
     scheduler, _ = _scheduler(None)
     assert run(scheduler.send_message(0, 0, "s", "c")) == (
         "Error: an agent cannot message itself."
     )
-
 
 def test_the_git_object_ids_a_message_carries_are_listed(tracer):
     """The payload of a git handoff is a sha, and a size cannot stand in for it.
@@ -376,13 +349,10 @@ def test_the_git_object_ids_a_message_carries_are_listed(tracer):
     tracer.flush()
 
     payload = _payloads(tracer.path, "message_sent")[0]
-    # Both writings of the same commit, deduplicated and in the order written.
     assert payload["commit_refs"] == [sha, sha[:9]]
     assert payload["commit_refs_found"] == 2
-    # The body itself is not copied here: it is already in the recipient's
-    # transcript, and a trajectory file is for counting.
+    # The recipient transcript already retains the message body.
     assert "content" not in payload
-
 
 def test_a_refused_handoff_records_the_id_it_was_carrying(tracer):
     """A refusal is the observation; dropping its payload would empty it."""
@@ -396,7 +366,6 @@ def test_a_refused_handoff_records_the_id_it_was_carrying(tracer):
     payload = _payloads(tracer.path, "message_refused")[0]
     assert payload["reason"] == "topology_forbidden"
     assert payload["commit_refs"] == [sha]
-
 
 def test_hex_that_is_not_object_shaped_is_not_listed(tracer):
     """A candidate list is only useful if it does not accept everything."""
@@ -414,7 +383,6 @@ def test_hex_that_is_not_object_shaped_is_not_listed(tracer):
     assert payload["commit_refs"] == []
     assert payload["commit_refs_found"] == 0
 
-
 def test_more_object_ids_than_are_listed_still_measure_as_more(tracer):
     scheduler, _ = _scheduler(tracer)
     refs = [f"{index:040x}" for index in range(1, MESSAGE_TRACE_COMMIT_REFS + 5)]
@@ -425,7 +393,6 @@ def test_more_object_ids_than_are_listed_still_measure_as_more(tracer):
     payload = _payloads(tracer.path, "message_refused")[0]
     assert payload["commit_refs"] == refs[:MESSAGE_TRACE_COMMIT_REFS]
     assert payload["commit_refs_found"] == len(refs)
-
 
 def test_a_restored_route_the_topology_now_forbids_is_recorded_too(tracer):
     """The same observation, at the other moment it can happen.
@@ -454,7 +421,6 @@ def test_a_restored_route_the_topology_now_forbids_is_recorded_too(tracer):
     tracer.flush()
 
     assert queued == "Message queued to aid 1."
-    # The message really was dropped, not merely reported.
     assert scheduler._message_inbox.get(1) == []
     assert child.added == []
 
@@ -463,7 +429,6 @@ def test_a_restored_route_the_topology_now_forbids_is_recorded_too(tracer):
     assert refused[0]["reason"] == "restored_topology_forbidden"
     assert refused[0]["restored"] is True
     assert (refused[0]["from_role"], refused[0]["to_role"]) == ("lead", "coder")
-
 
 def test_the_two_moments_a_message_can_be_refused_are_counted_the_same_way(tracer):
     """One edge, two refusals, one row shape — and still distinguishable.
@@ -484,7 +449,6 @@ def test_the_two_moments_a_message_can_be_refused_are_counted_the_same_way(trace
         )
         del scheduler._tasks[1]
         await scheduler._drain_message_inbox_locked(1)
-        # Now the model itself tries the edge the topology closed.
         return await scheduler.send_message(0, 1, "again", "please look")
 
     error = run(scenario())
@@ -495,12 +459,9 @@ def test_the_two_moments_a_message_can_be_refused_are_counted_the_same_way(trace
     refused = _payloads(tracer.path, "message_refused")
     assert len(refused) == 2
     on_restore, at_send = refused
-    # Same shape: every field one row has, the other has.
     assert set(on_restore) == set(at_send)
-    # Same edge, so both count toward the same denominator.
     assert (on_restore["from_role"], on_restore["to_role"]) == ("lead", "coder")
     assert (at_send["from_role"], at_send["to_role"]) == ("lead", "coder")
-    # And still separable without parsing prose.
     assert [row["restored"] for row in refused] == [True, False]
     assert [row["reason"] for row in refused] == [
         "restored_topology_forbidden",

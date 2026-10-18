@@ -39,7 +39,6 @@ def test_root_and_sdk_export_one_small_surface() -> None:
     )
     assert all(not hasattr(sdk, name) for name in retired)
 
-
 def test_public_class_and_method_shapes_stay_lean() -> None:
     positional = inspect.Parameter.POSITIONAL_OR_KEYWORD
     keyword = inspect.Parameter.KEYWORD_ONLY
@@ -110,7 +109,6 @@ def test_public_class_and_method_shapes_stay_lean() -> None:
         "agent_failures",
     )
 
-
 def test_run_result_has_one_status_and_one_error_model(tmp_path: Path) -> None:
     completed = sdk.RunResult(output="done", status="completed", tokens=4)
     assert completed.ok
@@ -129,7 +127,6 @@ def test_run_result_has_one_status_and_one_error_model(tmp_path: Path) -> None:
         failed.raise_for_status()
     assert captured.value.result is failed
 
-
 def test_workflow_decorator_is_minimal_but_keeps_explicit_metadata() -> None:
     @sdk.workflow
     async def draft(_ctx, inputs):
@@ -147,7 +144,6 @@ def test_workflow_decorator_is_minimal_but_keeps_explicit_metadata() -> None:
     assert review.__workflow_spec__.name == "review"
     assert review.__workflow_spec__.description == "Review it"
     assert review.__workflow_spec__.phases == ("read",)
-
 
 def test_advanced_capabilities_live_in_small_opt_in_modules() -> None:
     import opencollab.environments as environments
@@ -190,7 +186,6 @@ def test_advanced_capabilities_live_in_small_opt_in_modules() -> None:
     assert not hasattr(environments, "WorktreeEnvironment")
     assert not hasattr(environments, "DockerEnvironment")
 
-
 def test_public_environment_contract_exposes_workspace_mapping_metadata() -> None:
     assert {
         "workspace",
@@ -200,13 +195,11 @@ def test_public_environment_contract_exposes_workspace_mapping_metadata() -> Non
     } <= set(Environment.__annotations__)
     assert callable(getattr(Environment, "setup"))
 
-
 def test_public_workflow_context_keeps_research_strategy_private() -> None:
     parameters = inspect.signature(WorkflowContext.agent).parameters
     assert "enforcement_strength" not in parameters
     assert "commit_reserve" not in parameters
     assert "harvest_fallback" not in parameters
-
 
 def test_environment_factories_preserve_caller_owned_lifecycle(tmp_path: Path) -> None:
     local = local_environment(tmp_path)
@@ -221,7 +214,6 @@ def test_environment_factories_preserve_caller_owned_lifecycle(tmp_path: Path) -
     assert not worktree.revoked
     assert not container.revoked
 
-
 async def test_public_environment_setup_has_one_shared_contract(tmp_path: Path) -> None:
     local = local_environment(tmp_path)
     worktree = worktree_environment(tmp_path)
@@ -231,7 +223,6 @@ async def test_public_environment_setup_has_one_shared_contract(tmp_path: Path) 
         await local.setup(str(tmp_path))
     with pytest.raises(ValueError, match="mount_dir"):
         await worktree.setup(str(tmp_path))
-
 
 def test_attach_container_validates_non_owning_workspace() -> None:
     environment = attach_container(
@@ -249,7 +240,6 @@ def test_attach_container_validates_non_owning_workspace() -> None:
     with pytest.raises(ValueError, match="non-root"):
         attach_container(container_id="container-1", workspace="/")
 
-
 def test_builtin_tools_are_fresh_ordered_and_headless_safe() -> None:
     first = builtin_tools(
         "bash",
@@ -265,7 +255,6 @@ def test_builtin_tools_are_fresh_ordered_and_headless_safe() -> None:
     assert all(left is not right for left, right in zip(first, second, strict=True))
     assert first[0].require_process_isolation is True
     assert first[1].allow_create is False
-
 
 def test_builtin_tools_reject_unsupported_or_ambiguous_requests() -> None:
     with pytest.raises(ValueError, match="unsupported"):
@@ -285,13 +274,11 @@ def test_builtin_tools_reject_unsupported_or_ambiguous_requests() -> None:
     with pytest.raises(ValueError, match="unsupported keys"):
         builtin_tools("grep", limits={"grep": {"unknown": 10}})
 
-
 def test_client_rejects_invalid_workspace_or_config(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="not a directory"):
         sdk.OpenCollab(tmp_path / "missing")
     with pytest.raises(TypeError, match="mapping"):
         sdk.OpenCollab(tmp_path, config=object())
-
 
 def test_client_exposes_immutable_non_secret_configuration(tmp_path: Path) -> None:
     client = sdk.OpenCollab(

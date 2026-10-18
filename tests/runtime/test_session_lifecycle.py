@@ -31,7 +31,6 @@ class DelayedCloseSession:
                 raise RuntimeError("close failed after cancellation")
         self.closed = True
 
-
 @pytest.mark.parametrize("cancellation_outcome", ["cancel", "error", "complete"])
 async def test_close_checks_the_result_after_timeout_cancellation(cancellation_outcome):
     session = DelayedCloseSession(cancellation_outcome)
@@ -41,7 +40,6 @@ async def test_close_checks_the_result_after_timeout_cancellation(cancellation_o
     assert session.cancelled
     assert session.close_calls == 1
 
-
 @pytest.mark.parametrize("fail", [False, True])
 async def test_close_checks_a_result_returned_within_the_initial_deadline(fail):
     class Session:
@@ -50,7 +48,6 @@ async def test_close_checks_a_result_returned_within_the_initial_deadline(fail):
                 raise RuntimeError("close failed immediately")
 
     assert await close_session_resources([Session()], timeout=0.1) is (not fail)
-
 
 async def test_close_still_reports_failure_when_cancellation_has_not_terminated():
     release = asyncio.Event()
@@ -70,7 +67,6 @@ async def test_close_still_reports_failure_when_cancellation_has_not_terminated(
     finally:
         release.set()
         await asyncio.gather(*owners)
-
 
 @pytest.mark.parametrize("cancellation_outcome", ["cancel", "error", "complete"])
 async def test_sdk_reports_actual_owned_client_close_result(

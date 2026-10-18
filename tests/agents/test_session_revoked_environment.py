@@ -26,7 +26,6 @@ class MarkerTool(Tool):
         self.calls += 1
         return "saved result"
 
-
 def make_runner(monkeypatch, *, cleanup_succeeds=False, deferred=False):
     environment = DockerEnvironment(container_id="a" * 64)
     environment._attached_bound = True
@@ -56,7 +55,6 @@ def make_runner(monkeypatch, *, cleanup_succeeds=False, deferred=False):
     runner = build_runner(state=state, agent=agent, llm=llm, tool_execution=executor, event_bus=bus)
     return runner, environment, marker, llm, events, docker_calls
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("deferred", [False, True])
 async def test_failed_cleanup_preserves_batch_and_stops_model_calls(monkeypatch, deferred):
@@ -82,7 +80,6 @@ async def test_failed_cleanup_preserves_batch_and_stops_model_calls(monkeypatch,
     if deferred:
         assert runner.agent.find_tool("spawn_agent").calls == 0
 
-
 @pytest.mark.asyncio
 async def test_recoverable_timeout_continues_with_same_environment(monkeypatch):
     runner, environment, marker, llm, _events, _docker_calls = make_runner(monkeypatch, cleanup_succeeds=True)
@@ -92,7 +89,6 @@ async def test_recoverable_timeout_continues_with_same_environment(monkeypatch):
     assert runner.state.phase is SessionPhase.DONE
     assert marker.calls == 2
     assert len(llm.calls) == 2
-
 
 @pytest.mark.asyncio
 async def test_revoked_environment_rejects_new_turn_before_model_call(monkeypatch):

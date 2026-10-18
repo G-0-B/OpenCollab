@@ -35,7 +35,6 @@ def _project(path: Path, name: str) -> Path:
     )
     return path
 
-
 def _cli(cwd: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-m", "opencollab", *arguments],
@@ -54,13 +53,11 @@ def _cli(cwd: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
         timeout=30,
     )
 
-
 def _assert_untouched(*projects: Path) -> None:
     for project in projects:
         assert not (project / "discovered").exists()
         assert not (project / "executed").exists()
         assert not (project / ".opencollab").exists()
-
 
 @pytest.mark.parametrize("command", [["run", "scope-probe"], ["list"]], ids=["run", "list"])
 def test_cli_rejects_root_workflow_options_before_project_discovery(tmp_path, command):
@@ -76,7 +73,6 @@ def test_cli_rejects_root_workflow_options_before_project_discovery(tmp_path, co
     assert "--workspace" in diagnostic and "--budget" in diagnostic
     assert "workflow run NAME" in diagnostic and "workflow list" in diagnostic
     _assert_untouched(requested, current)
-
 
 @pytest.mark.parametrize(
     "options",
@@ -97,7 +93,6 @@ def test_cli_rejects_explicit_root_options_and_keeps_values_private(tmp_path, op
     assert "fixture-secret-never-print" not in diagnostic
     _assert_untouched(current)
 
-
 def test_cli_workflow_child_options_select_requested_workspace_and_budget(tmp_path):
     requested = _project(tmp_path / "requested", "scope-probe")
     current = _project(tmp_path / "current", "scope-probe")
@@ -111,7 +106,6 @@ def test_cli_workflow_child_options_select_requested_workspace_and_budget(tmp_pa
     assert (requested / "executed").read_text(encoding="utf-8") == "ran"
     _assert_untouched(current)
 
-
 def test_cli_workflow_defaults_keep_current_workspace(tmp_path):
     current = _project(tmp_path / "current", "scope-probe")
     result = _cli(current, ["workflow", "run", "scope-probe", "--no-save"])
@@ -119,7 +113,6 @@ def test_cli_workflow_defaults_keep_current_workspace(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     assert json.loads(result.stdout) == {"workspace": str(current), "budget": 1_000_000}
     assert (current / "executed").read_text(encoding="utf-8") == "ran"
-
 
 @pytest.mark.parametrize("explicit_workspace", [False, True], ids=["default", "child-option"])
 def test_cli_workflow_list_workspace_remains_valid(tmp_path, explicit_workspace):
@@ -136,7 +129,6 @@ def test_cli_workflow_list_workspace_remains_valid(tmp_path, explicit_workspace)
     assert not (selected / ".opencollab").exists()
     _assert_untouched(untouched)
 
-
 @pytest.mark.parametrize(
     "command",
     [[], ["workflow"], ["workflow", "run"], ["workflow", "list"]],
@@ -149,7 +141,6 @@ def test_cli_help_keeps_project_untouched(tmp_path, command):
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Usage" in unstyle(result.stdout)
     _assert_untouched(current)
-
 
 def test_cli_interactive_root_options_keep_their_configuration(tmp_path, monkeypatch):
     captured = {}

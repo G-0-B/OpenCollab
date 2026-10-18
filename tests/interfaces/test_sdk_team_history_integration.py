@@ -23,7 +23,6 @@ def _git(workspace: Path, *args: str) -> str:
         ["git", "-C", str(workspace), *args], capture_output=True, text=True, check=True,
     ).stdout.strip()
 
-
 def _response(name: str | None = None, arguments: dict | None = None) -> LLMResponse:
     calls = [] if name is None else [{
         "id": "scripted-call", "type": "function",
@@ -33,7 +32,6 @@ def _response(name: str | None = None, arguments: dict | None = None) -> LLMResp
         content=None if calls else "Repair complete.", tool_calls=calls,
         usage=Usage(10, 5), finish_reason="tool_calls" if calls else "stop",
     )
-
 
 @pytest.mark.parametrize("operation", [
     "control", "rebase", "cherry-pick", "merge", "cherry-pick-abort", "rebase-own-history", "reset-own-history",

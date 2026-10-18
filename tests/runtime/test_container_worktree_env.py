@@ -32,7 +32,6 @@ from opencollab.application._scheduler_team import _parse_worktree_diff
 
 CONTAINER_ID = "c" * 64
 
-
 def _git(cwd, *args) -> str:
     return subprocess.run(
         ["git", "-C", str(cwd), *args],
@@ -40,7 +39,6 @@ def _git(cwd, *args) -> str:
         capture_output=True,
         text=True,
     ).stdout.strip()
-
 
 def _repo(path, *, object_format: str = "sha1"):
     path.mkdir(parents=True)
@@ -52,11 +50,9 @@ def _repo(path, *, object_format: str = "sha1"):
     _git(path, "commit", "-qm", "base")
     return path
 
-
 def _changed_files(diff: str) -> list[str]:
     """What the scheduler's ``worktree_changes`` record would list."""
     return [path for path, _ in _parse_worktree_diff(diff)]
-
 
 @pytest.fixture
 def local_docker(monkeypatch):
@@ -93,7 +89,6 @@ def local_docker(monkeypatch):
     monkeypatch.setattr(docker_module, "run_process", shim)
     return shim
 
-
 def _env(repo, tmp_path, branch: str) -> ContainerWorktreeEnvironment:
     return ContainerWorktreeEnvironment(
         container_id=CONTAINER_ID,
@@ -101,7 +96,6 @@ def _env(repo, tmp_path, branch: str) -> ContainerWorktreeEnvironment:
         worktree_root=str(tmp_path / "worktrees"),
         branch_name=branch,
     )
-
 
 async def test_verified_write_accepts_bsd_wc_padding(local_docker, monkeypatch, tmp_path):
     """A BSD-style padded ``wc -c`` count still verifies the write."""
@@ -119,7 +113,6 @@ async def test_verified_write_accepts_bsd_wc_padding(local_docker, monkeypatch, 
         assert Path(env.workspace, "padded.txt").read_text(encoding="utf-8") == "hello"
     finally:
         await env.cleanup()
-
 
 async def test_an_agents_own_commits_stay_in_its_own_diff(local_docker, tmp_path):
     repo = _repo(tmp_path / "testbed")
@@ -139,7 +132,6 @@ async def test_an_agents_own_commits_stay_in_its_own_diff(local_docker, tmp_path
         assert env.own_commit_count == 1
     finally:
         await env.cleanup()
-
 
 async def test_a_checked_out_teammate_commit_is_not_this_agents_work(
     local_docker, tmp_path
@@ -169,7 +161,6 @@ async def test_a_checked_out_teammate_commit_is_not_this_agents_work(
         await tester.cleanup()
         await coder.cleanup()
 
-
 async def test_a_sibling_cannot_see_work_that_was_not_committed(local_docker, tmp_path):
     """What isolation buys: an edit nobody committed reaches nobody else."""
     repo = _repo(tmp_path / "testbed")
@@ -187,7 +178,6 @@ async def test_a_sibling_cannot_see_work_that_was_not_committed(local_docker, tm
     finally:
         await tester.cleanup()
         await coder.cleanup()
-
 
 async def test_the_worktree_is_not_inside_the_repository_it_checks_out(
     local_docker, tmp_path
@@ -208,7 +198,6 @@ async def test_the_worktree_is_not_inside_the_repository_it_checks_out(
     finally:
         await env.cleanup()
 
-
 async def test_an_agents_commits_do_not_move_the_branch_it_leased(
     local_docker, tmp_path
 ):
@@ -228,12 +217,10 @@ async def test_an_agents_commits_do_not_move_the_branch_it_leased(
 
         assert _git(env.workspace, "rev-parse", "HEAD") != leased_at
         assert _git(repo, "rev-parse", "refs/heads/container-lease") == leased_at
-        # Empty means HEAD is detached; a checked-out branch would name it.
         assert _git(env.workspace, "branch", "--show-current") == ""
     finally:
         await env.cleanup()
     assert "container-lease" not in _git(repo, "branch", "--list")
-
 
 async def test_cleanup_gives_back_the_worktree_and_its_branch(local_docker, tmp_path):
     repo = _repo(tmp_path / "testbed")
@@ -248,7 +235,6 @@ async def test_cleanup_gives_back_the_worktree_and_its_branch(local_docker, tmp_
     assert "container-released" not in _git(repo, "branch", "--list")
     assert not (tmp_path / "worktrees" / "container-released").exists()
     assert workspace.endswith("container-released")
-
 
 async def test_a_handoff_is_read_in_a_sha256_repository_too(local_docker, tmp_path):
     """The harness rebuilds some repositories with 64-character object ids."""
@@ -274,7 +260,6 @@ async def test_a_handoff_is_read_in_a_sha256_repository_too(local_docker, tmp_pa
         await tester.cleanup()
         await coder.cleanup()
 
-
 async def test_a_repository_hardened_by_its_harness_still_reports_a_diff(
     local_docker, tmp_path
 ):
@@ -292,7 +277,6 @@ async def test_a_repository_hardened_by_its_harness_still_reports_a_diff(
     finally:
         await env.cleanup()
 
-
 @pytest.mark.parametrize(
     ("repository_root", "worktree_root"),
     [("relative/testbed", "/worktrees"), ("/testbed", "worktrees"), ("/", "/worktrees")],
@@ -304,7 +288,6 @@ def test_container_paths_must_be_absolute_and_not_the_root(repository_root, work
             repository_root=repository_root,
             worktree_root=worktree_root,
         )
-
 
 async def test_workflow_factory_isolates_inside_the_supplied_container(
     local_docker, tmp_path, monkeypatch
@@ -339,7 +322,6 @@ async def test_workflow_factory_isolates_inside_the_supplied_container(
     assert base.revoked is False
     assert not Path(isolated.workspace).exists()
 
-
 @pytest.mark.parametrize("command", ["git reset --hard HEAD", "git checkout -b fix-topic"])
 async def test_noop_reset_does_not_hide_a_committed_candidate(local_docker, tmp_path, command):
     repo = _repo(tmp_path / 'testbed')
@@ -354,7 +336,6 @@ async def test_noop_reset_does_not_hide_a_committed_candidate(local_docker, tmp_
         assert await env.get_diff() == before
     finally:
         await env.cleanup()
-
 
 @pytest.mark.parametrize("symlink_root", [False, True])
 async def test_locked_container_worktree_reports_failure_and_can_retry(local_docker, tmp_path, symlink_root):
@@ -377,7 +358,6 @@ async def test_locked_container_worktree_reports_failure_and_can_retry(local_doc
         await env.cleanup()
     assert not Path(env.workspace).exists()
 
-
 @pytest.mark.parametrize('root', ['/app/children', '/app', '/app/../app/worktrees'])
 def test_worktree_root_cannot_contaminate_the_exported_repository(root):
     with pytest.raises(ValueError, match='outside'):
@@ -385,14 +365,12 @@ def test_worktree_root_cannot_contaminate_the_exported_repository(root):
             container_id=CONTAINER_ID, repository_root='/app', worktree_root=root,
         )
 
-
 @pytest.mark.parametrize(('repository', 'worktrees'), [('//', '/tmp/worktrees'), ('//app', '/app/children')])
 def test_redundant_slashes_do_not_bypass_repository_boundaries(repository, worktrees):
     with pytest.raises(ValueError):
         ContainerWorktreeEnvironment(
             container_id=CONTAINER_ID, repository_root=repository, worktree_root=worktrees,
         )
-
 
 @pytest.mark.skipif(os.name != "posix" or os.geteuid() == 0, reason="requires enforced POSIX permissions")
 async def test_container_permission_failure_can_retry_after_git_unregisters(local_docker, tmp_path):
@@ -415,7 +393,6 @@ async def test_container_permission_failure_can_retry_after_git_unregisters(loca
         await env.cleanup()
     assert not workspace.exists()
     await env.cleanup()
-
 
 @pytest.fixture
 def container_namespace(local_docker, monkeypatch, tmp_path):
@@ -441,7 +418,6 @@ def container_namespace(local_docker, monkeypatch, tmp_path):
         return str(path.resolve()).replace(physical_root, virtual_root)
 
     return container_path
-
 
 def _source_with_submodules(tmp_path, *, nested):
     leaf = _repo(tmp_path / "leaf")
@@ -483,7 +459,6 @@ def _source_with_submodules(tmp_path, *, nested):
     _git(source, "commit", "-qm", "add source dependency")
     return source, dependency_path
 
-
 @pytest.mark.parametrize("nested", [False, True])
 async def test_container_initializes_available_submodules_in_its_own_namespace(
     container_namespace, monkeypatch, tmp_path, nested,
@@ -504,7 +479,6 @@ async def test_container_initializes_available_submodules_in_its_own_namespace(
         await env.cleanup()
     assert _git(source, "worktree", "list", "--porcelain").count("worktree ") == 1
 
-
 async def test_container_keeps_uncommitted_source_changes_isolated(local_docker, tmp_path):
     source = _repo(tmp_path / "testbed")
     (source / "tracked.txt").write_text("sibling edit\n", encoding="utf-8")
@@ -519,7 +493,6 @@ async def test_container_keeps_uncommitted_source_changes_isolated(local_docker,
         assert await env.get_diff() == ""
     finally:
         await env.cleanup()
-
 
 async def test_container_uses_committed_submodules_despite_sibling_edits(
     container_namespace, tmp_path,
@@ -537,7 +510,6 @@ async def test_container_uses_committed_submodules_despite_sibling_edits(
     finally:
         await env.cleanup()
 
-
 async def test_container_leaves_uninitialized_optional_submodule_empty(
     container_namespace, tmp_path,
 ):
@@ -550,7 +522,6 @@ async def test_container_leaves_uninitialized_optional_submodule_empty(
         assert await env.get_diff() == ""
     finally:
         await env.cleanup()
-
 
 @pytest.mark.parametrize("sibling_edit", ["rename", "staged_removal"])
 async def test_container_pool_keeps_optional_modules_isolated_from_sibling_configuration(
@@ -590,7 +561,6 @@ async def test_container_pool_keeps_optional_modules_isolated_from_sibling_confi
     assert _git(source, "branch", "--list", "opencollab-*") == ""
     assert base.revoked is False
 
-
 @pytest.mark.parametrize("metadata", ["invalid_gitfile", "missing_directory"])
 async def test_container_optional_module_retains_source_metadata_validation(
     container_namespace, monkeypatch, tmp_path, metadata,
@@ -626,7 +596,6 @@ async def test_container_optional_module_retains_source_metadata_validation(
         await env.cleanup()
     assert _git(source, "worktree", "list", "--porcelain").count("worktree ") == 1
     assert _git(source, "branch", "--list", "metadata-control") == ""
-
 
 async def test_container_pool_preserves_nested_workspace_and_captures_from_repository_root(
     container_namespace, monkeypatch, tmp_path,
@@ -669,7 +638,6 @@ async def test_container_pool_preserves_nested_workspace_and_captures_from_repos
     assert _git(source, "branch", "--list", "opencollab-coder-*") == ""
     assert base.revoked is False
 
-
 async def test_container_initializes_submodules_within_nested_workspace(
     container_namespace, tmp_path,
 ):
@@ -692,7 +660,6 @@ async def test_container_initializes_submodules_within_nested_workspace(
         await env.cleanup()
     assert _git(source, "status", "--porcelain") == ""
     assert _git(source, "worktree", "list", "--porcelain").count("worktree ") == 1
-
 
 async def test_nested_source_rejects_worktree_root_inside_true_repository(
     container_namespace, tmp_path,

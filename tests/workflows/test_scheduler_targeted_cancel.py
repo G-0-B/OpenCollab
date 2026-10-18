@@ -116,7 +116,6 @@ def test_a_turn_offered_a_cancel_event_still_ends_when_the_team_goes_quiet():
 
     run(scenario())
 
-
 def test_targeted_cancel_event_settles_suspended_descendants_before_they_finish():
     child_started = asyncio.Event()
     release_child = asyncio.Event()
@@ -209,7 +208,6 @@ def test_targeted_cancel_event_settles_suspended_descendants_before_they_finish(
 
     run(scenario())
 
-
 def test_cancel_settlement_reconciles_queued_inbox_and_notifies_unanswered_sender():
     child_started = asyncio.Event()
     release_child = asyncio.Event()
@@ -289,7 +287,6 @@ def test_cancel_settlement_reconciles_queued_inbox_and_notifies_unanswered_sende
 
     run(scenario())
 
-
 def test_cancelled_descendant_keeps_inbox_until_its_next_public_turn():
     child_started = asyncio.Event()
     release_child = asyncio.Event()
@@ -367,7 +364,6 @@ def test_cancelled_descendant_keeps_inbox_until_its_next_public_turn():
 
     run(scenario())
 
-
 def test_restored_cancelled_inbox_survives_unrelated_run_then_delivers_once():
     class AnsweringSession(ScriptedSession):
         async def add_user_message(self, content: str) -> None:
@@ -438,7 +434,6 @@ def test_restored_cancelled_inbox_survives_unrelated_run_then_delivers_once():
 
     run(scenario())
 
-
 def test_cancel_event_during_restored_awaiting_preamble_settles_without_appending_user_turn():
     child_started = asyncio.Event()
     parent_started = asyncio.Event()
@@ -491,7 +486,6 @@ def test_cancel_event_during_restored_awaiting_preamble_settles_without_appendin
         release_child.set()
 
     run(scenario())
-
 
 @pytest.mark.parametrize(
     ("terminal_phase", "terminal_reason"),

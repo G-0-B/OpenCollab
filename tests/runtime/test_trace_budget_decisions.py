@@ -39,12 +39,10 @@ def _payloads(path: str, step_type: str) -> list[dict]:
         records = [json.loads(line) for line in handle if line.strip()]
     return [record["payload"] for record in records if record["type"] == step_type]
 
-
 @pytest.mark.asyncio
 async def test_a_refused_call_records_who_was_refused_and_by_how_much(tmp_path):
     tracer = Tracer(run_id="budget-refusal", output_dir=str(tmp_path))
-    # One session overspends the pool outright: 150 tokens against a total of
-    # 100, so the next call meets a pool that is 50 tokens in the hole.
+    # Spend 150 tokens against a 100-token pool before the next call.
     factory = FakeFactory([FakeSession(reply="a", tokens=150)])
     ctx = WorkflowContext(factory, tracer=tracer, budget_total=100)
     try:
@@ -58,7 +56,6 @@ async def test_a_refused_call_records_who_was_refused_and_by_how_much(tmp_path):
     finally:
         tracer.close()
 
-    # Enforcement unchanged: the refusal still raised, and still built nothing.
     assert len(factory.builds) == 1
 
     payloads = _payloads(tracer.path, "budget_refusal")
@@ -73,9 +70,7 @@ async def test_a_refused_call_records_who_was_refused_and_by_how_much(tmp_path):
         "total": 100,
         "would_exceed_by": 90,
     }
-    # The healthy first call is not a budget decision and must not be recorded.
     assert _payloads(tracer.path, "budget_escape") == []
-
 
 @pytest.mark.asyncio
 async def test_an_over_budget_escape_records_the_call_it_waved_through(tmp_path):
@@ -93,8 +88,6 @@ async def test_an_over_budget_escape_records_the_call_it_waved_through(tmp_path)
     finally:
         tracer.close()
 
-    # Enforcement unchanged: the escape still ran the call, with the cap it asked
-    # for, on a pool that was already 50 tokens overdrawn.
     assert result == "forced write"
     assert len(factory.builds) == 2
     assert factory.builds[1]["budget"] == 25
@@ -113,7 +106,6 @@ async def test_an_over_budget_escape_records_the_call_it_waved_through(tmp_path)
         "over_budget_ok": True,
     }
     assert _payloads(tracer.path, "budget_refusal") == []
-
 
 @pytest.mark.asyncio
 async def test_an_uncapped_escape_records_a_null_overshoot_not_an_invented_number(
@@ -144,7 +136,6 @@ async def test_an_uncapped_escape_records_a_null_overshoot_not_an_invented_numbe
     assert len(payloads) == 1
     assert payloads[0] == {
         "seq": 1,
-        # No label was passed, so there is nothing that names the caller.
         "agent_id": None,
         "label": None,
         "requested_cap": None,

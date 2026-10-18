@@ -32,7 +32,6 @@ class _WriteFiles:
                 usage=Usage(4, 2), finish_reason="tool_calls")
         return LLMResponse(content="Files written.", usage=Usage(4, 2), finish_reason="stop")
 
-
 @pytest.mark.parametrize("subdirectory", [False, True])
 @pytest.mark.parametrize("candidate", [False, True])
 @pytest.mark.parametrize("tracked_test", [False, True])
@@ -89,7 +88,6 @@ async def test_public_exclusions_keep_source_changes_and_literal_neighbors(
     assert (repo / ".git/index").read_bytes() == index_before
     assert _git(repo, "worktree", "list", "--porcelain").count("worktree ") == 1
 
-
 @pytest.mark.parametrize("candidate", [False, True])
 @pytest.mark.parametrize("artifacts", [False, True])
 @pytest.mark.parametrize("outside_path", ["shared.py", "sibling/new.py"])
@@ -136,7 +134,6 @@ async def test_exclusions_keep_root_and_sibling_changes(tmp_path, candidate, art
         assert (repo / "shared.py").read_text() == "shared = 1\n"
         assert not (workspace / "tests/injected.py").exists()
 
-
 @pytest.mark.parametrize("candidate", [False, True])
 @pytest.mark.parametrize("artifacts", [False, True])
 @pytest.mark.parametrize("invalid_path", ["../shared.py", "/shared.py", "tests/\0injected.py"])
@@ -160,7 +157,6 @@ async def test_public_exclusions_reject_paths_outside_workspace(tmp_path, candid
     )
     assert result.ok, result.reason
     assert result.output == {"source_changed": None, "patch": None}
-
 
 @pytest.mark.parametrize("subdirectory", [False, True])
 @pytest.mark.parametrize("candidate", [False, True])

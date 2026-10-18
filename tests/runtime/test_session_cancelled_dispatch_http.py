@@ -57,7 +57,6 @@ def _tool_response(request, mode, calls, text):
         "usage": {"prompt_tokens": 2, "completion_tokens": 2, "total_tokens": 4},
     })
 
-
 @pytest.mark.parametrize("mode", ["chat", "responses", "anthropic"])
 @pytest.mark.parametrize("kind", ["ask", "write", "text"])
 @pytest.mark.parametrize("interrupt_boundary", ["none", "generation", "accepted"])

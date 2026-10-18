@@ -1,10 +1,5 @@
 """Chat stream configuration reaches each runtime composition path."""
 
-# ---------------------------------------------------------------------------
-# Wiring: the switch has to reach the provider from a config file
-# ---------------------------------------------------------------------------
-
-
 def test_env_flag_reaches_the_config(monkeypatch, tmp_path):
     from opencollab.bootstrap.config import build_config
 
@@ -12,14 +7,12 @@ def test_env_flag_reaches_the_config(monkeypatch, tmp_path):
 
     assert build_config(str(tmp_path)).llm_stream_chat is True
 
-
 def test_config_defaults_the_switch_off(monkeypatch, tmp_path):
     from opencollab.bootstrap.config import build_config
 
     monkeypatch.delenv("OPENCOLLAB_LLM_STREAM_CHAT", raising=False)
 
     assert build_config(str(tmp_path)).llm_stream_chat is False
-
 
 def test_agent_flag_reaches_the_llm_client(monkeypatch):
     """Without this the setting would look enabled and change nothing — the
@@ -38,7 +31,6 @@ def test_agent_flag_reaches_the_llm_client(monkeypatch):
         Agent(name="analyst", system_prompt="hi"), None, 600.0, None
     ).stream_chat is False
 
-
 def test_public_model_client_retains_the_configured_chat_stream_flag(monkeypatch, tmp_path):
     from opencollab import OpenCollab
     from opencollab.adapters.llm import client as client_module
@@ -48,7 +40,6 @@ def test_public_model_client_retains_the_configured_chat_stream_flag(monkeypatch
     transport = client.create_model_client()
     assert transport.stream_chat is True
     assert client.configuration["llm_stream_chat"] is True
-
 
 def test_team_lead_and_child_receive_the_same_chat_stream_switch(tmp_path):
     from opencollab.bootstrap import build_runtime_context, build_scheduler

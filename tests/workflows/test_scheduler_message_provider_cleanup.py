@@ -40,7 +40,6 @@ class _ChildProvider:
                 raise RuntimeError("late provider failure")
             return llm_response(content="late abandoned answer", input_tokens=8, output_tokens=9)
 
-
 class _Factory:
     def __init__(self, provider):
         self.provider = provider
@@ -56,7 +55,6 @@ class _Factory:
             seed_user_messages=[{"role": "user", "content": task}],
         )
         return self.session
-
 
 class _StartAndMessage(Tool):
     name = "start_and_message"
@@ -78,7 +76,6 @@ class _StartAndMessage(Tool):
         self.ack = await self.scheduler.send_message(0, aid, "follow-up", "Process this accepted follow-up")
         return self.ack
 
-
 class _LeadProvider:
     def __init__(self):
         self.calls = 0
@@ -93,7 +90,6 @@ class _LeadProvider:
                 "function": {"name": "start_and_message", "arguments": "{}"},
             }], finish_reason="tool_calls")
         return llm_response(content="lead done")
-
 
 @pytest.mark.parametrize("ending", ["success", "error", "cancelled"])
 @pytest.mark.parametrize("send_after_timeout", [False, True])
@@ -141,7 +137,6 @@ async def test_accepted_followup_runs_after_timeout_cleanup(ending, send_after_t
         provider.release.set()
         await scheduler.cleanup()
         await asyncio.gather(active, return_exceptions=True)
-
 
 async def test_cancelling_public_turn_preserves_the_provider_cleanup_owner():
     provider = _ChildProvider("success")

@@ -19,7 +19,6 @@ from tests.support.paths import PACKAGE_ROOT
 
 _TASK = ' \u4fee\u590d "quoted" \u548c \'single\' \\ path\n\u7b2c\u4e8c\u884c Grüße 🌍\n '
 
-
 @pytest.fixture
 def workflow_project(tmp_path):
     directory = tmp_path / "workflows"
@@ -35,7 +34,6 @@ def workflow_project(tmp_path):
         encoding="utf-8",
     )
     return tmp_path
-
 
 def _cli(project: Path, arguments: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -55,7 +53,6 @@ def _cli(project: Path, arguments: list[str]) -> subprocess.CompletedProcess[str
         timeout=30,
     )
 
-
 @pytest.mark.parametrize("source", ["text", "file"])
 def test_real_cli_task_preserves_quotes_multiline_and_unicode(workflow_project, source):
     other_args = {"task": "custom parameter", "nested": {"attempts": 2}, "allow_unisolated_shell": False}
@@ -71,7 +68,6 @@ def test_real_cli_task_preserves_quotes_multiline_and_unicode(workflow_project, 
     assert result.returncode == 0, result.stdout + result.stderr
     assert json.loads(result.stdout) == {**other_args, "goal": _TASK}
 
-
 def test_real_cli_keeps_existing_args_compatible(workflow_project):
     original_args = {"goal": _TASK, "task": "caller field", "attempts": 2, "allow_unisolated_shell": True}
 
@@ -79,7 +75,6 @@ def test_real_cli_keeps_existing_args_compatible(workflow_project):
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert json.loads(result.stdout) == original_args
-
 
 def test_duo_task_forwards_goal_and_explicit_shell_choice(tmp_path, monkeypatch):
     captured = {}
@@ -109,7 +104,6 @@ def test_duo_task_forwards_goal_and_explicit_shell_choice(tmp_path, monkeypatch)
     assert result.exit_code == 0, result.output
     assert captured == {"name": "duo", "args": {"goal": _TASK, "allow_unisolated_shell": True}}
 
-
 @pytest.fixture
 def validation_cli(monkeypatch):
     @workflow(name="input-probe")
@@ -130,7 +124,6 @@ def validation_cli(monkeypatch):
 
     return invoke
 
-
 @pytest.mark.parametrize("task", ["", " ", "\t\n"])
 def test_task_rejects_blank_text(validation_cli, task):
     result = validation_cli(["--task", task])
@@ -138,14 +131,12 @@ def test_task_rejects_blank_text(validation_cli, task):
     assert result.exit_code == 2
     assert "--task must not be empty" in unstyle(result.output)
 
-
 @pytest.mark.parametrize("path", ["", " \t"])
 def test_task_rejects_blank_file_path(validation_cli, path):
     result = validation_cli(["--task-file", path])
 
     assert result.exit_code == 2
     assert "--task-file path must not be empty" in unstyle(result.output)
-
 
 def test_task_rejects_both_inputs_even_when_text_is_empty(validation_cli, tmp_path):
     path = tmp_path / "task.txt"
@@ -155,7 +146,6 @@ def test_task_rejects_both_inputs_even_when_text_is_empty(validation_cli, tmp_pa
 
     assert result.exit_code == 2
     assert "mutually exclusive" in unstyle(result.output)
-
 
 @pytest.mark.parametrize("source", ["text", "file"])
 @pytest.mark.parametrize("existing_goal", ["old goal", None])
@@ -168,7 +158,6 @@ def test_task_rejects_goal_already_in_args(validation_cli, tmp_path, source, exi
 
     assert result.exit_code == 2
     assert "already contains 'goal'" in unstyle(result.output)
-
 
 @pytest.mark.parametrize("kind", ["empty", "invalid-utf8", "missing", "directory", "fifo", "symlink", "oversized"])
 def test_task_file_rejects_invalid_input(validation_cli, tmp_path, kind):
@@ -194,7 +183,6 @@ def test_task_file_rejects_invalid_input(validation_cli, tmp_path, kind):
     expected = "--task-file is empty" if kind == "empty" else "Cannot read --task-file"
     assert expected in unstyle(result.output)
 
-
 def test_workflow_list_prints_executable_next_step(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENCOLLAB_WORKFLOWS_DIR", raising=False)
 
@@ -202,7 +190,6 @@ def test_workflow_list_prints_executable_next_step(tmp_path, monkeypatch):
 
     assert result.exit_code == 0
     assert result.output.rstrip().endswith("Next run opencollab workflow run duo --help")
-
 
 def test_workflow_run_help_explains_task_goal_and_file_limit():
     result = CliRunner().invoke(workflow_cli.app, ["run", "--help"])

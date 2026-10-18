@@ -78,7 +78,6 @@ async def test_explicit_thinking_off_sends_native_disable(monkeypatch, tmp_path,
     assert {key: requests[0].get(key) for key in disabled} == disabled
     assert params == original
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("wire", ["chat_completions", "responses"])
 @pytest.mark.parametrize("default", [False, True])
@@ -107,7 +106,6 @@ async def test_workflow_thinking_override_and_inheritance(monkeypatch, tmp_path,
 
     assert (await app.workflow(flow, trace=False, max_steps=1)).ok
     assert requests[0]["enable_thinking"] is expected
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("entry", ["workflow", "team", "agent"])
@@ -140,7 +138,6 @@ async def test_default_ordinary_model_keeps_native_protocol_absent(monkeypatch, 
     assert "enable_thinking" not in requests[0]
     assert "thinking" not in requests[0]
 
-
 @pytest.mark.parametrize("env", [None, '{"thinking":{"type":"enabled"}}'])
 @pytest.mark.parametrize("override", ["absent", None, {}, {"enable_thinking": True}])
 def test_merged_configuration_tracks_protocol_source(monkeypatch, tmp_path, env, override):
@@ -160,12 +157,10 @@ def test_merged_configuration_tracks_protocol_source(monkeypatch, tmp_path, env,
     if override is None and env is not None:
         assert config.thinking_params == json.loads(env)
 
-
 @pytest.mark.parametrize("params,explicit", [(None, False), ({}, True), ({"enable_thinking": True}, True)])
 def test_config_type_preserves_default_and_explicit_sources(params, explicit):
     assert OpenCollabConfig(thinking_params=params).thinking_params_explicit is explicit
     assert OpenCollabConfig().thinking_params_explicit is False
-
 
 @pytest.mark.asyncio
 async def test_known_hybrid_model_without_declared_params_can_disable(monkeypatch, tmp_path):
@@ -185,7 +180,6 @@ async def test_known_hybrid_model_without_declared_params_can_disable(monkeypatc
     assert app.configuration["thinking_params"] == DEFAULT_THINKING_PARAMS
     assert (await app.agent("answer", tools=(), trace=False, max_steps=1)).ok
     assert requests[0]["enable_thinking"] is False
-
 
 @pytest.mark.asyncio
 async def test_fixed_thinking_workflow_keeps_capability_protection_and_effort(monkeypatch, tmp_path):
@@ -213,7 +207,6 @@ async def test_fixed_thinking_workflow_keeps_capability_protection_and_effort(mo
     assert (await app.workflow(flow, trace=False, max_steps=1)).ok
     assert requests[0]["thinking"] == {"type": "enabled"}
     assert requests[0]["reasoning_effort"] == "max"
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("legacy", [False, True])
@@ -255,7 +248,6 @@ async def test_restored_session_keeps_callers_protocol_source(monkeypatch, tmp_p
         assert requests[0]["enable_thinking"] is False
     assert agent.thinking_params == params == {"enable_thinking": True}
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("params", [None, {}, {"enable_thinking": True}, {"thinking": {"type": "enabled"}}])
 async def test_direct_spawn_config_tracks_declared_protocol(monkeypatch, tmp_path, params):
@@ -284,7 +276,6 @@ async def test_direct_spawn_config_tracks_declared_protocol(monkeypatch, tmp_pat
     assert ("enable_thinking" in requests[0]) is (isinstance(params, dict) and "enable_thinking" in params)
     assert ("thinking" in requests[0]) is (isinstance(params, dict) and "thinking" in params)
 
-
 def test_native_disable_preserves_required_reasoning_replay_and_explicit_effort():
     params = {"thinking": {"type": "enabled", "keep": "all"}}
     kwargs = _build_request_kwargs(
@@ -295,7 +286,6 @@ def test_native_disable_preserves_required_reasoning_replay_and_explicit_effort(
     assert kwargs["reasoning_effort"] == "max"
     assert kwargs["messages"][0]["reasoning_content"] == "prior reasoning"
     assert params == {"thinking": {"type": "enabled", "keep": "all"}}
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("role_thinking", [False, True, None])
@@ -319,12 +309,10 @@ async def test_team_role_thinking_override_and_inheritance(monkeypatch, tmp_path
     assert (await app.team("answer", config=team, use_worktrees=False, trace=False, max_steps=1)).ok
     assert requests[0]["enable_thinking"] is (role_thinking is not False)
 
-
 @pytest.mark.parametrize("model", ["qwen3.8-flash-preview", "qwen-unmeasured", "gpt-4o"])
 def test_unknown_protocol_keeps_provider_default(model):
     kwargs = _build_request_kwargs(model, [{"role": "user", "content": "answer"}], None, 0.2)
     assert "extra_body" not in kwargs
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("declared", [False, True])
@@ -362,7 +350,6 @@ async def test_get_config_roundtrip_preserves_protocol_source_in_sdk_request(mon
     if declared:
         assert requests[0]["enable_thinking"] is False
     assert config == original
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("entry", ["workflow", "team", "agent", "session", "client"])
@@ -418,7 +405,6 @@ async def test_responses_thinking_off_reaches_all_public_entries(monkeypatch, tm
     assert requests[0]["enable_thinking"] is False
     assert params == {"enable_thinking": True}
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("native", [False, True])
 @pytest.mark.parametrize("entry", ["workflow", "team", "agent"])
@@ -460,7 +446,6 @@ async def test_gpt_responses_default_thinking_preserves_native_request(
     assert "thinking" not in requests[0]
     assert requests[0].get("reasoning") == (None if effort is None else {"effort": effort})
 
-
 @pytest.mark.asyncio
 async def test_fixed_gpt_responses_workflow_keeps_effort_during_off_override(monkeypatch, tmp_path):
     requests = []
@@ -487,7 +472,6 @@ async def test_fixed_gpt_responses_workflow_keeps_effort_during_off_override(mon
     assert requests[0]["reasoning"] == {"effort": "max"}
     assert "enable_thinking" not in requests[0]
 
-
 @pytest.mark.parametrize("thinking", [False, True])
 @pytest.mark.parametrize("field", [
     "model", "input", "instructions", "tools", "tool_choice", "temperature", "top_p", "store",
@@ -500,7 +484,6 @@ def test_responses_thinking_rejects_framework_fields(thinking, field):
             "qwen3.8-flash", [{"role": "user", "content": "answer"}], None, 0.2,
             thinking=thinking, thinking_params={"enable_thinking": True, field: "override"}, native_openai=False,
         )
-
 
 @pytest.mark.asyncio
 async def test_chat_off_override_keeps_known_enabled_default_protocol(monkeypatch, tmp_path):
@@ -524,7 +507,6 @@ async def test_chat_off_override_keeps_known_enabled_default_protocol(monkeypatc
 
     assert (await app.workflow(flow, trace=False, max_steps=1)).ok
     assert requests[0]["enable_thinking"] is False
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("wire", ["chat_completions", "responses"])
@@ -574,7 +556,6 @@ async def test_mixed_team_default_protocol_follows_role_model(
     assert config == original
     assert app.configuration["thinking_params"] == DEFAULT_THINKING_PARAMS
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("wire", ["chat_completions", "responses"])
 @pytest.mark.parametrize("model", ["qwen3.8-flash", "gpt-4o"])
@@ -612,7 +593,6 @@ async def test_workflow_default_protocol_uses_declared_source_and_known_model(mo
     if model == "qwen3.8-flash":
         assert requests[0]["enable_thinking"] is False
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("encoding", ["object", "json"])
 @pytest.mark.parametrize("source", [False, True, "absent"])
@@ -649,7 +629,6 @@ async def test_get_config_edited_protocol_reaches_sdk_without_mutating_input(mon
     assert app._config["thinking_params_explicit"] is True
     assert config == original
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("encoding", ["object", "json"])
 async def test_get_config_same_value_protocol_assignment_preserves_default_source(monkeypatch, tmp_path, encoding):
@@ -683,7 +662,6 @@ async def test_get_config_same_value_protocol_assignment_preserves_default_sourc
     assert "enable_thinking" not in requests[0]
     assert "thinking" not in requests[0]
     assert config == original
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("wire", ["chat_completions", "responses"])
@@ -719,7 +697,6 @@ async def test_mixed_fixed_role_preserves_independent_effort(monkeypatch, tmp_pa
     )
     assert effort == "max"
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("encoding", ["object", "json"])
 async def test_get_config_empty_protocol_stays_explicit_and_empty(monkeypatch, tmp_path, encoding):
@@ -745,7 +722,6 @@ async def test_get_config_empty_protocol_stays_explicit_and_empty(monkeypatch, t
     assert "enable_thinking" not in requests[0]
     assert "thinking" not in requests[0]
     assert config == original
-
 
 @pytest.mark.parametrize("raw", ["not-json", "[]", '{"thinking":'])
 def test_get_config_edited_invalid_json_keeps_existing_validation(monkeypatch, tmp_path, raw):

@@ -18,14 +18,12 @@ _TEXT = [{"type": "text", "text": _ANSWER}]
 _EMPTY_CONTENTS = [[], [{"type": "text", "text": ""}]]
 _READ = [{"type": "tool_use", "id": "toolu-read", "name": "file_read", "input": {"path": "facts.txt"}}]
 
-
 def _reply(content, stop_reason="end_turn", input_tokens=13):
     return {
         "id": "msg-empty-turn", "type": "message", "role": "assistant", "model": "claude-sonnet-4-5",
         "content": content, "stop_reason": stop_reason, "stop_sequence": None,
         "usage": {"input_tokens": input_tokens, "output_tokens": 7 if content and content != _EMPTY_CONTENTS[1] else 2},
     }
-
 
 async def _run_native(tmp_path, replies, *, tools=(), max_steps=5, budget=10_000):
     requests = []
@@ -62,15 +60,12 @@ async def _run_native(tmp_path, replies, *, tools=(), max_steps=5, budget=10_000
     finally:
         await client.close()
 
-
 def _retries(trace):
     return [row["payload"] for row in trace if row["type"] == "empty_stop_retry"]
-
 
 def _blocks(message):
     content = message["content"]
     return [{"type": "text", "text": content}] if isinstance(content, str) else content
-
 
 @pytest.mark.parametrize("content", _EMPTY_CONTENTS, ids=["empty-list", "empty-text"])
 @pytest.mark.parametrize("with_tool", [False, True], ids=["answer", "tool-answer"])
@@ -105,7 +100,6 @@ async def test_empty_end_turn_uses_one_existing_correction(tmp_path, content, wi
         assert tool_results[0]["tool_use_id"] == "toolu-read"
         assert _ANSWER in tool_results[0]["content"]
 
-
 async def test_two_empty_end_turns_finish_after_one_correction(tmp_path):
     result, requests, _history, trace = await _run_native(tmp_path, [_reply([]), _reply([])])
 
@@ -115,7 +109,6 @@ async def test_two_empty_end_turns_finish_after_one_correction(tmp_path):
     assert len(requests) == 2
     assert _retries(trace) == [{"finish_reason": "end_turn", "had_reasoning": False}]
 
-
 async def test_nonempty_end_turn_finishes_without_correction(tmp_path):
     result, requests, _history, trace = await _run_native(tmp_path, [_reply(_TEXT)])
 
@@ -124,7 +117,6 @@ async def test_nonempty_end_turn_finishes_without_correction(tmp_path):
     assert result.tokens == 20
     assert len(requests) == 1
     assert _retries(trace) == []
-
 
 @pytest.mark.parametrize(
     ("max_steps", "budget", "input_tokens", "reason"),
@@ -142,7 +134,6 @@ async def test_empty_end_turn_correction_obeys_runtime_limits(tmp_path, max_step
     assert result.tokens == input_tokens + 2
     assert len(requests) == 1
     assert _retries(trace) == [{"finish_reason": "end_turn", "had_reasoning": False}]
-
 
 @pytest.mark.parametrize("stop_reason", ["max_tokens", "refusal", "pause_turn", "stop_sequence"])
 async def test_other_native_stop_reasons_keep_their_existing_completion(tmp_path, stop_reason):

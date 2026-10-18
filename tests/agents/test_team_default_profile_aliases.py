@@ -23,7 +23,6 @@ def test_default_profile_alias_keeps_the_custom_role_prompt(tmp_path, profile):
     assert builder._profile_for(team.roles["solo"]) is None
     assert builder.build_plan("solo").system_prompt() == "custom role card"
 
-
 @pytest.mark.parametrize("profile", ["base", "BASE", "single2", "Single2"])
 def test_named_profile_alias_keeps_its_base_prompt_and_custom_role(tmp_path, profile):
     path = tmp_path / "team.yaml"

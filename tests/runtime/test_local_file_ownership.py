@@ -64,7 +64,6 @@ async def test_cancelled_native_write_keeps_lock_until_atomic_write_finishes(tmp
         await asyncio.gather(earlier, *([later] if later is not None else []), return_exceptions=True)
         await env.cleanup()
 
-
 @pytest.mark.parametrize("operation", ["read", "range", "temporary-write", "temporary-remove"])
 async def test_repeated_file_cancellation_keeps_cleanup_owned(tmp_path, monkeypatch, operation):
     env = LocalEnvironment(str(tmp_path))
@@ -126,7 +125,6 @@ async def test_repeated_file_cancellation_keeps_cleanup_owned(tmp_path, monkeypa
         await asyncio.gather(owner, *([cleanup] if cleanup is not None else []), return_exceptions=True)
         await env.cleanup()
 
-
 async def test_cancelled_file_io_retains_underlying_failure(tmp_path, monkeypatch):
     started, release = threading.Event(), threading.Event()
 
@@ -164,7 +162,6 @@ async def test_cancelled_file_io_retains_underlying_failure(tmp_path, monkeypatc
         release.set()
         await asyncio.gather(writer, return_exceptions=True)
         await env.cleanup()
-
 
 async def test_native_file_timeout_retains_owned_io_after_bounded_abort(tmp_path, monkeypatch):
     started, release = threading.Event(), threading.Event()

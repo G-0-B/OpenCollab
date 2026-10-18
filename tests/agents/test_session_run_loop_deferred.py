@@ -47,7 +47,6 @@ class DeferredSideEffectTool:
         self.runtime_calls.append(args)
         return "spawned"
 
-
 class OrderedMixedToolExecution(FakeToolExecutionDeferred):
     def __init__(self):
         super().__init__()
@@ -74,7 +73,6 @@ class OrderedMixedToolExecution(FakeToolExecutionDeferred):
         self.deferred_calls.append(tool_call_data)
         self.execution_order.append(tool_call_data["function"]["name"])
         return 9, None
-
 
 @pytest.mark.parametrize(
     "names",
@@ -114,7 +112,6 @@ def test_mixed_batch_executes_side_effects_in_declared_order(names):
         for message in state.pending_events.ordered_results()
     ] == [call["id"] for call in batch]
 
-
 def test_deferred_batch_is_admitted_before_split_or_spawn():
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
     batch = [
@@ -144,7 +141,6 @@ def test_deferred_batch_is_admitted_before_split_or_spawn():
     ]
     assert all("maximum is" in message["content"] for message in state.messages[-len(batch) :])
 
-
 def test_deferred_tool_schema_is_admitted_before_side_effect():
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
     tool = DeferredSideEffectTool()
@@ -171,7 +167,6 @@ def test_deferred_tool_schema_is_admitted_before_side_effect():
     assert state.pending_events.is_empty()
     assert "schema validation failed" in state.messages[-1]["content"]
 
-
 def test_deferred_spawn_suspends_then_resumes_after_fill():
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
     llm = FakeLLM(
@@ -187,7 +182,6 @@ def test_deferred_spawn_suspends_then_resumes_after_fill():
     te = FakeToolExecutionDeferred(deferred_outcomes={"s1": (7, None)})
     runner = build_runner(state=state, llm=llm, tool_execution=te)
 
-    # First run: a deferred spawn suspends the session on AWAITING_EVENTS.
     result = run(runner.run_loop())
     assert state.phase is SessionPhase.AWAITING_EVENTS
     assert result == "spawning"
@@ -199,7 +193,6 @@ def test_deferred_spawn_suspends_then_resumes_after_fill():
     assert row.kind is RowKind.CHILD_AGENT
     assert row.status is RowStatus.PENDING
 
-    # The scheduler fills the row when the child finishes, then re-activates.
     state.pending_events.fill("s1", result="child result")
     result2 = run(runner.run_loop())
 
@@ -207,10 +200,8 @@ def test_deferred_spawn_suspends_then_resumes_after_fill():
     assert state.phase is SessionPhase.DONE
     assert state.active_turn_start_message_index is None
     assert state.pending_events.is_empty()
-    # The resumed LLM call saw the child result as a proper tool result.
     second_call_msgs = llm.calls[1]["messages"]
     assert {"role": "tool", "tool_call_id": "s1", "content": "child result"} in second_call_msgs
-
 
 def test_deferred_step_emits_original_nonzero_latency_once_after_resume():
     class DelayedSequenceLLM(FakeLLM):
@@ -262,7 +253,6 @@ def test_deferred_step_emits_original_nonzero_latency_once_after_resume():
     assert len(first_step_ends) == 1
     assert first_step_ends[0]["latency"] >= 0.008
 
-
 def test_deferred_row_exists_before_fast_child_can_complete():
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
     llm = FakeLLM(
@@ -311,22 +301,19 @@ def test_mixed_batch_buffers_immediate_and_resumes_in_order():
 
     run(runner.run_loop())
     assert state.phase is SessionPhase.AWAITING_EVENTS
-    # process() ran only the immediate tool; the deferred one bypassed it.
     assert te.process_calls == [[batch[0]]]
     assert len(state.pending_events.rows) == 2
-    assert not state.pending_events.is_complete()  # deferred row still pending
+    assert not state.pending_events.is_complete()
 
     state.pending_events.fill("s1", result="child done")
     run(runner.run_loop())
 
-    # Tool-result block is contiguous and in original tool_calls order.
     second_call_msgs = llm.calls[1]["messages"]
     tool_msgs = [m for m in second_call_msgs if m.get("role") == "tool"]
     assert tool_msgs == [
         {"role": "tool", "tool_call_id": "b1", "content": "bash ok"},
         {"role": "tool", "tool_call_id": "s1", "content": "child done"},
     ]
-
 
 def test_terminal_capture_before_deferred_spawn_rejects_spawn_and_keeps_history_complete():
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
@@ -373,7 +360,6 @@ def test_terminal_capture_before_deferred_spawn_rejects_spawn_and_keeps_history_
             "content": "Skipped: terminal structured output accepted earlier in this batch.",
         },
     ]
-
 
 def test_terminal_aware_mixed_batch_executes_preceding_spawn_before_capture():
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
@@ -442,9 +428,7 @@ def test_deferred_batch_with_blocked_tool_uses_original_order():
     assert te.deferred_calls == [deferred_spawn]
 
 def test_mixed_batch_folds_in_reads_counter_for_immediate_reads():
-    # Regression: a mixed batch (immediate read + deferred spawn) buffers its
-    # result messages, so the reads-without-write counter must still fold in via
-    # apply_read_write_counter_to — not be lost because only apply_hashes_to ran.
+    # Mixed batches buffer results, but immediate reads must still update the read/write counter.
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
     batch = [
         tool_call(call_id="r1", name="file_read", arguments='{"path": "a.py"}'),
@@ -465,7 +449,7 @@ def test_mixed_batch_folds_in_reads_counter_for_immediate_reads():
     run(runner.run_loop())
 
     assert state.phase is SessionPhase.AWAITING_EVENTS
-    assert state.turn.reads_since_last_edit == 1  # immediate read counted despite buffering
+    assert state.turn.reads_since_last_edit == 1
 
 def test_deferred_rejected_synchronously_does_not_suspend():
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
@@ -484,14 +468,12 @@ def test_deferred_rejected_synchronously_does_not_suspend():
 
     result = run(runner.run_loop())
 
-    # No event will ever arrive, so the session must not suspend — it drains
-    # the synchronous error and finishes in one run.
+    # No event will arrive to complete the deferred row, so its error must drain synchronously.
     assert result == "handled error"
     assert state.phase is SessionPhase.DONE
     assert state.pending_events.is_empty()
     tool_msgs = [m for m in llm.calls[1]["messages"] if m.get("role") == "tool"]
     assert tool_msgs == [{"role": "tool", "tool_call_id": "s1", "content": "Permission denied: nope"}]
-
 
 @pytest.mark.parametrize("name", ["SPAWN_AGENT", "Spawn_Agent"])
 def test_repaired_deferred_tool_name_keeps_pending_child_ownership(name):

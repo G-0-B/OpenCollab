@@ -46,17 +46,10 @@ ANALYST_AID, CODER_AID = 0, 1
 ANALYST_LINE = "written-by-the-analyst"
 CODER_LINE = "written-by-the-coder"
 
-
-# --------------------------------------------------------------------------- #
-# end to end: a real team, a real repository, a scripted model
-# --------------------------------------------------------------------------- #
-
-
 def _git(cwd: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(cwd), *args], check=True, capture_output=True, text=True
     ).stdout.strip()
-
 
 def _repo(path: Path) -> Path:
     path.mkdir(parents=True)
@@ -67,7 +60,6 @@ def _repo(path: Path) -> Path:
     _git(path, "add", "-A")
     _git(path, "commit", "-qm", "baseline")
     return path
-
 
 def _team_file(path: Path) -> Path:
     path.write_text(
@@ -88,14 +80,12 @@ topology:
     )
     return path
 
-
 def _call(call_id: str, name: str, arguments: dict) -> dict:
     return {
         "id": call_id,
         "type": "function",
         "function": {"name": name, "arguments": json.dumps(arguments)},
     }
-
 
 def _scripted_llm():
     """Analyst: edit the graded tree, then hand off. Coder: edit its own tree."""
@@ -164,7 +154,6 @@ def _scripted_llm():
 
     return ScriptedLLM
 
-
 @pytest.fixture
 def run_team_in(tmp_path, monkeypatch):
     async def run(*, record_delivery_tree: bool) -> dict:
@@ -198,7 +187,6 @@ def run_team_in(tmp_path, monkeypatch):
 
     return run
 
-
 async def test_a_team_run_says_which_seat_was_working_when_a_line_arrived(
     run_team_in,
 ):
@@ -206,24 +194,19 @@ async def test_a_team_run_says_which_seat_was_working_when_a_line_arrived(
     observed = await run_team_in(record_delivery_tree=True)
     snapshots = observed["result"].metrics["tree_snapshots"]
 
-    # Every boundary names a seat, so no row is attributable to nobody.
     assert [(row["at"], row["aid"], row["role"]) for row in snapshots][:1] == [
         ("turn_start", ANALYST_AID, "analyst")
     ]
     assert all(row["role"] is not None for row in snapshots)
 
-    # The analyst's turn opened on a tree nobody had written to.
     assert ANALYST_LINE not in (snapshots[0]["diff"] or "")
 
-    # By the handoff the analyst had already made the change, and the row says
-    # who handed to whom.
     handoffs = [row for row in snapshots if row["at"] == "message_sent"]
     assert [(row["aid"], row["to_aid"], row["to_role"]) for row in handoffs] == [
         (ANALYST_AID, CODER_AID, "coder")
     ]
     assert ANALYST_LINE in handoffs[0]["diff"]
     assert handoffs[0]["files"] == ["which.txt"]
-
 
 async def test_a_teammates_own_write_never_reaches_the_graded_tree(run_team_in):
     """The finding the arm exists to measure, as a property of the record.
@@ -242,7 +225,6 @@ async def test_a_teammates_own_write_never_reaches_the_graded_tree(run_team_in):
         if row["at"] == "turn_start" and row["aid"] == CODER_AID
     ]
     assert coder_turns, "the coder never took a turn"
-    # Repeats an already-recorded state: the text is stored once and pointed at.
     for row in coder_turns:
         assert "unchanged_since" in row
         assert "diff" not in row
@@ -252,18 +234,11 @@ async def test_a_teammates_own_write_never_reaches_the_graded_tree(run_team_in):
         encoding="utf-8"
     )
 
-
 async def test_a_team_run_that_was_not_asked_to_record_says_nothing(run_team_in):
     """The control: off, the key is absent -- not present and empty."""
     metrics = (await run_team_in(record_delivery_tree=False))["result"].metrics
 
     assert "tree_snapshots" not in metrics
-
-
-# --------------------------------------------------------------------------- #
-# unit: the recorder's own contract
-# --------------------------------------------------------------------------- #
-
 
 class _FakeSession:
     def __init__(self, role: str) -> None:
@@ -278,11 +253,9 @@ class _FakeSession:
     async def run_loop(self) -> str:
         return ""
 
-
 class _FakeFactory:
     def build_spawn_session(self, **_kwargs):
         return _FakeSession("coder")
-
 
 class _FakeProbe:
     """A working tree whose diff the test moves, or which refuses to answer."""
@@ -297,7 +270,6 @@ class _FakeProbe:
         if self.fail:
             raise RuntimeError("git said no")
         return self.text
-
 
 def _scheduler(probe, *, topology=None):
     async def sink(event):
@@ -320,11 +292,9 @@ def _scheduler(probe, *, topology=None):
     scheduler._sessions[1] = child
     return scheduler
 
-
 def _hold_busy(scheduler, aid: int):
     """Park a never-finishing driver on ``aid`` so its inbox cannot drain."""
     scheduler._tasks[aid] = asyncio.get_running_loop().create_future()
-
 
 async def test_a_scheduler_without_a_probe_records_nothing_and_runs_no_git():
     """Default off: every existing caller keeps its exact previous behaviour."""
@@ -333,7 +303,6 @@ async def test_a_scheduler_without_a_probe_records_nothing_and_runs_no_git():
     await scheduler.snapshot_delivery_tree("turn_start", aid=0)
 
     assert scheduler.delivery_tree_snapshots == ()
-
 
 async def test_a_queued_message_is_recorded_and_a_refused_one_is_not():
     """A refusal carried nothing across, so it is not a boundary."""
@@ -351,7 +320,6 @@ async def test_a_queued_message_is_recorded_and_a_refused_one_is_not():
     assert [row["at"] for row in open_team.delivery_tree_snapshots] == ["message_sent"]
     assert open_team.delivery_tree_snapshots[0]["to_role"] == "coder"
 
-
 async def test_a_probe_that_fails_leaves_a_hole_that_says_it_failed():
     """"The recorder broke" and "the tree did not change" must not look alike."""
     scheduler = _scheduler(_FakeProbe(fail=True))
@@ -362,7 +330,6 @@ async def test_a_probe_that_fails_leaves_a_hole_that_says_it_failed():
     assert row["diff"] is None
     assert row["probe_error"].startswith("RuntimeError:")
     assert "sha256" not in row
-
 
 async def test_a_repeated_tree_state_is_stored_once_and_pointed_at():
     """Most turns cannot change the graded tree; storing each in full is waste."""
@@ -382,7 +349,6 @@ async def test_a_repeated_tree_state_is_stored_once_and_pointed_at():
     assert repeat["sha256"] == first["sha256"]
     assert changed["diff"].endswith("+two\n")
     assert "unchanged_since" not in changed
-
 
 async def test_a_very_large_tree_is_cut_and_says_it_was_cut():
     """One pathological tree must not write megabytes into every run record."""

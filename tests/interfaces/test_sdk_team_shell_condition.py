@@ -32,12 +32,10 @@ from opencollab.sdk import OpenCollab
 
 ANALYST_AID, CODER_AID = 0, 1
 
-
 def _git(cwd: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(cwd), *args], check=True, capture_output=True, text=True
     ).stdout.strip()
-
 
 def _repo(path: Path) -> Path:
     """A committed repository — the precondition for linked worktrees."""
@@ -49,7 +47,6 @@ def _repo(path: Path) -> Path:
     _git(path, "add", "-A")
     _git(path, "commit", "-qm", "base")
     return path
-
 
 def _team_file(path: Path) -> Path:
     path.write_text(
@@ -70,14 +67,12 @@ topology:
     )
     return path
 
-
 def _call(call_id: str, name: str, arguments: dict) -> dict:
     return {
         "id": call_id,
         "type": "function",
         "function": {"name": name, "arguments": json.dumps(arguments)},
     }
-
 
 def _scripted_llm(observed: dict):
     """One scripted provider class; each agent gets its own instance."""
@@ -132,7 +127,6 @@ def _scripted_llm(observed: dict):
 
     return ScriptedLLM
 
-
 async def _run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **switches) -> dict:
     workspace = _repo(tmp_path / "repo")
     artifacts = tmp_path / "artifacts"
@@ -172,31 +166,25 @@ async def _run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **switches) -> d
     observed["nodes"] = {node["role"]: node for node in nodes[0]}
     return observed
 
-
 async def test_sdk_team_seats_a_working_shell_without_a_human(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     observed = await _run(tmp_path, monkeypatch, allow_unisolated_shell=True)
 
-    # The Coder ran real git in its own worktree and got a real sha back.
     assert "Exit code: 0" in observed["coder_bash_result"]
     assert observed["head"] in observed["coder_bash_result"]
 
-    # And the run says so in its own records, per seat.
     assert observed["nodes"]["coder"]["shell"] == "available"
     assert observed["nodes"]["coder"]["workspace_isolated"] is True
 
-    # The other half: nobody is sitting at an SDK run, so nobody may ask.
     assert observed["nodes"]["analyst"]["entry"] is True
     assert "ask_user" not in observed["nodes"]["analyst"]["tools"]
     assert observed["result"].status == "completed"
 
-
 async def test_sdk_team_shell_stays_off_unless_the_run_asks_for_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # The control. Same entry point, same team, switch left alone: the seated
-    # Coder holds bash and every command it sends is refused instead of run.
+    # The default shell setting refuses the same Coder commands.
     observed = await _run(tmp_path, monkeypatch)
 
     assert "bash is disabled" in observed["coder_bash_result"]

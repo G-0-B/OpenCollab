@@ -24,7 +24,6 @@ def test_exact_input_windows_drive_compaction(model, window, thresholds):
     assert capabilities.context_window == window
     assert history_trigger_target(capabilities.context_window) == thresholds
 
-
 @pytest.mark.parametrize(
     ("prefix", "suffix"),
     [("gateway/", ""), ("", "-2026-09-21"), ("gateway/", "-2026-09-21")],
@@ -32,7 +31,6 @@ def test_exact_input_windows_drive_compaction(model, window, thresholds):
 @pytest.mark.parametrize("model", ["qwen3.8-flash", "deepseek-v4.1-flash"])
 def test_exact_input_windows_accept_provider_prefixes_and_dates(prefix, suffix, model):
     assert model_capabilities(prefix + model + suffix) == model_capabilities(model)
-
 
 @pytest.mark.parametrize(
     "choice",
@@ -51,14 +49,12 @@ def test_qwen_thinking_request_uses_supported_tool_choice(choice):
     assert kwargs["tool_choice"] == "auto"
     assert kwargs["reasoning_effort"] == "max"
 
-
 def test_deepseek_v41_retains_unmeasured_capability_defaults():
     capabilities = model_capabilities("deepseek-v4.1-flash")
     assert capabilities.requires_chat_reasoning_content is True
     assert dataclasses.replace(
         capabilities, context_window=None, requires_chat_reasoning_content=False
     ) == ModelCapabilities()
-
 
 def test_other_models_retain_their_own_windows_and_thinking_policy():
     luna = model_capabilities("gpt-5.6-luna")

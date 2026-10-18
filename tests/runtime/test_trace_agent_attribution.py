@@ -28,19 +28,16 @@ from tests.support.tool_execution_test_support import FakeAgent, NullEventPublis
 
 SESSION_AID = 7
 
-
 class _RuntimeTool:
     name = "fake_tool"
 
     async def execute_with_runtime(self, args, runtime):
         return "runtime result"
 
-
 def _payloads(path: str, step_type: str) -> list[dict]:
     with open(path, encoding="utf-8") as handle:
         records = [json.loads(line) for line in handle if line.strip()]
     return [record["payload"] for record in records if record["type"] == step_type]
-
 
 def test_llm_call_trace_record_carries_session_aid(tmp_path):
     tracer = Tracer(run_id="attribution-llm", output_dir=str(tmp_path))
@@ -62,7 +59,6 @@ def test_llm_call_trace_record_carries_session_aid(tmp_path):
     payloads = _payloads(path, "llm_call")
     assert len(payloads) == 1
     assert payloads[0]["aid"] == SESSION_AID
-
 
 def test_tool_exec_trace_record_carries_session_aid(tmp_path):
     tracer = Tracer(run_id="attribution-tool", output_dir=str(tmp_path))
@@ -94,7 +90,6 @@ def test_tool_exec_trace_record_carries_session_aid(tmp_path):
     payloads = _payloads(path, "tool_exec")
     assert len(payloads) == 1
     assert payloads[0]["aid"] == SESSION_AID
-
 
 def test_llm_call_aid_matches_the_steering_nudge_aid(tmp_path):
     """One agent's records must all join on the same ``aid`` value."""

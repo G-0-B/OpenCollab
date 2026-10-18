@@ -18,7 +18,6 @@ _BASE_MESSAGES = [
     {"role": "assistant", "content": "base"},
 ]
 
-
 class _PausedCheckpointStore(SessionStore):
     def __init__(self, published: object, release: object) -> None:
         self._published = published
@@ -30,7 +29,6 @@ class _PausedCheckpointStore(SessionStore):
         if not self._release.wait(timeout=10):
             raise TimeoutError("test checkpoint was not released")
 
-
 def _checkpoint_worker(path: str, published: object, release: object) -> None:
     _PausedCheckpointStore(published, release).checkpoint_snapshot(
         path,
@@ -38,7 +36,6 @@ def _checkpoint_worker(path: str, published: object, release: object) -> None:
         meta=_META,
         sequence=2,
     )
-
 
 def _append_worker(path: str, attempted: object, completed: object) -> None:
     attempted.wait(timeout=10)
@@ -51,12 +48,10 @@ def _append_worker(path: str, attempted: object, completed: object) -> None:
     )
     completed.set()
 
-
 def _read_worker(path: str, attempted: object, completed: object, result: object) -> None:
     attempted.wait(timeout=10)
     result.put(SessionStore().load_snapshot(path, "system"))
     completed.set()
-
 
 def _stop_process(process: multiprocessing.Process | None) -> None:
     if process is None:
@@ -65,7 +60,6 @@ def _stop_process(process: multiprocessing.Process | None) -> None:
     if process.is_alive():
         process.terminate()
         process.join(timeout=10)
-
 
 def test_checkpoint_and_append_are_serialized_across_processes(tmp_path: Path) -> None:
     path = tmp_path / "race.json"
@@ -109,7 +103,6 @@ def test_checkpoint_and_append_are_serialized_across_processes(tmp_path: Path) -
     restored = store.load_snapshot(str(path), "system")
     assert restored["_autosave_sequence"] == 3
     assert restored["messages"][-1]["content"] == "new"
-
 
 def test_readonly_lock_handle_waits_for_checkpoint_across_processes(tmp_path: Path) -> None:
     path = tmp_path / "race.json"
@@ -156,7 +149,6 @@ def test_readonly_lock_handle_waits_for_checkpoint_across_processes(tmp_path: Pa
     assert snapshot["messages"] == _BASE_MESSAGES
     assert lock.stat().st_ino == original_inode
 
-
 def test_journal_operation_lock_times_out_instead_of_blocking_forever(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -181,7 +173,6 @@ def test_journal_operation_lock_times_out_instead_of_blocking_forever(
             sequence=1,
         )
 
-
 def test_journal_thread_lock_registry_releases_idle_paths(tmp_path: Path) -> None:
     path = tmp_path / "one-shot.json"
 
@@ -193,7 +184,6 @@ def test_journal_thread_lock_registry_releases_idle_paths(tmp_path: Path) -> Non
     )
 
     assert storage_module._JOURNAL_LOCKS == {}
-
 
 def test_journal_thread_lock_times_out_and_releases_waiter_entry(
     tmp_path: Path,

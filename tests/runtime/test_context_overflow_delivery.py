@@ -28,7 +28,6 @@ from opencollab.domain.session import SessionPhase, SessionState
 def run(coro):
     return asyncio.run(coro)
 
-
 def llm_response(content=None, tool_calls=None, total_tokens=5, input_tokens=1, finish_reason="stop"):
     return SimpleNamespace(
         content=content,
@@ -37,14 +36,11 @@ def llm_response(content=None, tool_calls=None, total_tokens=5, input_tokens=1, 
         finish_reason=finish_reason,
     )
 
-
 class FakeOverflowError(Exception):
     """A context-overflow provider rejection stand-in."""
 
-
 def _is_overflow(exc):
     return isinstance(exc, FakeOverflowError)
-
 
 class ScriptedLLM:
     """Returns scripted responses; a response that is a FakeOverflowError class
@@ -61,7 +57,6 @@ class ScriptedLLM:
             raise item
         return item
 
-
 class AlwaysOverflowChildLLM:
     def __init__(self):
         self.calls = []
@@ -69,7 +64,6 @@ class AlwaysOverflowChildLLM:
     async def complete(self, messages, tools=None, temperature=0.0):
         self.calls.append({"messages": copy.deepcopy(messages)})
         raise FakeOverflowError("prompt is too long")
-
 
 class _NoOpShaper:
     """A shaper that can never compact below the pinned seed — so even a forced
@@ -81,7 +75,6 @@ class _NoOpShaper:
     def shape(self, messages):
         return list(messages)
 
-
 class _ChildAgent:
     def __init__(self, role):
         self.name = role
@@ -90,7 +83,6 @@ class _ChildAgent:
 
     def tool_schemas(self):
         return []
-
 
 class OverflowChildSession:
     """A child whose run loop overflows persistently and stops gracefully."""
@@ -117,13 +109,11 @@ class OverflowChildSession:
     async def run_loop(self) -> str:
         return await self.runner.run_loop()
 
-
 class _NullToolExecution:
     async def process(self, tool_calls):
         from opencollab.domain.tools import ToolProcessingResult
 
         return ToolProcessingResult()
-
 
 class OverflowChildFactory:
     def __init__(self):
@@ -132,7 +122,6 @@ class OverflowChildFactory:
     def build_spawn_session(self, *, role, env, budget, max_steps=50, aid=-1, scheduler=None, task=None, context=""):
         self.child = OverflowChildSession(role, aid)
         return self.child
-
 
 class LeadSession:
     def __init__(self, runner, state, agent):
@@ -147,7 +136,6 @@ class LeadSession:
 
     async def run_loop(self) -> str:
         return await self.runner.run_loop()
-
 
 def test_overflowed_child_delivers_controlled_result_not_crash():
     factory = OverflowChildFactory()
@@ -175,7 +163,6 @@ def test_overflowed_child_delivers_controlled_result_not_crash():
         "type": "function",
         "function": {"name": "spawn_agent", "arguments": '{"role": "coder", "task": "build it"}'},
     }
-    # Lead: spawn, then (after the child delivers) answer normally.
     lead_llm = ScriptedLLM(
         [
             llm_response(content="delegating", tool_calls=[spawn_call], finish_reason="tool_calls"),
@@ -192,34 +179,24 @@ def test_overflowed_child_delivers_controlled_result_not_crash():
     lead = LeadSession(runner, lead_state, lead_agent)
     scheduler.register_lead(lead)
 
-    # No unhandled exception escapes — the lead completes its turn.
     result = run(scheduler.run("please build it via a coder"))
 
-    # The lead recovered and finished — its turn was NOT crashed by the child.
     assert result == "Lead recovered after child overflow"
     assert lead_state.phase is SessionPhase.DONE
     assert lead_state.pending_events.is_empty()
 
-    # The child reached the dedicated graceful terminal (not ERROR).
     child = factory.child
     assert child.state.phase is SessionPhase.STOPPED
-    # The child tried the provider exactly twice (initial + one forced retry).
     assert len(child.llm.calls) == 2
 
-    # The child's controlled STOPPED outcome is an explicit failed tool result,
-    # while the parent can still recover and complete its own turn.
     child_scb = scheduler.table.get(child.state.aid)
     assert child_scb.state.phase is SessionPhase.STOPPED
 
-    # The lead's second call saw a tool result for the spawn (a delivered,
-    # non-crashing completion), confirming the row was filled and it re-activated.
     second_call_msgs = lead_llm.calls[1]["messages"]
     tool_results = [m for m in second_call_msgs if m.get("role") == "tool" and m.get("tool_call_id") == "call-1"]
     assert len(tool_results) == 1
 
-
 def test_delivery_status_of_overflowed_child_is_failed_with_terminal_reason():
-    # A STOPPED child must never be presented as a successful tool result.
     factory = OverflowChildFactory()
     scheduler = Scheduler(
         session_factory=factory,
@@ -253,8 +230,6 @@ def test_delivery_status_of_overflowed_child_is_failed_with_terminal_reason():
 
     run(scheduler.run("delegate"))
 
-    # The spawn tool's failed result lets the lead continue, but preserves the
-    # terminal reason instead of masquerading as a successful child output.
     assert factory.child.state.phase is SessionPhase.STOPPED
     assert lead_state.phase is SessionPhase.DONE
     tool_msg = next(m for m in lead_state.messages if m.get("role") == "tool" and m.get("tool_call_id") == "c1")

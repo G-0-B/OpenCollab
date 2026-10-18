@@ -29,7 +29,6 @@ class StateCandidates:
         self.adoptions.append((patch, tuple(preserve_paths)))
         self.selected = patch
 
-
 @pytest.mark.asyncio
 async def test_public_workflow_uses_injected_state_backend_without_git(tmp_path):
     backend = StateCandidates()
@@ -50,7 +49,6 @@ async def test_public_workflow_uses_injected_state_backend_without_git(tmp_path)
     assert backend.adoptions == [(patch, ())]
     assert not (tmp_path / ".git").exists()
 
-
 @pytest.mark.asyncio
 async def test_falsey_candidate_backend_is_preserved(tmp_path):
     class FalseyBackend(StateCandidates):
@@ -67,7 +65,6 @@ async def test_falsey_candidate_backend_is_preserved(tmp_path):
         inspect, candidate_workspace=backend, trace=False
     )
     assert result.output == "real environment evidence"
-
 
 @pytest.mark.asyncio
 async def test_full_environment_adoption_retains_candidate_identity(tmp_path):
@@ -89,7 +86,6 @@ async def test_full_environment_adoption_retains_candidate_identity(tmp_path):
     )
     assert result.output == "B"
     assert backend.adoptions == [("B", "same file diff")]
-
 
 @pytest.mark.asyncio
 async def test_public_candidate_port_executes_isolated_edits_and_verification(tmp_path, monkeypatch):

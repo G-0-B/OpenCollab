@@ -12,7 +12,6 @@ def test_qwen_flash_refuses_forced_tool_choice():
 
     assert capabilities.supports_forced_tool_choice is False
 
-
 def test_qwen_flash_leaves_every_unprobed_dimension_at_its_default():
     """Four dimensions were never probed, so the entry must not assert them.
 
@@ -29,7 +28,6 @@ def test_qwen_flash_leaves_every_unprobed_dimension_at_its_default():
         "supports_responses_tools",
     ):
         assert getattr(capabilities, field) == getattr(default, field), field
-
 
 def test_adding_qwen_leaves_deepseek_byte_for_byte_unchanged():
     """The recorded DeepSeek settings and its Chat replay protocol stay explicit.

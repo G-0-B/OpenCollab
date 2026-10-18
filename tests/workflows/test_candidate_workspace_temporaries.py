@@ -69,7 +69,6 @@ async def test_parallel_candidates_ignore_internal_capture_files(monkeypatch, tm
     finally:
         await base.cleanup()
 
-
 @pytest.mark.parametrize("linked_source", [False, True])
 @pytest.mark.parametrize("completion", ["success", "cancel", "write_error"])
 @pytest.mark.parametrize("prefix", [
@@ -152,7 +151,6 @@ async def test_internal_candidate_materials_do_not_enter_source_snapshot(
             _git(main, "worktree", "remove", "--force", str(repo))
     assert all(not path.exists() for path in temporary_paths)
     assert all(not path.parent.exists() for path in temporary_paths)
-
 
 @pytest.mark.parametrize("operation", ["adopt", "restore"])
 @pytest.mark.parametrize("invalid_patch", [False, True])

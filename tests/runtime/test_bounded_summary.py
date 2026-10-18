@@ -19,13 +19,11 @@ WINDOW = 6_000
 OUTPUT = 800
 REVISION = re.compile(r"USER_REVISION \d+ \w+")
 
-
 def revisions():
     return [
         {"role": "user", "content": f"USER_REVISION {index} {color}\n" + "x" * 6_000}
         for index, color in enumerate(("blue", "green", "red", "yellow", "purple"))
     ]
-
 
 def assert_paired(messages):
     pending = set()
@@ -37,7 +35,6 @@ def assert_paired(messages):
             pending.update(call["id"] for call in message.get("tool_calls", ()))
     assert not pending
 
-
 class RevisionModel:
     def __init__(self):
         self.requests = []
@@ -48,7 +45,6 @@ class RevisionModel:
         self.requests.append(request)
         changes = [match.group() for message in request for match in REVISION.finditer(message.get("content") or "")]
         return SimpleNamespace(content="<summary>" + "\n".join(changes) + "</summary>")
-
 
 async def test_chunked_summary_carries_all_revisions_in_order_and_estimates_the_full_request():
     model = RevisionModel()
@@ -81,7 +77,6 @@ async def test_chunked_summary_carries_all_revisions_in_order_and_estimates_the_
     assert summarizer.last_call_cacheable
     assert segment == original
 
-
 async def test_chunking_keeps_multi_call_tool_exchange_together():
     model = RevisionModel()
     tool_group = [
@@ -103,7 +98,6 @@ async def test_chunking_keeps_multi_call_tool_exchange_together():
     assert containing[0][position:position + 3] == tool_group
     assert REVISION.findall(summary)[-1] == "USER_REVISION 4 purple"
 
-
 @pytest.mark.parametrize("window", [None, 0, WINDOW, 128_000])
 async def test_short_summary_still_uses_one_original_request(window):
     requests = []
@@ -118,7 +112,6 @@ async def test_short_summary_still_uses_one_original_request(window):
     assert await summarizer.asummarize(segment) == "Summary:\ngreen"
     assert requests == [build_summary_request(segment)]
     assert summarizer.last_call_cacheable
-
 
 @pytest.mark.parametrize("failure", [RuntimeError("provider failed"), "<summary> </summary>"])
 async def test_chunk_failure_stops_before_the_tail_and_never_returns_a_partial_summary(failure):
@@ -144,7 +137,6 @@ async def test_chunk_failure_stops_before_the_tail_and_never_returns_a_partial_s
     assert "Transcript location: session.json" in str(caught.value)
     assert not summarizer.last_call_cacheable
 
-
 async def test_oversized_tool_group_reports_the_unprocessed_group_without_a_model_call():
     requests = []
 
@@ -168,7 +160,6 @@ async def test_oversized_tool_group_reports_the_unprocessed_group_without_a_mode
     assert requests == []
     assert not summarizer.last_call_cacheable
 
-
 async def test_a_summary_that_leaves_no_room_for_the_next_group_stops_with_its_transcript():
     requests = []
 
@@ -186,7 +177,6 @@ async def test_a_summary_that_leaves_no_room_for_the_next_group_stops_with_its_t
     assert len(requests) == 1
     assert "Transcript location: session.json" in str(caught.value)
     assert not summarizer.last_call_cacheable
-
 
 @pytest.mark.parametrize("failure", [
     GenerationTimeoutError("deadline"), _TeamBudgetStop(),
@@ -211,7 +201,6 @@ async def test_later_chunk_preserves_budget_policy_timeout_and_cancellation(fail
     assert len(requests) == 2
     assert not summarizer.last_call_cacheable
 
-
 async def test_budget_sizing_stop_leaves_the_real_request_to_prepare_its_budget():
     calls = []
     failure = _TokenBudgetStop(reserved_input_tokens=10, remaining_budget=9)
@@ -234,7 +223,6 @@ async def test_budget_sizing_stop_leaves_the_real_request_to_prepare_its_budget(
     assert len(calls) == 1
     assert calls[0][:-1] == revisions()[:1]
     assert not summarizer.last_call_cacheable
-
 
 async def test_window_limit_is_recomputed_after_budget_extension_adds_a_final_prompt(tmp_path):
     from opencollab.adapters.env import LocalEnvironment
@@ -276,7 +264,6 @@ async def test_window_limit_is_recomputed_after_budget_extension_adds_a_final_pr
     finally:
         await session.aclose()
         await environment.cleanup()
-
 
 async def test_standalone_summary_uses_native_provider_requests_with_configured_output(monkeypatch, tmp_path):
     from opencollab.adapters.llm.client import LLMClient

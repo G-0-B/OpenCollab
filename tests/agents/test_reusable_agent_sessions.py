@@ -51,7 +51,6 @@ def test_wind_down_preserves_tools_for_a_session_reusing_the_template(
     assert first.agent is not second.agent
     assert first.agent.tools[0] is template.tools[1]
 
-
 def test_separate_templates_keep_their_tool_configuration():
     first_template = agent_with_submit()
     second_template = agent_with_submit()
@@ -67,7 +66,6 @@ def test_separate_templates_keep_their_tool_configuration():
     asyncio.run(scenario())
     assert [tool.name for tool in first.agent.tools] == ["file_read", "submit_findings"]
     assert [tool.name for tool in second.agent.tools] == ["file_read", "submit_findings"]
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("shared, concurrent", [(True, True), (False, True), (True, False)])
@@ -98,7 +96,6 @@ async def test_reused_submit_tool_keeps_each_sessions_accepted_answer(shared, co
     assert all(session.state.terminal_reason == "submitted" for session in sessions)
     assert sessions[0].agent.tools[0] is template.tools[0]
     assert sessions[1].agent.tools[0] is second_template.tools[0]
-
 
 @pytest.mark.asyncio
 async def test_invalid_concurrent_submit_keeps_the_other_sessions_accepted_answer():

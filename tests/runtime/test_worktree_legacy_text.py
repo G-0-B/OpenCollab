@@ -20,7 +20,6 @@ _FILENAME = "\u5ba2\u6237 \u8bb0\u5f55.csv"
 _ORIGINAL = b"id,name\n" + b"1,caf\xe9 \x80\n" * 20
 _UPDATED = _ORIGINAL + b"2,pi\xf1ata\n"
 
-
 async def _candidate(tmp_path, monkeypatch, backend):
     source = tmp_path / "repo with spaces"
     source.mkdir()
@@ -37,14 +36,12 @@ async def _candidate(tmp_path, monkeypatch, backend):
     pool = WorktreePool(str(source), use_worktrees=True, base_environment=base)
     return source, pool, await pool.acquire("csv writer")
 
-
 def _apply(source, patch):
     for arguments in (("apply", "--check", "-"), ("apply", "-")):
         subprocess.run(
             ["git", "-C", str(source), *arguments], input=patch.encode("utf-8"),
             check=True, capture_output=True,
         )
-
 
 @pytest.mark.parametrize("backend", ["local", "container", "copy"])
 @pytest.mark.parametrize("change", ["edit", "add", "delete", "rename", "executable"])
@@ -94,7 +91,6 @@ async def test_legacy_worktree_patch_applies_exact_bytes_and_releases(
     if backend == "container":
         assert any(call[:2] == ["docker", "exec"] for call in worktree_transport)
 
-
 @pytest.mark.parametrize("backend", ["local", "container", "copy"])
 async def test_failed_legacy_conversion_retains_candidate_until_complete_delivery(
     worktree_transport, tmp_path, monkeypatch, backend,
@@ -132,7 +128,6 @@ async def test_failed_legacy_conversion_retains_candidate_until_complete_deliver
         await env.get_diff()
         await pool.release()
     assert not workspace.exists()
-
 
 @pytest.mark.parametrize("backend", ["local", "container"])
 async def test_binary_conversion_uses_the_captured_blobs_under_global_attributes(

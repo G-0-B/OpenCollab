@@ -28,7 +28,6 @@ def test_root_help_explains_the_three_entry_points_without_loading_config(monkey
     assert "opencollab team show --team-config team.yaml" in output
     assert "opencollab workflow run duo --help" in output
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("answer_pending", [False, True])
 async def test_repl_help_is_local_and_preserves_question_priority(monkeypatch, answer_pending):
@@ -63,7 +62,6 @@ async def test_repl_help_is_local_and_preserves_question_priority(monkeypatch, a
         assert "Tab / Shift+Tab" in output.getvalue()
         assert "lead agent" in output.getvalue()
         assert "--session PATH" in output.getvalue()
-
 
 def test_interactive_welcome_advertises_local_help():
     output = StringIO()

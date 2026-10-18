@@ -19,7 +19,6 @@ def _seat(scheduler, session, aid):
     )
     scheduler._sessions[aid] = session
 
-
 @pytest.mark.parametrize("locked_aid", [0, 2])
 async def test_cancelling_notice_lock_wait_retains_each_uncommitted_sender(locked_aid):
     lead = ScriptedSession("lead", [])
@@ -59,7 +58,6 @@ async def test_cancelling_notice_lock_wait_retains_each_uncommitted_sender(locke
             blocker.cancel()
         await asyncio.gather(*blockers, return_exceptions=True)
 
-
 async def test_restored_notice_keeps_its_envelope_and_is_delivered_once():
     lead = ScriptedSession("lead", [])
     stopped = ScriptedSession("coder", [])
@@ -93,7 +91,6 @@ async def test_restored_notice_keeps_its_envelope_and_is_delivered_once():
     assert restored_lead.added[0].startswith("<team-notice ")
     assert "budget exhausted" in restored_lead.added[0]
     assert restored_lead.state.pending_user_messages == []
-
 
 async def test_concurrent_notifiers_queue_one_notice_after_the_target_lock_releases():
     lead = ScriptedSession("lead", [])

@@ -12,10 +12,8 @@ from opencollab.application.shaping import AutoCompactShaper, ShaperPipeline, fo
 def _text(content, role="assistant"):
     return {"role": role, "content": content}
 
-
 def _chars(messages):
     return sum(len(message.get("content", "")) for message in messages)
-
 
 def _history():
     return [
@@ -26,7 +24,6 @@ def _history():
         _text("inspect recent code"),
         _text("retain the public behavior", "user"),
     ]
-
 
 class _Summarizer:
     cache_key = "model-a:prompt-v1"
@@ -48,7 +45,6 @@ class _Summarizer:
     async def asummarize(self, segment):
         return self._record(segment, "async")
 
-
 def _shaper(summarizer, **kwargs):
     return AutoCompactShaper(
         summarizer=summarizer,
@@ -59,7 +55,6 @@ def _shaper(summarizer, **kwargs):
         **kwargs,
     )
 
-
 @pytest.fixture(params=["sync", "async"])
 def shape(request):
     async def run(shaper, messages, *, force=False):
@@ -69,7 +64,6 @@ def shape(request):
 
     run.route = request.param
     return run
-
 
 async def test_successful_prefix_keeps_short_appends_verbatim_without_new_summary(shape):
     summarizer = _Summarizer()
@@ -88,7 +82,6 @@ async def test_successful_prefix_keeps_short_appends_verbatim_without_new_summar
 
     assert summarizer.routes == [shape.route]
     assert summarizer.segments == [_history()[1:4]]
-
 
 @pytest.mark.parametrize("change", ["content", "metadata", "namespace", "summarizer"])
 async def test_changed_original_prefix_or_model_cannot_reuse_old_summary(shape, change):
@@ -112,7 +105,6 @@ async def test_changed_original_prefix_or_model_cannot_reuse_old_summary(shape, 
     assert active.segments[-1] == history[1:-2]
     assert len(summarizer.segments) == (1 if change == "summarizer" else 2)
 
-
 async def test_pressure_after_prefix_reuse_summarizes_full_originals(shape):
     summarizer = _Summarizer()
     shaper = _shaper(summarizer)
@@ -134,7 +126,6 @@ async def test_pressure_after_prefix_reuse_summarizes_full_originals(shape):
     assert reused == [*output[:2], *history[len(snapshot) - 2:]]
     assert len(summarizer.segments) == 2
 
-
 async def test_forced_compaction_refreshes_growing_region_from_originals(shape):
     summarizer = _Summarizer()
     shaper = _shaper(summarizer)
@@ -148,7 +139,6 @@ async def test_forced_compaction_refreshes_growing_region_from_originals(shape):
     assert len(summarizer.segments) == 2
     assert summarizer.segments[-1] == history[1:-2]
     assert shaper._forced is False
-
 
 async def test_new_pin_and_pending_tool_group_survive_prefix_reuse(shape):
     summarizer = _Summarizer()
@@ -170,7 +160,6 @@ async def test_new_pin_and_pending_tool_group_survive_prefix_reuse(shape):
     assert len(summarizer.segments) == 1
     assert history == snapshot
 
-
 async def test_new_pin_inside_cached_prefix_stays_verbatim(shape):
     summarizer = _Summarizer()
     shaper = _shaper(summarizer)
@@ -185,7 +174,6 @@ async def test_new_pin_inside_cached_prefix_stays_verbatim(shape):
     assert first[1] not in output
     assert all(history[2] not in segment for segment in summarizer.segments[1:])
 
-
 async def test_expanded_recent_window_cannot_hide_messages_with_cached_prefix(shape):
     summarizer = _Summarizer()
     shaper = _shaper(summarizer)
@@ -197,7 +185,6 @@ async def test_expanded_recent_window_cannot_hide_messages_with_cached_prefix(sh
 
     assert output[-4:] == history[-4:]
     assert first[1] not in output
-
 
 async def test_changed_tool_group_cannot_be_partly_replaced_by_cached_prefix(shape):
     summarizer = _Summarizer()
@@ -218,7 +205,6 @@ async def test_changed_tool_group_cannot_be_partly_replaced_by_cached_prefix(sha
     assert first[1] not in output
     assert all(call not in segment and result not in segment for segment in summarizer.segments[1:])
 
-
 async def test_complete_tool_group_prefix_reuses_without_orphaning_results(shape):
     summarizer = _Summarizer()
     shaper = _shaper(summarizer)
@@ -236,7 +222,6 @@ async def test_complete_tool_group_prefix_reuses_without_orphaning_results(shape
     assert output == [*first[:2], *history[3:]]
     assert len(summarizer.segments) == 1
     assert all(message.get("role") != "tool" for message in output)
-
 
 async def test_reusing_prefix_refreshes_its_position_in_bounded_lru(shape):
     summarizer = _Summarizer()
@@ -259,7 +244,6 @@ async def test_reusing_prefix_refreshes_its_position_in_bounded_lru(shape):
     assert len(summarizer.segments) == 3
     assert len(shaper._summary_cache) == 2
 
-
 @pytest.mark.parametrize("cache_size", [0, 1])
 async def test_disabled_or_evicted_cache_summarizes_current_originals(shape, cache_size):
     summarizer = _Summarizer()
@@ -278,7 +262,6 @@ async def test_disabled_or_evicted_cache_summarizes_current_originals(shape, cac
     assert summarizer.segments[-1] == history[1:-2]
     assert len(shaper._summary_cache) <= cache_size
 
-
 async def test_fallback_cannot_supply_a_reusable_prefix(shape):
     summarizer = _Summarizer()
     summarizer.last_call_cacheable = False
@@ -293,7 +276,6 @@ async def test_fallback_cannot_supply_a_reusable_prefix(shape):
     assert len(summarizer.segments) == 2
     assert summarizer.segments[-1] == history[1:-2]
     assert output is not history
-
 
 async def test_nonreducing_cached_summary_remains_rejected_after_append(shape):
     summarizer = _Summarizer()

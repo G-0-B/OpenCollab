@@ -50,7 +50,6 @@ def llm_response(
         provider_state=provider_state,
     )
 
-
 class FakeAgent:
     model = "fake-model"
     temperature = 0.35
@@ -72,13 +71,12 @@ class FakeLLM:
                 "messages": copy.deepcopy(messages),
                 "tools": copy.deepcopy(tools),
                 "temperature": temperature,
-                **kwargs,  # tool_choice / thinking ride here when set
+                **kwargs,
             }
         )
         if not self.responses:
             raise AssertionError("unexpected LLM call")
         return self.responses.pop(0)
-
 
 class FakeToolExecutionDeferred:
     """Tool executor that also handles deferrable tools via ``execute_deferred``.
@@ -115,7 +113,6 @@ class CompletingBeforeReturnToolExecution(FakeToolExecutionDeferred):
         assert row.status is RowStatus.PENDING
         self.state.pending_events.fill(tc["id"], result="fast child result")
         return self.deferred_outcomes[tc["id"]]
-
 
 def collect_events():
     events = []

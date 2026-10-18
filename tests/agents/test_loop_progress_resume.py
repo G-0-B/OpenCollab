@@ -32,14 +32,11 @@ class _RecordingEnvironment(LocalEnvironment):
         self.commands.append((cmd, timeout))
         return await super().exec_cmd(cmd, timeout=timeout)
 
-
 def _call(name, args, call_id):
     return tool_call(call_id, name, json.dumps(args))
 
-
 def _read(call_id):
     return _call("bash", {"command": "cat observed.txt", "timeout": 10}, call_id)
-
 
 async def _execute(session, *calls):
     session.state.advance_step()
@@ -47,7 +44,6 @@ async def _execute(session, *calls):
     result = await session.tool_execution.process(list(calls))
     result.apply_to(session.state)
     return result
-
 
 async def test_three_blocked_calls_in_one_batch_give_one_warning_then_three_batches_stop(tmp_path):
     environment = _RecordingEnvironment(tmp_path)
@@ -76,7 +72,6 @@ async def test_three_blocked_calls_in_one_batch_give_one_warning_then_three_batc
     finally:
         await environment.cleanup()
 
-
 async def test_edit_validation_consumed_before_save_stays_consumed_after_load(tmp_path):
     environment = _RecordingEnvironment(tmp_path)
     agent = FakeAgent(tools=[BashTool(), FileReadTool(), FileWriteTool()])
@@ -101,7 +96,6 @@ async def test_edit_validation_consumed_before_save_stays_consumed_after_load(tm
     finally:
         await environment.cleanup()
 
-
 async def test_successful_timeout_recovery_cannot_be_reissued_after_restore(tmp_path):
     environment = _RecordingEnvironment(tmp_path)
     agent = FakeAgent(tools=[BashTool()])
@@ -125,7 +119,6 @@ async def test_successful_timeout_recovery_cannot_be_reissued_after_restore(tmp_
     finally:
         await environment.cleanup()
 
-
 async def test_blocked_round_count_round_trips_without_recounting_messages(tmp_path):
     environment = _RecordingEnvironment(tmp_path)
     agent = FakeAgent(tools=[BashTool()])
@@ -146,7 +139,6 @@ async def test_blocked_round_count_round_trips_without_recounting_messages(tmp_p
     finally:
         await environment.cleanup()
 
-
 async def test_new_user_turn_clears_recovery_window_but_preserves_lifetime_steps(tmp_path):
     environment = _RecordingEnvironment(tmp_path)
     agent = FakeAgent(tools=[BashTool()])
@@ -165,7 +157,6 @@ async def test_new_user_turn_clears_recovery_window_but_preserves_lifetime_steps
         assert session.state.turn.loop_state.blocked_rounds == 0
     finally:
         await environment.cleanup()
-
 
 async def test_failed_reservation_save_prevents_the_extra_native_command(tmp_path):
     class FailingStore(SessionStore):
@@ -198,7 +189,6 @@ async def test_failed_reservation_save_prevents_the_extra_native_command(tmp_pat
         assert (tmp_path / "observed.txt").read_text() == "PASS\n"
     finally:
         await environment.cleanup()
-
 
 async def test_cancel_after_reserved_dispatch_restores_prefix_and_never_reissues_it(tmp_path):
     class CancelAfterReadEnvironment(_RecordingEnvironment):
@@ -252,7 +242,6 @@ async def test_cancel_after_reserved_dispatch_restores_prefix_and_never_reissues
         assert (tmp_path / "observed.txt").read_text() == "PASS\n"
     finally:
         await environment.cleanup()
-
 
 async def test_completed_retry_before_later_cancellation_restores_a_completed_owner(tmp_path):
     class CancelTool:

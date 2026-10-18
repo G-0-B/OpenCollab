@@ -43,7 +43,6 @@ if event == 'PostToolUse' and expected > 1:
 }))
 """
 
-
 def _repository(workspace):
     workspace.mkdir()
     for args in (
@@ -57,7 +56,6 @@ def _repository(workspace):
         ["git", "commit", "-qm", "\u6d4b\u8bd5\u521d\u59cb\u5316"],
         cwd=workspace, check=True, capture_output=True,
     )
-
 
 async def _run_probe(tmp_path, monkeypatch, *, writers, isolated):
     workspace = tmp_path / "repo"
@@ -171,11 +169,9 @@ async def _run_probe(tmp_path, monkeypatch, *, writers, isolated):
         assert len({item["cwd"] for item in post}) == len(writers)
         assert max(item["started"] for item in post) <= min(item["finished"] for item in post)
 
-
 @pytest.mark.parametrize(("writers", "isolated"), [(("lead",), True), (("worker",), False), (("worker",), True)])
 async def test_formatter_and_tool_hook_payload_follow_writer(tmp_path, monkeypatch, writers, isolated):
     await _run_probe(tmp_path, monkeypatch, writers=writers, isolated=isolated)
-
 
 async def test_concurrent_child_hooks_keep_each_worktree(tmp_path, monkeypatch):
     await _run_probe(tmp_path, monkeypatch, writers=("first", "second"), isolated=True)

@@ -14,11 +14,9 @@ from tests.support.provider_sdk_http import completion_http_response, install_sd
 _MANUAL_THINKING = {"thinking": {"type": "enabled", "budget_tokens": 1024}}
 _ADAPTIVE_THINKING = {"thinking": {"type": "adaptive"}}
 
-
 @pytest.fixture(autouse=True)
 def isolate_usage_log(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(tmp_path / "usage.jsonl"))
-
 
 @pytest.mark.parametrize("model", [
     "claude-sonnet-4", "claude-opus-4",
@@ -57,7 +55,6 @@ async def test_older_claude_snapshots_send_sampling_and_manual_thinking(monkeypa
         assert requests[0]["thinking"] == _MANUAL_THINKING["thinking"]
     else:
         assert "thinking" not in requests[0]
-
 
 @pytest.mark.parametrize("top_p", [None, 0.95, 0.975, 1.0])
 @pytest.mark.parametrize("public_agent", [False, True])
@@ -100,7 +97,6 @@ async def test_claude_4_6_thinking_sends_supported_top_p(
     if top_p is not None:
         assert requests[0]["top_p"] == top_p
 
-
 @pytest.mark.parametrize("model", [
     "claude-sonnet-4-6", "gateway/claude-sonnet-4-6-20260217", "claude-opus-4-6",
     "claude-sonnet-4-5", "claude-opus-4-5", "claude-haiku-4-5",
@@ -114,7 +110,6 @@ def test_known_older_claude_manual_thinking_keeps_sampling(model, top_p):
 
     assert request["top_p"] == top_p
     assert "temperature" not in request
-
 
 @pytest.mark.parametrize("top_p", [0.94, 0.0, 1.01, float("nan"), float("inf"), True])
 @pytest.mark.parametrize("thinking_params", [_MANUAL_THINKING, _ADAPTIVE_THINKING])
@@ -139,7 +134,6 @@ async def test_thinking_rejects_out_of_range_sampling_before_http(monkeypatch, t
 
     assert requests == []
 
-
 @pytest.mark.parametrize("model,params", [
     ("claude-opus-4-7", {"thinking": {"type": "adaptive"}}),
     ("claude-opus-4-8", {"thinking": {"type": "adaptive"}}),
@@ -158,7 +152,6 @@ def test_other_thinking_models_and_modes_keep_existing_sampling_rules(model, par
             thinking=True, thinking_params=params, max_output_tokens=2048, top_p=top_p,
         )
 
-
 def test_snapshot_adaptive_thinking_keeps_supported_sampling():
     request = _build_request_kwargs(
         "gateway/claude-sonnet-4-6-20260217", [{"role": "user", "content": "Return ok"}],
@@ -170,7 +163,6 @@ def test_snapshot_adaptive_thinking_keeps_supported_sampling():
     assert request["thinking"] == _ADAPTIVE_THINKING["thinking"]
     assert "temperature" not in request
 
-
 def test_thinking_disabled_sends_only_explicit_top_p():
     request = _build_request_kwargs(
         "claude-sonnet-4-6", [{"role": "user", "content": "Return ok"}], None, 0.2,
@@ -179,7 +171,6 @@ def test_thinking_disabled_sends_only_explicit_top_p():
 
     assert request["top_p"] == 0.8
     assert "temperature" not in request
-
 
 @pytest.mark.parametrize("model,thinking", [
     ("claude-opus-4-7", False), ("claude-opus-4-7", True),

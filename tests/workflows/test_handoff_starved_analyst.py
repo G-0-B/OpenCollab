@@ -22,38 +22,30 @@ from tests.support.paths import REPO_ROOT
 
 PROMPTS = REPO_ROOT / "configs" / "handoff-experiment"
 JUDGE = "## What is yours to judge"
-#: ``starved``'s stance is the same block file ``facts-v2`` carries. The point
-#: of the cell is that only capability moved, so this is not a copy to compare
-#: -- it is the same file, named once in ``variants.yaml``.
+# Only capability changes, so starved shares the facts-v2 stance file.
 JUDGE_BLOCK = PROMPTS / "blocks" / "judge.md"
 LEGACY = PROMPTS / "legacy"
 WRITE_TOOLS = ("apply_patch", "file_write")
 
-
 def _card(name: str) -> str:
     return (PROMPTS / name).read_text(encoding="utf-8")
-
 
 @pytest.fixture(scope="module")
 def starved():
     return load_team_config(path=str(REPO_ROOT / "configs" / "team.handoff.starved.yaml"))
 
-
 @pytest.fixture(scope="module")
 def baseline():
     return load_team_config(path=str(REPO_ROOT / "configs" / "team.handoff.experiment.yaml"))
-
 
 def test_the_analyst_holds_no_tool_that_edits_a_file(starved) -> None:
     for tool in WRITE_TOOLS:
         assert tool not in starved.roles["analyst"].tools, tool
 
-
 def test_the_analyst_keeps_the_collaboration_channel(starved) -> None:
     """Starving the bundle must not also seat the Analyst mute."""
     assert "message_agent" in starved.roles["analyst"].tools
     assert "team_status" in starved.roles["analyst"].tools
-
 
 def test_the_analyst_keeps_bash_so_a_handoff_can_reach_the_graded_tree(starved) -> None:
     """Without ``bash`` a teammate's commit could never be checked out here.
@@ -65,13 +57,10 @@ def test_the_analyst_keeps_bash_so_a_handoff_can_reach_the_graded_tree(starved) 
     """
     assert "bash" in starved.roles["analyst"].tools
 
-
 def test_the_coder_can_still_do_the_work_that_was_taken_away(starved) -> None:
     for tool in WRITE_TOOLS:
         assert tool in starved.roles["coder"].tools, tool
-    # The built-in test tool is gone upstream; ``bash`` carries test execution.
     assert "bash" in starved.roles["coder"].tools
-
 
 def test_the_stance_block_is_primarys_byte_for_byte() -> None:
     """Capability is the variable. The stance must not move with it."""
@@ -82,7 +71,6 @@ def test_the_stance_block_is_primarys_byte_for_byte() -> None:
         block.partition(JUDGE)[2].rstrip("\n")
         + "\n\nDo not report a change as verified unless you have the evidence for it."
     )
-
 
 def test_the_card_states_the_bundle_it_actually_has() -> None:
     """The fourth arm shipped a brief that still claimed tools it had lost.
@@ -95,12 +83,10 @@ def test_the_card_states_the_bundle_it_actually_has() -> None:
     assert "No tool in your bundle edits a file" in card
     assert "`apply_patch` and `file_write` edit" not in card
 
-
 def test_the_card_does_not_ask_the_analyst_to_delegate() -> None:
     card = _card("analyst.starved.md").lower()
     for phrase in ("delegate", "you must", "hand it over to the coder"):
         assert phrase not in card, phrase
-
 
 def test_only_the_analyst_differs_from_the_baseline_team(starved, baseline) -> None:
     assert starved.entry == baseline.entry
@@ -111,7 +97,6 @@ def test_only_the_analyst_differs_from_the_baseline_team(starved, baseline) -> N
     roles = ("analyst", "coder", "tester")
     walked = {(s, d) for s in roles for d in roles if starved.topology.allows(s, d)}
     assert walked == {(s, d) for s in roles for d in roles if s != d}
-
 
 def test_this_is_not_the_shipped_analyst_bundle() -> None:
     """The shipped Analyst cannot run anything either; this one can.

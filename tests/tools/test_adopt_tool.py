@@ -24,11 +24,9 @@ from opencollab.bootstrap.tool_registry import KNOWN_TOOL_NAMES, build_tools_for
 def run(coro):
     return asyncio.run(coro)
 
-
 def _git(repo, *args) -> str:
     done = subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=True)
     return done.stdout.strip()
-
 
 def _commit_on_side(repo, start: str, path: str, text: str, message: str) -> str:
     """A candidate commit off ``start``, the way a Coder's worktree makes one."""
@@ -39,7 +37,6 @@ def _commit_on_side(repo, start: str, path: str, text: str, message: str) -> str
     sha = _git(repo, "rev-parse", "HEAD")
     _git(repo, "checkout", "-q", "--detach", start)
     return sha
-
 
 @pytest.fixture
 def repo(tmp_path):
@@ -54,10 +51,8 @@ def repo(tmp_path):
     _git(repo, "commit", "-q", "-m", "init")
     return repo
 
-
 def _runtime(path):
     return ToolRuntime(environment=LocalEnvironment(str(path)), safety_policy=None, permission_policy=None)
-
 
 def test_adopt_checks_out_the_commit_and_shows_what_it_changes(repo):
     start = _git(repo, "rev-parse", "HEAD")
@@ -74,7 +69,6 @@ def test_adopt_checks_out_the_commit_and_shows_what_it_changes(repo):
     assert "+    return 2" in result
     assert not result.startswith("Error")
 
-
 def test_a_second_adopt_is_shown_against_where_the_run_started(repo):
     start = _git(repo, "rev-parse", "HEAD")
     first = _commit_on_side(repo, start, "app.py", "def f():\n    return 2\n", "a")
@@ -90,7 +84,6 @@ def test_a_second_adopt_is_shown_against_where_the_run_started(repo):
     assert "other.py" in result
     assert "app.py" not in result
 
-
 @pytest.mark.parametrize(
     "sha",
     ["", "abc", "HEAD", "HEAD~1", "--orphan=x", "z" * 40, "a" * 41, "abcdef1 && rm -rf .", "main"],
@@ -103,7 +96,6 @@ def test_anything_but_a_commit_sha_is_refused_and_nothing_moves(repo, sha):
     assert result.startswith("Error")
     assert _git(repo, "rev-parse", "HEAD") == start
 
-
 def test_an_unknown_commit_is_reported_and_nothing_moves(repo):
     start = _git(repo, "rev-parse", "HEAD")
 
@@ -112,7 +104,6 @@ def test_an_unknown_commit_is_reported_and_nothing_moves(repo):
     assert result.startswith("Error")
     assert "deadbeef" in result
     assert _git(repo, "rev-parse", "HEAD") == start
-
 
 def test_uncommitted_work_that_a_checkout_would_overwrite_is_not_discarded(repo):
     start = _git(repo, "rev-parse", "HEAD")
@@ -125,14 +116,12 @@ def test_uncommitted_work_that_a_checkout_would_overwrite_is_not_discarded(repo)
     assert _git(repo, "rev-parse", "HEAD") == start
     assert (repo / "app.py").read_text(encoding="utf-8") == "def f():\n    return 3\n"
 
-
 def test_adopt_is_a_tool_a_team_file_can_name():
     assert "adopt" in KNOWN_TOOL_NAMES
     (tool,) = build_tools_for_role(["adopt"])
     assert isinstance(tool, AdoptTool)
     assert tool.name == "adopt"
     assert tool.parameters["required"] == ["sha"]
-
 
 def test_adopt_shares_headless_process_isolation_requirement(repo):
     start = _git(repo, "rev-parse", "HEAD")
@@ -143,7 +132,6 @@ def test_adopt_shares_headless_process_isolation_requirement(repo):
     assert tool.require_process_isolation is True
     (authorized,) = build_tools_for_role(["adopt"], allow_unisolated_shell=True)
     assert authorized.require_process_isolation is False
-
 
 def test_adopt_applies_command_policy_before_mutation(repo):
     start = _git(repo, "rev-parse", "HEAD")
@@ -164,7 +152,6 @@ def test_adopt_applies_command_policy_before_mutation(repo):
     assert "checkout" in commands[0]
     assert _git(repo, "rev-parse", "HEAD") == start
 
-
 def test_adopt_suppresses_repository_checkout_hooks(repo, tmp_path):
     start = _git(repo, "rev-parse", "HEAD")
     candidate = _commit_on_side(repo, start, "app.py", "return_two = 2\n", "candidate")
@@ -176,7 +163,6 @@ def test_adopt_suppresses_repository_checkout_hooks(repo, tmp_path):
     assert not result.startswith("Error")
     assert _git(repo, "rev-parse", "HEAD") == candidate
     assert not marker.exists()
-
 
 def test_adopt_refuses_repository_filters_before_checkout(repo, tmp_path):
     start = _git(repo, "rev-parse", "HEAD")

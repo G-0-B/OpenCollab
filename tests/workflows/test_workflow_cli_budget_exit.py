@@ -53,7 +53,6 @@ def completion_server():
         server.server_close()
         thread.join(timeout=5)
 
-
 def _cli(project, name, base_url, *arguments):
     return subprocess.run(
         [sys.executable, "-m", "opencollab", "workflow", "run", name,
@@ -74,11 +73,9 @@ def _cli(project, name, base_url, *arguments):
         timeout=30,
     )
 
-
 def _payload(result):
     start = result.stdout.rfind("\n{") + 1
     return json.loads(result.stdout[start:])
-
 
 @pytest.mark.parametrize("budget", [10_000, 500], ids=["completed", "budget-stop"])
 @pytest.mark.parametrize("save", [True, False], ids=["save", "no-save"])
@@ -124,7 +121,6 @@ def test_cli_budget_exit_preserves_json_and_artifacts(tmp_path, completion_serve
         assert (manifests[0].parent / "orchestration.jsonl").exists() is trace
     else:
         assert not sessions.exists()
-
 
 @pytest.mark.parametrize("status", ["budget_exceeded", "stopped", "failed"])
 def test_cli_completed_callback_keeps_arbitrary_status_output(tmp_path, completion_server, status):

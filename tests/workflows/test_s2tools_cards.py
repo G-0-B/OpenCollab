@@ -58,23 +58,18 @@ VARIANTS, _ = load_registry(S2TOOLS_CARDS)
 NAMES = sorted(VARIANTS)
 S2DUAL_VARIANTS, _ = load_registry(S2DUAL_CARDS)
 
-
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
-
 
 def _card_on_disk(name: str) -> str:
     return _read(VARIANTS[name].card_path)
 
-
 def _team(name: str):
     return load_team_config(path=str(CONFIGS / VARIANTS[name].team_file))
-
 
 def _slot_text(name: str, slot: str) -> str:
     value = dict(VARIANTS[name].slots)[slot]
     return _read(PROMPTS / slot.lower() / f"{value}.md")
-
 
 def test_the_body_outside_the_slots_is_s2dual_judges_card_byte_for_byte() -> None:
     """Fill this family's slots with ``s2dual``'s own text and the result must be
@@ -90,17 +85,14 @@ def test_the_body_outside_the_slots_is_s2dual_judges_card_byte_for_byte() -> Non
     assert rebuilt == _read(S2DUAL_VARIANTS["s2dual-judge"].card_path)
     assert S2DUAL_ADOPTION in _read(S2DUAL / "shared.md")
 
-
 @pytest.mark.parametrize("name", NAMES)
 def test_every_checked_in_card_is_what_its_declaration_assembles_to(name: str) -> None:
     assert _card_on_disk(name) == render(VARIANTS[name])
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_the_block_is_s2dual_judges_and_commands_nothing(name: str) -> None:
     assert VARIANTS[name].block == "judge"
     assert _read(PROMPTS / "blocks" / "judge.md") == _read(S2DUAL / "blocks" / "judge.md")
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_the_tools_line_names_what_the_adopter_holds_and_what_it_does_not(name: str) -> None:
@@ -111,14 +103,12 @@ def test_the_tools_line_names_what_the_adopter_holds_and_what_it_does_not(name: 
     assert set(re.findall(r"`(\w+)`", withheld.group(1))) == set(SINGLE2_SIX) - set(held)
     assert set(re.findall(r"`(\w+)`", text)) == set(SINGLE2_SIX) | set(held)
 
-
 @pytest.mark.parametrize("name", NAMES)
 def test_the_card_mentions_adopt_exactly_when_the_adopter_holds_it(name: str) -> None:
     holds = "adopt" in VARIANTS[name].tools
     assert ("`adopt`" in _card_on_disk(name)) is holds
     assert ("`git checkout <sha>`" in _card_on_disk(name)) is (not holds)
     assert ("bash" in VARIANTS[name].tools) is (not holds)
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_every_seat_is_single2_and_the_seated_prompt_opens_on_its_prompt(name: str) -> None:
@@ -139,7 +129,6 @@ def test_every_seat_is_single2_and_the_seated_prompt_opens_on_its_prompt(name: s
         assert prompt.startswith(SINGLE2_SYSTEM_PROMPT), role
         assert team.roles[role].prompt in prompt, role
 
-
 @pytest.mark.parametrize("name", NAMES)
 def test_only_the_adopter_changed_the_coders_are_s2duals(name: str) -> None:
     team = _team(name)
@@ -153,17 +142,14 @@ def test_only_the_adopter_changed_the_coders_are_s2duals(name: str) -> None:
     walked = {(s, d) for s in ROLES for d in ROLES if team.topology.allows(s, d)}
     assert walked == EDGES
 
-
 @pytest.mark.parametrize("name", NAMES)
 def test_every_tool_the_adopter_is_given_resolves(name: str) -> None:
     names = [n for n in VARIANTS[name].tools if n not in {"message_agent", "team_status"}]
     assert [tool.name for tool in build_tools_for_role(names)] == names
 
-
 def _below_header(path: Path) -> list[str]:
     text = _read(path)
     return text[text.index("entry:"):].splitlines()
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_the_team_file_is_s2dual_judges_but_for_the_adopters_two_lines(name: str) -> None:
@@ -172,7 +158,6 @@ def test_the_team_file_is_s2dual_judges_but_for_the_adopters_two_lines(name: str
     assert len(ours) == len(theirs)
     differing = [(a, b) for a, b in zip(ours, theirs) if a != b]
     assert [a.split(":")[0].strip() for a, _ in differing] == ["prompt_file", "tools"]
-
 
 def test_every_slot_file_is_used() -> None:
     for directory, used in (
@@ -183,14 +168,12 @@ def test_every_slot_file_is_used() -> None:
     ):
         assert used == {p.stem for p in (PROMPTS / directory).glob("*.md")}, directory
 
-
 def test_this_family_names_its_files_apart() -> None:
     """``team.s2dual-*.yaml`` is globbed by ``test_s2dual_cards.py`` and read as
     one team; a cell of this family filed there would fail it."""
     for name in NAMES:
         assert VARIANTS[name].team_file.startswith("team.s2tools-")
     assert len(list(CONFIGS.glob("team.s2tools-*.yaml"))) == len(NAMES)
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_every_cell_carries_a_note(name: str) -> None:

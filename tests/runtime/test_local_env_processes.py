@@ -23,7 +23,6 @@ async def _wait_for(path) -> None:
         await asyncio.sleep(0.005)
     raise AssertionError(f"timed out waiting for {path}")
 
-
 def _descendant_command(ready, sentinel, *, delay: float = 0.35) -> str:
     child = (
         "import pathlib,signal,time;"
@@ -37,7 +36,6 @@ def _descendant_command(ready, sentinel, *, delay: float = 0.35) -> str:
     )
     return f"exec {shlex.quote(sys.executable)} -c {shlex.quote(parent)}"
 
-
 async def test_local_exec_returns_command_output(tmp_path) -> None:
     env = LocalEnvironment(str(tmp_path))
     result = await env.exec_cmd("printf 'hello'; printf 'problem' >&2")
@@ -47,7 +45,6 @@ async def test_local_exec_returns_command_output(tmp_path) -> None:
     assert not result.stdout_truncated
     assert result.stdout_dropped_bytes == 0
     assert result.stderr_dropped_bytes == 0
-
 
 async def test_local_file_operations_reject_absolute_paths_outside_workspace(tmp_path) -> None:
     workspace = tmp_path / "workspace"
@@ -61,7 +58,6 @@ async def test_local_file_operations_reject_absolute_paths_outside_workspace(tmp
     with pytest.raises(PermissionError, match="workspace"):
         await env.write_file(str(outside), "overwritten")
     assert outside.read_text(encoding="utf-8") == "secret"
-
 
 async def test_local_read_is_anchored_when_parent_is_replaced_by_symlink(
     tmp_path,
@@ -100,7 +96,6 @@ async def test_local_read_is_anchored_when_parent_is_replaced_by_symlink(
 
     assert await read == "inside"
     assert (outside / "value.txt").read_text(encoding="utf-8") == "outside-secret"
-
 
 @pytest.mark.parametrize("operation", ["range", "write"])
 async def test_local_file_operations_stay_anchored_during_parent_replacement(
@@ -167,7 +162,6 @@ async def test_local_file_operations_stay_anchored_during_parent_replacement(
         assert (moved_parent / "value.txt").read_text(encoding="utf-8") == "updated"
     assert outside_value.read_text(encoding="utf-8") == "outside-secret"
 
-
 async def test_local_range_rejects_absolute_path_outside_workspace(tmp_path) -> None:
     workspace = tmp_path / "workspace"
     outside = tmp_path / "outside.txt"
@@ -178,7 +172,6 @@ async def test_local_range_rejects_absolute_path_outside_workspace(tmp_path) -> 
     with pytest.raises(PermissionError, match="workspace"):
         await env.read_text_range(str(outside), offset=1, limit=1, max_chars=10)
 
-
 async def test_local_exec_bounds_output(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(local_module, "PROCESS_OUTPUT_CAPTURE_BYTES", 32)
     env = LocalEnvironment(str(tmp_path))
@@ -186,7 +179,6 @@ async def test_local_exec_bounds_output(tmp_path, monkeypatch) -> None:
     assert len(result.stdout.encode()) == 32
     assert result.stdout_truncated
     assert result.stdout_dropped_bytes == 69
-
 
 @pytest.mark.parametrize(
     ("payload", "limit", "expected_stdout", "expected_dropped"),
@@ -214,7 +206,6 @@ async def test_process_output_limit_counts_only_unretained_bytes(
     assert result.stdout_dropped_bytes == expected_dropped
     assert result.to_exec_result().stdout_truncated is (expected_dropped > 0)
 
-
 async def test_process_output_limit_preserves_real_head_and_tail() -> None:
     payload = b"HEAD" + b"x" * 100 + b"TAIL"
 
@@ -230,27 +221,19 @@ async def test_process_output_limit_preserves_real_head_and_tail() -> None:
     assert len(result.stdout) == 16
     assert result.stdout_dropped_bytes == len(payload) - 16
 
-
 async def test_local_timeout_kills_descendant_before_it_mutates_workspace(tmp_path) -> None:
     ready = tmp_path / "ready"
     sentinel = tmp_path / "late-write"
-    # The timeout must fire *after* the descendant has started (written `ready`) but
-    # *before* its deferred mutating write. An 80ms budget raced interpreter cold-start
-    # — a double `python` spawn can take ~90ms, so the kill sometimes landed before
-    # `ready` and the test hung on `_wait_for`. Give the timeout a wide margin over
-    # cold-start and defer the mutating write well past it; the kill-before-write
-    # guarantee does not need a tight window.
+    # The timeout allows descendant startup and fires before its deferred write.
     late_write_delay = 1.0
     env = LocalEnvironment(str(tmp_path))
     owner = asyncio.create_task(env.exec_cmd(_descendant_command(ready, sentinel, delay=late_write_delay), timeout=0.5))
     await _wait_for(ready)
     result = await owner
     assert result.returncode == -1
-    # A surviving descendant would write at most timeout(0.5)+delay(1.0)=1.5s after exec
-    # start; wait comfortably past that before asserting the write never landed.
+    # Wait beyond the latest possible descendant write.
     await asyncio.sleep(late_write_delay + 0.6)
     assert not sentinel.exists()
-
 
 async def test_local_cancellation_kills_descendant_before_returning(tmp_path) -> None:
     ready = tmp_path / "ready"
@@ -263,7 +246,6 @@ async def test_local_cancellation_kills_descendant_before_returning(tmp_path) ->
         await owner
     await asyncio.sleep(0.4)
     assert not sentinel.exists()
-
 
 async def test_local_double_cancellation_cannot_interrupt_process_cleanup(
     tmp_path,
@@ -293,7 +275,6 @@ async def test_local_double_cancellation_cannot_interrupt_process_cleanup(
     await asyncio.sleep(0.4)
     assert not sentinel.exists()
 
-
 async def test_local_normal_exit_cleans_residual_descendant(tmp_path) -> None:
     sentinel = tmp_path / "late-write"
     child = f"import pathlib,time;time.sleep(0.3);pathlib.Path({str(sentinel)!r}).write_text('leaked')"
@@ -310,7 +291,6 @@ async def test_local_normal_exit_cleans_residual_descendant(tmp_path) -> None:
     await asyncio.sleep(0.4)
     assert not sentinel.exists()
 
-
 async def test_process_timeout_covers_blocked_stdin_writer(tmp_path) -> None:
     command = (sys.executable, "-c", "import time; time.sleep(5)")
     with pytest.raises(asyncio.TimeoutError):
@@ -325,20 +305,13 @@ async def test_process_timeout_covers_blocked_stdin_writer(tmp_path) -> None:
             timeout=2,
         )
 
-
-# ``terminate_process`` may spend a SIGTERM grace and then two kill graces
-# reaping the group, so a deadline below that sum reports a cleanup that worked
-# as a hang. The two spawn tests below wait on cleanup that really runs, so they
-# have to allow what the implementation allows itself.
+# Cleanup deadlines include the SIGTERM grace and two process-group kill graces.
 CLEANUP_WORST_CASE_SECONDS = (
     process_module.PROCESS_TERM_GRACE_SECONDS + 2 * process_module.PROCESS_KILL_GRACE_SECONDS
 )
 
-# The gated spawn never completes while the gate is held, so a task that failed
-# to give up would miss any deadline at all; this one only has to sit above a
-# loaded machine's scheduling jitter.
+# The held spawn cannot complete, so allow scheduling jitter before requiring cancellation.
 GATED_TASK_SETTLES_SECONDS = 2.0
-
 
 async def test_process_timeout_covers_subprocess_spawn(monkeypatch, tmp_path) -> None:
     gate = asyncio.Event()
@@ -381,7 +354,6 @@ async def test_process_timeout_covers_subprocess_spawn(monkeypatch, tmp_path) ->
             with pytest.raises(asyncio.TimeoutError):
                 await task
         await asyncio.wait_for(terminated.wait(), timeout=CLEANUP_WORST_CASE_SECONDS + 1)
-
 
 async def test_process_cancellation_during_spawn_is_bounded(
     monkeypatch,
@@ -430,7 +402,6 @@ async def test_process_cancellation_during_spawn_is_bounded(
                 await task
         await asyncio.wait_for(terminated.wait(), timeout=CLEANUP_WORST_CASE_SECONDS + 1)
 
-
 async def test_registry_abort_bounds_unfinished_spawn_handoff(monkeypatch) -> None:
     registry = process_module.ProcessRegistry()
     spawn_started = asyncio.Event()
@@ -466,7 +437,6 @@ async def test_registry_abort_bounds_unfinished_spawn_handoff(monkeypatch) -> No
 
     await registry.abort()
 
-
 async def test_cancellation_during_timeout_cleanup_is_preserved(monkeypatch) -> None:
     cleanup_started = asyncio.Event()
     cleanup_release = asyncio.Event()
@@ -496,7 +466,6 @@ async def test_cancellation_during_timeout_cleanup_is_preserved(monkeypatch) -> 
         await owner
     assert cleanup_done.is_set()
 
-
 async def test_cancelled_spawn_reports_unproven_cleanup(monkeypatch) -> None:
     started = asyncio.Event()
     release = asyncio.Event()
@@ -518,7 +487,6 @@ async def test_cancelled_spawn_reports_unproven_cleanup(monkeypatch) -> None:
     release.set()
     with pytest.raises(ProcessCleanupError, match="did not quiesce"):
         await owner
-
 
 async def test_registry_abort_waits_for_spawn_handoff_cleanup(monkeypatch) -> None:
     registry = process_module.ProcessRegistry()
@@ -547,7 +515,6 @@ async def test_registry_abort_waits_for_spawn_handoff_cleanup(monkeypatch) -> No
         await spawn_owner
     await abort_owner
     assert cleanup_done.is_set()
-
 
 async def test_cancelled_registry_registration_cleans_process_before_abort(
     monkeypatch,
@@ -587,7 +554,6 @@ async def test_cancelled_registry_registration_cleans_process_before_abort(
     await abort_owner
     assert cleanup_done.is_set()
 
-
 async def test_registry_retains_failed_cleanup_for_retry(monkeypatch) -> None:
     registry = process_module.ProcessRegistry()
     process = object()
@@ -609,7 +575,6 @@ async def test_registry_retains_failed_cleanup_for_retry(monkeypatch) -> None:
     await registry.abort()
     assert process not in registry._processes
     assert calls == 2
-
 
 async def test_run_process_retains_unquiesced_process_for_registry_retry(
     monkeypatch,
@@ -634,7 +599,6 @@ async def test_run_process_retains_unquiesced_process_for_registry_retry(
     await registry.abort()
     assert not registry._processes
 
-
 async def test_local_file_operations_reject_symlink_and_escape(tmp_path) -> None:
     outside = tmp_path.parent / f"{tmp_path.name}-outside"
     outside.write_text("outside", encoding="utf-8")
@@ -648,7 +612,6 @@ async def test_local_file_operations_reject_symlink_and_escape(tmp_path) -> None
     with pytest.raises(PermissionError):
         await env.write_file("../escape", "changed")
     assert outside.read_text(encoding="utf-8") == "outside"
-
 
 @pytest.mark.parametrize("operation", ["read", "write"])
 async def test_local_file_io_does_not_block_event_loop(
@@ -682,7 +645,6 @@ async def test_local_file_io_does_not_block_event_loop(
         timer.cancel()
         await owner
 
-
 async def test_local_cleanup_waits_for_cancelled_file_io(tmp_path, monkeypatch) -> None:
     started = threading.Event()
     release = threading.Event()
@@ -705,7 +667,6 @@ async def test_local_cleanup_waits_for_cancelled_file_io(tmp_path, monkeypatch) 
         await writer
     await cleanup
 
-
 async def test_local_temp_files_have_owned_cleanup(tmp_path) -> None:
     env = LocalEnvironment(str(tmp_path))
     path = await env.write_temp_file("payload", prefix="probe-", suffix=".txt")
@@ -715,13 +676,11 @@ async def test_local_temp_files_have_owned_cleanup(tmp_path) -> None:
     await env.remove_file(path)
     assert not os.path.exists(path)
 
-
 async def test_local_temp_cleanup_removes_registered_path(tmp_path) -> None:
     env = LocalEnvironment(str(tmp_path))
     path = await env.write_temp_file("owned", prefix="probe-", suffix=".txt")
     await env.remove_file(path)
     assert not os.path.exists(path)
-
 
 async def test_local_temp_cleanup_rejects_replaced_workspace_symlink(tmp_path) -> None:
     workspace = tmp_path / "workspace"
@@ -741,7 +700,6 @@ async def test_local_temp_cleanup_rejects_replaced_workspace_symlink(tmp_path) -
 
     assert foreign.read_text(encoding="utf-8") == "foreign"
 
-
 async def test_local_abort_blocks_future_operations_and_removes_temps(tmp_path) -> None:
     env = LocalEnvironment(str(tmp_path))
     path = await env.write_temp_file("payload", prefix="probe-", suffix=".txt")
@@ -750,12 +708,10 @@ async def test_local_abort_blocks_future_operations_and_removes_temps(tmp_path) 
     with pytest.raises(RuntimeError, match="aborted"):
         await env.exec_cmd("true")
 
-
 async def test_local_rejects_invalid_timeout_before_spawn(tmp_path) -> None:
     env = LocalEnvironment(str(tmp_path))
     with pytest.raises(ValueError, match="positive"):
         await env.exec_cmd("true", timeout=0)
-
 
 async def test_a_timed_out_command_returns_what_it_had_already_written(tmp_path):
     """A killed command must not come back as if it had produced nothing.
@@ -782,10 +738,8 @@ async def test_a_timed_out_command_returns_what_it_had_already_written(tmp_path)
 
     assert result.returncode == -1
     assert "nine failures so far" in result.stdout
-    # The notice comes first so a reader scanning for the failure still finds it.
     assert result.stderr.splitlines()[0] == "Command timed out after 1s"
     assert "and a warning" in result.stderr
-
 
 async def test_a_timeout_with_nothing_written_still_reports_only_the_notice(tmp_path):
     """The empty case has to stay clean: no blank lines, no invented output."""

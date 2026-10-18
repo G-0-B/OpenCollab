@@ -34,7 +34,6 @@ def _records(tracer: Tracer) -> list[dict]:
     with open(tracer._path, encoding="utf-8") as handle:
         return [json.loads(line) for line in handle if line.strip()]
 
-
 def test_every_record_a_session_writes_names_its_agent(tmp_path) -> None:
     tracer = Tracer("run-1", output_dir=str(tmp_path), filename="trajectory.jsonl")
     agent = FakeAgent(tools=[FakeTool(name="known_tool")])
@@ -60,7 +59,6 @@ def test_every_record_a_session_writes_names_its_agent(tmp_path) -> None:
     refused = [r for r in records if r["type"] == "tool_error"]
     assert refused and refused[0]["run_id"] == "run-1"
 
-
 def test_a_record_written_on_no_agents_behalf_says_so(tmp_path) -> None:
     tracer = Tracer("run-1", output_dir=str(tmp_path), filename="trajectory.jsonl")
     try:
@@ -70,7 +68,6 @@ def test_a_record_written_on_no_agents_behalf_says_so(tmp_path) -> None:
         tracer.close()
     assert record["aid"] is None
     assert record["role"] is None
-
 
 def test_the_role_is_read_when_the_record_is_written(tmp_path) -> None:
     """A prebuilt teammate is named after its session is built."""
@@ -86,7 +83,6 @@ def test_the_role_is_read_when_the_record_is_written(tmp_path) -> None:
         tracer.close()
     assert (record["aid"], record["role"]) == (2, "tester")
 
-
 def _one_turn_llm() -> FakeLLMClient:
     return FakeLLMClient(
         [
@@ -97,7 +93,6 @@ def _one_turn_llm() -> FakeLLMClient:
             llm_response(content="recovered"),
         ]
     )
-
 
 def test_a_restored_session_writes_under_the_identity_it_restored(tmp_path) -> None:
     """``load_session`` builds with the default aid, then restores aid 7."""
@@ -121,7 +116,6 @@ def test_a_restored_session_writes_under_the_identity_it_restored(tmp_path) -> N
     assert records
     assert {(r["aid"], r["role"]) for r in records} == {(7, "coder")}
 
-
 def test_a_tracer_set_on_a_live_session_names_that_session(tmp_path) -> None:
     """Replacing ``session.tracer`` with a plain ``Tracer`` keeps attribution."""
     agent = FakeAgent(tools=[FakeTool(name="known_tool")])
@@ -137,7 +131,6 @@ def test_a_tracer_set_on_a_live_session_names_that_session(tmp_path) -> None:
 
     assert records
     assert {(r["aid"], r["role"]) for r in records} == {(3, "coder")}
-
 
 def test_restoring_into_a_built_session_moves_its_records_to_the_restored_aid(tmp_path) -> None:
     """``Session.restore`` changes ``state.aid`` after the runner exists."""
@@ -159,7 +152,6 @@ def test_restoring_into_a_built_session_moves_its_records_to_the_restored_aid(tm
     run_records = [r for r in records if r["type"] != "session.history_compaction"]
     assert run_records
     assert {(r["aid"], r["role"]) for r in run_records} == {(7, "coder")}
-
 
 @pytest.mark.parametrize("tracer_argument", ["omitted", "none", "replacement"])
 def test_direct_runtime_session_preserves_tracing(tmp_path, tracer_argument) -> None:

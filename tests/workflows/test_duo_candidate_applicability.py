@@ -18,7 +18,6 @@ from opencollab.bootstrap import _workflow_runtime_session as workflow_session
 def _git(path, *args):
     return subprocess.run(["git", "-C", str(path), *args], check=True, capture_output=True, text=True).stdout
 
-
 def _repository(path):
     path.mkdir()
     (path / "module.py").write_text("VALUE = 0\n")
@@ -32,7 +31,6 @@ def _repository(path):
     _git(path, "add", ".")
     _git(path, "-c", "commit.gpgsign=false", "commit", "-qm", "\u521b\u5efa\u72ec\u7acb\u6f14\u7ec3")
 
-
 def _tool_response(name, params, index):
     return LLMResponse(
         content=None,
@@ -43,12 +41,10 @@ def _tool_response(name, params, index):
         finish_reason="tool_calls", usage=Usage(1, 1),
     )
 
-
 def _replace(old, new):
     return "file_write", {
         "path": "module.py", "mode": "str_replace", "old_str": f"VALUE = {old}", "new_str": f"VALUE = {new}",
     }
-
 
 def _actions(case, command):
     run = "bash", {"command": command}
@@ -84,7 +80,6 @@ def _actions(case, command):
             a.extend([("bash", {"command": "printf 'VALUE = 2\\n' > module.py"}), run])
     return a, b
 
-
 class _ScriptedModel:
     def __init__(self, *, actions=None, winner="B"):
         self.actions = actions
@@ -112,7 +107,6 @@ class _ScriptedModel:
             }],
             "rationale": "Inspect the final module.py contents",
         }, index)
-
 
 @pytest.mark.parametrize("case,winner,mechanical", [
     ("stale", "B", False),

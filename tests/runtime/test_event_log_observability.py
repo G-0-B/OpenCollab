@@ -13,7 +13,6 @@ class _CustomObject:
     def __str__(self) -> str:
         return "custom-object"
 
-
 def test_jsonl_event_sink_serializes_custom_event_data(tmp_path):
     path = tmp_path / "events" / "run.jsonl"
     sink = JsonlEventSink(str(path))
@@ -23,7 +22,6 @@ def test_jsonl_event_sink_serializes_custom_event_data(tmp_path):
     row = json.loads(path.read_text(encoding="utf-8"))
     assert row["type"] == "custom"
     assert row["data"]["value"] == "custom-object"
-
 
 def test_jsonl_event_sink_preserves_plain_mapping_payload(tmp_path):
     path = tmp_path / "events.jsonl"
@@ -35,7 +33,6 @@ def test_jsonl_event_sink_preserves_plain_mapping_payload(tmp_path):
     assert row["type"] == "custom"
     assert row["data"] == {"value": 7}
     assert row["sequence"] == 3
-
 
 def test_jsonl_event_sink_preserves_generic_mapping_payload(tmp_path):
     path = tmp_path / "events.jsonl"
@@ -51,7 +48,6 @@ def test_jsonl_event_sink_preserves_generic_mapping_payload(tmp_path):
     assert row["data"] == {"value": 11}
     assert row["sequence"] == 5
 
-
 def test_jsonl_event_sink_remains_passive_when_parent_cannot_be_created(tmp_path):
     blocker = tmp_path / "not_a_directory"
     blocker.write_text("occupied", encoding="utf-8")
@@ -62,7 +58,6 @@ def test_jsonl_event_sink_remains_passive_when_parent_cannot_be_created(tmp_path
     assert blocker.read_text(encoding="utf-8") == "occupied"
     assert sink.write_error is not None
     assert sink.dropped_events == 1
-
 
 def test_jsonl_event_sink_preserves_emission_order(tmp_path):
     path = tmp_path / "events.jsonl"
@@ -75,7 +70,6 @@ def test_jsonl_event_sink_preserves_emission_order(tmp_path):
     asyncio.run(scenario())
     rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     assert [row["data"]["index"] for row in rows] == [0, 1, 2]
-
 
 def test_jsonl_event_sink_retains_first_write_error(tmp_path, monkeypatch):
     sink = JsonlEventSink(str(tmp_path / "events.jsonl"))

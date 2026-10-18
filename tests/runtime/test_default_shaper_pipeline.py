@@ -32,21 +32,14 @@ class _Llm:
     def context_window(self) -> int:
         return 200_000
 
-
 class _Summarizer:
     """Held by the auto-compact rung; never reached at low context."""
 
     async def summarize(self, messages):  # pragma: no cover - must not run
         raise AssertionError("auto-compact fired on a small history")
 
-
-# Each result is large enough that clearing it would actually shrink the
-# history -- a clearing rung declines to replace content with a stub longer
-# than the content, so a history of tiny results cannot show the difference --
-# and small enough to stay under the per-result budget (16,000 characters) and,
-# thirty deep, far under the reactive trigger for a 200k window.
+# Results exceed the clearing stub size while staying below per-result and reactive compaction limits.
 _RESULT_BODY = "".join(f"    value_{n} = compute(n) + {n}\n" for n in range(60))
-
 
 def _small_history(exchanges: int) -> list[dict]:
     """A history of ``exchanges`` tool exchanges, all well under every bound."""
@@ -79,10 +72,8 @@ def _small_history(exchanges: int) -> list[dict]:
         )
     return messages
 
-
 def _default_shaper():
     return _build_default_shaper(_Llm(), _Summarizer())
-
 
 def test_the_default_pipeline_leaves_a_small_history_byte_identical():
     """Thirty exchanges is deep enough to age past any keep-recent window."""
@@ -92,16 +83,13 @@ def test_the_default_pipeline_leaves_a_small_history_byte_identical():
     shaped = _default_shaper().shape(messages)
 
     assert shaped == original
-    # The input list itself is never mutated either.
     assert messages == original
-
 
 def test_no_rung_reports_firing_on_a_small_history():
     """The per-rung account has to agree: nothing acted, and it says so."""
     _shaped, reports = _default_shaper().shape_with_report(_small_history(30))
 
     assert [report["rung"] for report in reports] == ["none"]
-
 
 def test_growing_the_history_by_one_exchange_only_appends():
     """The property the provider's prefix cache is read against.

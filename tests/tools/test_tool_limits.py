@@ -23,10 +23,8 @@ from opencollab.bootstrap.tool_registry import build_tools_for_role
 def run(coro):
     return asyncio.run(coro)
 
-
 def _team(data, base_dir):
     return _build_team_config(data, base_dir)
-
 
 def test_team_config_parses_tool_limits(tmp_path):
     cfg = _team(
@@ -38,31 +36,25 @@ def test_team_config_parses_tool_limits(tmp_path):
     )
     assert cfg.tool_limits == {"bash": {"max_output_chars": 1234}}
 
-
 def test_team_config_tool_limits_default_empty(tmp_path):
     cfg = _team({"roles": {"lead": {"prompt": "p"}}}, tmp_path)
     assert cfg.tool_limits == {}
-
 
 def test_registry_defaults_used_when_no_limits():
     [bash] = build_tools_for_role(["bash"])
     assert bash.max_output_chars == MAX_OUTPUT_CHARS
 
-
 def test_registry_rejects_unknown_tool_in_limits():
     with pytest.raises(ValueError, match="unknown tools"):
         build_tools_for_role(["bash"], tool_limits={"nope": {"x": 1}})
-
 
 def test_registry_rejects_unknown_kwarg_for_tool():
     with pytest.raises(ValueError, match="unsupported keys"):
         build_tools_for_role(["bash"], tool_limits={"bash": {"bogus_cap": 1}})
 
-
 def test_registry_rejects_limits_on_coordination_tools():
     with pytest.raises(ValueError, match="coordination tools"):
         build_tools_for_role(["bash"], tool_limits={"spawn_agent": {"x": 1}})
-
 
 @pytest.mark.parametrize("value", [0, -1, True, False, 10_000_001])
 def test_registry_rejects_invalid_output_caps(value):
@@ -71,7 +63,6 @@ def test_registry_rejects_invalid_output_caps(value):
             ["bash"], tool_limits={"bash": {"max_output_chars": value}}
         )
 
-
 def test_registry_rejects_safety_constructor_keys_as_limits():
     with pytest.raises(ValueError, match="unsupported keys"):
         build_tools_for_role(
@@ -79,12 +70,10 @@ def test_registry_rejects_safety_constructor_keys_as_limits():
             tool_limits={"bash": {"require_process_isolation": 1}},
         )
 
-
 @pytest.mark.parametrize("cap", [1, 2, 7, 31, 64])
 def test_truncate_including_marker_never_exceeds_cap(cap):
     result = truncate("x" * 1000, cap, "stdout")
     assert len(result) <= cap
-
 
 def test_a_cut_result_says_how_to_ask_a_narrower_question(tmp_path):
     """A marker alone leaves re-running the same command as the obvious move.
@@ -116,10 +105,7 @@ def test_a_cut_result_says_how_to_ask_a_narrower_question(tmp_path):
     assert "Re-running this command produces the same cut" in cut
     for suggestion in ("head", "tail", "sed -n", "grep -n", "redirect"):
         assert suggestion in cut
-    # Not on a result that was never cut: advice about output that is all there
-    # is noise on every single call.
     assert "note:" not in whole
-
 
 def test_bash_reports_capture_loss_and_preserves_real_tail(tmp_path, monkeypatch):
     monkeypatch.setattr(local_module, "PROCESS_OUTPUT_CAPTURE_BYTES", 32)
@@ -144,7 +130,6 @@ def test_bash_reports_capture_loss_and_preserves_real_tail(tmp_path, monkeypatch
     assert "HEAD" in result
     assert "TAIL" in result
     assert "76 bytes of stdout dropped during capture" in result
-
 
 def test_all_capped_tools_accept_their_documented_kwargs():
     # The kwargs documented in configs/team.example.yaml must stay constructible.

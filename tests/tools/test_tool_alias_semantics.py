@@ -20,7 +20,6 @@ from tests.support.tool_execution_test_support import build_use_case, tool_call
 def _call(name, args, call_id):
     return tool_call(name=name, arguments=json.dumps(args), call_id=call_id)
 
-
 @pytest.mark.parametrize(("observer", "writer"), [
     ("git_diff", "file_write"), ("Git_Diff", "File_Write"), ("GIT_DIFF", "FILE_WRITE"),
     ("file_read", "file_write"), ("File_Read", "File_Write"), ("FILE_READ", "FILE_WRITE"),
@@ -73,7 +72,6 @@ async def test_public_sdk_observes_each_native_edit_through_accepted_names(tmp_p
     for index in (1, 2):
         assert f"value = {index}" in tool_messages[2 * index]["content"]
 
-
 @pytest.mark.parametrize("name", ["file_read", "File_Read", "FILE_READ"])
 async def test_native_empty_read_alias_keeps_read_and_low_yield_observations(tmp_path, name):
     (tmp_path / "empty.txt").write_text("", encoding="utf-8")
@@ -94,7 +92,6 @@ async def test_native_empty_read_alias_keeps_read_and_low_yield_observations(tmp
     assert result.reads_executed == state.turn.reads_since_last_edit == 1
     assert state.turn.distinct_evidence_count == 0
     assert state.turn.low_yield_since_progress == 1
-
 
 async def test_native_read_alias_and_explicit_defaults_share_existing_repeat_limit(tmp_path):
     (tmp_path / "read.txt").write_text("content\n", encoding="utf-8")

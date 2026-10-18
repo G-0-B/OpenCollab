@@ -11,7 +11,6 @@ from opencollab.domain.session import SessionState
 def run(coro):
     return asyncio.run(coro)
 
-
 class FakeSession:
     """Session stand-in: run_loop returns canned results from a queue."""
 
@@ -28,14 +27,12 @@ class FakeSession:
     async def run_loop(self) -> str:
         return self._results.pop(0) if self._results else ""
 
-
 class FakeFactory:
     def __init__(self, teammate):
         self._teammate = teammate
 
     def build_spawn_session(self, *, role, env, budget, max_steps=50, aid=-1, scheduler=None, task=None, context=""):
         return self._teammate
-
 
 def _build_scheduler(teammate, topology=None, roles=()):
     captured: list = []

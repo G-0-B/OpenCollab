@@ -33,7 +33,6 @@ class ChildClient:
         await self.release.wait()
         return llm_response(content="actual child result", input_tokens=5, output_tokens=7)
 
-
 class Factory:
     def __init__(self):
         self.client = ChildClient()
@@ -46,7 +45,6 @@ class Factory:
         session.state.aid = kwargs["aid"]
         self.sessions.append(session)
         return session
-
 
 def make_team():
     factory = Factory()
@@ -71,13 +69,11 @@ def make_team():
     scheduler.register_lead(session)
     return scheduler, factory, session, llm, waiting, completed, skipped
 
-
 async def cancel_parent(session, waiting):
     await session.add_user_message("run")
     active = asyncio.create_task(session.run_loop())
     await asyncio.wait_for(waiting.started.wait(), 0.5)
     return active
-
 
 def assert_complete_request(llm, *, queued):
     messages = llm.calls[-1]["messages"]
@@ -88,7 +84,6 @@ def assert_complete_request(llm, *, queued):
     if queued:
         assert messages[-1]["role"] == "user"
         assert messages[-1]["content"].startswith("continue")
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("child_ready", ["before_cancel", "before_resume", "after_resume"])
@@ -135,7 +130,6 @@ async def test_cancelled_parent_resumes_real_child_once_in_tool_order(child_read
         factory.client.release.set()
         await scheduler.cleanup()
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("cancel_again", [False, True])
 async def test_scheduler_user_turn_waits_or_cancels_surviving_child(cancel_again):
@@ -178,7 +172,6 @@ async def test_scheduler_user_turn_waits_or_cancels_surviving_child(cancel_again
         factory.client.release.set()
         await scheduler.cleanup()
         await asyncio.gather(continued, return_exceptions=True)
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("child_ready", [False, True])

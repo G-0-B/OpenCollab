@@ -17,7 +17,6 @@ from tests.support.provider_sdk_http import completion_http_response, install_sd
 def isolate_usage_log(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(tmp_path / "usage.jsonl"))
 
-
 @pytest.mark.parametrize("request_timeout,connect_timeout", [
     (0.2, 0.02), (0.2, 0.5), (None, 0.02), (0.2, None), (None, None), (600.0, 30.0),
 ])
@@ -40,7 +39,6 @@ async def test_real_anthropic_requests_keep_all_timeout_components(monkeypatch, 
     assert requests == [{
         "connect": connect_timeout, "read": request_timeout, "write": request_timeout, "pool": request_timeout,
     }]
-
 
 async def test_anthropic_timeout_is_independent_of_the_openai_sdk_timeout_type(monkeypatch):
     class OpenAITimeout:
@@ -67,7 +65,6 @@ async def test_anthropic_timeout_is_independent_of_the_openai_sdk_timeout_type(m
         assert isinstance(client._anthropic.timeout, anthropic.Timeout)
         assert (await client.complete([{"role": "user", "content": "Return ok"}])).content == "ok"
     assert requests == [{"connect": 0.02, "read": 0.2, "write": 0.2, "pool": 0.2}]
-
 
 @pytest.mark.parametrize("connect_timeout,timed_out", [(0.02, True), (0.2, False)])
 async def test_public_model_client_enforces_the_configured_connection_allowance(

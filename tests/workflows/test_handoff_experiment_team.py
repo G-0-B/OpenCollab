@@ -22,16 +22,13 @@ from tests.support.paths import REPO_ROOT
 TEAM_FILE = REPO_ROOT / "configs" / "team.handoff.experiment.yaml"
 ROLES = ("analyst", "coder", "tester")
 
-
 @pytest.fixture(scope="module")
 def team():
     return load_team_config(path=str(TEAM_FILE))
 
-
 def test_the_entry_is_the_analyst_and_the_roster_is_the_three_roles(team) -> None:
     assert team.entry == "analyst"
     assert sorted(team.roles) == sorted(ROLES)
-
 
 def test_every_ordered_pair_is_a_declared_edge(team) -> None:
     """Six edges, including the three that point back.
@@ -54,14 +51,11 @@ def test_every_ordered_pair_is_a_declared_edge(team) -> None:
         if source != destination
     }
 
-
 def test_every_role_can_walk_its_edges(team) -> None:
     """``message_agent`` is the only channel a prebuilt team leaves open."""
     for role in ROLES:
         assert "message_agent" in team.roles[role].tools, role
-        # Resolving a teammate's aid is what makes message_agent usable.
         assert "team_status" in team.roles[role].tools, role
-
 
 def test_the_two_halves_of_the_git_handoff_are_both_runnable(team) -> None:
     """One side has to be able to ``git commit``, the other to ``git checkout``.
@@ -71,7 +65,6 @@ def test_the_two_halves_of_the_git_handoff_are_both_runnable(team) -> None:
     """
     assert "bash" in team.roles["coder"].tools
     assert "bash" in team.roles["tester"].tools
-
 
 def test_no_role_carries_a_tool_that_can_only_be_refused(team) -> None:
     """A prebuilt team refuses ``spawn_agent`` for the whole run.
@@ -85,17 +78,13 @@ def test_no_role_carries_a_tool_that_can_only_be_refused(team) -> None:
         assert "spawn_agent" not in team.roles[role].tools, role
         assert "spawn_with_review" not in team.roles[role].tools, role
 
-
 def test_each_role_prompt_is_loaded_from_its_own_file(team) -> None:
     prompts = REPO_ROOT / "configs" / "handoff-experiment"
     for role in ROLES:
         body = (prompts / f"{role}.md").read_text(encoding="utf-8")
         assert team.roles[role].prompt == body
-        # The two facts a handoff is impossible without: that a commit's sha
-        # travels on its own, and that the other side checks it out.
         assert "sha" in body
         assert "git checkout <sha>" in body
-
 
 def test_analyst_prompt_describes_the_testers_editing_boundary(team) -> None:
     editing_tools = {"apply_patch", "file_write"}
@@ -104,7 +93,6 @@ def test_analyst_prompt_describes_the_testers_editing_boundary(team) -> None:
     card = " ".join(team.roles["analyst"].prompt.split())
 
     assert "The Coder and the Tester hold the same working tools you do" not in card
-
 
 def test_the_shipped_default_team_is_not_this_team() -> None:
     """This file must never become the product default.
@@ -118,20 +106,13 @@ def test_the_shipped_default_team_is_not_this_team() -> None:
     assert shipped == default_team_config()
     assert "message_agent" not in shipped.roles["analyst"].tools
 
-
-#: The single-agent arm's tool list, duplicated here because it lives in the
-#: other repository — ``WORKING_TOOL_NAMES`` in OpenCollab-Eval's
-#: ``generation/gen_prediction_constants.py``, which is what that arm passes to
-#: ``builtin_tools``. Both sides pin it, so a change on either fails a test.
+# Match WORKING_TOOL_NAMES from OpenCollab-Eval generation/gen_prediction_constants.py.
 SINGLE_AGENT_WORKING_TOOLS = frozenset(
     {"apply_patch", "bash", "file_read", "file_write", "grep", "submit"}
 )
 
-#: Everything else a role on this team may hold. The collaboration channel is
-#: what this arm is supposed to differ by; ``git_diff`` is how a role with no
-#: edit tool reads what someone else changed.
+# Add coordination tools and git_diff for roles without edit access.
 COLLABORATION_TOOLS = frozenset({"git_diff", "message_agent", "team_status"})
-
 
 def test_the_analyst_holds_the_single_agent_s_tools_and_the_channel(team) -> None:
     """Exactly, not merely a capable superset.
@@ -153,7 +134,6 @@ def test_the_analyst_holds_the_single_agent_s_tools_and_the_channel(team) -> Non
     assert analyst - COLLABORATION_TOOLS == set(SINGLE_AGENT_WORKING_TOOLS)
     assert analyst & COLLABORATION_TOOLS == {"message_agent", "team_status"}
 
-
 def test_no_role_holds_a_tool_that_cannot_succeed_here(team) -> None:
     """``ask_user`` and ``use_skill`` are not merely unused, they cannot work.
 
@@ -165,7 +145,6 @@ def test_no_role_holds_a_tool_that_cannot_succeed_here(team) -> None:
         tools = set(team.roles[role].tools)
         assert "ask_user" not in tools, role
         assert "use_skill" not in tools, role
-
 
 def test_every_role_is_told_which_tree_is_read_as_the_answer() -> None:
     """An empty patch has to be attributable to the model, not to not knowing.
@@ -180,7 +159,6 @@ def test_every_role_is_told_which_tree_is_read_as_the_answer() -> None:
     for role in ROLES:
         body = " ".join((prompts / f"{role}.md").read_text(encoding="utf-8").split())
         assert "read as the answer" in body, role
-
 
 def test_every_role_is_told_that_finishing_is_how_you_wait() -> None:
     """Waiting has a free form, and a model that misses it pays in budget.

@@ -30,7 +30,6 @@ class _SkillStore:
     def get_body(self, name: str) -> str | None:
         return self._skills.get(name)
 
-
 def _cfg() -> SpawnConfig:
     return SpawnConfig(
         model="m",
@@ -42,7 +41,6 @@ def _cfg() -> SpawnConfig:
         event_bus=EventBus(None),
         permission_policy=None,
     )
-
 
 def _team() -> TeamConfig:
     return TeamConfig(
@@ -57,10 +55,7 @@ def _team() -> TeamConfig:
         topology=Topology(edges={"lead": frozenset({"coder"})}),
     )
 
-
-# The exact system-prompt bodies the four STARTUP+SYSTEM sources assemble to,
-# in source order. Locking these literals (not just the source objects) makes
-# the golden master an *independent* expected value the deletions cannot fake.
+# Literal prompt bodies provide an expected value independent of the source objects.
 _TEAM_SECTION = (
     "## Your team\n"
     "\n"
@@ -81,7 +76,6 @@ _SKILLS_SECTION = (
 )
 _PROJECT_MAP = "# Repo Map\n\nsrc/app.py"
 
-
 def _builder() -> ContextBuilder:
     return ContextBuilder(
         _team(), _cfg(),
@@ -89,13 +83,11 @@ def _builder() -> ContextBuilder:
         project_context=_PROJECT_MAP,
     )
 
-
 def test_golden_system_prompt_is_identity_team_skills_project_in_order():
     plan = _builder().build_plan("lead", task="Fix the bug.", context="See ticket #42.")
     assert plan.system_prompt() == "\n\n".join(
         ["You are the lead.", _TEAM_SECTION, _SKILLS_SECTION, _PROJECT_MAP]
     )
-
 
 def test_golden_startup_user_messages_is_the_task_alone_with_ctx_tag():
     plan = _builder().build_plan("lead", task="Fix the bug.", context="See ticket #42.")
@@ -110,11 +102,8 @@ def test_golden_startup_user_messages_is_the_task_alone_with_ctx_tag():
         }
     ]
 
-
 def test_golden_minimal_plan_assembles_to_only_its_real_sources():
-    # A bare role (no project map, no skills, no team section) assembles to
-    # exactly identity + task — the reserved long-term layers are an honest gap,
-    # not registered-but-empty placeholders that could leak into either channel.
+    # A bare role contributes identity and task without empty reserved layers.
     plan = ContextBuilder(_team(), _cfg()).build_plan("coder", task="do it")
     assert plan.system_prompt() == "Coder."
     assert [m["content"] for m in plan.startup_user_messages()] == [

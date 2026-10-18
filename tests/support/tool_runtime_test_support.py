@@ -14,7 +14,6 @@ from types import SimpleNamespace
 def run(coro):
     return asyncio.run(coro)
 
-
 class FakeEnv:
     def __init__(self, stdout: str = ""):
         self.stdout = stdout
@@ -30,14 +29,12 @@ class FakeEnv:
     async def write_file(self, path: str, content: str) -> None:
         raise AssertionError("write_file was not expected")
 
-
 class FalseyFakeEnv(FakeEnv):
     def __bool__(self) -> bool:
         return False
 
     async def read_file(self, path: str) -> str:
         return "contents\n"
-
 
 class SpySafetyPolicy:
     def __init__(self):
@@ -57,7 +54,6 @@ class SpySafetyPolicy:
     async def check_cmd_interactive(self, cmd: str, confirm_fn=None) -> None:
         self.cmd_calls.append((cmd, confirm_fn))
 
-
 class FakeRemoteEnv:
     """Environment that does I/O somewhere other than the host filesystem."""
 
@@ -71,7 +67,6 @@ class FakeRemoteEnv:
 
     async def write_file(self, path: str, content: str) -> None:
         self.files[path] = content
-
 
 class SpyLock:
     instances: list["SpyLock"] = []

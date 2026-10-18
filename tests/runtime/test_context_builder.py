@@ -25,9 +25,7 @@ class FakeSkillStore:
         )
 
     def get_body(self, name: str) -> str | None:
-        # body keyed off name for the headline test
         return f"BODY OF {name}" if name in self._skills else None
-
 
 def _cfg(
     model="default-model",
@@ -49,7 +47,6 @@ def _cfg(
         max_output_tokens=max_output_tokens,
     )
 
-
 def _team():
     return TeamConfig(
         roles={
@@ -64,9 +61,7 @@ def _team():
         topology=Topology(edges={"lead": frozenset({"coder", "reviewer"}), "coder": frozenset({"reviewer"})}),
     )
 
-
-SCHED = object()  # tools only store the scheduler; build_agent never calls it.
-
+SCHED = object()
 
 def test_lead_prompt_gets_topology_aware_team_section():
     agent = ContextBuilder(_team(), _cfg()).build_agent(
@@ -78,12 +73,9 @@ def test_lead_prompt_gets_topology_aware_team_section():
     assert "- reviewer" in agent.system_prompt
     assert "team_status" in agent.system_prompt
 
-
 def test_role_without_coordination_tools_gets_no_team_section():
-    # reviewer has explicit topology targets but no coordination tools.
     agent = ContextBuilder(_team(), _cfg()).build_agent("reviewer", scheduler=SCHED)
     assert "## Your team" not in agent.system_prompt
-
 
 def test_ask_user_dropped_when_there_is_no_human_to_ask():
     builder = ContextBuilder(_team(), _cfg())
@@ -91,7 +83,6 @@ def test_ask_user_dropped_when_there_is_no_human_to_ask():
     attended = builder.build_agent("lead", scheduler=SCHED, ask_user_available=True)
     assert "ask_user" not in {t.name for t in headless.tools}
     assert "ask_user" in {t.name for t in attended.tools}
-
 
 def test_the_shell_answer_does_not_ride_on_the_ask_user_answer():
     """A role built without ``ask_user`` may still be given a shell.
@@ -107,12 +98,10 @@ def test_the_shell_answer_does_not_ride_on_the_ask_user_answer():
     assert "ask_user" not in {t.name for t in peer.tools}
     assert bash.require_process_isolation is False
 
-
 def test_model_override_and_default():
     builder = ContextBuilder(_team(), _cfg(model="default-model"))
     assert builder.build_agent("coder", scheduler=SCHED).model == "coder-model"
     assert builder.build_agent("reviewer", scheduler=SCHED).model == "default-model"
-
 
 def test_responses_team_rejects_unsupported_model_tools_before_session_start():
     team = TeamConfig(
@@ -131,7 +120,6 @@ def test_responses_team_rejects_unsupported_model_tools_before_session_start():
     with pytest.raises(ValueError, match="o1-mini.*does not support Responses tools"):
         DefaultSessionFactory(cfg, team_cfg=team)
 
-
 def test_responses_team_allows_unsupported_tool_model_when_role_has_no_tools():
     team = TeamConfig(
         roles={"lead": RoleConfig(prompt="Lead.", model="o1-mini", tools=[])},
@@ -141,7 +129,6 @@ def test_responses_team_allows_unsupported_tool_model_when_role_has_no_tools():
     cfg.wire_protocol = "responses"
 
     DefaultSessionFactory(cfg, team_cfg=team)
-
 
 def test_responses_builder_rejects_unsupported_model_after_tool_resolution():
     team = TeamConfig(
@@ -160,7 +147,6 @@ def test_responses_builder_rejects_unsupported_model_after_tool_resolution():
     with pytest.raises(ValueError, match="o1-mini.*does not support Responses tools"):
         ContextBuilder(team, cfg).build_agent("lead")
 
-
 def test_responses_factory_rejects_unsupported_ad_hoc_role_model():
     team = TeamConfig(
         roles={"lead": RoleConfig(prompt="Lead.", tools=[])},
@@ -171,7 +157,6 @@ def test_responses_factory_rejects_unsupported_ad_hoc_role_model():
 
     with pytest.raises(ValueError, match="default model.*ad-hoc roles"):
         DefaultSessionFactory(cfg, team_cfg=team)
-
 
 def test_responses_headless_factory_allows_ask_user_only_unsupported_model():
     team = TeamConfig(
@@ -189,13 +174,10 @@ def test_responses_headless_factory_allows_ask_user_only_unsupported_model():
 
     DefaultSessionFactory(cfg, team_cfg=team, interactive=False)
 
-
 def test_temperature_global_default_applies_when_role_unset():
-    # No role in _team() sets a temperature → all inherit the SpawnConfig value.
     builder = ContextBuilder(_team(), _cfg(temperature=0.3))
     assert builder.build_agent("coder", scheduler=SCHED).temperature == 0.3
     assert builder.build_agent("reviewer", scheduler=SCHED).temperature == 0.3
-
 
 def test_temperature_role_override_and_zero_is_honored():
     team = TeamConfig(
@@ -208,11 +190,9 @@ def test_temperature_role_override_and_zero_is_honored():
     )
     builder = ContextBuilder(team, _cfg(temperature=0.3))
     assert builder.build_agent("hot").temperature == 0.9
-    # 0.0 is a meaningful override (fully deterministic) — it must NOT be treated
-    # as "unset" and fall back to the global 0.3.
+    # A zero temperature overrides the global value.
     assert builder.build_agent("cold").temperature == 0.0
     assert builder.build_agent("plain").temperature == 0.3
-
 
 def test_sampling_and_output_limits_flow_into_agent():
     agent = ContextBuilder(_team(), _cfg(top_p=0.37, max_output_tokens=32_768)).build_agent("reviewer")
@@ -220,13 +200,11 @@ def test_sampling_and_output_limits_flow_into_agent():
     assert agent.top_p == 0.37
     assert agent.max_tokens_per_step == 32_768
 
-
 def test_unknown_role_falls_back_to_generic_spec():
     agent = ContextBuilder(_team(), _cfg()).build_agent("data-scientist", scheduler=SCHED)
     # Ad-hoc roles get the registry-derived worker bundle; this non-interactive
     # build drops ``ask_user`` (no coordination/skill tools to begin with).
     assert {t.name for t in agent.tools} == set(BASE_TOOL_NAMES) - {"ask_user"}
-
 
 def test_unknown_tool_name_raises():
     team = TeamConfig(
@@ -236,7 +214,6 @@ def test_unknown_tool_name_raises():
     with pytest.raises(ValueError, match="Unknown tool 'frobnicate'"):
         ContextBuilder(team, _cfg()).build_agent("x")
 
-
 def test_scheduler_bound_tool_requires_scheduler():
     team = TeamConfig(
         roles={"x": RoleConfig(prompt="x", model=None, tools=["spawn_agent"])},
@@ -245,13 +222,8 @@ def test_scheduler_bound_tool_requires_scheduler():
     with pytest.raises(ValueError, match="requires a scheduler"):
         ContextBuilder(team, _cfg()).build_agent("x", scheduler=None)
 
-
-# --- build_plan: layered context sources -----------------------------------
-
-
 def _sources_by_name(plan):
     return {s.name: s for s in plan.sources}
-
 
 def test_build_plan_identity_is_system_source_with_role_prompt():
     plan = ContextBuilder(_team(), _cfg()).build_plan("coder")
@@ -260,13 +232,11 @@ def test_build_plan_identity_is_system_source_with_role_prompt():
     assert identity.position is ContextPosition.SYSTEM
     assert identity.content == "Coder."
 
-
 def test_build_plan_team_section_is_startup_system_source_when_present():
     plan = ContextBuilder(_team(), _cfg()).build_plan("lead")
     team = _sources_by_name(plan)["team"]
     assert team.position is ContextPosition.SYSTEM
     assert "## Your team" in team.content
-
 
 def test_build_plan_task_is_user_context_source_when_given():
     plan = ContextBuilder(_team(), _cfg()).build_plan("coder", task="build it", context="ctx")
@@ -286,21 +256,16 @@ def test_build_plan_task_is_user_context_source_when_given():
         }
     ]
 
-
 def test_build_plan_omits_task_source_when_no_task():
     plan = ContextBuilder(_team(), _cfg()).build_plan("coder")
     assert "task" not in _sources_by_name(plan)
     assert plan.startup_user_messages() == []
 
-
 def test_build_plan_has_no_reserved_placeholder_sources():
-    # The reserved long-term layers (project-when-absent / memory / tool-meta)
-    # were registered-but-empty placeholders; they are now an honest gap — only
-    # sources that actually carry content are emitted.
+    # Only layers carrying content contribute sources.
     plan = ContextBuilder(_team(), _cfg()).build_plan("coder", task="t")
     assert set(_sources_by_name(plan)) == {"identity", "task"}
     assert all(s.content for s in plan.sources)
-
 
 def test_build_agent_system_prompt_matches_plan_system_sources():
     builder = ContextBuilder(_team(), _cfg())
@@ -308,16 +273,11 @@ def test_build_agent_system_prompt_matches_plan_system_sources():
     agent = builder.build_agent("lead", scheduler=SCHED, plan=plan)
     assert agent.system_prompt == plan.system_prompt()
 
-
-# --- build_plan: skill catalog injection ------------------------------------
-
-
 def _team_with_skill_role(tools):
     return TeamConfig(
         roles={"specialist": RoleConfig(prompt="Specialist.", model=None, tools=tools)},
         topology=Topology(),
     )
-
 
 def test_skill_catalog_emitted_when_role_has_use_skill_and_store_nonempty():
     store = FakeSkillStore({"alpha": "Alpha desc.", "beta": "Beta desc."})
@@ -326,36 +286,29 @@ def test_skill_catalog_emitted_when_role_has_use_skill_and_store_nonempty():
     skills = _sources_by_name(plan)["skills"]
     assert skills.layer is ContextLayer.SKILL
     assert skills.position is ContextPosition.SYSTEM
-    # The catalog lists each skill name + description and tells the model to invoke.
     assert "use_skill" in skills.content
     assert "- alpha: Alpha desc." in skills.content
     assert "- beta: Beta desc." in skills.content
-    # SYSTEM source folds into the assembled system prompt.
     assert skills.content in plan.system_prompt()
-
 
 def test_skill_catalog_not_emitted_when_role_lacks_use_skill():
     store = FakeSkillStore({"alpha": "Alpha desc."})
-    team = _team_with_skill_role(["bash"])  # no use_skill
+    team = _team_with_skill_role(["bash"])
     plan = ContextBuilder(team, _cfg(), skill_store=store).build_plan("specialist")
     assert "skills" not in _sources_by_name(plan)
     assert "alpha" not in plan.system_prompt()
 
-
 def test_skill_catalog_not_emitted_when_store_empty():
-    store = FakeSkillStore({})  # use_skill granted, but no skills exist
+    store = FakeSkillStore({})
     team = _team_with_skill_role(["bash", "use_skill"])
     plan = ContextBuilder(team, _cfg(), skill_store=store).build_plan("specialist")
     assert "skills" not in _sources_by_name(plan)
 
-
 def test_no_skill_store_defaults_to_empty_no_catalog():
-    # Default ContextBuilder (no skill_store) → NullSkillStore → no catalog even
-    # if the role names use_skill.
+    # Without a skill store, even a use_skill role has no catalog.
     team = _team_with_skill_role(["bash", "use_skill"])
     plan = ContextBuilder(team, _cfg()).build_plan("specialist")
     assert "skills" not in _sources_by_name(plan)
-
 
 def test_build_agent_binds_use_skill_tool_when_store_provided():
     store = FakeSkillStore({"alpha": "Alpha desc."})

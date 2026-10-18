@@ -30,17 +30,11 @@ from tests.support.scheduler_awaiting_test_support import (
     terminal,
 )
 
-# A turn that deadlocks the gate would otherwise hang the suite. Every scenario
-# here is in-process and yields only to the event loop, so anything past this is
-# a hang rather than a slow machine.
+# Bound an event-loop deadlock while allowing loaded CI to schedule the turns.
 GATE_TIMEOUT_SECONDS = 30.0
 
-# How long one teammate waits to see the other start. Serialized, this always
-# expires — the other agent cannot run at all until this turn ends — so the value
-# only has to be long enough that a *concurrent* teammate is reliably seen
-# starting within it on a loaded machine.
+# The handshake allows a concurrent teammate to start before serialized execution times it out.
 HANDSHAKE_TIMEOUT_SECONDS = 1.0
-
 
 def _handshake_turn(log, entered, role: str, other: str):
     """A turn that reports whether the other teammate ran beside it.
@@ -67,7 +61,6 @@ def _handshake_turn(log, entered, role: str, other: str):
 
     return step
 
-
 def _overlaps(log: list[str]) -> bool:
     """True when any turn started while another was still running."""
     running = 0
@@ -79,7 +72,6 @@ def _overlaps(log: list[str]) -> bool:
         elif entry.startswith("exit:"):
             running -= 1
     return False
-
 
 def _two_teammate_run(*, serialize_turns: bool) -> list[str]:
     log: list[str] = []
@@ -107,7 +99,6 @@ def _two_teammate_run(*, serialize_turns: bool) -> list[str]:
     assert asyncio.run(scenario()) == "final: coder, tester"
     return log
 
-
 def test_turns_overlap_when_serialization_is_off():
     """The default is unchanged: two teammates make progress at the same time.
 
@@ -120,15 +111,11 @@ def test_turns_overlap_when_serialization_is_off():
     assert _overlaps(log)
     assert [entry for entry in log if entry.startswith("alone:")] == []
 
-
 def test_serializing_turns_lets_only_one_agent_run_at_a_time():
     log = _two_teammate_run(serialize_turns=True)
 
     assert not _overlaps(log)
-    # The first teammate waited out the whole handshake without the second one
-    # appearing: it was not merely scheduled first, it was alone.
     assert [entry for entry in log if entry.startswith("alone:")] == ["alone:coder"]
-
 
 def test_a_suspended_parent_does_not_hold_the_gate_against_its_child():
     """The reason the gate cannot deadlock, pinned as behaviour.
@@ -155,7 +142,6 @@ def test_a_suspended_parent_does_not_hold_the_gate_against_its_child():
 
     assert asyncio.run(scenario()) == "final: child output"
     assert lead.state.phase is SessionPhase.DONE
-
 
 def test_a_queued_message_still_wakes_its_target_under_serialization():
     """Serializing changes when a woken agent runs, never whether it runs."""
@@ -196,7 +182,6 @@ def test_a_queued_message_still_wakes_its_target_under_serialization():
     assert len(target.added) == 1
     assert "are you there?\n</teammate-message>" in target.added[0]
     assert scheduler.table.get(1).result == "message handled"
-
 
 @pytest.mark.parametrize("serialize_turns", [False, True])
 def test_the_gate_is_the_only_thing_the_flag_changes(serialize_turns):

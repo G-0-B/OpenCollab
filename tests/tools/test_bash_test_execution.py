@@ -37,7 +37,6 @@ async def test_default_tester_runs_native_tests_and_reports_actual_exit(tmp_path
     finally:
         await environment.cleanup()
 
-
 async def test_headless_testing_never_implicitly_grants_host_shell(tmp_path):
     (bash,) = builtin_tools("bash")
     environment = LocalEnvironment(str(tmp_path))
@@ -51,17 +50,14 @@ async def test_headless_testing_never_implicitly_grants_host_shell(tmp_path):
     finally:
         await environment.cleanup()
 
-
 def test_public_composition_rejects_retired_tool():
     with pytest.raises(ValueError, match="unsupported built-in"):
         builtin_tools("run_tests")
-
 
 def test_removed_cli_switch_is_rejected_without_starting_model():
     result = CliRunner().invoke(app, ["--allow-local-child-tests"])
     assert result.exit_code == 2
     assert "No such option" in result.output
-
 
 def test_no_built_in_tool_claims_a_verified_test_result():
     """The harness has no parser-backed test evidence any more, and says so.

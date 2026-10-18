@@ -33,12 +33,10 @@ def test_single2_uses_native_tools_in_the_evaluated_order():
     assert tools[0].max_output_chars == 10_000
     assert tools[0].require_process_isolation is True
 
-
 def test_single2_tools_can_be_explicitly_composed_for_local_interaction():
     tools = build_single2_tools(headless=False)
 
     assert tools[0].require_process_isolation is False
-
 
 @pytest.mark.parametrize(
     "command",
@@ -58,7 +56,6 @@ def test_single2_blocks_root_recursive_searches(tmp_path, command):
     ):
         policy.check_cmd(command)
 
-
 @pytest.mark.parametrize(
     "command",
     [
@@ -71,7 +68,6 @@ def test_single2_allows_workspace_relative_searches(tmp_path, command):
     policy = wrap_single2_safety(SandboxInterceptor(str(tmp_path)), str(tmp_path))
 
     policy.check_cmd(command)
-
 
 def test_single2_safety_preserves_existing_path_and_command_rules(tmp_path):
     workspace = tmp_path / "workspace"
@@ -86,7 +82,6 @@ def test_single2_safety_preserves_existing_path_and_command_rules(tmp_path):
         policy.check_path("../outside.py")
     with pytest.raises(PermissionError, match="Blocked destructive command"):
         policy.check_cmd("rm -rf /")
-
 
 def test_default_safety_keeps_open_collab_07_behavior(tmp_path):
     policy = SandboxInterceptor(str(tmp_path))

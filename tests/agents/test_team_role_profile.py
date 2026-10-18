@@ -32,10 +32,7 @@ SEAT_TOOLS = [
     "message_agent", "team_status", "submit",
 ]
 
-
-#: The tools only store the scheduler they are bound to; nothing here calls it.
 SCHED = object()
-
 
 def _cfg():
     return SpawnConfig(
@@ -48,7 +45,6 @@ def _cfg():
         event_bus=EventBus(None),
         permission_policy=None,
     )
-
 
 def _team(profile: str | None, *, tool_limits: dict | None = None) -> TeamConfig:
     return TeamConfig(
@@ -68,13 +64,8 @@ def _team(profile: str | None, *, tool_limits: dict | None = None) -> TeamConfig
         tool_limits=tool_limits or {},
     )
 
-
 def _builder(profile: str | None, **kwargs) -> ContextBuilder:
     return ContextBuilder(_team(profile, **kwargs), _cfg())
-
-
-# --- The prompt ----------------------------------------------------------------
-
 
 def test_the_profile_leads_and_the_card_follows() -> None:
     """The seat is that profile's agent first and this team's role second."""
@@ -83,7 +74,6 @@ def test_the_profile_leads_and_the_card_follows() -> None:
     card_at = prompt.index("Adopter card.")
     assert card_at > len(SINGLE2_SYSTEM_PROMPT)
     assert prompt.index("## Your team") > card_at
-
 
 def test_the_profile_prompt_is_carried_byte_for_byte() -> None:
     """Not paraphrased, not re-wrapped: the same text the SDK path seats.
@@ -96,16 +86,11 @@ def test_the_profile_prompt_is_carried_byte_for_byte() -> None:
     profile_source = next(s for s in sources if s.name == "profile")
     assert profile_source.content == SINGLE2_SYSTEM_PROMPT
 
-
 def test_a_role_without_a_profile_is_unchanged() -> None:
     """The regression that matters: every existing team file still reads the same."""
     plan = _builder(None).build_plan("adopter")
     assert [s.name for s in plan.sources] == ["identity", "team"]
     assert plan.system_prompt().startswith("Adopter card.")
-
-
-# --- The tools -----------------------------------------------------------------
-
 
 def test_the_seat_gets_the_profiles_output_caps() -> None:
     """Single2's 10,000-character `bash` result, not OpenCollab's default.
@@ -122,22 +107,16 @@ def test_the_seat_gets_the_profiles_output_caps() -> None:
     plain_bash = next(tool for tool in plain.tools if tool.name == "bash")
     assert plain_bash.max_output_chars != SINGLE2_BASH_OUTPUT_CHARS
 
-
 def test_a_team_file_may_still_state_its_own_cap() -> None:
     """An explicit limit beats the profile default, as it does on the SDK path."""
     builder = _builder("single2", tool_limits={"bash": {"max_output_chars": 4_242}})
     bash = next(t for t in builder.build_agent("adopter", scheduler=SCHED).tools if t.name == "bash")
     assert bash.max_output_chars == 4_242
 
-
 def test_the_declared_tool_order_survives() -> None:
     """The order a seat's tools reach the model is the file's, profile or not."""
     agent = _builder("single2").build_agent("adopter", scheduler=SCHED)
     assert [tool.name for tool in agent.tools] == SEAT_TOOLS
-
-
-# --- The other half: shaper and safety -----------------------------------------
-
 
 def test_both_seats_carry_the_profile_into_their_session(monkeypatch, tmp_path) -> None:
     """The shaper and the safety wrapper come from the profile too.
@@ -166,10 +145,6 @@ def test_both_seats_carry_the_profile_into_their_session(monkeypatch, tmp_path) 
     assert seen["adopter"] is not None
     assert seen["adopter"].name == "single2"
 
-
-# --- Declaration and validation ------------------------------------------------
-
-
 def test_an_unknown_profile_is_refused_at_load(tmp_path) -> None:
     """Fail at startup, not by seating an agent nobody asked for."""
     path = tmp_path / "team.yaml"
@@ -180,7 +155,6 @@ def test_an_unknown_profile_is_refused_at_load(tmp_path) -> None:
     with pytest.raises(Exception, match="single2"):
         load_team_config(path=str(path))
 
-
 def test_default_means_opencollabs_own_agent(tmp_path) -> None:
     path = tmp_path / "team.yaml"
     path.write_text(
@@ -190,7 +164,6 @@ def test_default_means_opencollabs_own_agent(tmp_path) -> None:
     assert load_team_config(path=str(path)).roles["solo"].profile is None
     assert _builder(None)._profile_for(load_team_config(path=str(path)).roles["solo"]) is None
     assert resolve_agent_profile(None).name == "single2"
-
 
 def test_a_team_file_reports_the_profile_each_seat_declares(tmp_path) -> None:
     """A run recording the card digest alone cannot name its condition.
@@ -210,10 +183,6 @@ def test_a_team_file_reports_the_profile_each_seat_declares(tmp_path) -> None:
     assert declared_role_profiles(str(path)) == {
         "adopter": "single2", "coder_a": None,
     }
-
-
-# --- The whole wiring, on the file a batch actually launches -------------------
-
 
 def test_the_shipped_cell_seats_single2_through_the_scheduler(tmp_path, monkeypatch) -> None:
     """End to end on ``configs/team.s2dual-plain.yaml``, not on a fixture.

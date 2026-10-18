@@ -6,12 +6,10 @@ from opencollab.tools import has_pass_evidence
 
 PASS = "test_one (admin_utils.tests.Example.test_one) ... ok\n\nRan 1 test in 0.001s\n\nOK\n"
 
-
 @pytest.mark.parametrize("target", ["admin_utils", "tests/admin_utils", "admin_utils.tests.Example.test_one",
                                    "tests/admin_utils/tests.py::Example::test_one"])
 def test_django_accepts_matching_executed_labels(target):
     assert has_pass_evidence(0, PASS, runner=DJANGO_RUNNER, target=target)
-
 
 @pytest.mark.parametrize("output", [
     "Ran 0 tests in 0.001s\nOK\n", "Ran 1 test in 0.001s\nOK\n",
@@ -23,11 +21,9 @@ def test_django_accepts_matching_executed_labels(target):
 def test_django_rejects_missing_ambiguous_or_nonpassing_execution(output):
     assert not has_pass_evidence(0, output, runner=DJANGO_RUNNER, target="admin_utils")
 
-
 def test_django_rejects_wrong_target_and_nonzero_exit():
     assert not has_pass_evidence(0, PASS, runner=DJANGO_RUNNER, target="auth_tests")
     assert not has_pass_evidence(1, PASS, runner=DJANGO_RUNNER, target="admin_utils")
-
 
 def test_evidence_rejects_multiple_pytest_result_summaries():
     from opencollab.tools import has_pass_evidence
@@ -42,7 +38,6 @@ def test_evidence_rejects_multiple_pytest_result_summaries():
 
     assert not has_pass_evidence(0, output, target=target)
 
-
 def test_go_runner_multi_target_forgery_cannot_produce_green():
     forged_output = '{"Action":"pass","Package":"module/pkg1","Test":"TestB"}'
 
@@ -52,7 +47,6 @@ def test_go_runner_multi_target_forgery_cannot_produce_green():
         runner="go test",
         target="./pkg1::TestA ./pkg2::TestB",
     )
-
 
 def test_go_runner_single_selector_requires_exact_test_proof():
     wrong_test = '{"Action":"pass","Package":"module/pkg1","Test":"TestB"}'
@@ -64,7 +58,6 @@ def test_go_runner_single_selector_requires_exact_test_proof():
     assert has_pass_evidence(0, exact_test, runner="go test", target=target)
     assert has_pass_evidence(0, subtest, runner="go test", target=target)
 
-
 def test_root_level_pytest_selector_accepts_matching_node_from_any_file():
     from opencollab.tools import has_pass_evidence
 
@@ -72,7 +65,6 @@ def test_root_level_pytest_selector_accepts_matching_node_from_any_file():
 
     assert has_pass_evidence(0, output, target="::test_one")
     assert not has_pass_evidence(0, output, target="::test_other")
-
 
 def test_go_runner_requires_pass_proof_from_requested_package():
     from opencollab.tools import has_pass_evidence
@@ -96,7 +88,6 @@ def test_go_runner_requires_pass_proof_from_requested_package():
         runner="go test",
         target="internal/server",
     )
-
 
 def test_go_runner_requires_pass_proof_for_each_requested_package():
     from opencollab.tools import has_pass_evidence

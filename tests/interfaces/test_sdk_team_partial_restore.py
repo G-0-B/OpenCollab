@@ -77,7 +77,6 @@ def controlled_team(tmp_path, monkeypatch):
     )
     return client, config, requests, slow_started, release
 
-
 async def test_public_parent_partial_autosave_restores_each_child_outcome(tmp_path, controlled_team):
     client, config, requests, slow_started, release = controlled_team
     artifacts = tmp_path / "artifacts"
@@ -130,7 +129,6 @@ async def test_public_parent_partial_autosave_restores_each_child_outcome(tmp_pa
         completed = await asyncio.wait_for(active, 5)
     assert completed.status == "completed", completed.reason
     assert completed.output == "FAST_COMPLETED_RESULT\nSLOW_COMPLETED_RESULT"
-
 
 @pytest.mark.parametrize("serialized", [False, True])
 async def test_public_team_without_autosave_delivers_serial_and_parallel_children(

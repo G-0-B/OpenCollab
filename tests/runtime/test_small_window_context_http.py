@@ -23,7 +23,6 @@ def isolate_configuration(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(tmp_path / "usage.jsonl"))
 
-
 @pytest.mark.parametrize("configuration", [
     {"provider": "openai", "wire_protocol": "chat_completions", "model": "gpt-4o"},
     {"provider": "openai", "wire_protocol": "responses", "model": "gpt-4o"},
@@ -71,7 +70,6 @@ async def test_short_public_turns_complete_without_unneeded_summary_requests(
         finally:
             await session.aclose()
 
-
 @pytest.mark.parametrize("window", [None, 40_000, 64_000, 128_000, 1_048_576])
 def test_unknown_and_larger_windows_keep_existing_reservations(window):
     class Model:
@@ -82,7 +80,6 @@ def test_unknown_and_larger_windows_keep_existing_reservations(window):
     expected = 120_000 if window is None else window - 33_000
     assert settings["history_trigger_tokens"] == expected
     assert settings["history_target_tokens"] == (90_000 if window is None else int(expected * 0.75))
-
 
 @pytest.mark.parametrize("output_limit", [1_024, 2_048])
 @pytest.mark.parametrize("cap", [None, 2_000, 7_000])

@@ -37,10 +37,8 @@ TOTAL = 600_000
 ROLES = ("lead", "coder", "tester")
 CAP = per_agent_cap(TOTAL, len(ROLES))
 
-
 def run(coro):
     return asyncio.run(coro)
-
 
 class FakeSession:
     """The little a scheduler needs of a session to do budget arithmetic."""
@@ -57,7 +55,6 @@ class FakeSession:
     async def run_loop(self) -> str:
         self.state.set_phase(SessionPhase.DONE)
         return "done"
-
 
 class RecordingFactory:
     """Records the budget every session is built with."""
@@ -76,14 +73,12 @@ class RecordingFactory:
         session.state.aid = aid
         return session
 
-
 class _NoWorktrees:
     async def acquire(self, role):
         return None
 
     async def release(self):
         return None
-
 
 class RecordingTracer:
     def __init__(self) -> None:
@@ -94,7 +89,6 @@ class RecordingTracer:
 
     def payloads(self, step_type: str) -> list[dict[str, Any]]:
         return [payload for name, payload in self.steps if name == step_type]
-
 
 def _scheduler(*, prebuild_team: bool, tracer: RecordingTracer | None = None):
     factory = RecordingFactory()
@@ -113,25 +107,17 @@ def _scheduler(*, prebuild_team: bool, tracer: RecordingTracer | None = None):
     scheduler.register_lead(lead)
     return scheduler, factory
 
-
 def _spend(scheduler: Scheduler, aid: int, tokens: int) -> None:
     scheduler.table.get(aid).state.used_tokens = tokens
-
-
-# --- the rule ----------------------------------------------------------------
-
 
 def test_the_cap_is_the_share_constant_times_an_equal_split():
     scheduler, _ = _scheduler(prebuild_team=True)
     assert scheduler._declared_team_size() == 3
     assert CAP == int(TOTAL * PER_AGENT_BUDGET_SHARE / 3) == 200_000
     assert scheduler._per_agent_cap() == CAP
-    # ``c = 1`` is the strict equal split: the three caps sum to exactly the
-    # pool, so a seat is worth what one agent working alone is given and the
-    # team's extra tokens are reachable only by using another seat.
+    # An equal split gives each seat a solo-sized cap.
     assert CAP == TOTAL // len(ROLES)
     assert CAP * len(ROLES) == TOTAL
-
 
 def test_every_seat_gets_the_same_cap_agent_zero_included():
     """Agent 0's allowance is the rule's, not a privilege of being the root."""
@@ -144,7 +130,6 @@ def test_every_seat_gets_the_same_cap_agent_zero_included():
         assert factory.spawn_budgets == [CAP, CAP]
 
     run(scenario())
-
 
 def test_agent_zero_no_longer_leases_the_whole_pool_for_a_turn():
     """The privilege itself, and where it survives.
@@ -165,7 +150,6 @@ def test_agent_zero_no_longer_leases_the_whole_pool_for_a_turn():
         assert dynamic._reserve_turn_lease(0) == TOTAL
 
     run(scenario())
-
 
 def test_agent_zero_is_told_the_budget_it_can_actually_spend():
     """The number in the prompt is the number the scheduler will enforce.
@@ -189,10 +173,6 @@ def test_agent_zero_is_told_the_budget_it_can_actually_spend():
         structured_override=None,
     )
     assert block["content"] == "[Budget: ~200k/200k tokens left, ~50 steps left.]"
-
-
-# --- what the shared pool buys ----------------------------------------------
-
 
 def test_an_idle_teammate_freezes_nothing_for_the_agent_doing_the_work():
     """What sharing the pool still buys once ``c`` is 1.
@@ -218,11 +198,9 @@ def test_an_idle_teammate_freezes_nothing_for_the_agent_doing_the_work():
         grant = scheduler._reserve_turn_lease(0)
         assert grant == CAP - half_a_share == 100_000
         assert scheduler._sessions[0].max_budget_tokens == CAP
-        # Only spend is committed; the two idle seats hold nothing.
         assert scheduler.allocated_tokens == half_a_share
 
     run(scenario())
-
 
 def test_the_cap_still_bounds_the_agent_that_is_working():
     async def scenario():
@@ -230,14 +208,9 @@ def test_the_cap_still_bounds_the_agent_that_is_working():
         await scheduler.ensure_team_prebuilt()
         _spend(scheduler, 0, CAP)
         assert scheduler._reserve_turn_lease(0) == 0
-        # The pool is far from empty — the cap is what stopped it.
         assert scheduler.used_tokens == CAP < TOTAL
 
     run(scenario())
-
-
-# --- the record --------------------------------------------------------------
-
 
 def test_a_turn_the_cap_refused_is_recorded_with_the_pool_beside_it():
     async def scenario():
@@ -267,7 +240,6 @@ def test_a_turn_the_cap_refused_is_recorded_with_the_pool_beside_it():
 
     run(scenario())
 
-
 def test_an_empty_pool_is_not_recorded_as_a_cap_refusal():
     """The record has to mean one thing: this agent, not the team, ran out.
 
@@ -290,13 +262,11 @@ def test_an_empty_pool_is_not_recorded_as_a_cap_refusal():
         _spend(scheduler, 0, overspent)
         _spend(scheduler, 1, overspent)
         assert scheduler.used_tokens == TOTAL
-        # The third seat is far under its own cap; the pool is what is gone.
         assert scheduler.table.get(2).state.used_tokens == 0
         assert scheduler._reserve_turn_lease(2) == 0
         assert tracer.payloads("agent_cap_reached") == []
 
     run(scenario())
-
 
 def test_a_failing_tracer_never_overturns_the_allocation():
     class Broken(RecordingTracer):
@@ -312,15 +282,10 @@ def test_a_failing_tracer_never_overturns_the_allocation():
 
     run(scenario())
 
-
-# --- the dynamic roster is untouched ----------------------------------------
-
-
 def test_without_a_declared_roster_the_reservation_rule_still_applies():
     scheduler, factory = _scheduler(prebuild_team=False)
     assert scheduler._per_agent_cap() is None
     assert factory.lead_budget == TOTAL
-    # Agent 0 books a quarter of the pool at registration, exactly as before.
     assert scheduler._turn_lease[0] == dynamic_roster_share(TOTAL) == 150_000
     assert scheduler.allocated_tokens == 150_000
     assert scheduler._entry_agent_takes_the_pool(0) is True

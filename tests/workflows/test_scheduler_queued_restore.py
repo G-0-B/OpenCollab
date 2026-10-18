@@ -29,7 +29,6 @@ class _Provider:
             await self.release.wait()
         return llm_response(content=f"answer-{len(self.calls)}")
 
-
 class _Factory:
     def __init__(self, provider):
         self.provider = provider
@@ -41,7 +40,6 @@ class _Factory:
             aid=aid,
             max_budget_tokens=budget,
         )
-
 
 async def test_shutdown_queued_turn_restore_claims_it_before_the_next_request(tmp_path):
     path = tmp_path / "lead.json"

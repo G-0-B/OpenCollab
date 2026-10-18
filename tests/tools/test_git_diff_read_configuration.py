@@ -31,7 +31,6 @@ class RecordingGitEnvironment:
             return ExecResult(0, " M app.py\n", "")
         return ExecResult(1 if "--no-index" in command else 0, "+updated\n", "")
 
-
 @pytest.fixture
 def recorded_guard(monkeypatch):
     calls = []
@@ -42,7 +41,6 @@ def recorded_guard(monkeypatch):
 
     monkeypatch.setattr(git_diff, "_git_command_and_config_guard", guard, raising=False)
     return calls
-
 
 @pytest.mark.parametrize("params,unborn", [({}, False), ({}, True), ({"staged": True}, False),
                                          ({"stat_only": True}, False), ({"path": "app.py"}, False)])
@@ -59,7 +57,6 @@ async def test_all_git_reads_use_existing_configuration_guard(recorded_guard, pa
     diffs = [command for command in env.calls if " diff " in command]
     assert diffs
     assert all("--no-ext-diff" in command and "--no-textconv" in command for command in diffs)
-
 
 @pytest.mark.parametrize("denied_call", range(1, 7))
 async def test_configuration_refusal_stops_at_the_rejected_read(recorded_guard, denied_call):

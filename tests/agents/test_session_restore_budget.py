@@ -26,7 +26,6 @@ async def make_session(tmp_path, *spends):
     )
     return session, wire
 
-
 async def test_restore_reused_session_matches_fresh_threshold_cadence(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "thresholds")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
@@ -51,7 +50,6 @@ async def test_restore_reused_session_matches_fresh_threshold_cadence(tmp_path, 
     assert reused_messages == fresh_messages
     assert reused_messages[-1]["content"] == "restored turn"
 
-    # New spending after restore crosses the next band and re-arms the nudge.
     for session in (reused, fresh):
         await session.add_user_message("following turn")
         assert await session.run_loop() == "done"

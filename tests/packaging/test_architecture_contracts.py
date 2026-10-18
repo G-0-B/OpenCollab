@@ -20,18 +20,15 @@ _REPO_ROOT = REPO_ROOT
 # turned into underscores.
 _IMPORT_NAME = {"pyyaml": "yaml"}
 
-
 def _import_name(requirement: str) -> str:
     distribution = re.split(r"[<>=!~\[;\s]", requirement, maxsplit=1)[0].lower()
     return _IMPORT_NAME.get(distribution, distribution.replace("-", "_"))
-
 
 def _runtime_dependencies() -> set[str]:
     text = (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     block = re.search(r"^dependencies = \[(.*?)^\]", text, re.MULTILINE | re.DOTALL)
     assert block is not None, "pyproject.toml has no runtime dependencies block"
     return {_import_name(m) for m in re.findall(r'"([^"]+)"', block.group(1))}
-
 
 def _contract(name: str) -> configparser.SectionProxy:
     parser = configparser.ConfigParser()
@@ -40,10 +37,8 @@ def _contract(name: str) -> configparser.SectionProxy:
     assert parser.has_section(section), f"{section} is missing from .importlinter"
     return parser[section]
 
-
 def _values(section: configparser.SectionProxy, key: str) -> set[str]:
     return {line.strip() for line in section[key].splitlines() if line.strip()}
-
 
 def test_domain_blacklist_covers_every_runtime_dependency():
     forbidden = _values(_contract("domain-stdlib-only"), "forbidden_modules")
@@ -53,7 +48,6 @@ def test_domain_blacklist_covers_every_runtime_dependency():
         f"{sorted(missing)}. Add them to `forbidden_modules` in `.importlinter`, "
         "or the 'stdlib only' contract silently stops meaning that."
     )
-
 
 def test_domain_blacklist_names_nothing_that_is_not_a_dependency():
     forbidden = _values(_contract("domain-stdlib-only"), "forbidden_modules")

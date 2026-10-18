@@ -39,7 +39,6 @@ from tests.support.session_run_loop_test_support import (
 
 SUMMARY = "Fixed the off-by-one in _rows() and ran the suite."
 
-
 def _runner(*, submitted: bool, responses):
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
     result = ToolProcessingResult(
@@ -49,7 +48,6 @@ def _runner(*, submitted: bool, responses):
     )
     llm = FakeLLM(responses=responses)
     return build_runner(state=state, llm=llm, tool_execution=FakeToolExecution(result)), llm
-
 
 def test_a_submitted_step_ends_the_turn_at_done_with_its_summary():
     # Two responses are scripted; only the first should ever be consumed.
@@ -68,7 +66,6 @@ def test_a_submitted_step_ends_the_turn_at_done_with_its_summary():
     assert answer == SUMMARY
     assert len(llm.calls) == 1
 
-
 def test_a_step_that_did_not_submit_still_loops_back_to_another_call():
     runner, llm = _runner(
         submitted=False,
@@ -80,12 +77,9 @@ def test_a_step_that_did_not_submit_still_loops_back_to_another_call():
 
     answer = run(runner.run_loop())
 
-    # The rule that ends an unsubmitted turn is unchanged: a text-only response
-    # finishes it, and it takes a second provider call to get there.
     assert runner.state.phase is SessionPhase.DONE
     assert answer == "done exploring"
     assert len(llm.calls) == 2
-
 
 def test_submit_is_a_success_terminal_not_a_stop():
     runner, _ = _runner(
@@ -100,7 +94,6 @@ def test_submit_is_a_success_terminal_not_a_stop():
     # reported as one that was cut off.
     assert runner.state.phase is not SessionPhase.STOPPED
     assert runner.state.phase is SessionPhase.DONE
-
 
 @pytest.mark.parametrize("content", [None, SUMMARY, SUMMARY + "\n", "I have checked the requested change."])
 @pytest.mark.parametrize("aid", [0, 7])
@@ -142,12 +135,8 @@ async def test_public_session_delivers_submitted_text_once_to_its_agent(tmp_path
     finally:
         await session.aclose()
 
-
 def _call(tool, params):
-    # The tool never touches the runtime; None keeps the test to the one thing
-    # it is about.
     return run(tool.execute_with_runtime(params, None))
-
 
 def test_the_tool_refuses_an_empty_or_oversized_summary():
     tool = SubmitTool()
@@ -158,7 +147,6 @@ def test_the_tool_refuses_an_empty_or_oversized_summary():
     assert tool.turn_submitted is False
     assert _call(tool, {"summary": "x" * (MAX_SUMMARY_CHARS + 1)}).startswith("Error")
     assert tool.turn_submitted is False
-
 
 def test_a_bad_call_after_a_good_one_does_not_leave_the_turn_submitted():
     tool = SubmitTool()
@@ -171,7 +159,6 @@ def test_a_bad_call_after_a_good_one_does_not_leave_the_turn_submitted():
     _call(tool, {"summary": ""})
     assert tool.turn_submitted is False
     assert tool.submitted_summary is None
-
 
 def test_the_real_executor_carries_the_flag_out_of_the_batch():
     """The wiring, end to end, with the tool the model actually calls.

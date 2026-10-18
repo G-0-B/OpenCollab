@@ -13,12 +13,10 @@ from opencollab.adapters._env_process import ProcessResult, run_process
 
 CONTAINER_ID = "c" * 64
 
-
 def git(repo: Path, *args: str) -> str:
     return subprocess.run(
         ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True,
     ).stdout
-
 
 def make_repo(path: Path) -> Path:
     path.mkdir()
@@ -31,7 +29,6 @@ def make_repo(path: Path) -> Path:
     git(path, "commit", "-qm", "fixture")
     return path
 
-
 def apply_and_execute(repo: Path, patch: str) -> None:
     subprocess.run(
         ["git", "-C", str(repo), "apply", "-"], input=patch, text=True,
@@ -41,7 +38,6 @@ def apply_and_execute(repo: Path, patch: str) -> None:
         ["python3", str(repo / "solution.py")], check=True, capture_output=True, text=True,
     )
     assert executed.stdout == "42\n"
-
 
 @pytest.fixture
 def worktree_transport(monkeypatch):

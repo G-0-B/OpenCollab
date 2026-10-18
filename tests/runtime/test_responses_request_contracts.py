@@ -45,7 +45,6 @@ def test_responses_preserves_image_url_content_blocks():
         }
     ]
 
-
 def test_responses_restored_assistant_parts_remain_easy_input_content():
     _, items = _messages_to_input(
         [
@@ -67,7 +66,6 @@ def test_responses_restored_assistant_parts_remain_easy_input_content():
         }
     ]
 
-
 @pytest.mark.parametrize("part_type", ["text", "input_text", "output_text"])
 def test_responses_normalizes_restored_text_block_variants(part_type):
     _, items = _messages_to_input(
@@ -85,7 +83,6 @@ def test_responses_normalizes_restored_text_block_variants(part_type):
             "content": [{"type": "input_text", "text": "Recovered answer."}],
         }
     ]
-
 
 def test_responses_restored_assistant_image_remains_easy_input_content():
     _, items = _messages_to_input(
@@ -114,7 +111,6 @@ def test_responses_restored_assistant_image_remains_easy_input_content():
         }
     ]
 
-
 def test_responses_preserves_assistant_phase_in_legacy_history():
     _, items = _messages_to_input(
         [
@@ -134,7 +130,6 @@ def test_responses_preserves_assistant_phase_in_legacy_history():
         }
     ]
 
-
 def test_responses_rejects_tools_for_models_without_function_calling():
     with pytest.raises(
         ResponsesProtocolError,
@@ -151,7 +146,6 @@ def test_responses_rejects_tools_for_models_without_function_calling():
             ],
             0.2,
         )
-
 
 @pytest.mark.parametrize(
     "model",
@@ -173,7 +167,6 @@ def test_responses_omits_default_sampling_for_models_without_sampling(model):
     assert "top_p" not in kwargs
     assert kwargs["stream"] is ("o1-pro" not in model)
 
-
 @pytest.mark.parametrize(
     "model",
     ["o1-pro", "vendor/o1-pro-2025-04-01", "o3-mini"],
@@ -191,7 +184,6 @@ def test_responses_rejects_explicit_top_p_for_models_without_sampling(model):
             top_p=0.9,
         )
 
-
 @pytest.mark.parametrize(
     "model",
     ["gpt-4o", "vendor/gpt-4o-mini-2026-01-01"],
@@ -208,7 +200,6 @@ def test_responses_rejects_explicit_reasoning_for_non_reasoning_models(model):
             0.2,
             reasoning_effort="low",
         )
-
 
 @pytest.mark.parametrize(
     "model",
@@ -239,7 +230,6 @@ def test_responses_reasoning_metadata_is_fail_closed(model):
             reasoning_effort="low",
         )
 
-
 def test_responses_known_deepseek_reasoning_is_explicitly_opted_in():
     kwargs = _build_request_kwargs(
         "deepseek-v4-flash-0731",
@@ -251,7 +241,6 @@ def test_responses_known_deepseek_reasoning_is_explicitly_opted_in():
 
     assert kwargs["include"] == ["reasoning.encrypted_content"]
     assert kwargs["reasoning"] == {"effort": "max"}
-
 
 def test_responses_known_luna_reasoning_is_explicitly_opted_in():
     kwargs = _build_request_kwargs(
@@ -265,14 +254,12 @@ def test_responses_known_luna_reasoning_is_explicitly_opted_in():
     assert kwargs["include"] == ["reasoning.encrypted_content"]
     assert kwargs["reasoning"] == {"effort": "max"}
 
-
 @pytest.mark.parametrize("model", ["o1-preview", "gateway/o3-pro"])
 def test_responses_reasoning_family_keeps_known_context_window(model):
     capabilities = model_capabilities(model)
 
     assert capabilities.supports_responses_reasoning is True
     assert capabilities.context_window == 200_000
-
 
 @pytest.mark.parametrize("model", ["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-2025-08-07"])
 @pytest.mark.parametrize("effort", [None, "none", "high"])
@@ -282,7 +269,6 @@ def test_native_gpt5_omits_unsupported_temperature(model, effort):
     )
 
     assert "temperature" not in kwargs
-
 
 @pytest.mark.parametrize("model", [
     "gpt-5.1", "gpt-5.2", "gpt-5.2-2025-12-11", "gpt-5.4", "gpt-5.4-2026-03-05",
@@ -298,7 +284,6 @@ def test_native_gpt5_sampling_follows_effective_reasoning_effort(model, effort):
     else:
         assert "temperature" not in kwargs
 
-
 @pytest.mark.parametrize("model,effort", [
     ("gpt-5", None), ("gpt-5-mini", "high"), ("gpt-5.2", "high"),
     ("gpt-5.4", "high"), ("gpt-5.4-2026-03-05", "high"),
@@ -310,7 +295,6 @@ def test_native_gpt5_rejects_explicit_unsupported_top_p(model, effort):
             top_p=0.9, reasoning_effort=effort,
         )
 
-
 @pytest.mark.parametrize("model", ["gpt-5.1", "gpt-5.2", "gpt-5.4"])
 def test_native_gpt5_none_reasoning_accepts_explicit_top_p(model):
     kwargs = _build_request_kwargs(
@@ -319,7 +303,6 @@ def test_native_gpt5_none_reasoning_accepts_explicit_top_p(model):
     )
 
     assert kwargs["top_p"] == 0.9
-
 
 @pytest.mark.parametrize("model", ["gpt-5", "gpt-5.2", "gpt-5.4", "vendor/gpt-5-mini"])
 def test_compatible_responses_provider_retains_its_sampling_parameters(model):
@@ -330,7 +313,6 @@ def test_compatible_responses_provider_retains_its_sampling_parameters(model):
 
     assert kwargs["temperature"] == 0.2
     assert kwargs["top_p"] == 0.9
-
 
 @pytest.mark.parametrize("provider,base_url,environment_url,native", [
     ("openai", None, None, True),
@@ -388,7 +370,6 @@ async def test_responses_client_applies_native_rules_only_to_native_endpoint(
 
     assert response.content == "done"
     assert ("temperature" in requests[0]) is (not native)
-
 
 @pytest.mark.parametrize("base_url", ["https://us.api.openai.com/v1", "https://eu.api.openai.com/v1"])
 async def test_regional_responses_client_rejects_unsupported_top_p_before_request(monkeypatch, base_url):

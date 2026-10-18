@@ -57,13 +57,10 @@ class _FakeTUI:
         self.selected_aid = 1
         return self.selected_aid
 
-
 def _text(fragments) -> str:
     return "".join(text for _style, text in fragments)
 
-
 SCREEN_WIDTH, SCREEN_HEIGHT = 80, 12
-
 
 def _render_layout_rows(app) -> list[str]:
     """Render a prompt's layout into a screen and read its rows back."""
@@ -82,7 +79,6 @@ def _render_layout_rows(app) -> list[str]:
         for y in range(SCREEN_HEIGHT)
     ]
 
-
 def test_the_prompt_paints_the_hud_above_its_own_input_line():
     """The HUD is rows the prompt owns, not output printed near it.
 
@@ -94,7 +90,6 @@ def test_the_prompt_paints_the_hud_above_its_own_input_line():
     rendered = _text(prompt._message())
 
     assert rendered == "▸ bash · 2s   AGENTS 1/2\n❯ "
-
 
 def test_the_status_row_is_handed_to_the_toolbar_below_the_input_line():
     """The answer above the input line, the status row below it.
@@ -111,7 +106,6 @@ def test_the_status_row_is_handed_to_the_toolbar_below_the_input_line():
     assert _text(prompt._message()) == "◆ streaming\n❯ "
     assert _text(prompt._status()) == "● thinking  AGENTS 1/3"
 
-
 def test_the_status_row_moves_back_above_the_input_when_the_toolbar_cannot_paint():
     """A terminal that answers no cursor-position request gets no toolbar.
 
@@ -126,7 +120,6 @@ def test_the_status_row_moves_back_above_the_input_when_the_toolbar_cannot_paint
 
     assert _text(prompt._message()) == "◆ streaming\n● thinking  AGENTS 1/3\n❯ "
 
-
 @pytest.mark.asyncio
 async def test_a_question_holding_the_input_line_keeps_the_status_row_under_it():
     prompt = LivePrompt(_FakeTUI(None, "● thinking  AGENTS 1/3"), console=Console())
@@ -138,7 +131,6 @@ async def test_a_question_holding_the_input_line_keeps_the_status_row_under_it()
 
     assert _text(prompt._message()) == "[Agent asks] Which one?\n> "
     assert _text(prompt._status()) == "● thinking  AGENTS 1/3"
-
 
 @pytest.mark.asyncio
 async def test_the_status_row_lands_on_the_row_under_the_input_line():
@@ -168,15 +160,12 @@ async def test_the_status_row_lands_on_the_row_under_the_input_line():
     assert rows[0] == "HUD-BODY-ROW"
     assert rows[1].startswith("❯")
     assert rows[2] == "STATUS-ROW"
-    # ...and every row the prompt claimed but does not need is below them.
     assert all(row == "" for row in rows[3:])
-
 
 def test_a_prompt_with_nothing_in_flight_is_just_the_chevron():
     prompt = LivePrompt(_FakeTUI(None), console=Console())
 
     assert _text(prompt._message()) == "❯ "
-
 
 @pytest.mark.asyncio
 async def test_an_agent_question_takes_the_input_line_and_gets_its_answer():
@@ -189,10 +178,8 @@ async def test_an_agent_question_takes_the_input_line_and_gets_its_answer():
     assert _text(prompt._message()) == "AGENTS 1/2\nAllow rm -rf? [y/N] "
     assert prompt.deliver("y") is True
     assert await asyncio.wait_for(asked, timeout=1) == "y"
-    # The line belongs to the user again.
     assert prompt.pending_question is None
     assert _text(prompt._message()) == "AGENTS 1/2\n❯ "
-
 
 @pytest.mark.asyncio
 async def test_overlapping_questions_are_answered_in_the_order_they_were_asked():
@@ -218,7 +205,6 @@ async def test_overlapping_questions_are_answered_in_the_order_they_were_asked()
     assert await asyncio.wait_for(second, timeout=1) == "two"
     assert prompt.deliver("nobody is asking") is False
 
-
 @pytest.mark.asyncio
 async def test_a_cancelled_question_gives_the_line_back():
     prompt = LivePrompt(_FakeTUI(None), console=Console())
@@ -231,7 +217,6 @@ async def test_a_cancelled_question_gives_the_line_back():
 
     assert prompt.pending_question is None
     assert prompt.deliver("free line") is False
-
 
 @pytest.mark.asyncio
 async def test_a_question_stashes_the_half_typed_message_and_puts_it_back():
@@ -254,14 +239,12 @@ async def test_a_question_stashes_the_half_typed_message_and_puts_it_back():
     assert buffer.text == "please refactor the parser"
     assert buffer.cursor_position == len("please refactor the parser")
 
-
 async def _wait_for_prompt_condition(predicate):
     async def wait():
         while not predicate():
             await asyncio.sleep(0.005)
 
     await asyncio.wait_for(wait(), timeout=2)
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("answers", [(), ("n",), ("src/parser.py",), ("one", "two")])
@@ -310,7 +293,6 @@ async def test_repl_submits_restored_draft_after_real_prompt_questions(answers):
                 if not task.done():
                     task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("cancel_mode", ["task", "keyboard"])
@@ -362,7 +344,6 @@ async def test_repl_submits_restored_draft_after_a_cancelled_real_question(cance
                 if not task.done():
                     task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("resolution", ["answer", "cancel"])
@@ -425,7 +406,6 @@ async def test_interrupt_after_editing_restored_draft_starts_an_empty_prompt(res
                     task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
 
-
 @pytest.mark.asyncio
 async def test_declining_turns_every_waiting_question_away():
     """Ctrl+C has to answer the questions, not only stop the turn.
@@ -447,7 +427,6 @@ async def test_declining_turns_every_waiting_question_away():
     assert prompt.pending_question is None
     assert prompt.decline_pending() is False
 
-
 @pytest.mark.asyncio
 async def test_a_declined_permission_reads_as_a_no():
     prompt = LivePrompt(_FakeTUI(None), console=Console())
@@ -457,7 +436,6 @@ async def test_a_declined_permission_reads_as_a_no():
     prompt.decline_pending()
 
     assert await asyncio.wait_for(confirm, timeout=1) is False
-
 
 @pytest.mark.asyncio
 async def test_a_run_with_no_screen_reads_straight_from_stdin(monkeypatch):
@@ -473,7 +451,6 @@ async def test_a_run_with_no_screen_reads_straight_from_stdin(monkeypatch):
     assert await asyncio.wait_for(task, timeout=1) == "piped input"
     input_stream.close()
     os.close(write_fd)
-
 
 @pytest.mark.asyncio
 async def test_console_input_fallback_removes_reader_when_cancelled(monkeypatch):
@@ -491,7 +468,6 @@ async def test_console_input_fallback_removes_reader_when_cancelled(monkeypatch)
     assert asyncio.get_running_loop().remove_reader(read_fd) is False
     input_stream.close()
     os.close(write_fd)
-
 
 @pytest.mark.asyncio
 async def test_a_broken_prompt_falls_back_to_the_console_rather_than_failing(monkeypatch):
@@ -515,7 +491,6 @@ async def test_a_broken_prompt_falls_back_to_the_console_rather_than_failing(mon
     input_stream.close()
     os.close(write_fd)
 
-
 def test_attaching_registers_and_releases_the_redraw_callback():
     tui = _FakeTUI(None)
     prompt = LivePrompt(tui, console=Console(), interactive=False)
@@ -523,9 +498,7 @@ def test_attaching_registers_and_releases_the_redraw_callback():
     with prompt.attached():
         pass
 
-    # Nothing is painted without a screen, so nothing asks for a repaint.
     assert tui.redraws == []
-
 
 def test_prompt_tab_bindings_switch_agents_without_touching_input_buffer():
     tui = _FakeTUI(None)
@@ -549,7 +522,6 @@ def test_prompt_tab_bindings_switch_agents_without_touching_input_buffer():
     assert bindings.get_bindings_for_keys((Keys.Left,)) == []
     assert bindings.get_bindings_for_keys((Keys.Right,)) == []
 
-
 @pytest.mark.asyncio
 async def test_prompt_session_processes_tab_navigation_without_editing_text():
     tui = _FakeTUI(None)
@@ -568,7 +540,6 @@ async def test_prompt_session_processes_tab_navigation_without_editing_text():
 
     assert result == "draft command"
     assert tui.selected_aid == 1
-
 
 @pytest.mark.asyncio
 async def test_prompt_tab_reprints_agent_into_scrollback_without_erasing_it(monkeypatch):
@@ -639,12 +610,9 @@ async def test_prompt_tab_reprints_agent_into_scrollback_without_erasing_it(monk
 
     stream = bytes(raw)
     assert tui.selected_aid == 1
-    # The band names the agent being redrawn, and the redraw is appended after
-    # the analyst's settled line rather than replacing it.
     assert b"A1" in stream
     assert stream.index(b"SETTLED-ON-ANALYST") < stream.index(b"PENDING-ON-CODER")
-    assert b"\x1b[2J" not in stream  # never a full-screen wipe
-
+    assert b"\x1b[2J" not in stream
 
 @pytest.mark.asyncio
 async def test_agent_policies_read_through_the_shared_input_line():
@@ -668,7 +636,6 @@ async def test_agent_policies_read_through_the_shared_input_line():
     prompt.deliver("the second")
     assert await asyncio.wait_for(asked, timeout=1) == "the second"
 
-
 @pytest.mark.asyncio
 async def test_console_pipe_preserves_buffered_lines_while_writer_stays_open(monkeypatch):
     read_fd, write_fd = os.pipe()
@@ -682,7 +649,6 @@ async def test_console_pipe_preserves_buffered_lines_while_writer_stays_open(mon
     finally:
         stream.close()
         os.close(write_fd)
-
 
 @pytest.mark.asyncio
 async def test_noninteractive_questions_share_one_stdin_reader(monkeypatch):
@@ -706,7 +672,6 @@ async def test_noninteractive_questions_share_one_stdin_reader(monkeypatch):
         if write_fd is not None:
             os.close(write_fd)
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize('encoding', ['utf-8', 'utf-16', 'latin-1'])
 async def test_console_pipe_keeps_decoder_and_newline_state(monkeypatch, encoding):
@@ -728,7 +693,6 @@ async def test_console_pipe_keeps_decoder_and_newline_state(monkeypatch, encodin
         if write_fd is not None:
             os.close(write_fd)
 
-
 @pytest.mark.asyncio
 async def test_regular_stdin_file_does_not_need_selector_support(monkeypatch, tmp_path):
     source = tmp_path / 'stdin.txt'
@@ -744,7 +708,6 @@ async def test_regular_stdin_file_does_not_need_selector_support(monkeypatch, tm
         console = Console(file=StringIO())
         assert await read_console_line(console, '> ') == 'first'
         assert await read_console_line(console, '> ') == 'second'
-
 
 @pytest.mark.asyncio
 async def test_null_stdin_reports_eof_without_selector_registration(monkeypatch):

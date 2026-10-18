@@ -32,7 +32,6 @@ async def test_team_config_preflight_does_not_claim_artifact_directory(
 
     assert not artifacts.exists() or not any(artifacts.iterdir())
 
-
 async def test_team_is_first_class_and_passes_explicit_config(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -66,13 +65,10 @@ async def test_team_is_first_class_and_passes_explicit_config(
     assert captured["cleanup_timeout"] == 3.0
     assert captured["use_worktrees"] is False
 
-
 async def test_team_defaults_leave_the_experiment_switches_off(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    # Product behaviour must not move: an SDK team run that says nothing still
-    # seats no roster up front and still hands out no unsandboxed shell.
     captured = {}
 
     async def fake_run_team(**kwargs):
@@ -92,13 +88,10 @@ async def test_team_defaults_leave_the_experiment_switches_off(
     assert captured["prebuild_team"] is False
     assert captured["allow_unisolated_shell"] is None
 
-
 async def test_team_forwards_the_two_experiment_switches(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    # An unattended experiment needs a declared roster whose agents can run
-    # git. Both halves have to survive the trip from the SDK to build_scheduler.
     captured = {}
 
     async def fake_run_team(**kwargs):
@@ -122,7 +115,6 @@ async def test_team_forwards_the_two_experiment_switches(
 
     assert captured["prebuild_team"] is True
     assert captured["allow_unisolated_shell"] is True
-
 
 @pytest.mark.parametrize(
     ("kwargs", "message"),
@@ -150,15 +142,11 @@ async def test_team_rejects_non_boolean_switches_before_delegating(
 
     assert not called
 
-
 async def test_shared_team_runtime_forwards_switches_to_build_scheduler(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    # programmatic.run_team is a forwarder; programmatic_team.run_team is what
-    # calls build_scheduler. This pins the whole chain, including the part that
-    # must stay fixed: an SDK run has no human, so interactive stays False even
-    # when the shell is on.
+    # Exercise the SDK forwarder through build_scheduler with noninteractive shell access.
     captured = {}
 
     class FakeScheduler:
@@ -199,7 +187,6 @@ async def test_shared_team_runtime_forwards_switches_to_build_scheduler(
     assert captured["prebuild_team"] is True
     assert captured["allow_unisolated_shell"] is True
 
-
 async def test_team_rejects_invalid_cleanup_timeout_before_delegating(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -219,7 +206,6 @@ async def test_team_rejects_invalid_cleanup_timeout_before_delegating(
         )
 
     assert not called
-
 
 async def test_shared_team_runtime_always_cleans_scheduler(
     monkeypatch: pytest.MonkeyPatch,
@@ -264,10 +250,6 @@ async def test_shared_team_runtime_always_cleans_scheduler(
     assert scheduler.cleanup_timeout == 3.0
     assert result.status == "completed"
     assert result.tokens == 8
-    # The counters, plus the wind-down evidence every regime now reports: this
-    # run owns its environments and cleaning the scheduler released them, which
-    # is exactly what the assertions above just established.
-    # Every run mints its own id; its value is pinned by the end-to-end test.
     assert result.metrics["run_id"].startswith("team-")
     assert result.metrics == {
         "run_id": result.metrics["run_id"],
@@ -280,7 +262,6 @@ async def test_shared_team_runtime_always_cleans_scheduler(
         "cleanup_quiesced": True,
         "execution_quiesced": True,
     }
-
 
 @pytest.mark.parametrize(
     ("phase", "terminal_reason", "partial_answer", "expected_status", "expected_reason"),
@@ -360,7 +341,6 @@ async def test_team_result_preserves_scheduler_turn_failure(
     assert result.reason == expected_reason
     assert result.error is turn_error
 
-
 async def test_team_result_exposes_sanitized_child_failures(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -418,7 +398,6 @@ async def test_team_result_exposes_sanitized_child_failures(
     )
     assert "private provider detail" not in repr(public)
 
-
 def test_tool_presets_are_small_fresh_and_named() -> None:
     read_tools = programmatic.resolve_tools("read")
     assert tuple(tool.name for tool in read_tools) == (
@@ -429,7 +408,6 @@ def test_tool_presets_are_small_fresh_and_named() -> None:
     assert read_tools[0] is not programmatic.resolve_tools("read")[0]
     with pytest.raises(ValueError, match="unknown tool preset"):
         programmatic.resolve_tools("everything")
-
 
 def _wind_down_scheduler(
     *, run_raises: BaseException | None, cleanup_failure: BaseException | None
@@ -456,7 +434,6 @@ def _wind_down_scheduler(
 
     return FakeScheduler()
 
-
 @pytest.mark.parametrize(
     ("cleanup_fails", "trace_fails"),
     ((True, False), (False, True), (True, True)),
@@ -467,11 +444,7 @@ async def test_team_wind_down_failure_keeps_what_the_run_spent(
     cleanup_fails: bool,
     trace_fails: bool,
 ) -> None:
-    # A teardown that fails does not unspend the budget or unwalk the steps.
-    # Replacing the result with an exception used to make a run that burned
-    # 416,771 tokens report zero, which reads downstream as a run that never
-    # happened -- and only on this path, because the single-agent regime
-    # annotates its failure and returns.
+    # Teardown failures must retain the budget and step counts already spent by the run.
     primary = ValueError("run-root-cause")
     cleanup_failure = OSError("cleanup-secondary")
     trace_failure = RuntimeError("trace-secondary")
@@ -504,8 +477,6 @@ async def test_team_wind_down_failure_keeps_what_the_run_spent(
 
     assert result.tokens == 416771
     assert result.metrics["steps"] == 26
-    # The execution failure stays the one reported; the teardown failures are
-    # notes on it, which is how the root cause survived before and still does.
     assert result.error is primary
     assert result.status == "failed"
     assert result.reason == "run-root-cause"
@@ -514,12 +485,9 @@ async def test_team_wind_down_failure_keeps_what_the_run_spent(
         assert any("cleanup-secondary" in note for note in notes)
     if trace_fails:
         assert any("trace-secondary" in note for note in notes)
-    # What is withdrawn is the settlement claim, so a caller that requires a
-    # settled workspace still refuses this run.
     assert result.metrics["session_quiesced"] is False
     assert result.metrics["environment_quiesced"] is False
     assert result.metrics["execution_quiesced"] is False
-
 
 async def test_a_team_that_finished_but_did_not_settle_says_which_one_failed(
     monkeypatch: pytest.MonkeyPatch,
@@ -546,9 +514,6 @@ async def test_a_team_that_finished_but_did_not_settle_says_which_one_failed(
         use_worktrees=False,
     )
 
-    # Nothing went wrong while the team worked, so the answer is kept; what
-    # failed is teardown, and the status and reason say so rather than leaving
-    # a caller to infer it from an absent metric.
     assert result.output == "done"
     assert result.tokens == 416771
     assert result.status == "failed"
@@ -557,13 +522,10 @@ async def test_a_team_that_finished_but_did_not_settle_says_which_one_failed(
     assert result.error is cleanup_failure
     assert result.metrics["session_quiesced"] is False
 
-
 async def test_cancellation_during_team_wind_down_is_still_raised(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    # Reporting a failed teardown is not the same as swallowing cancellation:
-    # a cancelled caller must still see cancellation, not a result.
     cleanup_failure = OSError("cleanup-secondary")
     monkeypatch.setattr(
         programmatic,
@@ -585,9 +547,6 @@ async def test_cancellation_during_team_wind_down_is_still_raised(
             trace=False,
             use_worktrees=False,
         )
-
-
-
 
 async def test_sdk_team_accepts_no_step_ceiling_and_inherits_the_configured_budget(monkeypatch, tmp_path):
     captured = {}

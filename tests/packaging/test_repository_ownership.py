@@ -68,7 +68,6 @@ _ACTIVE_EVAL_COMMAND = re.compile(
 )
 _EVAL_FORWARDING_INSTRUCTION = re.compile(r"(?i)\bpass\s+`?eval\b")
 
-
 def _imports(path: Path) -> tuple[str, ...]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     imports: list[str] = []
@@ -79,14 +78,12 @@ def _imports(path: Path) -> tuple[str, ...]:
             imports.append(node.module)
     return tuple(imports)
 
-
 def _visible_python_files(root: Path) -> list[Path]:
     return [
         path
         for path in sorted(root.rglob("*.py"))
         if not any(part.startswith(".") for part in path.relative_to(root).parts)
     ]
-
 
 def test_evaluation_implementation_is_owned_by_companion_package() -> None:
     for directory in (
@@ -104,11 +101,9 @@ def test_evaluation_implementation_is_owned_by_companion_package() -> None:
             ]
             assert visible_files == []
 
-
 def test_evaluation_assets_are_owned_outside_the_framework_repository() -> None:
     offenders = [path for path in _EVALUATION_OWNED_PATHS if (_REPO_ROOT / path).exists()]
     assert offenders == []
-
 
 def test_framework_docs_contain_no_compiled_artifacts() -> None:
     docs = _REPO_ROOT / "docs"
@@ -119,7 +114,6 @@ def test_framework_docs_contain_no_compiled_artifacts() -> None:
     )
     assert offenders == []
 
-
 def test_evaluation_tests_are_owned_by_companion_package() -> None:
     offenders = sorted(
         path.name
@@ -127,7 +121,6 @@ def test_evaluation_tests_are_owned_by_companion_package() -> None:
         if path != Path(__file__) and path.name.startswith((*_EVAL_TEST_PREFIXES, *_EVAL_SUPPORT_PREFIXES))
     )
     assert offenders == []
-
 
 def test_framework_tests_and_scripts_do_not_import_companion_implementations() -> None:
     forbidden = ("opencollab_eval", "swebench")
@@ -139,7 +132,6 @@ def test_framework_tests_and_scripts_do_not_import_companion_implementations() -
         if module in forbidden or module.startswith(tuple(f"{name}." for name in forbidden))
     ]
     assert offenders == []
-
 
 def test_framework_scripts_do_not_advertise_removed_eval_commands() -> None:
     documents = [_SCRIPTS / "README.md", *sorted(_SCRIPTS.glob("*.sh"))]

@@ -24,7 +24,6 @@ def grep_only(tmp_path, monkeypatch):
     source.parent.mkdir()
     source.write_text("NEEDLE source\n", encoding="utf-8")
 
-
 @pytest.mark.parametrize(
     "glob",
     ["src/*.py", "src/**/*.py", "source files/*.py", "**/", "!**/*.py", "**/.*", "**/[^a]*"],
@@ -44,7 +43,6 @@ async def test_unavailable_path_glob_is_an_error_instead_of_no_matches(tmp_path,
     assert "ripgrep" in output
     assert "path" in output and "filename glob" in output
     assert "No matches" not in output
-
 
 @pytest.mark.parametrize(
     "glob, pattern, found",
@@ -74,7 +72,6 @@ async def test_supported_fallback_search_retains_real_match_status(tmp_path, gre
     else:
         assert output == "No matches found for pattern: ABSENT"
 
-
 @pytest.mark.parametrize("glob", ["*.{py,pyi}", "!*.pyi", "*.{py,{pyi,pyx}}"])
 async def test_rg_only_filename_globs_report_missing_backend(tmp_path, grep_only, glob):
     (tmp_path / "src" / "types.pyi").write_text("NEEDLE types\n", encoding="utf-8")
@@ -92,7 +89,6 @@ async def test_rg_only_filename_globs_report_missing_backend(tmp_path, grep_only
     assert "ripgrep" in output and "unavailable" in output
     assert "separate searches" in output
     assert "No matches" not in output
-
 
 async def test_escaped_braces_remain_a_literal_filename_glob(tmp_path, grep_only):
     (tmp_path / "src" / "literal{name}.py").write_text("NEEDLE literal\n", encoding="utf-8")

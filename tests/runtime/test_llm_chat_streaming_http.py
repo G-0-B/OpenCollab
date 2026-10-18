@@ -13,10 +13,6 @@ import pytest
 from opencollab.adapters.llm.client import LLMClient
 from tests.runtime.test_llm_chat_streaming import MESSAGES, MODEL, USAGE
 
-# ---------------------------------------------------------------------------
-# HTTP contract: what actually goes on the wire
-# ---------------------------------------------------------------------------
-
 
 def _completion_body() -> dict[str, Any]:
     return {
@@ -33,7 +29,6 @@ def _completion_body() -> dict[str, Any]:
         ],
         "usage": USAGE,
     }
-
 
 def _sse_chunks() -> list[dict[str, Any]]:
     def frame(**overrides: Any) -> dict[str, Any]:
@@ -58,7 +53,6 @@ def _sse_chunks() -> list[dict[str, Any]]:
         delta_frame({}, "stop"),
         frame(usage=USAGE),
     ]
-
 
 @contextmanager
 def fake_chat_server() -> Iterator[tuple[str, list[dict[str, Any]]]]:
@@ -105,7 +99,6 @@ def fake_chat_server() -> Iterator[tuple[str, list[dict[str, Any]]]]:
         server.server_close()
         thread.join(timeout=2)
 
-
 @pytest.mark.asyncio
 async def test_switch_off_puts_no_stream_key_on_the_wire():
     """Read at the socket, not at the call site: the 60 runs already on disk are
@@ -123,7 +116,6 @@ async def test_switch_off_puts_no_stream_key_on_the_wire():
 
     assert response.content == "391"
     assert set(requests[0]) == {"messages", "model", "temperature"}
-
 
 @pytest.mark.asyncio
 async def test_switch_on_streams_and_records_reasoning_over_real_sse():

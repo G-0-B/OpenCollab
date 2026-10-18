@@ -371,7 +371,6 @@ def test_cleanup_caller_cancellation_waits_for_owned_teardown_then_propagates():
 
     run(scenario())
 
-
 def test_completed_direct_spawns_release_driver_task_references():
     lead = ScriptedSession("lead", [])
     children = [
@@ -389,7 +388,6 @@ def test_completed_direct_spawns_release_driver_task_references():
         assert scheduler._tasks == {}
 
     run(scenario())
-
 
 def test_completed_deferred_delivery_releases_commit_marker():
     lead = ScriptedSession(
@@ -427,7 +425,6 @@ def test_completed_deferred_delivery_releases_commit_marker():
         assert scheduler.table.get(0).result == "received: child result"
 
     run(scenario())
-
 
 @pytest.mark.parametrize(
     ("outcome", "expected_phase"),

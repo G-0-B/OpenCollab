@@ -44,7 +44,6 @@ class _ResponsesIdentityLLM:
         self.calls.append(kwargs)
         return self.responses.pop(0)
 
-
 def test_responses_session_identity_survives_prompt_compaction():
     llm = _ResponsesIdentityLLM()
     runner = build_runner(llm=llm)
@@ -53,7 +52,6 @@ def test_responses_session_identity_survives_prompt_compaction():
     run(runner._complete([{"role": "user", "content": "compact summary"}], None))
 
     assert llm.calls[0]["response_session_id"] == llm.calls[1]["response_session_id"]
-
 
 def test_responses_sessions_are_isolated_when_the_client_is_shared():
     llm = _ResponsesIdentityLLM()
@@ -65,7 +63,6 @@ def test_responses_sessions_are_isolated_when_the_client_is_shared():
 
     assert llm.calls[0]["response_session_id"] != llm.calls[1]["response_session_id"]
 
-
 def test_chat_clients_do_not_receive_responses_session_identity():
     llm = FakeLLM([llm_response(content="ok")])
     runner = build_runner(llm=llm)
@@ -73,7 +70,6 @@ def test_chat_clients_do_not_receive_responses_session_identity():
     run(runner._complete([{"role": "user", "content": "same"}], None))
 
     assert "response_session_id" not in llm.calls[0]
-
 
 def test_call_llm_recompacts_and_retries_once_on_overflow():
     # A long history; the shaper no-ops normally (so the first call overflows),
@@ -97,20 +93,15 @@ def test_call_llm_recompacts_and_retries_once_on_overflow():
 
     assert result == "recovered"
     assert state.phase is SessionPhase.DONE
-    # Two provider calls: the overflowing first, the forced-compacted retry.
     assert len(llm.calls) == 2
-    # The retry's prompt is strictly smaller (forced compaction ran).
     assert len(llm.calls[1]) < len(llm.calls[0])
     assert llm.calls[1] == state.messages[:1]
-    # The original history is untouched by shaping (read-time only); only the
-    # new assistant answer was appended on success.
     assert state.messages[:3] == [
         {"role": "system", "content": "sys"},
         {"role": "user", "content": "a" * 4000},
         {"role": "assistant", "content": "b" * 4000},
     ]
     assert state.messages[-1] == {"role": "assistant", "content": "recovered"}
-
 
 def test_overflow_retry_preserves_hard_steering_tool_choice():
     class RecordingOverflowThenOk:
@@ -143,7 +134,6 @@ def test_overflow_retry_preserves_hard_steering_tool_choice():
     assert llm.calls == ["required", "required", "required"]
     assert state.phase.value == "stopped"
 
-
 def test_call_llm_emits_recompaction_event_on_overflow():
     events, bus = collect_events()
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
@@ -173,7 +163,6 @@ def test_persistent_overflow_stops_gracefully_not_unhandled():
         is_context_overflow=_is_overflow,
     )
 
-    # No unhandled exception — the loop returns normally with a controlled stop.
     result = run(runner.run_loop())
 
     assert result == ""
@@ -186,17 +175,13 @@ def test_persistent_overflow_stops_gracefully_not_unhandled():
             "even after compaction. Session stopped.]"
         ),
     }
-    # Both the recompaction notice and the final overflow error were emitted.
     reasons = [data["reason"] for etype, data in events if etype == "error"]
     assert "context_overflow_recompacted" in reasons
     assert "context overflow: prompt exceeds the model context window even after compaction" in reasons
-    # The provider was tried exactly twice (initial + one forced retry).
     assert len(llm.calls) == 2
 
 def test_overflow_classifier_off_propagates_as_error():
-    # Without an overflow classifier wired (standalone/legacy), an overflow is
-    # an opaque exception: the run loop fails to ERROR and re-raises, exactly as
-    # before the safety net existed (regression guard that the net is additive).
+    # Without an overflow classifier, the exception propagates without a compaction retry.
 
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
     llm = AlwaysOverflowLLM()
@@ -206,7 +191,6 @@ def test_overflow_classifier_off_propagates_as_error():
         run(runner.run_loop())
 
     assert state.phase is SessionPhase.ERROR
-    # Only one call: with no classifier it isn't recognised, so no retry.
     assert len(llm.calls) == 1
 
 def test_per_call_timeout_raises_on_slow_generation():
@@ -215,13 +199,11 @@ def test_per_call_timeout_raises_on_slow_generation():
     llm = SlowLLM(llm_response(content="too late"), delay=1.0)
     runner = build_runner(state=state, llm=llm, per_call_timeout=0.01)
 
-    # The single generation exceeds the 0.01s ceiling -> the run loop marks the
-    # session failed and re-raises the generation-specific timeout.
     with pytest.raises(GenerationTimeoutError):
         run(runner.run_loop())
 
     assert state.phase is SessionPhase.ERROR
-    assert len(llm.calls) == 1  # the call was attempted (then cancelled)
+    assert len(llm.calls) == 1
 
 def test_per_call_timeout_returns_before_cancel_cleanup_finishes():
     async def scenario():
@@ -245,7 +227,6 @@ def test_per_call_timeout_returns_before_cancel_cleanup_finishes():
         assert llm.cancel_seen.is_set()
 
     run(scenario())
-
 
 def test_timeout_quarantines_late_success_and_records_its_usage():
     class LateSuccessLLM:
@@ -314,7 +295,6 @@ def test_timeout_quarantines_late_success_and_records_its_usage():
 
     run(scenario())
 
-
 def test_late_protected_provider_usage_consumes_budget_reserve():
     async def scenario():
         state = SessionState(
@@ -332,14 +312,12 @@ def test_late_protected_provider_usage_consumes_budget_reserve():
         late = asyncio.get_running_loop().create_future()
         late.set_result(llm_response(content="late", total_tokens=5))
 
-        # The provider call was protected before the caller reset the turn.
         runner._record_late_provider_result(late, protected_call=True)
 
         assert state.used_tokens == 84
         assert state.budget_reserve_consumed is True
 
     run(scenario())
-
 
 def test_provider_timeout_is_not_relabelled_as_generation_ceiling():
 
@@ -361,18 +339,15 @@ def test_provider_timeout_is_not_relabelled_as_generation_ceiling():
     assert "provider transport timeout" in str(captured.value)
 
 def test_per_call_timeout_none_does_not_bound_the_call():
-    # With no ceiling wired (the default), a generation that takes longer than
-    # any small timeout still completes — regression guard that the ceiling is
-    # additive and off by default.
+    # An unset per-call ceiling must allow a slow generation to finish.
     state = SessionState(messages=[{"role": "system", "content": "sys"}])
     llm = SlowLLM(llm_response(content="finished", total_tokens=4), delay=0.05)
-    runner = build_runner(state=state, llm=llm)  # per_call_timeout defaults to None
+    runner = build_runner(state=state, llm=llm)
 
     result = run(runner.run_loop())
 
     assert result == "finished"
     assert state.phase is SessionPhase.DONE
-
 
 def test_unbounded_token_and_step_limits_keep_running_and_count_usage():
     state = SessionState(
@@ -394,7 +369,6 @@ def test_unbounded_token_and_step_limits_keep_running_and_count_usage():
     assert state.phase is SessionPhase.DONE
     assert state.used_tokens == 9_000_017
     assert state.step_count == 1_001
-
 
 def test_unbounded_token_limit_keeps_provider_step_output_ceiling():
     agent = _agent_with_tools()

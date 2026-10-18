@@ -26,7 +26,6 @@ class HeldClient:
         await self.release.wait()
         return llm_response(content="child answer")
 
-
 class Pool:
     def __init__(self, workspace):
         self.env = LocalEnvironment(str(workspace))
@@ -36,7 +35,6 @@ class Pool:
 
     async def release(self):
         pass
-
 
 class Factory:
     def __init__(self, workspace):
@@ -51,12 +49,10 @@ class Factory:
             auto_save_path=str(self.workspace / f"child-{kwargs['aid']}.json"),
         )
 
-
 def make_scheduler(workspace, *, name="source", events=None):
     factory = Factory(workspace / name)
     sink = EventBus(events.append) if events is not None else EventBus()
     return Scheduler(session_factory=factory, worktree_pool=Pool(workspace), event_sink=sink), factory
-
 
 async def wait_phase(session, phase):
     async def until():
@@ -65,14 +61,12 @@ async def wait_phase(session, phase):
     await asyncio.wait_for(until(), 2)
     await asyncio.gather(*session.event_bus.pending_tasks)
 
-
 async def wait_redelegation(session):
     async def until():
         while session.phase is not SessionPhase.AWAITING_EVENTS or "new-child" not in session.state.pending_events.rows:
             await asyncio.sleep(0.001)
     await asyncio.wait_for(until(), 2)
     await asyncio.gather(*session.pending_cleanup_tasks)
-
 
 async def saved_recovery(workspace, kind):
     team, factory = make_scheduler(workspace)
@@ -101,7 +95,6 @@ async def saved_recovery(workspace, kind):
             await asyncio.gather(*source.event_bus.pending_tasks)
     return path, team, factory, model, active
 
-
 async def close_original(team, factory, model, active):
     factory.client.release.set()
     if isinstance(model, HeldClient):
@@ -109,7 +102,6 @@ async def close_original(team, factory, model, active):
     await team.cleanup()
     if active is not None:
         await asyncio.gather(active, return_exceptions=True)
-
 
 @pytest.mark.parametrize("kind", ["awaiting", "queued", "inbox"])
 @pytest.mark.parametrize("cancellation", ["event", "caller"])
@@ -162,7 +154,6 @@ async def test_restored_turn_cancellation_settles_owned_child_without_accepting_
         await asyncio.gather(active, return_exceptions=True)
         await close_original(original, old_factory, old_model, old_active)
 
-
 @pytest.mark.parametrize("kind", ["awaiting", "queued", "inbox"])
 async def test_failed_restored_turn_keeps_error_visible_and_accepts_new_request(tmp_path, kind):
     path, original, old_factory, old_model, old_active = await saved_recovery(tmp_path, kind)
@@ -189,7 +180,6 @@ async def test_failed_restored_turn_keeps_error_visible_and_accepts_new_request(
         factory.client.release.set()
         await team.cleanup()
         await close_original(original, old_factory, old_model, old_active)
-
 
 async def test_cancellation_at_recovery_completion_leaves_new_request_unaccepted(tmp_path):
     path, original, old_factory, old_model, old_active = await saved_recovery(tmp_path, "queued")

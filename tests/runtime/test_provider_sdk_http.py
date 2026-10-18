@@ -23,13 +23,11 @@ def _client(provider, **kwargs):
         base_url="https://controlled.invalid/v1", **kwargs,
     )
 
-
 async def _create(sdk, provider, *, stream=False):
     kwargs = {"model": "test-model", "messages": [{"role": "user", "content": "Return ok"}], "stream": stream}
     if provider == "anthropic":
         return await sdk.messages.create(**kwargs, max_tokens=16)
     return await sdk.chat.completions.create(**kwargs)
-
 
 @pytest.mark.parametrize("provider", ["anthropic", "openai"])
 async def test_sdk_transport_retries_native_connection_timeout(monkeypatch, provider):
@@ -53,7 +51,6 @@ async def test_sdk_transport_retries_native_connection_timeout(monkeypatch, prov
     assert requests[0].content == requests[1].content
     assert sdk.is_closed()
 
-
 @pytest.mark.parametrize("provider", ["anthropic", "openai"])
 @pytest.mark.parametrize("timeout_type", ["ConnectTimeout", "ReadTimeout"])
 async def test_sdk_transport_preserves_native_timeout_causes(monkeypatch, provider, timeout_type):
@@ -76,7 +73,6 @@ async def test_sdk_transport_preserves_native_timeout_causes(monkeypatch, provid
     assert captured.value.__cause__ is failures[0]
     assert captured.value.request is requests[0]
     assert sdk.is_closed()
-
 
 @pytest.mark.parametrize("provider", ["anthropic", "openai"])
 @pytest.mark.parametrize("fail", [False, True], ids=["two-events", "read-error"])

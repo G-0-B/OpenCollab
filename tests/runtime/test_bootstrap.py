@@ -23,17 +23,12 @@ def _cfg(**overrides):
     base.update(overrides)
     return base
 
-
 def test_analyst_prompt_references_only_the_tools_it_has():
-    # Guard against the prompt/tool mismatch: agent 0 is given spawn_agent and
-    # nothing else that delegates, so its prompt must name that and must not
-    # advertise the removed delegate_* tools or spawn_with_review, which the
-    # closed default topology would refuse anyway.
+    # The lead prompt must name its available spawn_agent tool.
     assert "spawn_agent" in DEFAULT_ANALYST_PROMPT
     assert "spawn_with_review" not in DEFAULT_ANALYST_PROMPT
     assert "delegate_task" not in DEFAULT_ANALYST_PROMPT
     assert "delegate_with_review" not in DEFAULT_ANALYST_PROMPT
-
 
 def test_build_scheduler_lead_has_spawn_tools(tmp_path, monkeypatch):
     workspace = tmp_path / "ws"
@@ -45,7 +40,7 @@ def test_build_scheduler_lead_has_spawn_tools(tmp_path, monkeypatch):
     scheduler = build_scheduler(ctx, use_worktrees=False, interactive=True)
     lead = scheduler.lead_session
 
-    assert lead.tracer is ctx.tracer  # propagated (None when trace=False)
+    assert lead.tracer is ctx.tracer
     system_message = lead.messages[0]
     assert system_message["role"] == "system"
 
@@ -55,7 +50,6 @@ def test_build_scheduler_lead_has_spawn_tools(tmp_path, monkeypatch):
     assert tool_names == set(ANALYST_TOOL_NAMES)
     assert "spawn_agent" in tool_names
     assert not {"apply_patch", "file_write"} & tool_names
-
 
 def test_build_scheduler_lead_omits_ask_user_when_headless(tmp_path, monkeypatch):
     workspace = tmp_path / "ws"
@@ -68,7 +62,6 @@ def test_build_scheduler_lead_omits_ask_user_when_headless(tmp_path, monkeypatch
     tool_names = {t.name for t in scheduler.lead_session.agent.tools}
     assert "ask_user" not in tool_names
     assert "spawn_agent" in tool_names
-
 
 def test_build_scheduler_rejects_missing_explicit_session(tmp_path):
     workspace = tmp_path / "ws"
@@ -84,7 +77,6 @@ def test_build_scheduler_rejects_missing_explicit_session(tmp_path):
         )
 
     assert not (workspace / ".opencollab").exists()
-
 
 def test_build_scheduler_preserves_explicit_empty_thinking_params(tmp_path):
     workspace = tmp_path / "ws"
@@ -104,7 +96,6 @@ def test_build_scheduler_preserves_explicit_empty_thinking_params(tmp_path):
 
     assert scheduler.lead_session.agent.thinking_params == {}
 
-
 def test_build_scheduler_wires_lead_safety_policy_from_bootstrap(tmp_path):
     workspace = tmp_path / "ws"
     workspace.mkdir()
@@ -118,7 +109,6 @@ def test_build_scheduler_wires_lead_safety_policy_from_bootstrap(tmp_path):
     assert policy.check_path("inside.txt").startswith(str(workspace.resolve()))
     with pytest.raises(PermissionError):
         policy.check_path("/etc/passwd")
-
 
 def test_build_scheduler_lead_auto_save_path_lands_under_workspace(tmp_path):
     workspace = tmp_path / "ws"
@@ -134,7 +124,6 @@ def test_build_scheduler_lead_auto_save_path_lands_under_workspace(tmp_path):
     )
     assert os.path.exists(lead.auto_save_path)
 
-
 def test_build_scheduler_writes_structured_lead_file_and_manifest(tmp_path):
     workspace = tmp_path / "ws"
     workspace.mkdir()
@@ -143,7 +132,6 @@ def test_build_scheduler_writes_structured_lead_file_and_manifest(tmp_path):
     scheduler = build_scheduler(ctx, use_worktrees=False, interactive=False)
     lead_path = scheduler.lead_session.auto_save_path
 
-    # Agent 0 transcript: structured JSON with metadata + per-message timestamps.
     assert os.path.basename(lead_path) == (
         f"agent_0_{role_storage_slug('analyst')}.json"
     )
@@ -153,7 +141,6 @@ def test_build_scheduler_writes_structured_lead_file_and_manifest(tmp_path):
     assert saved["role"] == "analyst"
     assert saved["messages"] and all("timestamp" in m for m in saved["messages"])
 
-    # team.json manifest sits in the same run folder and lists agent 0.
     run_dir = os.path.dirname(lead_path)
     manifest_path = os.path.join(run_dir, "team.json")
     assert os.path.exists(manifest_path)
@@ -163,7 +150,6 @@ def test_build_scheduler_writes_structured_lead_file_and_manifest(tmp_path):
     assert agents[0]["role"] == "analyst"
     assert agents[0]["parent_aid"] is None
     assert "started_at" in manifest and "run_id" in manifest
-
 
 def test_build_scheduler_accepts_explicit_team_file_and_run_directory(tmp_path):
     workspace = tmp_path / "ws"
@@ -197,14 +183,12 @@ topology: {}
         manifest = json.load(handle)
     assert manifest["team_file"] == str(team_file.resolve())
 
-
 def test_build_scheduler_rejects_removed_test_only_shell_permission(tmp_path):
     workspace = tmp_path / "ws"
     workspace.mkdir()
     ctx = build_runtime_context(str(workspace), _cfg(), trace=False)
     with pytest.raises(TypeError, match="allow_unisolated_child_tests"):
         build_scheduler(ctx, allow_unisolated_child_tests=True)
-
 
 def _shell_team_file(tmp_path):
     """A two-role team whose teammate carries bash, written to disk."""
@@ -227,11 +211,8 @@ topology:
     )
     return team_file
 
-
 @pytest.mark.parametrize("interactive", (False, True))
 def test_build_scheduler_shell_follows_interactive_when_unstated(tmp_path, interactive):
-    # The default must reproduce the old single-flag rule exactly, so that every
-    # existing call site keeps its behaviour without being touched.
     workspace = tmp_path / "ws"
     workspace.mkdir()
     ctx = build_runtime_context(str(workspace), _cfg(), trace=False)
@@ -248,11 +229,8 @@ def test_build_scheduler_shell_follows_interactive_when_unstated(tmp_path, inter
     assert factory._unisolated_shell_allowed(seated_at_start=True) is interactive
     assert factory._unisolated_shell_allowed(seated_at_start=False) is False
 
-
 def test_build_scheduler_can_seat_a_shell_with_no_human_to_ask(tmp_path):
-    # The case one boolean could not express: an unattended run whose declared
-    # teammates must be able to run commands. The shell is on; ``ask_user`` is
-    # not, because there is nobody to answer it.
+    # An unattended run can enable shell access while keeping ask_user unavailable.
     from opencollab.adapters._env_local import LocalEnvironment
 
     workspace = tmp_path / "ws"
@@ -280,10 +258,7 @@ def test_build_scheduler_can_seat_a_shell_with_no_human_to_ask(tmp_path):
     assert teammate.agent.find_tool("bash").require_process_isolation is False
     assert teammate.agent.find_tool("ask_user") is None
 
-
 def test_build_scheduler_can_withhold_the_shell_from_an_attended_run(tmp_path):
-    # The other direction: a human is present, and the run still says no shell.
-    # Only two independent inputs can say this.
     workspace = tmp_path / "ws"
     workspace.mkdir()
     ctx = build_runtime_context(str(workspace), _cfg(), trace=False)
@@ -302,7 +277,6 @@ def test_build_scheduler_can_withhold_the_shell_from_an_attended_run(tmp_path):
         scheduler._session_factory._unisolated_shell_allowed(seated_at_start=True)
         is False
     )
-
 
 def test_build_runtime_context_resolves_workspace_and_tracer(tmp_path, monkeypatch):
     workspace = tmp_path / "ws"
@@ -328,7 +302,6 @@ def test_build_runtime_context_resolves_workspace_and_tracer(tmp_path, monkeypat
         if ctx_trace.tracer:
             ctx_trace.tracer.close()
 
-
 def test_scheduler_can_leave_every_seat_without_a_step_ceiling(tmp_path):
     ctx = build_runtime_context(str(tmp_path), _cfg(), trace=False)
     scheduler = build_scheduler(
@@ -337,7 +310,6 @@ def test_scheduler_can_leave_every_seat_without_a_step_ceiling(tmp_path):
     assert scheduler.lead_session.max_steps is None
     assert scheduler.lead_session.runner.max_steps is None
     assert scheduler._session_factory._max_steps is None
-
 
 @pytest.mark.asyncio
 async def test_build_scheduler_restores_zero_step_journal_only_session(tmp_path, monkeypatch):

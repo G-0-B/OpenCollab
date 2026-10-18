@@ -34,7 +34,6 @@ def _tail_scheduler():
     scheduler, events = build_scheduler(lead, [])
     return scheduler, lead, events, entered, release
 
-
 @pytest.mark.parametrize("recover_route", [False, True])
 async def test_parent_replacement_is_owned_before_the_existing_waiter_runs(recover_route):
     scheduler, lead, events, entered, release = _tail_scheduler()
@@ -76,7 +75,6 @@ async def test_parent_replacement_is_owned_before_the_existing_waiter_runs(recov
         await scheduler.cleanup()
     assert scheduler._tasks == {}
 
-
 @pytest.mark.parametrize("cleanup", [False, True])
 async def test_cancelled_parent_tail_keeps_its_owner_and_cannot_resume(cleanup):
     scheduler, lead, events, entered, release = _tail_scheduler()
@@ -97,7 +95,6 @@ async def test_cancelled_parent_tail_keeps_its_owner_and_cannot_resume(cleanup):
     assert lead.state.phase is SessionPhase.STOPPED
     assert len(event_types(events, "agent_resumed")) == 0
     assert scheduler._tasks == {}
-
 
 async def test_cleanup_owns_resumed_event_delivery():
     scheduler, lead, _events, entered, release = _tail_scheduler()
@@ -125,7 +122,6 @@ async def test_cleanup_owns_resumed_event_delivery():
     assert scheduler._tasks == {}
     assert lead.state.phase is SessionPhase.STOPPED
     await original
-
 
 async def test_completed_child_row_without_a_resume_owner_still_stalls():
     scheduler, lead, _events, _entered, _release = _tail_scheduler()

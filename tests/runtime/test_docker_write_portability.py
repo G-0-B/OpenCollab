@@ -13,7 +13,6 @@ from opencollab.adapters.env import DockerEnvironment
 
 CONTAINER_ID = "a" * 64
 
-
 async def test_verified_write_accepts_bsd_wc_padding(monkeypatch, tmp_path) -> None:
     """A BSD-style padded ``wc -c`` count still verifies the write."""
     workspace = tmp_path / "workspace"
@@ -51,7 +50,6 @@ async def test_verified_write_accepts_bsd_wc_padding(monkeypatch, tmp_path) -> N
     await env.write_file(str(workspace / "padded.txt"), "hello")
     assert (workspace / "padded.txt").read_text(encoding="utf-8") == "hello"
 
-
 @pytest.fixture
 def local_shell_docker(monkeypatch, tmp_path):
     async def run_locally(command, *, timeout, input_bytes=None):
@@ -64,7 +62,6 @@ def local_shell_docker(monkeypatch, tmp_path):
     env._attached_bound = True
     monkeypatch.setattr(env, "_exec", run_locally)
     return env
-
 
 @pytest.mark.parametrize("mode", [0o755, 0o640, 0o444])
 async def test_atomic_write_preserves_existing_regular_file_permissions(local_shell_docker, tmp_path, mode):
@@ -80,14 +77,12 @@ async def test_atomic_write_preserves_existing_regular_file_permissions(local_sh
         executed = subprocess.run([str(target)], capture_output=True, check=True, text=True)
         assert executed.stdout == "updated"
 
-
 async def test_atomic_write_keeps_new_file_private(local_shell_docker, tmp_path):
     target = tmp_path / "new.txt"
 
     await local_shell_docker.write_file(str(target), "new content")
 
     assert stat.S_IMODE(target.stat().st_mode) == 0o600
-
 
 async def test_atomic_write_replaces_symlink_without_changing_referent(local_shell_docker, tmp_path):
     referent = tmp_path / "referent.sh"

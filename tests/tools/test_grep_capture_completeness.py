@@ -26,7 +26,6 @@ def backend(request, tmp_path, monkeypatch):
         monkeypatch.setenv("PATH", str(binaries))
     return request.param
 
-
 @pytest.mark.parametrize("payload_chars", [100_000, 700_000])
 async def test_large_matching_records_preserve_capture_completeness(tmp_path, backend, payload_chars):
     first = 'NEEDLE first ' + 'a' * payload_chars + ' FIRST_RECORD_TAIL'
@@ -52,7 +51,6 @@ async def test_large_matching_records_preserve_capture_completeness(tmp_path, ba
     finally:
         await environment.cleanup()
 
-
 async def test_many_short_matches_report_capture_loss(tmp_path, backend):
     (tmp_path / "records.txt").write_text("NEEDLE record\n" * 100_000, encoding="utf-8")
     environment = LocalEnvironment(str(tmp_path))
@@ -67,7 +65,6 @@ async def test_many_short_matches_report_capture_loss(tmp_path, backend):
         assert "more matching lines not shown" not in output
     finally:
         await environment.cleanup()
-
 
 async def test_narrowed_search_keeps_complete_short_output(tmp_path, backend):
     (tmp_path / "records.txt").write_text("NEEDLE first\nother\nNEEDLE second\n", encoding="utf-8")

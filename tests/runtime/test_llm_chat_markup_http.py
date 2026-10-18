@@ -26,7 +26,6 @@ _MARKUP = (
 )
 _USAGE = {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20}
 
-
 def _reply(stream, content, structured):
     common = {"id": "chatcmpl-markers", "created": 1, "model": "gpt-4o"}
     finish = "tool_calls" if structured else "stop"
@@ -53,7 +52,6 @@ def _reply(stream, content, structured):
     body = "".join(f"data: {json.dumps(frame)}\n\n" for frame in frames) + "data: [DONE]\n\n"
     return httpx.Response(200, headers={"Content-Type": "text/event-stream"}, content=body.encode())
 
-
 @asynccontextmanager
 async def _client(stream, content, structured=False):
     requests = []
@@ -72,7 +70,6 @@ async def _client(stream, content, structured=False):
         yield client, requests
     finally:
         await client.close()
-
 
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
 @pytest.mark.parametrize(
@@ -97,7 +94,6 @@ async def test_quoted_marker_explanation_remains_plain_text(tmp_path, stream, co
     history = json.loads((tmp_path / "artifacts" / "agent.json").read_text())["messages"]
     assert history[-1]["content"] == content
 
-
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
 @pytest.mark.parametrize("structured", [False, True], ids=["markup", "structured"])
 async def test_valid_markup_and_structured_calls_keep_their_tool_calls(stream, structured):
@@ -111,7 +107,6 @@ async def test_valid_markup_and_structured_calls_keep_their_tool_calls(stream, s
     assert response.usage.total_tokens == 20
     assert response.usage.markup_recovered == (0 if structured else 1)
     assert len(requests) == 1
-
 
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
 @pytest.mark.parametrize("wrapper", [
@@ -144,7 +139,6 @@ async def test_complete_protocol_example_remains_text_with_tools_available(tmp_p
     history = json.loads((tmp_path / "artifacts" / "agent.json").read_text())["messages"]
     assert all(message["role"] != "tool" for message in history)
 
-
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
 async def test_bare_protocol_after_fenced_example_is_recovered(stream):
     example = "Protocol example.\n```text\n" + _MARKUP + "\n```\n"
@@ -155,7 +149,6 @@ async def test_bare_protocol_after_fenced_example_is_recovered(stream):
     assert response.usage.markup_recovered == 1
     assert len(requests) == 1
 
-
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
 async def test_structured_call_with_fenced_example_keeps_native_call(stream):
     content = "```text\n" + _MARKUP + "\n```"
@@ -165,7 +158,6 @@ async def test_structured_call_with_fenced_example_keeps_native_call(stream):
     assert response.tool_calls == [_CALL]
     assert response.usage.markup_recovered == 0
     assert len(requests) == 1
-
 
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
 async def test_bare_markup_keeps_indented_json_and_backticks_inside_arguments(stream):

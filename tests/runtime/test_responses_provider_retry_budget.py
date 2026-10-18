@@ -51,7 +51,6 @@ async def test_provider_error_budget_uses_configured_retry_count(monkeypatch):
     assert calls == 5
     assert result.content == "recovered"
 
-
 @pytest.mark.asyncio
 async def test_provider_error_budget_does_not_bypass_retry_count(monkeypatch):
     calls = 0
@@ -82,7 +81,6 @@ async def test_provider_error_budget_does_not_bypass_retry_count(monkeypatch):
         )
 
     assert calls == 2
-
 
 @pytest.mark.asyncio
 async def test_budget_mode_keeps_normal_round_timeout_and_closes_stream():

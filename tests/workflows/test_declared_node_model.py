@@ -20,7 +20,6 @@ TEAM = (
     "topology:\n  lead: [coder]\n  coder: [lead]\n"
 )
 
-
 async def test_each_declared_node_names_its_model(tmp_path) -> None:
     team_file = tmp_path / "team.yaml"
     team_file.write_text(TEAM, encoding="utf-8")

@@ -22,16 +22,13 @@ from tests.interfaces.tui_style_support import assert_visible_text_has_non_white
 def _make_tui() -> TUI:
     return TUI(Console(file=StringIO(), width=100, color_system=None))
 
-
 def _status_plains(tui: TUI, aid: int | None = None) -> list[str]:
     state = tui._selected_state if aid is None else tui._state_for(aid)
     return [line.plain for line in state.status_lines]
 
-
 def _scrollback(tui: TUI) -> str:
     """Everything the TUI has committed to the terminal so far."""
     return tui.console.file.getvalue()
-
 
 def _history_plains(tui: TUI, aid: int) -> list[str]:
     return [
@@ -39,7 +36,6 @@ def _history_plains(tui: TUI, aid: int) -> list[str]:
         for block in tui._state_for(aid).history_blocks
         if isinstance(block, Text)
     ]
-
 
 def test_one_shot_welcome_describes_a_running_issue_without_an_input_prompt():
     output = StringIO()
@@ -51,12 +47,6 @@ def test_one_shot_welcome_describes_a_running_issue_without_an_input_prompt():
     assert "Running issue" in rendered
     assert "Type a message" not in rendered
 
-
-# ---------------------------------------------------------------------------
-# Session runtime events
-# ---------------------------------------------------------------------------
-
-
 def test_text_delta_appends_to_current_text():
     tui = _make_tui()
     tui.event_handler(SessionRuntimeEvent("text_delta", {"content": "hello "}))
@@ -64,7 +54,6 @@ def test_text_delta_appends_to_current_text():
 
     assert tui._current_text == "hello world"
     assert tui._active_tools == {}
-
 
 def test_tool_start_and_tool_end_for_generic_tool_tracks_active_tools():
     tui = _make_tui()
@@ -80,7 +69,6 @@ def test_tool_start_and_tool_end_for_generic_tool_tracks_active_tools():
         SessionRuntimeEvent("tool_end", {"tool": "bash", "latency": 0.42, "aid": -1}),
     )
     assert not any("bash" in k for k in tui._active_tools)
-
 
 def test_same_named_tool_calls_track_by_tool_call_id():
     tui = _make_tui()
@@ -112,7 +100,6 @@ def test_same_named_tool_calls_track_by_tool_call_id():
     )
     assert state.active_tools == {}
 
-
 def test_legacy_same_named_tool_events_receive_local_sequence_keys():
     tui = _make_tui()
     start = {"tool": "grep", "args": {"pattern": "x"}, "aid": 3}
@@ -127,7 +114,6 @@ def test_legacy_same_named_tool_events_receive_local_sequence_keys():
     assert len(state.active_tools) == 1
     tui.event_handler(SessionRuntimeEvent("tool_end", end))
     assert state.active_tools == {}
-
 
 def test_tool_start_for_spawn_agent_promotes_role_from_args():
     """The session emits tool_start when the LLM calls SpawnAgentTool;
@@ -146,7 +132,6 @@ def test_tool_start_for_spawn_agent_promotes_role_from_args():
     statuses = _status_plains(tui)
     assert any("spawned analyst" in s for s in statuses)
 
-
 def test_args_preview_reads_nested_session_args_and_top_level_task():
     tui = _make_tui()
     # Session tool: args nested under "args".
@@ -154,14 +139,10 @@ def test_args_preview_reads_nested_session_args_and_top_level_task():
     assert tui._args_preview({"args": {"file_path": "src/x.py"}}) == " src/x.py"
     # Scheduler event (e.g. agent_spawned): task carried at the top level.
     assert tui._args_preview({"role": "coder", "task": "implement X"}) == " implement X"
-    # Code formatting + length cap for the spinner.
     assert tui._args_preview({"args": {"command": "echo hi"}}, code=True) == " `echo hi`"
 
-
 def test_spawn_spinner_preview_uses_scheduler_task_payload():
-    # The Running block renders each active tool as an animated Spinner inside a
-    # Table.grid, so the preview text is nested below the top-level renderables.
-    # Render the display to text and assert the preview is visible to the user.
+    # Render the nested spinner table to check the user-visible tool preview.
     console = Console(file=StringIO(), width=80, color_system="truecolor")
     tui = TUI(console)
     tui.set_redraw(lambda: None)
@@ -176,19 +157,15 @@ def test_spawn_spinner_preview_uses_scheduler_task_payload():
         console.print(tui._build_display())
     assert "implement X" in capture.get()
 
-
 def test_step_start_updates_step_counter_and_status():
     tui = _make_tui()
     tui.set_redraw(lambda: None)
 
     tui.event_handler(SessionRuntimeEvent("step_start", {"step": 4, "aid": -1}))
     assert tui._step == 4
-    # The waiting indicator is now the animated pulsing dot; its label still
-    # carries the agent + step counter (rendered inline, not as a status line).
     assert tui._thinking is not None
     line = tui._thinking.render().plain
     assert "thinking" in line and "step 4" in line
-
 
 def test_loop_detected_event_emits_warning_status():
     tui = _make_tui()
@@ -200,7 +177,6 @@ def test_loop_detected_event_emits_warning_status():
     statuses = _status_plains(tui)
     assert any("Loop detected: bash called 5x" in s for s in statuses)
 
-
 def test_budget_warning_emits_status():
     tui = _make_tui()
     tui.set_redraw(lambda: None)
@@ -211,7 +187,6 @@ def test_budget_warning_emits_status():
     for status in tui._status_lines:
         assert_visible_text_has_non_white_style(status)
 
-
 def test_error_event_emits_status_with_reason():
     tui = _make_tui()
     tui.set_redraw(lambda: None)
@@ -221,12 +196,6 @@ def test_error_event_emits_status_with_reason():
     assert any("Error: boom" in s for s in statuses)
     for status in tui._status_lines:
         assert_visible_text_has_non_white_style(status)
-
-
-# ---------------------------------------------------------------------------
-# Scheduler orchestration events
-# ---------------------------------------------------------------------------
-
 
 def test_agent_spawned_emits_status_with_role():
     tui = _make_tui()
@@ -245,7 +214,6 @@ def test_agent_spawned_emits_status_with_role():
     assert any(
         "coder" in s and "spawned" in s for s in statuses
     )
-
 
 def test_agent_completed_clears_active_tool_and_emits_finished_status():
     tui = _make_tui()
@@ -269,7 +237,6 @@ def test_agent_completed_clears_active_tool_and_emits_finished_status():
     statuses = _status_plains(tui)
     assert any("coder" in s and "completed" in s for s in statuses)
 
-
 def test_follow_up_completion_is_not_labeled_as_another_spawn():
     tui = _make_tui()
     tui.set_redraw(lambda: None)
@@ -283,7 +250,6 @@ def test_follow_up_completion_is_not_labeled_as_another_spawn():
     lines = _history_plains(tui, 1)
     assert any("A1 completed" in line for line in lines)
     assert all("A1:spawn" not in line for line in lines)
-
 
 def test_review_lifecycle_tracks_and_clears_review_loop_without_teammate_status():
     """Review loop is a scheduler-orchestration boundary; it should not produce
@@ -308,7 +274,6 @@ def test_review_lifecycle_tracks_and_clears_review_loop_without_teammate_status(
 
     assert "review_loop" not in tui._active_tools
 
-
 def test_scheduler_events_do_not_use_legacy_tool_start_dispatch():
     """Sanity: a SchedulerEvent must not be routed through _handle_session_event.
 
@@ -321,8 +286,7 @@ def test_scheduler_events_do_not_use_legacy_tool_start_dispatch():
     tui = _make_tui()
     tui.set_redraw(lambda: None)
 
-    # Legacy shape, kept here intentionally to assert that the team-shaped
-    # branches were removed from the session-runtime handler.
+    # A legacy team event must stay outside the session-runtime handler.
     tui.event_handler(
         SessionRuntimeEvent(
             "tool_start",
@@ -330,17 +294,9 @@ def test_scheduler_events_do_not_use_legacy_tool_start_dispatch():
         )
     )
 
-    # Active-tools is still tracked (it's a generic tool), but no "Teammate"
-    # status line is added by the session-runtime handler anymore.
     assert any("spawn" in name for name in tui._active_tools)
     statuses = _status_plains(tui)
     assert not any("Teammate coder started" in s for s in statuses)
-
-
-# ---------------------------------------------------------------------------
-# Per-agent stream retention and selection
-# ---------------------------------------------------------------------------
-
 
 def test_filter_off_keeps_agent_streams_separate_and_switchable():
     tui = TUI(filter_messages=False)
@@ -353,7 +309,6 @@ def test_filter_off_keeps_agent_streams_separate_and_switchable():
     assert tui.select_next_agent() == 1
     assert tui._current_text == "child"
 
-
 def test_compat_filter_setting_starts_on_lead_without_dropping_child():
     tui = TUI(filter_messages=True)
     assert tui._selected_aid == 0
@@ -362,7 +317,6 @@ def test_compat_filter_setting_starts_on_lead_without_dropping_child():
     assert tui._current_text == "lead "
     assert tui.select_next_agent() == 1
     assert tui._current_text == "child"
-
 
 def test_other_agent_tool_activity_is_retained_until_selected():
     tui = TUI(filter_messages=True)
@@ -374,12 +328,10 @@ def test_other_agent_tool_activity_is_retained_until_selected():
     tui.select_agent(1)
     assert "A1:bash" in tui._active_tools
 
-
 def test_compat_filter_setting_keeps_scheduler_roster_visible():
     tui = TUI(filter_messages=True)
     tui.event_handler(SchedulerEvent("agent_spawned", {"aid": 1, "parent_aid": 0, "role": "coder"}))
     assert 1 in tui._roster
-
 
 def test_agent_selection_wraps_through_live_agents_only():
     tui = TUI()
@@ -400,7 +352,6 @@ def test_agent_selection_wraps_through_live_agents_only():
     assert tui.select_next_agent() == 0
     assert tui.selected_role is None
     assert [target.aid for target in tui._focus_targets()] == [0, 2, 5]
-
 
 def test_available_role_is_visible_but_joins_focus_only_after_spawn():
     roster = [
@@ -424,7 +375,6 @@ def test_available_role_is_visible_but_joins_focus_only_after_spawn():
     assert "◆ A3 coder running" in tui._build_team_panel().plain
     assert tui._build_team_panel().plain.index("Lead") < tui._build_team_panel().plain.index("◆ A3")
 
-
 def test_failed_agent_remains_selectable_with_retained_output_and_error():
     console = Console(file=StringIO(), width=100, color_system=None)
     tui = TUI(console)
@@ -441,17 +391,14 @@ def test_failed_agent_remains_selectable_with_retained_output_and_error():
 
     assert tui.select_agent(2) == 2
     assert any("model failed" in status for status in _status_plains(tui, 2))
-    # Streamed text that has not settled yet stays in the live frame...
     tui.event_handler(SessionRuntimeEvent("text_delta", {"content": "still typing", "aid": 2}))
     with console.capture() as capture:
         console.print(tui._build_display())
     assert "still typing" in capture.get()
-    # ...while everything already settled reached scrollback when focus landed.
     scrollback = _scrollback(tui)
     assert "partial output" in scrollback
     assert "boom" in scrollback
     assert "◆ A2 reviewer failed" in tui._build_team_panel().plain
-
 
 def test_completed_agent_render_states_have_a_global_bound():
     tui = TUI()
@@ -472,7 +419,6 @@ def test_completed_agent_render_states_have_a_global_bound():
     assert summaries[1]["role"] == "worker"
     assert summaries[1]["state"] == "idle"
     assert summaries[1]["retained_history_blocks"] > 0
-
 
 def test_terminal_agent_summaries_have_a_global_bound():
     tui = TUI(Console(file=StringIO(), width=100, color_system=None))
@@ -496,7 +442,6 @@ def test_terminal_agent_summaries_have_a_global_bound():
         == renderer_mod.MAX_TERMINAL_AGENT_SUMMARIES
     )
     assert tui.terminal_agent_summaries_omitted == 10
-
 
 @pytest.mark.parametrize(
     ("event_type", "provider_phase"),

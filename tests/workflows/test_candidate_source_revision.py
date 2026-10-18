@@ -108,7 +108,6 @@ async def test_candidate_tracks_source_revision_at_execution_and_adoption(tmp_pa
             await lease.cleanup()
         await environment.cleanup()
 
-
 @pytest.mark.parametrize("mode", ["agent", "workflow"])
 async def test_candidate_backend_without_source_revision_remains_compatible(tmp_path, mode):
     repo = _repository(tmp_path)

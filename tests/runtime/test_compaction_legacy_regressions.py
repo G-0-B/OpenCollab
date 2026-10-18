@@ -15,7 +15,6 @@ def test_small_window_retains_the_latest_location_and_evidence_pair():
     assert clear.keep_recent == 2
     assert snip.keep_recent_groups == compact.keep_recent_groups == 2
 
-
 def test_large_window_keeps_default_history_and_does_not_clear_early():
     pipeline = _build_default_shaper(SimpleNamespace(context_window=lambda: 1_048_576), lambda _: "summary")
     clear, snip, compact = pipeline._shapers[1:]
@@ -33,7 +32,6 @@ def test_large_window_keeps_default_history_and_does_not_clear_early():
             ]
         )
     assert pipeline.shape(messages) == messages
-
 
 def test_an_oversized_summary_keeps_original_history_without_growth():
     messages = [{"role": "system", "content": "instructions"}]

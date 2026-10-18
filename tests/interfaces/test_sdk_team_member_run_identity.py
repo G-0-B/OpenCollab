@@ -72,7 +72,6 @@ async def test_team_native_members_carry_the_public_run_identity(tmp_path, monke
         ["record-lead"] if prebuilt else ["record-lead", "record-reviewer", "record-lead"]
     )
 
-
 @pytest.mark.parametrize("trace", [False, True])
 async def test_solo_record_identity_is_already_complete(tmp_path, monkeypatch, trace):
     install_sdk_transport(monkeypatch, "openai", lambda request: completion_http_response(request, text="Finished."))
@@ -82,7 +81,6 @@ async def test_solo_record_identity_is_already_complete(tmp_path, monkeypatch, t
     result = await app.agent("Reply once.", tools=[], trace=trace, artifacts=artifacts, run_id="solo-control")
     assert result.status == "completed"
     assert result.metrics["run_id"] == app.read_session_snapshot(artifacts / "agent.json")["run_id"] == "solo-control"
-
 
 @pytest.mark.parametrize("trace", [False, True])
 async def test_composition_uses_the_existing_manifest_fallback_for_native_records(tmp_path, monkeypatch, trace):
@@ -109,7 +107,6 @@ async def test_composition_uses_the_existing_manifest_fallback_for_native_record
     assert manifest["run_id"] == expected
     saved = next(artifacts.glob("agent_*.json"))
     assert OpenCollab.read_session_snapshot(saved)["run_id"] == expected
-
 
 async def test_composition_without_artifacts_keeps_lightweight_tracer_support(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)

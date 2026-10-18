@@ -85,7 +85,6 @@ def test_cli_budget_exit_matches_real_tool_completion(monkeypatch, tmp_path, fir
         assert state["phase"] == "done"
         assert (tmp_path / "requested.txt").read_text(encoding="utf-8") == "completed task\n"
 
-
 @pytest.mark.parametrize("prompt_source", ["prompt", "prompt-file"])
 @pytest.mark.parametrize("phase,reason,exit_code", [
     (SessionPhase.ERROR, "fixture failure", 1),
@@ -134,7 +133,6 @@ def test_cli_one_shot_terminal_exit_preserves_output_and_cleanup(
     assert tracer.closed is True
     assert result.exit_code == exit_code
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("phase,reason", [
     (SessionPhase.ERROR, "fixture failure"),
@@ -175,7 +173,6 @@ async def test_cli_interactive_failed_turn_accepts_a_followup(monkeypatch, tmp_p
 
     assert calls == ["first", "followup", "cleanup"]
     assert tracer.closed is True
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("phase,reason", [

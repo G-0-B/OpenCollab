@@ -12,7 +12,6 @@ CONFIG = {
     "budget": 1_000_000,
 }
 
-
 def _prebuildable_default() -> TeamConfig:
     """The built-in team with the one change prebuild mode forces on it.
 
@@ -33,7 +32,6 @@ def _prebuildable_default() -> TeamConfig:
         update={"tools": sorted({*ANALYST_TOOL_NAMES, "message_agent"})}
     )
     return TeamConfig(roles=roles, topology=team.topology, entry=team.entry)
-
 
 def _scheduler(
     tmp_path,
@@ -65,7 +63,6 @@ def _scheduler(
         **kwargs,
     )
     return scheduler, tracer
-
 
 def _roles(scheduler) -> dict[int, str]:
     return {aid: scb.agent.name for aid, scb in sorted(scheduler.table.entries.items())}

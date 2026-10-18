@@ -25,7 +25,6 @@ def test_sampling_respects_effective_reasoning_mode(model, effort):
     assert request["max_completion_tokens"] == 64
     assert "max_tokens" not in request
 
-
 @pytest.mark.parametrize("model", ["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-codex", "o3-mini"])
 def test_other_reasoning_models_keep_existing_sampling_rules(model):
     request = _build_request_kwargs(
@@ -34,7 +33,6 @@ def test_other_reasoning_models_keep_existing_sampling_rules(model):
     )
     assert "temperature" not in request
     assert "top_p" not in request
-
 
 async def test_sdk_receives_sampling_controls_with_reasoning_disabled():
     requests = []

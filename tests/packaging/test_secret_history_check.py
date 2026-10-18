@@ -15,14 +15,12 @@ from tests.support.paths import REPO_ROOT
 _REPO_ROOT = REPO_ROOT
 _SCRIPT = _REPO_ROOT / "scripts" / "check_secret_history.py"
 
-
 def _script_module() -> ModuleType:
     spec = importlib.util.spec_from_file_location("check_secret_history", _SCRIPT)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
 
 def _repository(tmp_path: Path) -> tuple[Path, str, Path]:
     repository = tmp_path / "repository"
@@ -85,7 +83,6 @@ for name in paths:
     scanner.chmod(0o755)
     return repository, _git(repository, "rev-parse", "HEAD"), scanner
 
-
 def _run(
     repository: Path,
     base: str,
@@ -109,7 +106,6 @@ def _run(
         text=True,
     )
 
-
 def _run_trusted(
     repository: Path,
     commit: str,
@@ -130,7 +126,6 @@ def _run_trusted(
         text=True,
     )
 
-
 def test_secret_history_scans_secret_removed_by_later_commit(tmp_path):
     repository, base, scanner = _repository(tmp_path)
     (repository / "temporary.txt").write_text("DEMO_SECRET\n", encoding="utf-8")
@@ -145,7 +140,6 @@ def test_secret_history_scans_secret_removed_by_later_commit(tmp_path):
     assert result.returncode == 1
     assert "Secret scan failed for proposed commit" in result.stdout
 
-
 def test_secret_history_accepts_an_audited_secret_that_only_moved(tmp_path):
     repository, base, scanner = _repository(tmp_path)
     (repository / "fixtures.py").write_text("DEMO_MOVED\n", encoding="utf-8")
@@ -156,7 +150,6 @@ def test_secret_history_accepts_an_audited_secret_that_only_moved(tmp_path):
 
     assert result.returncode == 0
     assert "only moved already-audited secrets" in result.stdout
-
 
 def test_secret_history_rejects_a_secret_absent_from_the_trusted_baseline(tmp_path):
     repository, base, scanner = _repository(tmp_path)
@@ -170,7 +163,6 @@ def test_secret_history_rejects_a_secret_absent_from_the_trusted_baseline(tmp_pa
     assert "AWS Access Key is not present in the trusted baseline" in result.stdout
     assert "Secret scan failed for proposed commit" in result.stdout
 
-
 def test_secret_history_rejects_a_baseline_it_cannot_read_after_scanning(tmp_path):
     repository, base, scanner = _repository(tmp_path)
     (repository / "fixtures.py").write_text("DEMO_CORRUPT_BASELINE\n", encoding="utf-8")
@@ -182,7 +174,6 @@ def test_secret_history_rejects_a_baseline_it_cannot_read_after_scanning(tmp_pat
     assert result.returncode == 3
     assert "Unreadable baseline" in result.stdout
 
-
 def test_secret_history_rejects_baseline_change(tmp_path):
     repository, base, scanner = _repository(tmp_path)
     (repository / ".secrets.baseline").write_text('{"changed": true}\n', encoding="utf-8")
@@ -193,7 +184,6 @@ def test_secret_history_rejects_baseline_change(tmp_path):
 
     assert result.returncode == 1
     assert "baseline-only PR" in result.stdout
-
 
 def test_secret_history_allows_labeled_baseline_only_change(tmp_path):
     repository, base, scanner = _repository(tmp_path)
@@ -210,7 +200,6 @@ def test_secret_history_allows_labeled_baseline_only_change(tmp_path):
     )
 
     assert result.returncode == 0
-
 
 def test_secret_history_labeled_baseline_change_must_be_isolated(tmp_path):
     repository, base, scanner = _repository(tmp_path)
@@ -230,7 +219,6 @@ def test_secret_history_labeled_baseline_change_must_be_isolated(tmp_path):
     assert result.returncode == 1
     assert "baseline-only PR" in result.stdout
 
-
 def test_secret_history_accepts_clean_commits_and_special_names(tmp_path):
     repository, base, scanner = _repository(tmp_path)
     name = "clean\nfile.txt"
@@ -243,7 +231,6 @@ def test_secret_history_accepts_clean_commits_and_special_names(tmp_path):
     assert result.returncode == 0
     assert "checks passed" in result.stdout
 
-
 def test_secret_history_rejects_zero_file_scan(tmp_path, monkeypatch, capsys):
     repository, base, scanner = _repository(tmp_path)
     module = _script_module()
@@ -253,7 +240,6 @@ def test_secret_history_rejects_zero_file_scan(tmp_path, monkeypatch, capsys):
 
     assert result == 1
     assert "has no files to scan" in capsys.readouterr().out
-
 
 def test_secret_history_scans_each_path_and_blob_pair_once(tmp_path, monkeypatch):
     repository, base, scanner = _repository(tmp_path)
@@ -286,7 +272,6 @@ def test_secret_history_scans_each_path_and_blob_pair_once(tmp_path, monkeypatch
     scanned_paths = [path for batch in scanned_batches for path, _object_id in batch]
     assert scanned_paths == ["first.txt", "second.txt"]
 
-
 def test_secret_history_rescans_same_blob_at_a_new_path(tmp_path, monkeypatch):
     repository, base, scanner = _repository(tmp_path)
     (repository / "first.txt").write_text("shared contents\n", encoding="utf-8")
@@ -318,7 +303,6 @@ def test_secret_history_rescans_same_blob_at_a_new_path(tmp_path, monkeypatch):
     assert [path for path, _object_id in scanned] == ["first.txt", "second.txt"]
     assert scanned[0][1] == scanned[1][1]
 
-
 def test_trusted_tree_uses_the_baseline_from_the_same_tree(tmp_path):
     repository, _base, scanner = _repository(tmp_path)
     (repository / ".secrets.baseline").write_text('{"current": true}\n', encoding="utf-8")
@@ -331,7 +315,6 @@ def test_trusted_tree_uses_the_baseline_from_the_same_tree(tmp_path):
     assert result.returncode == 0
     assert "Trusted tree secret check passed" in result.stdout
 
-
 def test_trusted_tree_rejects_scanner_failure(tmp_path):
     repository, _base, scanner = _repository(tmp_path)
     (repository / "secret.txt").write_text("DEMO_SECRET\n", encoding="utf-8")
@@ -342,7 +325,6 @@ def test_trusted_tree_rejects_scanner_failure(tmp_path):
 
     assert result.returncode == 1
     assert "Secret scan failed" in result.stdout
-
 
 def test_secret_history_reports_git_failure(tmp_path):
     repository, _base, scanner = _repository(tmp_path)

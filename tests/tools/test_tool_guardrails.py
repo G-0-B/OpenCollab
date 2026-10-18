@@ -27,26 +27,21 @@ from opencollab.application.tool_execution import ToolRuntime
 def run(coro):
     return asyncio.run(coro)
 
-
 def _runtime(workspace):
     env = LocalEnvironment(str(workspace))
     sandbox = SandboxInterceptor(str(workspace))
     return ToolRuntime(environment=env, safety_policy=sandbox, permission_policy=None)
-
 
 def _workspace(tmp_path):
     ws = tmp_path / "ws"
     ws.mkdir()
     return ws
 
-
 def test_bash_description_deflects_to_dedicated_tools():
     desc = BashTool.description
     assert "test" in desc
     assert "git_diff" in desc
-    # The old phrasing steered models to bash for tests and git operations.
     assert "Use this for running tests" not in desc
-
 
 def test_file_read_bounds_chars_not_just_lines(tmp_path):
     ws = _workspace(tmp_path)
@@ -58,8 +53,7 @@ def test_file_read_bounds_chars_not_just_lines(tmp_path):
     )
 
     assert "truncated" in result
-    assert len(result) < MAX_READ_CHARS + 500  # header + marker slack
-
+    assert len(result) < MAX_READ_CHARS + 500
 
 def test_file_read_small_file_is_untouched(tmp_path):
     ws = _workspace(tmp_path)
@@ -69,7 +63,6 @@ def test_file_read_small_file_is_untouched(tmp_path):
 
     assert "truncated" not in result
     assert "1\ta" in result and "2\tb" in result
-
 
 def test_grep_bounds_output_chars(tmp_path):
     ws = _workspace(tmp_path)
@@ -82,7 +75,6 @@ def test_grep_bounds_output_chars(tmp_path):
 
     assert "truncated" in result
     assert len(result) < MAX_GREP_CHARS + 500
-
 
 def test_headless_command_tools_and_grep_cannot_read_outside_secret(tmp_path):
     ws = _workspace(tmp_path)
@@ -104,7 +96,6 @@ def test_headless_command_tools_and_grep_cannot_read_outside_secret(tmp_path):
         assert "SWE_ANSWER_TOKEN" not in result
         assert result.startswith("Error:")
 
-
 def test_headless_command_tools_cannot_modify_outside_file(tmp_path):
     ws = _workspace(tmp_path)
     outside = tmp_path / "outside.txt"
@@ -120,7 +111,6 @@ def test_headless_command_tools_cannot_modify_outside_file(tmp_path):
     assert result.startswith("Error:")
     assert outside.read_text(encoding="utf-8") == "original"
 
-
 def test_str_replace_not_found_points_at_apply_patch(tmp_path):
     ws = _workspace(tmp_path)
     (ws / "f.py").write_text("hello\n", encoding="utf-8")
@@ -135,10 +125,9 @@ def test_str_replace_not_found_points_at_apply_patch(tmp_path):
     assert result.startswith("Error: old_str not found")
     assert "apply_patch" in result
 
-
 def test_create_refuses_shrinking_overwrite_without_confirmation(tmp_path):
     ws = _workspace(tmp_path)
-    original = "line\n" * 400  # 2000 chars, over the guard minimum
+    original = "line\n" * 400
     (ws / "big.py").write_text(original, encoding="utf-8")
 
     result = run(
@@ -151,7 +140,6 @@ def test_create_refuses_shrinking_overwrite_without_confirmation(tmp_path):
     assert result.startswith("Error: refusing to overwrite")
     assert "overwrite: true" in result
     assert (ws / "big.py").read_text(encoding="utf-8") == original
-
 
 def test_create_shrinking_overwrite_allowed_when_confirmed(tmp_path):
     ws = _workspace(tmp_path)
@@ -167,7 +155,6 @@ def test_create_shrinking_overwrite_allowed_when_confirmed(tmp_path):
     assert result.startswith("Created/wrote")
     assert (ws / "big.py").read_text(encoding="utf-8") == "tiny\n"
 
-
 def test_create_new_file_and_comparable_rewrite_need_no_confirmation(tmp_path):
     ws = _workspace(tmp_path)
     tool = FileWriteTool()
@@ -180,7 +167,6 @@ def test_create_new_file_and_comparable_rewrite_need_no_confirmation(tmp_path):
     )
     assert fresh.startswith("Created/wrote")
 
-    # Small files and comparable-size rewrites pass the guard untouched.
     (ws / "small.py").write_text("old\n", encoding="utf-8")
     rewritten = run(
         tool.execute_with_runtime(

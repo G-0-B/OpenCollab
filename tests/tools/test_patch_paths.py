@@ -50,7 +50,6 @@ def test_patch_paths_preserve_real_git_filenames(tmp_path, name, kind, quoted):
     assert patch_paths(diff) == list(dict.fromkeys(path for pair in expected for path in pair))
     assert patch_block_target_path(split_patch_blocks(diff)[0]) == expected[0][1]
 
-
 def test_git_c_quoted_paths_decode_utf8_bytes_and_control_characters():
     token = r'"b/caf\303\251\t\"\\.py"'
     assert decode_git_c_path(token) == 'b/café\t"\\.py'
@@ -58,7 +57,6 @@ def test_git_c_quoted_paths_decode_utf8_bytes_and_control_characters():
     header = f'diff --git "a/source.py" {token}'
     assert git_header_tokens(header) == ['"a/source.py"', token]
     assert diff_target_path(header) == 'café\t"\\.py'
-
 
 def test_patch_parsing_retains_copy_endpoints_and_repository_b_directory():
     patch = (
@@ -70,7 +68,6 @@ def test_patch_parsing_retains_copy_endpoints_and_repository_b_directory():
     assert patch_entries(patch) == [("b/source.py", "pkg/copied.py")]
     assert patch_paths(patch) == ["b/source.py", "pkg/copied.py"]
     assert normalize_patch_path("b/source.py") == "b/source.py"
-
 
 def test_patch_blocks_keep_hunk_bytes_and_addition_deletion_endpoints():
     added = (
@@ -86,7 +83,6 @@ def test_patch_blocks_keep_hunk_bytes_and_addition_deletion_endpoints():
     assert patch_entries(added + deleted) == [("", "new.txt"), ("old.txt", "")]
     assert patch_paths(added + deleted) == ["new.txt", "old.txt"]
     assert patch_block_target_path(blocks[1]) == "old.txt"
-
 
 def test_public_patch_parser_retains_all_path_categories():
     paths = ["src/test_parser.py", "tests/test_bug.py", ".opencollab-validation/probe.py"]

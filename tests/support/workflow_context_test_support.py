@@ -113,7 +113,6 @@ class FakeFactory:
         self._idx = 0
         self.builds: list[dict[str, Any]] = []
         self._next_aid = 0
-        # Workspaces handed to isolated agents, in the order they were asked for.
         self.handed_out: list[object] = []
 
     async def acquire_isolated_env(self, *, label: str | None = None) -> object:
@@ -148,7 +147,6 @@ class FakeFactory:
         )
         session = self._sessions[self._idx]
         self._idx += 1
-        # Mirror the real factory: one id per session, in build order.
         session.state.aid = self._next_aid
         self._next_aid += 1
         return session

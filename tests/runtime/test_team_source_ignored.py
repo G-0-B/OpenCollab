@@ -18,7 +18,6 @@ from tests.runtime.test_team_candidate_delivery import _git, _project
 def _native_test_command() -> list[str]:
     return [sys.executable, "-B", "-m", "pytest", "-q", "-o", "cache_dir=.pytest_cache", "test_native.py"]
 
-
 def _source_with_generated_ignored(tmp_path: Path) -> Path:
     source = _project(tmp_path / "project", True)
     (source / ".gitignore").write_text(".venv/\n.pytest_cache/\n__pycache__/\nprivate-output/\n")
@@ -39,7 +38,6 @@ def _source_with_generated_ignored(tmp_path: Path) -> Path:
     (source / "private-output").mkdir()
     (source / "private-output/user.dat").write_bytes(b"user-owned ignored asset\x00\xff")
     return source
-
 
 @pytest.mark.parametrize("dirty", [False, True])
 async def test_source_venv_and_pytest_cache_stay_in_source_during_team_delivery(tmp_path, dirty):
@@ -80,7 +78,6 @@ async def test_source_venv_and_pytest_cache_stay_in_source_during_team_delivery(
     finally:
         await pool.release()
 
-
 async def test_source_ignored_asset_blocks_same_path_candidate_adoption(tmp_path):
     source = _source_with_generated_ignored(tmp_path)
     protected = source / "private-output/user.dat"
@@ -104,7 +101,6 @@ async def test_source_ignored_asset_blocks_same_path_candidate_adoption(tmp_path
         assert (source / ".git/index").read_bytes() == index
     finally:
         await pool.release()
-
 
 async def test_candidate_native_pytest_cache_still_blocks_export_and_retains_workspace(tmp_path):
     source = _source_with_generated_ignored(tmp_path)

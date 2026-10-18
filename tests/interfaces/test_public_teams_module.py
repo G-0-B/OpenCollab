@@ -22,10 +22,8 @@ from tests.support.paths import REPO_ROOT
 
 EXPERIMENT_TEAM = REPO_ROOT / "configs" / "team.handoff.experiment.yaml"
 
-
 def test_the_declared_roles_are_the_file_s_roles_in_order() -> None:
     assert declared_role_names(str(EXPERIMENT_TEAM)) == ("analyst", "coder", "tester")
-
 
 def test_a_pool_of_n_seats_gives_each_seat_one_solo_agent_s_budget() -> None:
     solo_budget = 1_000_000
@@ -33,35 +31,22 @@ def test_a_pool_of_n_seats_gives_each_seat_one_solo_agent_s_budget() -> None:
 
     cap = per_agent_cap(solo_budget * len(roles), len(roles))
 
-    # This is the whole point of the count: multiply by it and a seat is worth
-    # exactly what the same agent is given alone. Pass the solo figure as the
-    # pool instead and the seat is worth a third of it.
+    # The pool size must preserve the solo budget per seat.
     assert cap == solo_budget
     assert per_agent_cap(solo_budget, len(roles)) == solo_budget // 3
 
-
 ICLR_EXPERIMENT_TEAM = REPO_ROOT / "configs" / "team.handoff.primary-legacy.yaml"
-
 
 def test_the_declared_tools_are_read_through_the_loader_a_run_uses() -> None:
     bundles = declared_role_tools(str(ICLR_EXPERIMENT_TEAM))
 
     assert set(bundles) == set(declared_role_names(str(ICLR_EXPERIMENT_TEAM)))
-    # The one thing this team is meant to differ by is the collaboration
-    # channel, so a caller comparing it against a solo arm has to be able to
-    # see that channel in the bundle rather than take it on trust.
     assert "message_agent" in bundles["analyst"]
-    # And the Tester's missing writers are a declared role boundary, not an
-    # arm difference -- also only visible if the bundles are readable.
     assert "apply_patch" not in bundles["tester"]
     assert "file_write" not in bundles["tester"]
 
-
 def test_the_bundles_are_keyed_by_the_same_identities_as_the_role_names(tmp_path) -> None:
-    # The reason this reads through ``load_team_config`` instead of the YAML:
-    # role names are normalized on the way in, so a caller that parsed the file
-    # itself would key its bundles on names the run never seats -- and the two
-    # readings would then disagree about which role holds what.
+    # load_team_config normalizes role names, matching the names used by the run.
     team_file = tmp_path / "team.yaml"
     team_file.write_text(
         "entry: Solo\nroles:\n  Solo:\n    prompt: do the work\n"
@@ -74,12 +59,8 @@ def test_the_bundles_are_keyed_by_the_same_identities_as_the_role_names(tmp_path
     assert tuple(bundles) == declared_role_names(str(team_file))
     assert bundles[declared_role_names(str(team_file))[0]] == ("file_read",)
 
-
 def test_the_prompt_digest_is_of_the_card_text_not_of_its_path(tmp_path) -> None:
-    # Why this is a digest of the resolved text: the handoff experiment's
-    # treatment IS the wording of the analyst card, so the grouping key a
-    # metrics row carries has to be the wording. Two cards that differ move
-    # the digest even when the team file names the same path.
+    # Resolved card text determines the metric grouping key, even when its path stays the same.
     card = tmp_path / "analyst.md"
     team_file = tmp_path / "team.yaml"
     team_file.write_text(
@@ -93,7 +74,6 @@ def test_the_prompt_digest_is_of_the_card_text_not_of_its_path(tmp_path) -> None
     second = declared_role_prompt_digests(str(team_file))["analyst"]
 
     assert first != second
-
 
 def test_the_two_generations_of_the_analyst_card_do_not_pool() -> None:
     """The failure this field exists to prevent.
@@ -111,7 +91,6 @@ def test_the_two_generations_of_the_analyst_card_do_not_pool() -> None:
 
     assert first_generation != second_generation
 
-
 def test_roles_that_share_a_card_share_a_digest() -> None:
     """The Coder and Tester are held fixed across cells, so they must not move."""
     primary = declared_role_prompt_digests(str(ICLR_EXPERIMENT_TEAM))
@@ -122,16 +101,10 @@ def test_roles_that_share_a_card_share_a_digest() -> None:
     assert primary["coder"] == facts_v2["coder"]
     assert primary["tester"] == facts_v2["tester"]
 
-
 def test_a_file_without_allowances_declares_no_role_budgets() -> None:
-    # Empty means the run keeps one shared pool, which the caller sizes itself
-    # by the rule above.
     assert declared_role_budgets(str(EXPERIMENT_TEAM)) == {}
 
-
 def test_declared_allowances_are_read_per_role_with_overrides(tmp_path) -> None:
-    # A caller must not pass its own pool for a file like this (the run would
-    # refuse it), so it has to be able to see that the file sets the budget.
     team_file = tmp_path / "team.yaml"
     team_file.write_text(
         "entry: Lead\nbudget: {tokens: 2000000}\nroles:\n"
@@ -145,13 +118,11 @@ def test_declared_allowances_are_read_per_role_with_overrides(tmp_path) -> None:
     assert budgets == {"Lead": 2_000_000, "coder": 500_000}
     assert tuple(budgets) == declared_role_names(str(team_file))
 
-
 def test_the_context_policy_defaults_when_the_file_names_none() -> None:
     assert declared_context_policy(str(EXPERIMENT_TEAM)) == {
         "policy": "default",
         "tool_result_budget": None,
     }
-
 
 def test_a_declared_context_policy_is_read_with_its_parameter(tmp_path) -> None:
     team_file = tmp_path / "team.yaml"

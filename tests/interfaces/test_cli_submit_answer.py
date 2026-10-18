@@ -17,7 +17,6 @@ from tests.support.paths import REPO_ROOT
 ANSWER = "The verified total is 1499."
 PREFACE = "I have checked the supplied totals."
 
-
 @pytest.mark.parametrize("mode", ["submit", "same_text", "same_text_whitespace", "preface", "plain"])
 def test_explicit_submit_team_prints_its_answer_once(tmp_path, mode):
     requests = []

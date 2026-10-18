@@ -13,7 +13,6 @@ from tests.support.tool_execution_test_support import FakeAgent, RecordingEventP
 def run(coro):
     return asyncio.run(coro)
 
-
 def build_use_case(tool: RuntimeNativeTool) -> ToolExecutionUseCase:
     return ToolExecutionUseCase(
         agent=FakeAgent(tools=[tool]),
@@ -22,7 +21,6 @@ def build_use_case(tool: RuntimeNativeTool) -> ToolExecutionUseCase:
         event_publisher=RecordingEventPublisher(),
         event_factory=default_session_event_factory(aid=-1),
     )
-
 
 def test_declared_schema_annotations_allow_single_and_batch_execution():
     tool = RuntimeNativeTool()
@@ -59,7 +57,6 @@ def test_declared_schema_annotations_allow_single_and_batch_execution():
         "runtime result",
         "runtime result",
     ]
-
 
 @pytest.mark.parametrize(
     ("keyword", "value"),

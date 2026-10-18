@@ -30,7 +30,6 @@ def _tool_call(step: int, name: str, arguments: dict) -> dict:
         "function": {"name": name, "arguments": json.dumps(arguments)},
     }
 
-
 async def _run_team(
     tmp_path, monkeypatch, *, backend, ending, trace, capture_failure=None,
     prebuilt=False, payload=None,
@@ -164,7 +163,6 @@ async def _run_team(
     observed.update({"repo": repo, "result": result})
     return observed
 
-
 @pytest.mark.parametrize("backend", ["local", "container"])
 @pytest.mark.parametrize("ending", ["normal", "api", "stopped"])
 @pytest.mark.parametrize("trace", [False, True])
@@ -204,7 +202,6 @@ async def test_sdk_delivers_partial_changes_and_preserves_failure(
     apply_and_execute(observed["repo"], patch)
     await observed["pool"].release()
     await observed["env"].cleanup()
-
 
 @pytest.mark.parametrize("backend", ["local", "container"])
 @pytest.mark.parametrize("ending", ["normal", "api", "stopped"])
@@ -255,7 +252,6 @@ async def test_sdk_capture_failure_survives_shutdown_and_git_recovery(
             git(observed["repo"], "worktree", "remove", "--force", str(workspace))
             git(observed["repo"], "update-ref", "-d", f"refs/heads/{env._branch}", env._base_commit)
 
-
 @pytest.mark.parametrize("backend", ["local", "container"])
 @pytest.mark.parametrize("trace", [False, True])
 async def test_sdk_ignored_cache_capture_failure_retains_the_real_files(
@@ -275,7 +271,6 @@ async def test_sdk_ignored_cache_capture_failure_retains_the_real_files(
         shutil.rmtree(workspace / "__pycache__")
         git(observed["repo"], "worktree", "remove", "--force", str(workspace))
         git(observed["repo"], "update-ref", "-d", f"refs/heads/{env._branch}", env._base_commit)
-
 
 @pytest.mark.parametrize("backend", ["local", "container"])
 @pytest.mark.parametrize("ending", ["api", "stopped"])
@@ -303,7 +298,6 @@ async def test_prebuilt_sender_receives_small_failed_patch(
     assert not Path(observed["env"].workspace).exists()
     patch = content.split("```diff\n", 1)[1].rsplit("\n```", 1)[0]
     apply_and_execute(observed["repo"], patch)
-
 
 @pytest.mark.parametrize("backend", ["local", "container"])
 @pytest.mark.parametrize("ending", ["api", "stopped"])

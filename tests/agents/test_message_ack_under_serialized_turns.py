@@ -20,7 +20,6 @@ from tests.support.scheduler_awaiting_test_support import ScriptedSession, build
 
 ACK = "Message queued for aid 1."
 
-
 class _Team:
     def __init__(self, *, serialized: bool | None):
         if serialized is not None:
@@ -32,12 +31,10 @@ class _Team:
     async def send_message(self, from_aid, to_aid, summary, content):
         return ACK
 
-
 def _send(team) -> str:
     tool = MessageAgentTool(team)
     params = {"to_role": "coder_a", "summary": "fix", "content": "please fix it"}
     return asyncio.run(tool.execute_with_runtime(params, runtime=SimpleNamespace(aid=0)))
-
 
 def test_a_serialized_sender_is_told_to_submit_now():
     out = _send(_Team(serialized=True))
@@ -46,16 +43,13 @@ def test_a_serialized_sender_is_told_to_submit_now():
     assert "cannot start until you end your turn" in out
     assert "call submit now" in out.lower()
     assert "reopens your turn" in out
-    assert "meanwhile" not in out        # the advice that kept luna working in-turn
-
+    assert "meanwhile" not in out
 
 def test_a_concurrent_sender_keeps_the_general_note():
     assert _send(_Team(serialized=False)) == f"{ACK} {_DELIVERY_NOTE}"
 
-
 def test_a_scheduler_without_the_flag_keeps_the_general_note():
     assert _send(_Team(serialized=None)) == f"{ACK} {_DELIVERY_NOTE}"
-
 
 def test_the_scheduler_reports_whether_turns_are_serialized():
     lead = ScriptedSession("lead", [])

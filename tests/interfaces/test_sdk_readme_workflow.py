@@ -21,7 +21,6 @@ INITIAL = "def divide(left, right):\n    return 0\n"
 DRAFT = "def divide(left, right):\n    return abs(left / right)\n"
 REVIEWED = "def divide(left, right):\n    return left / right\n"
 
-
 @pytest.fixture
 def documented_workflow():
     section = README.read_text().split("### Workflow authoring\n", 1)[1]
@@ -29,7 +28,6 @@ def documented_workflow():
     namespace = {"__name__": "readme_workflow_example"}
     exec(compile(source, str(README), "exec"), namespace)
     return namespace["implement_and_review"]
-
 
 @pytest.fixture
 def project(tmp_path):
@@ -49,13 +47,11 @@ def project(tmp_path):
         subprocess.run(["git", *args], cwd=tmp_path, capture_output=True, check=True)
     return tmp_path
 
-
 def _pytest_command(target):
     return (
         f"PYTHONDONTWRITEBYTECODE=1 {shlex.quote(sys.executable)} -B "
         f"-m pytest -rA -q -p no:cacheprovider {target}"
     )
-
 
 def _run_native_tests(project):
     return subprocess.run(
@@ -65,7 +61,6 @@ def _run_native_tests(project):
         capture_output=True,
         text=True,
     )
-
 
 class EditingLLM:
     """Use only advertised tools and leave a negative-input gap for review."""
@@ -111,7 +106,6 @@ class EditingLLM:
             finish_reason="tool_calls", usage=Usage(4, 2),
         )
 
-
 async def _run_example(project, documented_workflow, llm, **inputs):
     return await OpenCollab(project, model="test-model").workflow(
         documented_workflow,
@@ -120,7 +114,6 @@ async def _run_example(project, documented_workflow, llm, **inputs):
         budget=10_000,
         trace=False,
     )
-
 
 @pytest.mark.parametrize("caller_tools", [False, True], ids=["default-tools", "caller-tools"])
 async def test_readme_workflow_implements_then_reviews_with_native_tests(
@@ -150,7 +143,6 @@ async def test_readme_workflow_implements_then_reviews_with_native_tests(
     assert not (project / ".pytest_cache").exists()
     assert not (project / "__pycache__").exists()
 
-
 @pytest.mark.parametrize("allow_host_shell", [None, False, "true", 1])
 async def test_readme_workflow_requires_explicit_true_for_host_shell(
     project, documented_workflow, allow_host_shell,
@@ -164,7 +156,6 @@ async def test_readme_workflow_requires_explicit_true_for_host_shell(
     for stage in ("implement", "review"):
         assert "bash is disabled" in llm.outputs[stage][-1]
         assert "OS process sandbox" in llm.outputs[stage][-1]
-
 
 async def test_readme_workflow_preserves_empty_caller_tools(project, documented_workflow):
     llm = EditingLLM()

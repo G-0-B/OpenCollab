@@ -31,7 +31,6 @@ def test_bounded_read_accepts_regular_file_and_rejects_large_file(tmp_path) -> N
     with pytest.raises(ValueError, match="exceeds"):
         read_regular_bytes(path, max_bytes=6)
 
-
 def test_ranged_text_read_handles_utf8_crlf_and_missing_final_newline(tmp_path) -> None:
     path = tmp_path / "value.txt"
     path.write_bytes("alpha\r\nβeta\r\nγamma".encode())
@@ -49,7 +48,6 @@ def test_ranged_text_read_handles_utf8_crlf_and_missing_final_newline(tmp_path) 
     assert not window.has_more
     assert not window.chars_truncated
 
-
 def test_ranged_text_read_bounds_one_long_line(tmp_path) -> None:
     path = tmp_path / "value.txt"
     path.write_bytes(b"x" * (1024 * 1024))
@@ -66,13 +64,11 @@ def test_ranged_text_read_bounds_one_long_line(tmp_path) -> None:
     assert window.has_more
     assert window.chars_truncated
 
-
 def test_missing_read_does_not_create_parent_directories(tmp_path) -> None:
     parent = tmp_path / "missing" / "nested"
     with pytest.raises(FileNotFoundError):
         read_regular_bytes(parent / "value", max_bytes=10)
     assert not (tmp_path / "missing").exists()
-
 
 def test_read_rejects_final_symlink_and_symlink_parent(tmp_path) -> None:
     target = tmp_path / "target"
@@ -88,7 +84,6 @@ def test_read_rejects_final_symlink_and_symlink_parent(tmp_path) -> None:
     with pytest.raises(OSError, match="real directory"):
         ensure_directory_no_symlinks(parent)
 
-
 def test_write_rejects_nested_ancestor_symlink(tmp_path) -> None:
     workspace = tmp_path / "workspace"
     outside = tmp_path / "outside"
@@ -98,7 +93,6 @@ def test_write_rejects_nested_ancestor_symlink(tmp_path) -> None:
     with pytest.raises(OSError, match="real directory"):
         write_regular_bytes_atomic(workspace / "link" / "sub" / "value", b"escape")
     assert not (outside / "sub").exists()
-
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="macOS system aliases only")
 @pytest.mark.parametrize(
@@ -120,14 +114,12 @@ def test_macos_system_directory_aliases_match_canonical_paths(
         assert read_regular_bytes(alias_path, max_bytes=7) == b"payload"
         assert canonical_path.read_bytes() == b"payload"
 
-
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO requires POSIX")
 def test_read_rejects_fifo_without_blocking(tmp_path) -> None:
     path = tmp_path / "fifo"
     os.mkfifo(path)
     with pytest.raises(OSError, match="regular file"):
         read_regular_bytes(path, max_bytes=100)
-
 
 def test_atomic_replace_and_create_only_have_clear_semantics(tmp_path) -> None:
     path = tmp_path / "state"
@@ -137,7 +129,6 @@ def test_atomic_replace_and_create_only_have_clear_semantics(tmp_path) -> None:
     with pytest.raises(FileExistsError):
         create_regular_bytes_atomic(path, b"foreign")
     assert path.read_bytes() == b"new"
-
 
 def test_atomic_writer_failure_preserves_previous_file(tmp_path) -> None:
     path = tmp_path / "state"
@@ -152,19 +143,16 @@ def test_atomic_writer_failure_preserves_previous_file(tmp_path) -> None:
     assert path.read_bytes() == b"old"
     assert not list(tmp_path.glob(".state.*.tmp"))
 
-
 def test_atomic_writer_enforces_size_before_publish(tmp_path) -> None:
     path = tmp_path / "state"
     with pytest.raises(ValueError, match="exceeds"):
         write_regular_file_atomic(path, lambda handle: handle.write(b"too large"), max_bytes=3)
     assert not path.exists()
 
-
 def test_atomic_output_uses_requested_mode(tmp_path) -> None:
     path = tmp_path / "private"
     write_regular_bytes_atomic(path, b"payload", mode=0o600)
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
-
 
 def test_atomic_replace_preserves_existing_mode(tmp_path) -> None:
     path = tmp_path / "executable"
@@ -173,7 +161,6 @@ def test_atomic_replace_preserves_existing_mode(tmp_path) -> None:
     write_regular_bytes_atomic(path, b"new")
     assert path.read_bytes() == b"new"
     assert stat.S_IMODE(path.stat().st_mode) == 0o755
-
 
 def test_atomic_replace_preserves_mode_ignored_by_umask(tmp_path) -> None:
     path = tmp_path / "shared"
@@ -186,7 +173,6 @@ def test_atomic_replace_preserves_mode_ignored_by_umask(tmp_path) -> None:
         os.umask(previous)
     assert stat.S_IMODE(path.stat().st_mode) == 0o666
 
-
 def test_concurrent_append_keeps_complete_records(tmp_path) -> None:
     path = tmp_path / "events.jsonl"
     records = [f"record-{index:03d}\n" for index in range(64)]
@@ -196,13 +182,11 @@ def test_concurrent_append_keeps_complete_records(tmp_path) -> None:
         record.rstrip("\n") for record in records
     )
 
-
 def test_concurrent_directory_creation_is_idempotent(tmp_path) -> None:
     path = tmp_path / "shared" / "nested"
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
         list(executor.map(lambda _index: ensure_directory_no_symlinks(path), range(32)))
     assert path.is_dir()
-
 
 def test_durable_unlink_removes_regular_file_and_reports_missing(tmp_path) -> None:
     path = tmp_path / "owned"
@@ -210,7 +194,6 @@ def test_durable_unlink_removes_regular_file_and_reports_missing(tmp_path) -> No
     assert unlink_regular_file_durable(path)
     assert not path.exists()
     assert unlink_regular_file_durable(path) is False
-
 
 def test_atomic_replace_fsyncs_parent_after_publish(tmp_path, monkeypatch) -> None:
     events: list[str] = []
@@ -232,7 +215,6 @@ def test_atomic_replace_fsyncs_parent_after_publish(tmp_path, monkeypatch) -> No
     write_regular_bytes_atomic(tmp_path / "state", b"new")
 
     assert events[:3] == ["fsync:file", "replace", "fsync:directory"]
-
 
 def test_atomic_create_fsyncs_parent_after_link_and_unlink(tmp_path, monkeypatch) -> None:
     events: list[str] = []
@@ -261,7 +243,6 @@ def test_atomic_create_fsyncs_parent_after_link_and_unlink(tmp_path, monkeypatch
 
     assert events[:4] == ["fsync:file", "link", "unlink", "fsync:directory"]
 
-
 def test_durable_unlink_fsyncs_parent_after_removal(tmp_path, monkeypatch) -> None:
     path = tmp_path / "owned"
     path.write_bytes(b"owned")
@@ -283,7 +264,6 @@ def test_durable_unlink_fsyncs_parent_after_removal(tmp_path, monkeypatch) -> No
 
     assert unlink_regular_file_durable(path)
     assert events == ["unlink", "fsync:directory"]
-
 
 def test_durable_unlink_rejects_symlinked_parent(tmp_path) -> None:
     outside = tmp_path / "outside"

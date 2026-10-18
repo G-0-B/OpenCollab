@@ -127,14 +127,12 @@ async def test_duo_excludes_only_its_owned_evidence_directory(
         elif mutation in {"similar-prefix", "same-name"}:
             assert next(repo.rglob("duo-evidence-*/caller.txt")).read_text() == "new caller evidence\n"
 
-
 def test_remote_workspace_name_does_not_identify_a_host_directory(tmp_path):
     from types import SimpleNamespace
 
     (tmp_path / ".git").mkdir()
     context = SimpleNamespace(workspace_root=str(tmp_path), host_workspace=None)
     assert _source_evidence_root(context, str(tmp_path / "evidence")) is None
-
 
 @pytest.mark.parametrize("injected", [False, True])
 async def test_host_source_metadata_requires_the_known_source_backend(tmp_path, injected):
@@ -146,7 +144,6 @@ async def test_host_source_metadata_requires_the_known_source_backend(tmp_path, 
         assert context.host_workspace == (None if injected else str(tmp_path))
     finally:
         await context.release_isolated_workspaces()
-
 
 async def test_unknown_source_snapshot_stops_duo_before_candidate_generation(tmp_path):
     from types import SimpleNamespace
@@ -164,7 +161,6 @@ async def test_unknown_source_snapshot_stops_duo_before_candidate_generation(tmp
     with pytest.raises(RuntimeError, match="source diff unavailable for Duo evidence"):
         await duo(context, {"goal": "update source", "candidate_evidence_dir": str(tmp_path / "evidence")})
     assert len(calls) == 1
-
 
 @pytest.mark.parametrize("available", [False, True])
 async def test_outside_workspace_evidence_keeps_unknown_source_visible(tmp_path, available):

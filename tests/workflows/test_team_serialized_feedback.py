@@ -39,7 +39,6 @@ async def test_status_reports_only_drivers_waiting_for_serialized_turn(serialize
     assert by_role["coder"]["turn_queued"] is serialized
     assert all("turn_queued" not in row for row in scheduler.team_snapshot())
 
-
 async def test_driver_finishing_after_run_loop_is_not_queued(monkeypatch):
     lead = ScriptedSession("lead", [terminal("answer")])
     scheduler, _ = build_scheduler(lead, [], serialize_turns=True)
@@ -57,7 +56,6 @@ async def test_driver_finishing_after_run_loop_is_not_queued(monkeypatch):
     assert observed[0]["busy"] is True
     assert observed[0]["turn_queued"] is False
 
-
 async def test_cancelled_driver_is_removed_from_waiting_turns():
     lead = ScriptedSession("lead", [])
     scheduler, _ = build_scheduler(lead, [], serialize_turns=True)
@@ -69,7 +67,6 @@ async def test_cancelled_driver_is_removed_from_waiting_turns():
         with pytest.raises(asyncio.CancelledError):
             await driver
     assert scheduler.team_status_rows()[0]["turn_queued"] is False
-
 
 @pytest.mark.parametrize("serialized", [True, False, None])
 async def test_message_feedback_matches_serialized_mode(serialized):
@@ -95,11 +92,9 @@ async def test_message_feedback_matches_serialized_mode(serialized):
     else:
         assert output == f"Message queued to aid 1. {_DELIVERY_NOTE}"
 
-
 def test_scheduler_exposes_the_existing_serialized_mode():
     assert build_scheduler(ScriptedSession("lead", []), [], serialize_turns=True)[0].turns_serialized is True
     assert build_scheduler(ScriptedSession("lead", []), [], serialize_turns=False)[0].turns_serialized is False
-
 
 def test_submit_description_explains_waiting_for_a_reply():
     assert "finished" in SubmitTool.description

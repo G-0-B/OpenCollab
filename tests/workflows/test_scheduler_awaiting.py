@@ -34,13 +34,11 @@ def test_single_deferred_spawn_round_trip():
 
     result = run(scheduler.run("please delegate"))
 
-    # The lead reasoned over the child's result in the SAME turn — the gap closed.
     assert result == "final: child output"
     assert lead.state.phase is SessionPhase.DONE
     assert lead.state.pending_events.is_empty()
     assert len(event_types(events, "agent_resumed")) == 1
-    assert len(event_types(events, "agent_completed")) == 2  # child + lead
-
+    assert len(event_types(events, "agent_completed")) == 2
 
 def test_deferred_parent_completion_latency_includes_child_wait():
     async def delayed_child(sess: ScriptedSession) -> str:
@@ -69,7 +67,6 @@ def test_deferred_parent_completion_latency_includes_child_wait():
     assert len(lead_completions) == 1
     assert lead_completions[0].data["latency"] >= 0.02
 
-
 def test_multiple_parallel_children_resume_exactly_once():
     lead = ScriptedSession(
         "lead",
@@ -90,10 +87,8 @@ def test_multiple_parallel_children_resume_exactly_once():
     result = run(scheduler.run("delegate three"))
 
     assert result == "merged: ra,rb,rc"
-    # The last child to finish triggers exactly one resume — no double-wake.
     assert len(event_types(events, "agent_resumed")) == 1
     assert lead.state.pending_events.is_empty()
-
 
 @pytest.mark.parametrize(
     ("phase", "reason", "disposition"),
@@ -127,8 +122,7 @@ def test_non_done_child_delivers_failed_result_and_event(phase, reason, disposit
 
     assert run(scheduler.run("please delegate")) == "lead recovered"
     assert len(event_types(events, "agent_failed")) == 1
-    assert len(event_types(events, "agent_completed")) == 1  # lead only
-
+    assert len(event_types(events, "agent_completed")) == 1
 
 def test_last_child_completion_in_parent_return_tail_still_resumes():
     lead = ScriptedSession(
@@ -174,7 +168,6 @@ def test_last_child_completion_in_parent_return_tail_still_resumes():
     assert lead.state.pending_events.is_empty()
     assert scheduler.table.get(0).result == "resumed: done"
     assert len(event_types(events, "agent_resumed")) == 1
-
 
 def test_targeted_cancel_closes_nested_wake_gates_before_leaf_delivery():
     grandchild_started = asyncio.Event()
@@ -275,7 +268,6 @@ def test_targeted_cancel_closes_nested_wake_gates_before_leaf_delivery():
 
     run(scenario())
 
-
 def test_nested_delegation_resumes_up_the_tree():
     lead = ScriptedSession(
         "lead",
@@ -297,7 +289,7 @@ def test_nested_delegation_resumes_up_the_tree():
     result = run(scheduler.run("deep delegate"))
 
     assert result == "lead<mgr<leaf>>"
-    assert len(event_types(events, "agent_resumed")) == 2  # manager, then lead
+    assert len(event_types(events, "agent_resumed")) == 2
 
 def test_spawn_with_review_waits_for_nested_coder_terminal_result():
     lead = ScriptedSession("lead", [])
@@ -322,7 +314,6 @@ def test_spawn_with_review_waits_for_nested_coder_terminal_result():
     assert "PASSED after 1 iteration" in result
     assert "final implementation from analysis" in result
     assert "delegating" not in result
-
 
 @pytest.mark.parametrize("phase", (SessionPhase.ERROR, SessionPhase.STOPPED))
 def test_spawn_with_review_rejects_noncompleted_coder_despite_reviewer_pass(phase):
@@ -382,7 +373,6 @@ def test_unknown_completion_route_fails_open_parent_batch_in_one_delivery():
     assert scheduler._spawn_origin == {}
     assert scheduler.table.get(0).result == "parent recovered"
 
-
 def test_misrouted_completion_retargets_the_unique_child_row():
     lead = ScriptedSession("lead", [resume_done(lambda results: f"recovered: {results[0]}")])
     scheduler, events = build_scheduler(lead, [])
@@ -401,7 +391,6 @@ def test_misrouted_completion_retargets_the_unique_child_row():
     assert event_types(events, "agent_failed") == []
     assert scheduler._spawn_origin == {}
     assert scheduler.table.get(0).result == "recovered: result"
-
 
 def test_already_filled_claimed_row_retargets_unique_pending_child_row():
     async def resume_after_retarget(sess: ScriptedSession) -> str:
@@ -440,7 +429,6 @@ def test_already_filled_claimed_row_retargets_unique_pending_child_row():
     assert event_types(events, "agent_failed") == []
     assert scheduler._spawn_origin == {}
     assert scheduler.table.get(0).result == "parent recovered"
-
 
 def test_ambiguous_completion_route_fails_open_parent_batch_in_one_delivery():
     async def resume_after_routing_failure(sess: ScriptedSession) -> str:
@@ -492,7 +480,7 @@ def test_send_message_queues_when_target_awaiting_events():
     result = run(scheduler.send_message(0, 1, "question", "are you there?"))
 
     assert result == "Message queued to aid 1."
-    assert target.added == []  # never delivered
+    assert target.added == []
     assert scheduler._message_inbox[1][0].content == "are you there?"
 
 def test_queued_message_delivers_after_target_awaiting_events_resumes():
@@ -592,7 +580,6 @@ def test_scheduler_run_retrieves_finished_task_exception(caplog):
     assert finished.result_called is True
     assert "background task for aid 99 failed" in caplog.text
 
-
 @pytest.mark.parametrize(
     ("existing_reason", "expected_reason"),
     [
@@ -618,7 +605,6 @@ def test_scheduler_run_preserves_session_failure_reason_after_exception(
         run(asyncio.wait_for(scheduler.run("new question"), timeout=0.5))
     assert caught.value.phase is SessionPhase.ERROR
     assert caught.value.terminal_reason == expected_reason
-
 
 @pytest.mark.parametrize(
     ("phase", "reason"),
@@ -682,7 +668,6 @@ def test_concurrent_scheduler_runs_are_serialized_on_the_lead_session():
         assert lead.added == ["first question", "second question"]
 
     run(scenario())
-
 
 def test_external_turns_for_different_agents_start_concurrently():
     release = asyncio.Event()

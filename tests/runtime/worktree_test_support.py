@@ -20,7 +20,6 @@ class _ChildSession:
         self.state.set_phase(SessionPhase.DONE)
         return self._result
 
-
 class _LeadSession:
     def __init__(self):
         self.agent = type("_Agent", (), {"name": "lead"})()
@@ -33,7 +32,6 @@ class _LeadSession:
 
     async def run_loop(self) -> str:
         return ""
-
 
 class _Factory:
     def __init__(self, child: _ChildSession):

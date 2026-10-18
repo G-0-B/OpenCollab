@@ -69,7 +69,6 @@ async def test_cancelled_candidate_initialization_cleans_only_its_worktree(tmp_p
     try:
         await asyncio.wait_for(entered.wait(), 10)
         operation.cancel()
-        # Ordinary cancellable operations stop without an external release.
         await asyncio.wait_for(cleanup_entered.wait(), 10)
         operation.cancel()
         await asyncio.sleep(0)
@@ -92,7 +91,6 @@ async def test_cancelled_candidate_initialization_cleans_only_its_worktree(tmp_p
                 _git(repo, "worktree", "remove", "--force", str(path))
         await healthy.cleanup()
         await base.cleanup()
-
 
 @pytest.mark.parametrize("quiescent", [False, True])
 async def test_failed_checkout_removes_partial_files_after_command_settles(tmp_path, monkeypatch, quiescent):
@@ -135,7 +133,6 @@ async def test_failed_checkout_removes_partial_files_after_command_settles(tmp_p
                 path.rmdir()
         await base.cleanup()
 
-
 async def test_failed_source_command_closes_environment_and_retains_worktree(tmp_path, monkeypatch):
     repo = _repository(tmp_path)
     (repo / "source.py").write_text("value = 2\n")
@@ -170,7 +167,6 @@ async def test_failed_source_command_closes_environment_and_retains_worktree(tmp
             await LocalEnvironment.cleanup(environment)
             _git(repo, "worktree", "remove", "--force", environment.workspace)
         await base.cleanup()
-
 
 @pytest.mark.parametrize("cleanup_error", [False, True])
 async def test_candidate_setup_failure_preserves_error_and_closes_environment(tmp_path, monkeypatch, cleanup_error):

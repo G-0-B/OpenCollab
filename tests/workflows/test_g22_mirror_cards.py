@@ -30,21 +30,18 @@ CARDS = REPO_ROOT / "configs" / "g22-mirror"
 
 ENTRY = "adopter"
 ROLES = ("adopter", "coder_a", "coder_b")
-#: Four directed edges. The two candidates are not connected, so their
-#: independence is the roster's rather than the model's restraint.
+# The four directed edges leave candidates disconnected.
 EDGES = {
     ("adopter", "coder_a"),
     ("adopter", "coder_b"),
     ("coder_a", "adopter"),
     ("coder_b", "adopter"),
 }
-#: G22's ``_coder_tools()``, exactly. A difference here is a difference in the
-#: instrument, which is the whole reason this cell exists beside `dual-*`.
+# Match G22 _coder_tools() to preserve the intended tool bundle.
 G22_CANDIDATE_TOOLS = frozenset(
     {"bash", "file_read", "file_write", "apply_patch", "grep", "git_diff"}
 )
-#: What a team seat needs to take part at all, and which G22 has no equivalent
-#: of because Python does the sequencing there.
+# Team coordination adds tools absent from Python-sequenced G22.
 COLLABORATION_TOOLS = frozenset({"message_agent", "submit", "team_status"})
 EDIT_TOOLS = frozenset({"apply_patch", "file_write"})
 #: Named in every card only to say the team does not have it ("there is no
@@ -104,15 +101,12 @@ Rules:
 - Read-only roles do not search for write tools."""
 NO_COMMIT_RULE = "- Do not run git commit."
 
-
 @pytest.fixture(scope="module")
 def team():
     return load_team_config(path=str(TEAM_FILE))
 
-
 def _card(role: str) -> str:
     return (CARDS / CARD_FILES[role]).read_text(encoding="utf-8")
-
 
 def test_the_cell_seats_g22_s_roster_over_g22_s_four_edges(team) -> None:
     assert team.entry == ENTRY
@@ -123,7 +117,6 @@ def test_the_cell_seats_g22_s_roster_over_g22_s_four_edges(team) -> None:
         for receiver in receivers
     }
     assert edges == EDGES
-
 
 @pytest.mark.parametrize("role", ["coder_a", "coder_b"])
 def test_each_candidate_carries_g22_s_candidate_bundle_and_nothing_else(team, role) -> None:
@@ -137,7 +130,6 @@ def test_each_candidate_carries_g22_s_candidate_bundle_and_nothing_else(team, ro
     assert granted - COLLABORATION_TOOLS == G22_CANDIDATE_TOOLS
     assert "run_tests" not in granted
 
-
 def test_the_adjudicator_holds_no_tool_that_edits_a_file(team) -> None:
     """G22's adjudicator is ``tools=[]``. A team seat cannot be, because the
     tree it owns is the answer and someone has to check the winner out into it.
@@ -146,7 +138,6 @@ def test_the_adjudicator_holds_no_tool_that_edits_a_file(team) -> None:
     granted = frozenset(team.roles[ENTRY].tools)
     assert granted & EDIT_TOOLS == frozenset()
     assert "bash" in granted
-
 
 @pytest.mark.parametrize(
     ("role", "expected"),
@@ -160,7 +151,6 @@ def test_the_adjudicator_holds_no_tool_that_edits_a_file(team) -> None:
 def test_g22_s_own_paragraphs_crossed_unedited(role: str, expected: str) -> None:
     assert expected in _card(role)
 
-
 @pytest.mark.parametrize("role", ROLES)
 def test_the_shared_rules_cross_with_exactly_one_documented_inversion(role: str) -> None:
     """``Do not run git commit.`` is the single rule this runtime forces to
@@ -173,7 +163,6 @@ def test_the_shared_rules_cross_with_exactly_one_documented_inversion(role: str)
     else:
         assert NO_COMMIT_RULE not in card
         assert "Commit your finished work; that is how it reaches the Adopter." in card
-
 
 @pytest.mark.parametrize("role", ROLES)
 def test_a_card_names_only_tools_this_team_actually_has(team, role: str) -> None:
@@ -196,7 +185,6 @@ def test_a_card_names_only_tools_this_team_actually_has(team, role: str) -> None
         f"{role} names {sorted(named - held_by_anyone)}, which no seat holds"
     )
 
-
 def test_the_adjudicators_claim_about_the_candidates_bundles_is_true(team) -> None:
     """The one cross-role sentence in the adjudicator's card, against the real
     bundles. It is load-bearing: it is why the seat delegates rather than
@@ -207,7 +195,6 @@ def test_the_adjudicators_claim_about_the_candidates_bundles_is_true(team) -> No
     assert claimed & adopter == set()
     for role in ("coder_a", "coder_b"):
         assert claimed <= set(team.roles[role].tools)
-
 
 def test_the_two_candidate_cards_differ_only_where_g22_differs() -> None:
     """A and B are one seat twice unless their asks are different. G22 makes

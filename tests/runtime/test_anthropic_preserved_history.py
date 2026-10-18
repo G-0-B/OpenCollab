@@ -19,10 +19,8 @@ from tests.support.provider_sdk_http import http_response, install_sdk_transport
 
 _THINKING = {"thinking", "redacted_thinking"}
 
-
 def _blocks(content):
     return [{"type": "text", "text": content}] if isinstance(content, str) else content
-
 
 def _plain_messages(messages):
     result = []
@@ -37,15 +35,12 @@ def _plain_messages(messages):
             result.append({"role": message["role"], "content": copy.deepcopy(kept)})
     return result
 
-
 def _prefix(body, messages):
     return {"system": body.get("system"), "tools": body.get("tools"), "messages": _plain_messages(messages)}
-
 
 def _signatures(body):
     return [block.get("signature") or block.get("data") for message in body["messages"]
             for block in _blocks(message["content"]) if block["type"] in _THINKING]
-
 
 class _BoundThinkingProvider:
     """Compare the documented prefixes through the real Anthropic SDK wire."""
@@ -112,25 +107,21 @@ class _BoundThinkingProvider:
             "stop_sequence": None, "usage": {"input_tokens": 100, "output_tokens": 40},
         })
 
-
 def _agent(*, thinking=True, model="claude-opus-5-5"):
     return Agent(name="reader", system_prompt="Read files and answer.", tools=[FileReadTool()],
                  model=model, provider="anthropic", thinking=thinking,
                  thinking_params={"thinking": {"type": "adaptive"}}, max_tokens_per_step=1024)
-
 
 def _client(model="claude-opus-5-5"):
     return LLMClient(model=model, provider="anthropic",
                      api_key="controlled-test",  # pragma: allowlist secret
                      base_url="https://controlled.invalid/v1", max_retries=0)
 
-
 @pytest.fixture(autouse=True)
 def _local_usage(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(tmp_path / "usage.jsonl"))
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
     (tmp_path / "source.txt").write_text("file evidence\n" * 100)
-
 
 @pytest.mark.parametrize("restore", [False, True], ids=["same-session", "restore"])
 @pytest.mark.parametrize("thinking", [False, True], ids=["plain", "thinking"])
@@ -158,7 +149,6 @@ async def test_native_steering_prefix_survives_tool_rounds_and_new_user_turns(mo
     assert peer.retired == set()
     if thinking:
         assert _signatures(peer.requests[2]) == ["signed-1", "redacted-1", "signed-2", "redacted-2"]
-
 
 @pytest.mark.parametrize("mode", ["clear", "summary", "first-trim"])
 async def test_compacted_native_view_survives_restore_and_disabling_the_shaper(monkeypatch, tmp_path, mode):
@@ -201,7 +191,6 @@ async def test_compacted_native_view_survives_restore_and_disabling_the_shaper(m
         assert peer.retired
     assert _signatures(peer.requests[-1])[-2:] == ["signed-5", "redacted-5"]
 
-
 async def test_appended_system_and_changed_tools_retire_old_native_thinking(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     peer = _BoundThinkingProvider(reads=0)
@@ -222,7 +211,6 @@ async def test_appended_system_and_changed_tools_retire_old_native_thinking(monk
             assert peer.requests[-1].get("tools") is None
         finally:
             await session.aclose()
-
 
 async def test_chronological_compaction_marker_retains_earlier_valid_thinking(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
@@ -250,7 +238,6 @@ async def test_chronological_compaction_marker_retains_earlier_valid_thinking(mo
         finally:
             await session.aclose()
 
-
 async def test_hard_steering_restricts_tools_and_removes_old_prefix_thinking(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "on")
     peer = _BoundThinkingProvider(reads=0)
@@ -273,7 +260,6 @@ async def test_hard_steering_restricts_tools_and_removes_old_prefix_thinking(mon
         finally:
             await session.aclose()
 
-
 async def test_auxiliary_summary_omits_bound_thinking_and_preserves_the_transcript(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     peer = _BoundThinkingProvider(reads=0)
@@ -292,7 +278,6 @@ async def test_auxiliary_summary_omits_bound_thinking_and_preserves_the_transcri
     assert "Retain this evidence" in json.dumps(peer.requests[-1])
     assert peer.requests[-1].get("system") is None
     assert peer.requests[-1].get("tools") is None
-
 
 async def test_structured_correction_keeps_evidence_and_capture_only_tools(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
@@ -319,7 +304,6 @@ async def test_structured_correction_keeps_evidence_and_capture_only_tools(monke
         assert _signatures(body) == []
         assert "file evidence" in json.dumps(body)
     assert peer.requests[-1]["tool_choice"] == {"type": "auto"}
-
 
 @pytest.mark.parametrize("model,provider,expected", [
     ("claude-fable-5-1", "anthropic", True),

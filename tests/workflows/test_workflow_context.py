@@ -26,19 +26,16 @@ def test_workflow_context_rejects_invalid_concurrency(max_concurrency):
     with pytest.raises(ValueError, match="max_concurrency must be a positive integer"):
         WorkflowContext(FakeFactory([]), max_concurrency=max_concurrency)
 
-
 @pytest.mark.parametrize("task_concurrency", [0, -1, 1.5, True, "2", float("nan")])
 def test_workflow_context_rejects_invalid_task_concurrency(task_concurrency):
     with pytest.raises(ValueError, match="task_concurrency must be a positive integer"):
         WorkflowContext(FakeFactory([]), task_concurrency=task_concurrency)
-
 
 def test_workflow_context_task_concurrency_defaults_to_agent_concurrency():
     ctx = WorkflowContext(FakeFactory([]), max_concurrency=3)
 
     assert ctx._max_concurrency == 3
     assert ctx._task_concurrency == 3
-
 
 @pytest.mark.asyncio
 async def test_agent_returns_final_text_and_seeds_prompt():
@@ -51,7 +48,6 @@ async def test_agent_returns_final_text_and_seeds_prompt():
     assert result == "the answer"
     assert session.prompt == "solve it"
     assert factory.builds[0]["prompt"] == "solve it"
-
 
 @pytest.mark.parametrize(
     "budget",
@@ -66,7 +62,6 @@ async def test_agent_rejects_invalid_per_call_budget_before_building_session(bud
         await ctx.agent("must not start", budget=budget)
 
     assert factory.builds == []
-
 
 @pytest.mark.parametrize("timeout", [0, -1, float("nan"), True, "bad"])
 @pytest.mark.asyncio
@@ -251,7 +246,6 @@ class _AuxiliaryProviderFailure(RuntimeError):
     status_code = 503
     body = {"error": {"type": "provider_unavailable"}}
 
-
 class _AuxiliaryFailureSession:
     used_tokens = 0
 
@@ -261,7 +255,6 @@ class _AuxiliaryFailureSession:
     async def run_loop(self, cancel_event=None):
         raise _AuxiliaryProviderFailure("private provider detail")
 
-
 class _AuxiliaryFailureFactory:
     def __init__(self, fail_at):
         self.fail_at = fail_at
@@ -270,7 +263,6 @@ class _AuxiliaryFailureFactory:
         if self.fail_at == "build":
             raise _AuxiliaryProviderFailure("private provider detail")
         return _AuxiliaryFailureSession()
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("fail_at", ["build", "run"])
@@ -286,7 +278,6 @@ async def test_draft_failures_are_recorded_with_stage_label(fail_at):
             "provider_error_type": "provider_unavailable",
         },
     )
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("fail_at", ["build", "run"])
@@ -312,7 +303,6 @@ async def test_dead_scout_synth_failures_are_recorded_with_stage_label(fail_at):
     assert ctx.agent_failures[0]["label"] == "scout:0:synth"
     assert ctx.agent_failures[0]["provider_error_type"] == "provider_unavailable"
 
-
 @pytest.mark.asyncio
 async def test_an_isolated_agent_is_built_on_a_workspace_of_its_own():
     """``isolation=True`` reaches the factory as a workspace, not as a flag.
@@ -332,7 +322,6 @@ async def test_an_isolated_agent_is_built_on_a_workspace_of_its_own():
     assert built["isolation"] is True
     assert built["env"] is factory.handed_out[0]
 
-
 @pytest.mark.asyncio
 async def test_an_agent_without_isolation_is_not_given_a_workspace():
     session = FakeSession()
@@ -348,11 +337,9 @@ async def test_an_agent_without_isolation_is_not_given_a_workspace():
 async def test_agent_threads_tool_choice_to_factory():
     factory = FakeFactory([FakeSession(reply="ok")])
     ctx = WorkflowContext(factory)
-    # Ordinary call: no tool_choice forced.
     await ctx.agent("normal")
     assert factory.builds[-1]["tool_choice"] is None
     factory._sessions.append(FakeSession(reply="ok"))
-    # Forced call: tool_choice="required" reaches the factory build.
     await ctx.agent("forced", tool_choice="required")
     assert factory.builds[-1]["tool_choice"] == "required"
 
@@ -360,18 +347,15 @@ async def test_agent_threads_tool_choice_to_factory():
 async def test_agent_threads_thinking_to_factory_on_free_text_path():
     factory = FakeFactory([FakeSession(reply="ok"), FakeSession(reply="ok")])
     ctx = WorkflowContext(factory)
-    # Default: thinking left None so the factory's run-wide default applies.
     await ctx.agent("normal")
     assert factory.builds[-1]["thinking"] is None
-    # Forced write: thinking=False reaches the factory build (fast generation).
     await ctx.agent("forced", thinking=False)
     assert factory.builds[-1]["thinking"] is False
 
 @pytest.mark.asyncio
 async def test_agent_timeout_bounds_run_loop_and_returns_none():
-    # A run_loop held open past the timeout is cancelled by asyncio.wait_for; the
-    # call returns None (one dead agent never kills the fleet) and logs the timeout.
-    gate = asyncio.Event()  # never set -> run_loop would block forever
+    # The blocked run loop must time out, return None, and log the failure.
+    gate = asyncio.Event()
     session = FakeSession(reply="ok", gate=gate)
     sink = RecordingSink()
     ctx = WorkflowContext(FakeFactory([session]), event_sink=sink)
@@ -486,7 +470,6 @@ async def test_structured_agent_timeout_bounds_forced_retry_and_returns_none():
     assert result is None
     assert any("structured retry timed out" in e.message for e in sink.events)
 
-
 @pytest.mark.asyncio
 async def test_structured_retry_uses_remaining_role_deadline():
     first = FakeSession(reply="prose instead of structured output")
@@ -494,7 +477,6 @@ async def test_structured_retry_uses_remaining_role_deadline():
     retry = FakeSession(reply="ok", gate=gate)
     sink = RecordingSink()
     ctx = WorkflowContext(FakeFactory([first, retry]), event_sink=sink)
-
 
     result = await asyncio.wait_for(
         ctx.agent(
@@ -577,8 +559,6 @@ async def test_structured_retry_keeps_caller_budget_cap():
 
 @pytest.mark.asyncio
 async def test_agent_infinite_timeout_does_not_bound_run_loop():
-    # An infinite timeout (the unbounded-deadline default from seconds_left) must
-    # not wrap the loop in wait_for — the call completes normally.
     session = FakeSession(reply="ok")
     ctx = WorkflowContext(FakeFactory([session]))
 

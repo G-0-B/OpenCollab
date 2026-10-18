@@ -24,34 +24,19 @@ from tests.support.workflow_context_test_support import (
     _DeferredTokenSession,
 )
 
-# Waits on work that must SUCCEED. It is event-loop bookkeeping with no
-# intrinsic duration, so a sub-second budget bounds how starved the machine is
-# rather than the code, and reports work that finished as a red build. The
-# waits meant to EXPIRE keep their own small timeouts.
+# Allow event-loop scheduling time for waits that must succeed.
 MUST_SETTLE_SECONDS = 10.0
 
 # These cleanup scenarios need a running session before its real caller
 # deadline expires. Short preparation deadlines are exercised separately.
 CANCEL_CLEANUP_CALLER_TIMEOUT_SECONDS = 0.5
 
-# The deadline test below hands the synth a caller deadline and checks that the
-# synth is bounded by it. A millisecond deadline cannot do that: it can expire
-# while the synth session is still being built, and ``_remaining_timeout`` then
-# raises before ``run_loop`` is ever called — the synth never starts, and the
-# test reads that as a cancellation failure. Half a second is far above the
-# scheduling jitter that costs, so the synth is certain to have started.
+# Leave time to build the synth before its caller deadline tests cancellation.
 DEAD_SCOUT_CALLER_TIMEOUT_SECONDS = 0.5
 
-# The bound the deadline is *checked* against is a separate number from the
-# hang guard: a guard sized to tell a honoured deadline from the internal commit
-# cap would also pass an implementation that overran the caller by a second.
-# This one is generous against a loaded machine — half a second of slack on top
-# of the deadline, against the scheduling jitter actually measured here (a 10 ms
-# deadline was missed once in fifteen runs on a machine held busy) — while still
-# failing an overrun long before the internal cap could explain it.
+# A separate elapsed bound detects caller-deadline overruns before the internal commit cap.
 CALLER_DEADLINE_HONOURED_SECONDS = DEAD_SCOUT_CALLER_TIMEOUT_SECONDS + 0.5
 assert CALLER_DEADLINE_HONOURED_SECONDS < DEFAULT_INTERNAL_COMMIT_TIMEOUT_SECONDS
-
 
 @pytest.mark.asyncio
 async def test_session_budget_rejects_next_call_after_concurrent_overspend():
@@ -60,7 +45,6 @@ async def test_session_budget_rejects_next_call_after_concurrent_overspend():
     release_first = asyncio.Event()
 
     async def first_on_enter() -> None:
-        # First session is built+appended and holds the semaphore; spend pending.
         first_running.set()
         await release_first.wait()
 
@@ -71,22 +55,18 @@ async def test_session_budget_rejects_next_call_after_concurrent_overspend():
     # gate->build window, reproducing the concurrent-overspend race.
     ctx = WorkflowContext(factory, budget_total=100, max_concurrency=1)
 
-    # 1. First agent: passes gate (spent==0), takes the permit, parks in run_loop.
     first_task = asyncio.create_task(ctx.agent("first"))
     await first_running.wait()
-    assert factory.builds[0]["budget"] == 100  # full budget, nothing spent yet
+    assert factory.builds[0]["budget"] == 100
 
-    # 2. Second agent blocks on the permit before it can acquire a budget lease.
     second_task = asyncio.create_task(ctx.agent("second"))
-    for _ in range(5):  # let it clear the gate and park on the semaphore
+    for _ in range(5):
         await asyncio.sleep(0)
-    assert len(factory.builds) == 1  # it has NOT built yet (still gated by permit)
+    assert len(factory.builds) == 1
 
-    # 3. Land the first session's spend: spent jumps to 150, remaining == -50.
     s1.land_spend()
     assert ctx.budget.spent() == 150
 
-    # 4. Release the first agent; the second sees the exhausted pool and stops.
     release_first.set()
     with pytest.raises(WorkflowBudgetExceeded):
         await asyncio.wait_for(second_task, timeout=1.0)
@@ -122,7 +102,6 @@ async def test_parallel_agents_atomically_reserve_shared_budget():
     release.set()
     assert await task == ["a", "b"]
     assert ctx.budget.spent() == 100
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("cancel_index", [1, 2], ids=["first-waiter", "last-waiter"])
@@ -176,7 +155,6 @@ async def test_cancelling_equal_budget_waiter_preserves_remaining_allowance(canc
         await asyncio.gather(*tasks, return_exceptions=True)
         await ctx.wait_for_pending_cleanup()
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("max_concurrency", (1, 2, 3))
 async def test_uncapped_parallel_agents_split_budget_before_concurrency_admission(
@@ -208,7 +186,6 @@ async def test_uncapped_parallel_agents_split_budget_before_concurrency_admissio
     assert grants == [30, 30, 30]
     assert sum(grants) <= 90
 
-
 @pytest.mark.asyncio
 async def test_collection_never_starts_zero_budget_sessions():
     release = asyncio.Event()
@@ -235,7 +212,6 @@ async def test_collection_never_starts_zero_budget_sessions():
     grants = [build["budget"] for build in factory.builds]
     assert grants == [1, 1]
     assert sum(grants) == 2
-
 
 @pytest.mark.asyncio
 async def test_parallel_cancellation_releases_bounded_worker_budget_lease():
@@ -264,8 +240,6 @@ async def test_parallel_cancellation_releases_bounded_worker_budget_lease():
     await started.wait()
     for _ in range(20):
         await asyncio.sleep(0)
-    # Bounded collection scheduling starts only one task worker,
-    # while preserving the planned one-third budget grant.
     assert len(ctx.budget._leases) == 1
     assert ctx.budget.remaining() == 60
 
@@ -275,7 +249,6 @@ async def test_parallel_cancellation_releases_bounded_worker_budget_lease():
     await ctx.wait_for_pending_cleanup()
 
     assert ctx.budget.remaining() == 90
-
 
 @pytest.mark.asyncio
 async def test_timeout_keeps_budget_reserved_until_cancel_cleanup_finishes():
@@ -316,7 +289,6 @@ async def test_timeout_keeps_budget_reserved_until_cancel_cleanup_finishes():
         await asyncio.wait_for(ctx.wait_for_pending_cleanup(), timeout=MUST_SETTLE_SECONDS)
     assert ctx.budget.spent() == 80
 
-
 @pytest.mark.asyncio
 async def test_pending_cleanup_wait_covers_unreserved_over_budget_lease():
     timed_out = CancelCleanupSession(tokens_after_cancel=0)
@@ -345,7 +317,6 @@ async def test_pending_cleanup_wait_covers_unreserved_over_budget_lease():
             timeout=MUST_SETTLE_SECONDS,
         )
         await asyncio.wait_for(ctx.wait_for_pending_cleanup(), timeout=MUST_SETTLE_SECONDS)
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stage", ["build", "prepare"])
@@ -383,7 +354,6 @@ async def test_preparation_deadline_stops_before_run_loop_and_returns_budget(sta
         session.release_cancel.set()
         await asyncio.wait_for(ctx.wait_for_pending_cleanup(), timeout=MUST_SETTLE_SECONDS)
 
-
 @pytest.mark.asyncio
 async def test_over_budget_escape_is_single_use():
     """Only one exhausted-pool call may use the forced-write escape."""
@@ -397,7 +367,6 @@ async def test_over_budget_escape_is_single_use():
         await ctx.agent("second forced write", over_budget_ok=True)
 
     assert len(factory.builds) == 1
-
 
 @pytest.mark.asyncio
 async def test_concurrent_over_budget_escapes_allow_only_one_call():
@@ -423,7 +392,6 @@ async def test_concurrent_over_budget_escapes_allow_only_one_call():
 
     assert sum(isinstance(result, WorkflowBudgetExceeded) for result in results) == 1
     assert sum(isinstance(result, str) and result == "forced" for result in results) == 1
-
 
 @pytest.mark.asyncio
 async def test_timeout_keeps_concurrency_slot_until_cancel_cleanup_finishes():
@@ -474,7 +442,6 @@ async def test_timeout_keeps_concurrency_slot_until_cancel_cleanup_finishes():
             timeout=MUST_SETTLE_SECONDS,
         )
         await asyncio.wait_for(ctx.wait_for_pending_cleanup(), timeout=MUST_SETTLE_SECONDS)
-
 
 @pytest.mark.asyncio
 async def test_active_background_agent_is_visible_to_boundary_owner():
@@ -562,7 +529,6 @@ async def test_enforced_timeout_does_not_start_synth_while_scout_cleans_up():
         await asyncio.wait_for(asyncio.gather(call, return_exceptions=True), timeout=MUST_SETTLE_SECONDS)
         await asyncio.wait_for(ctx.wait_for_pending_cleanup(), timeout=MUST_SETTLE_SECONDS)
 
-
 @pytest.mark.asyncio
 async def test_dead_scout_synth_respects_the_callers_deadline():
     class DeadScout(FakeSession):
@@ -602,20 +568,17 @@ async def test_dead_scout_synth_respects_the_callers_deadline():
                 timeout=DEAD_SCOUT_CALLER_TIMEOUT_SECONDS,
                 enforcement_strength=ENFORCEMENT_ON,
             ),
-            # A hang guard, nothing more — the elapsed bound below is what
-            # actually holds the implementation to the caller's deadline.
+            # The elapsed assertion below checks the caller deadline independently of this hang timeout.
             timeout=MUST_SETTLE_SECONDS,
         )
     finally:
         await ctx.wait_for_pending_cleanup()
 
     assert result is not None and "evidence cards" in result
-    # Separate "the synth never ran" from "the synth ran and the deadline
-    # cancelled it": only the second says the deadline reached the synth.
+    # Confirm the synth started before checking that the deadline cancelled it.
     assert synth.started.is_set()
     assert synth.cancelled.is_set()
     assert asyncio.get_running_loop().time() - started_at < CALLER_DEADLINE_HONOURED_SECONDS
-
 
 @pytest.mark.asyncio
 async def test_dead_scout_synth_uses_internal_cap_without_caller_deadline(monkeypatch):
@@ -648,7 +611,6 @@ async def test_dead_scout_synth_uses_internal_cap_without_caller_deadline(monkey
     )
 
     assert seen_deadlines == [internal_deadline]
-
 
 @pytest.mark.asyncio
 async def test_caller_cancellation_keeps_budget_reserved_until_cleanup_finishes():

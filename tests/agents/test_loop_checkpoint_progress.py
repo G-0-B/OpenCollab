@@ -32,17 +32,14 @@ class _InterruptedEnvironment(LocalEnvironment):
             raise asyncio.CancelledError
         return result
 
-
 class _DeferredTool:
     name = "spawn_agent"
 
     async def execute_with_runtime(self, args, runtime):
         return DeferredCall(7)
 
-
 def _call(name, args, identifier):
     return tool_call(identifier, name, json.dumps(args))
-
 
 async def _execute(session, *calls):
     session.state.advance_step()
@@ -50,7 +47,6 @@ async def _execute(session, *calls):
     result = await session.tool_execution.process(list(calls))
     result.apply_to(session.state)
     return result
-
 
 async def _prepare(tmp_path, *, timeout_recovery=False, deferred=False):
     environment = _InterruptedEnvironment(str(tmp_path))
@@ -79,13 +75,11 @@ async def _prepare(tmp_path, *, timeout_recovery=False, deferred=False):
     session.state.set_phase(SessionPhase.EXECUTING_TOOLS)
     return session, environment, path, reserved
 
-
 async def _execute_mixed(session, *calls):
     session.state.advance_step()
     session.state.append_message({"role": "assistant", "content": None, "tool_calls": list(calls)})
     session.runner._pending = PendingStep(response=llm_response(tool_calls=list(calls)), latency=0)
     await session.runner.execute_pending_tools()
-
 
 @pytest.mark.parametrize("prefix", ["edit", "fresh-read", "duplicate-unknown"])
 async def test_prefix_progress_is_persisted_without_counting_an_unfinished_batch(tmp_path, prefix):
@@ -126,7 +120,6 @@ async def test_prefix_progress_is_persisted_without_counting_an_unfinished_batch
     finally:
         await environment.cleanup()
 
-
 async def test_normal_batch_still_folds_its_evidence_and_model_step_once(tmp_path):
     session, environment, _, reserved = await _prepare(tmp_path)
     previous_step = session.state.turn.loop_state.last_counted_step
@@ -152,7 +145,6 @@ async def test_normal_batch_still_folds_its_evidence_and_model_step_once(tmp_pat
         assert session.state.turn.loop_state.blocked_rounds == 0
     finally:
         await environment.cleanup()
-
 
 @pytest.mark.parametrize("prefix", ["edit", "fresh-read", "duplicate-unknown"])
 async def test_mixed_batch_checkpoints_completed_progress_before_interruption(tmp_path, prefix):
@@ -199,7 +191,6 @@ async def test_mixed_batch_checkpoints_completed_progress_before_interruption(tm
         assert restored.phase is (SessionPhase.STOPPED if expected else SessionPhase.CALLING_LLM)
     finally:
         await environment.cleanup()
-
 
 async def test_completed_mixed_batch_folds_evidence_and_model_step_once(tmp_path):
     session, environment, _, reserved = await _prepare(tmp_path, deferred=True)

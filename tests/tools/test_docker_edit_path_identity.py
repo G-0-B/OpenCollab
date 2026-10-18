@@ -31,7 +31,6 @@ async def test_default_workflow_mixed_paths_keep_both_edits(tmp_path, monkeypatc
     assert result["errors"] == []
     assert result["both_edits_retained"], result
 
-
 @pytest.mark.parametrize("execution", ["container-default", "prefix-cd"])
 async def test_relative_lock_matches_absolute_path_after_directory_resolution(tmp_path, execution):
     directory = tmp_path / "actual directory"
@@ -58,7 +57,6 @@ async def test_relative_lock_matches_absolute_path_after_directory_resolution(tm
 
     assert all(not output.startswith("Error") for output in outputs), outputs
     assert target.read_text() == "alpha = 2\nbeta = 2\n"
-
 
 async def test_relative_names_in_different_directories_remain_parallel(tmp_path):
     first_dir, second_dir = tmp_path / "one", tmp_path / "two"
@@ -96,7 +94,6 @@ async def test_relative_names_in_different_directories_remain_parallel(tmp_path)
     assert (first_dir / "module.py").read_text() == "alpha = 2\nbeta = 1\n"
     assert (second_dir / "module.py").read_text() == "alpha = 1\nbeta = 2\n"
 
-
 @pytest.mark.parametrize("relative", [False, True])
 @pytest.mark.parametrize("parent_traversal", [False, True])
 @pytest.mark.parametrize("modes", [
@@ -126,7 +123,6 @@ async def test_directory_aliases_share_native_edit_lock(tmp_path, relative, pare
     assert all(not output.startswith("Error") for output in outputs), outputs
     assert target.read_text() == "alpha = 2\nbeta = 2\n"
     assert not first._active_execs and not second._active_execs
-
 
 @pytest.mark.parametrize("relative", [False, True])
 @pytest.mark.parametrize("mode", ["create", "str_replace", "line_replace", "unified_diff"])
@@ -165,7 +161,6 @@ async def test_symlink_parent_traversal_keeps_native_read_and_edit_target(tmp_pa
     assert not list(tmp_path.rglob("*.opencollab-write-*.tmp"))
     assert not env._active_execs
 
-
 async def test_parent_alias_resolution_keeps_final_symlink_replacement(tmp_path):
     directory = tmp_path / "real"
     directory.mkdir()
@@ -184,7 +179,6 @@ async def test_parent_alias_resolution_keeps_final_symlink_replacement(tmp_path)
     assert target.read_text() == "replacement"
     assert referent.read_text() == "original"
 
-
 async def test_new_parent_directories_resolve_through_existing_alias(tmp_path):
     directory = tmp_path / "real"
     directory.mkdir()
@@ -196,7 +190,6 @@ async def test_new_parent_directories_resolve_through_existing_alias(tmp_path):
     await env.write_file("linked/new/nested/file.txt", "created")
 
     assert (directory / "new/nested/file.txt").read_text() == "created"
-
 
 @pytest.mark.parametrize("result", [
     ExecResult(1, "", "directory unavailable"),

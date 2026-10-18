@@ -22,7 +22,6 @@ def _repository(root: Path) -> None:
     ):
         subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
 
-
 @pytest.mark.parametrize("injected_path", ["test_probe.py", "test [probe]*.py"])
 @pytest.mark.parametrize("source_changed", [False, True])
 async def test_public_workflow_diff_exclusions_survive_candidate_execution(

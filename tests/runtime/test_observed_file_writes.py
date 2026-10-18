@@ -17,7 +17,6 @@ def _file_state(target):
     info = target.stat()
     return target.read_bytes(), info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns
 
-
 @pytest.mark.parametrize(("before", "content", "changed"), [
     (None, "", True), (b"", "", False), (b"same", "same", False), (b"old", "new", True),
     (b"\xff\xfe", "text", True), (b"x" * (5 * 1024 * 1024), "small", True),
@@ -39,7 +38,6 @@ async def test_local_observed_write_preserves_content_and_existing_mode(tmp_path
     finally:
         await env.cleanup()
 
-
 async def test_local_comparison_permission_error_keeps_allowed_atomic_write(monkeypatch, tmp_path):
     target = tmp_path / "f.txt"
     target.write_text("old")
@@ -57,7 +55,6 @@ async def test_local_comparison_permission_error_keeps_allowed_atomic_write(monk
         assert target.read_text() == "new"
     finally:
         await env.cleanup()
-
 
 async def test_local_identity_drift_discards_comparison_but_publishes(monkeypatch, tmp_path):
     target = tmp_path / "f.txt"
@@ -78,7 +75,6 @@ async def test_local_identity_drift_discards_comparison_but_publishes(monkeypatc
         assert target.read_text() == "same"
     finally:
         await env.cleanup()
-
 
 async def test_local_bytes_writer_compares_existing_payload_without_reading_temporary(monkeypatch, tmp_path):
     (tmp_path / "f.txt").write_text("same")
@@ -102,7 +98,6 @@ async def test_local_bytes_writer_compares_existing_payload_without_reading_temp
     finally:
         await env.cleanup()
 
-
 def test_streaming_atomic_writer_keeps_temporary_comparison_fallback(tmp_path):
     target = tmp_path / "f.txt"
     target.write_bytes(b"same")
@@ -115,7 +110,6 @@ def test_streaming_atomic_writer_keeps_temporary_comparison_fallback(tmp_path):
         assert target.read_bytes() == b"same"
     finally:
         os.close(root_fd)
-
 
 @pytest.mark.parametrize("same_size", [False, True])
 async def test_local_observation_reads_only_the_target_size(monkeypatch, tmp_path, same_size):
@@ -148,7 +142,6 @@ async def test_local_observation_reads_only_the_target_size(monkeypatch, tmp_pat
     finally:
         await env.cleanup()
 
-
 async def test_observed_local_write_keeps_path_and_size_restrictions(tmp_path):
     env = LocalEnvironment(str(tmp_path))
     try:
@@ -163,7 +156,6 @@ async def test_observed_local_write_keeps_path_and_size_restrictions(tmp_path):
         assert not (tmp_path / "missing").exists()
     finally:
         await env.cleanup()
-
 
 @pytest.mark.parametrize(("before", "content", "changed"), [
     (None, "", True), (b"", "", False), (b"same", "same", False), (b"old", "new", True),
@@ -196,7 +188,6 @@ async def test_docker_comparison_uses_one_real_shell_write(monkeypatch, tmp_path
     assert "opencollab-file-parent" in executions[0][0]
     assert "opencollab-write " in executions[1][0]
     assert not list(tmp_path.glob(".*.opencollab-write-*.tmp"))
-
 
 @pytest.mark.parametrize("comparison", [
     "exit 2",

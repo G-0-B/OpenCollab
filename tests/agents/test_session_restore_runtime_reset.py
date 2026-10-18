@@ -76,7 +76,6 @@ def test_restore_reused_session_resets_live_turn_cursor(tmp_path):
     assert reused.state.phase is SessionPhase.STOPPED
     assert len(llm.calls) == 1
 
-
 def test_restore_reused_session_rearms_empty_response_retry(tmp_path):
     agent = FakeAgent()
     snapshot_source = Session(agent=agent, llm=FakeLLMClient())
@@ -122,7 +121,6 @@ def test_restore_reused_session_rearms_empty_response_retry(tmp_path):
     assert reused.runner._empty_stop_retried is False
     assert run(reused.run_loop()) == "restored recovered"
     assert len(llm.calls) == 4
-
 
 @pytest.mark.parametrize("cursor", [None, 10_000])
 def test_restore_awaiting_legacy_cursor_returns_resumed_answer(tmp_path, cursor):
@@ -171,7 +169,6 @@ def test_restore_awaiting_legacy_cursor_returns_resumed_answer(tmp_path, cursor)
     assert restored.state.active_turn_start_message_index == 5
     assert run(restored.run_loop()) == "answer after legacy restore"
 
-
 def test_restore_rejects_a_session_with_an_active_turn(tmp_path):
     agent = FakeAgent()
     source = Session(agent=agent, llm=FakeLLMClient())
@@ -185,7 +182,6 @@ def test_restore_rejects_a_session_with_an_active_turn(tmp_path):
             session.restore(str(path))
     finally:
         session._turn_lock.release()
-
 
 @pytest.mark.asyncio
 async def test_restore_rejects_pending_runtime_cleanup(tmp_path):

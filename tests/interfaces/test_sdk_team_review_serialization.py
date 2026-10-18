@@ -20,7 +20,6 @@ def _call(name, arguments, step):
         "name": name, "arguments": json.dumps(arguments),
     }}
 
-
 @pytest.fixture
 def reviewed_team(tmp_path, monkeypatch):
     observed = {
@@ -170,7 +169,6 @@ topology:
 
     return run, observed, schedulers
 
-
 @pytest.mark.parametrize("serialized,ordinary", [(True, False), (False, False), (True, True)])
 async def test_public_team_runs_coder_and_reviewer_and_delivers_file(
     tmp_path, reviewed_team, serialized, ordinary,
@@ -188,7 +186,6 @@ async def test_public_team_runs_coder_and_reviewer_and_delivers_file(
         assert "PASSED after 1 iteration" in result.output
         assert ("reviewer", "file_read") in observed["work"]
     assert ("coder", "file_write") in observed["work"]
-
 
 async def test_resumed_parent_edit_has_its_own_delivery_tree_boundary(tmp_path, reviewed_team):
     for args in (
@@ -216,7 +213,6 @@ async def test_resumed_parent_edit_has_its_own_delivery_tree_boundary(tmp_path, 
     assert "lead result" not in diff(snapshots[3])
     assert "lead result" in await schedulers[-1]._delivery_tree_probe.diff()
 
-
 @pytest.mark.parametrize("failures,expected", [(1, "PASSED"), (2, "FAILED")])
 async def test_serial_review_respects_iteration_limit_and_preserves_artifact(
     tmp_path, reviewed_team, failures, expected,
@@ -229,7 +225,6 @@ async def test_serial_review_respects_iteration_limit_and_preserves_artifact(
     assert (tmp_path / "answer.py").read_text() == "answer = 42\n"
     roles = [role for role, step in observed["calls"] if step == 1]
     assert roles == ["lead", "coder", "reviewer", "coder", "reviewer"]
-
 
 @pytest.mark.parametrize("serialized", [False, True])
 async def test_review_wait_timeout_cleans_resources_and_later_public_run_completes(

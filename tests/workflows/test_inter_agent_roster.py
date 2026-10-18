@@ -16,14 +16,12 @@ def test_spawn_from_unknown_parent_is_rejected_even_without_topology_rules():
         run(scheduler.spawn(99, "coder", "task"))
     assert scheduler.table.get(1) is None
 
-
 def test_spawn_denied_by_topology_raises_permission_error():
     teammate = FakeSession([], role="coder")
     topo = Topology(edges={"lead": frozenset({"coder"})})
     scheduler, _ = _build_scheduler(teammate, topology=topo)
     with pytest.raises(PermissionError, match="not permitted to spawn 'reviewer'"):
         run(scheduler.spawn(0, "reviewer", "review it"))
-
 
 def test_send_message_denied_by_topology_returns_error():
     teammate = FakeSession([], role="coder")
@@ -39,7 +37,6 @@ def test_send_message_denied_by_topology_returns_error():
     result = run(scheduler.send_message(0, 2, "hello", "there"))
     assert "not permitted to message 'reviewer'" in result
     assert reviewer.added == []
-
 
 def test_team_snapshot_lists_lead_and_spawned():
     teammate = FakeSession(["done"], role="coder")
@@ -58,7 +55,6 @@ def test_team_snapshot_lists_lead_and_spawned():
     assert by_aid[1]["parent_aid"] == 0
     assert by_aid[1]["busy"] is False
 
-
 def test_team_roster_surfaces_configured_unspawned_roles():
     teammate = FakeSession([], role="coder")
     scheduler, _ = _build_scheduler(
@@ -72,7 +68,6 @@ def test_team_roster_surfaces_configured_unspawned_roles():
     assert [e["role"] for e in available] == ["analyst", "coder", "reviewer"]
     assert all(e["phase"] == "available" and e["busy"] is False for e in available)
     assert [e["aid"] for e in scheduler.team_snapshot()] == [0]
-
 
 def test_team_roster_drops_role_once_spawned():
     teammate = FakeSession(["done"], role="coder")

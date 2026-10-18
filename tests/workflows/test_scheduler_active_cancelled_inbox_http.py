@@ -31,7 +31,6 @@ def tool_response(request, name, arguments):
         "usage": {"prompt_tokens": 2, "completion_tokens": 2, "total_tokens": 4},
     })
 
-
 class WriteQueued(Tool):
     name = "write_queued"
     description = "Write a local receipt for the accepted teammate request."
@@ -45,7 +44,6 @@ class WriteQueued(Tool):
         self.calls += 1
         self.path.write_text("queued work completed\n", encoding="utf-8")
         return "queue work recorded"
-
 
 class HeldWork(Tool):
     name = "held_work"
@@ -64,7 +62,6 @@ class HeldWork(Tool):
         await self.release.wait()
         self.path.write_text("original work completed\n", encoding="utf-8")
         return "original work recorded"
-
 
 class Scenario:
     def __init__(self, root, boundary, *, independent_recipient=False):
@@ -141,7 +138,6 @@ class Scenario:
         scheduler.table.add(SessionControlBlock(aid=peer.state.aid, parent_aid=0, agent=peer.agent, state=peer.state))
         scheduler._sessions[peer.state.aid] = peer
         peer.scheduler = scheduler
-
 
 @pytest.mark.parametrize("boundary", ["generation", "tool"])
 @pytest.mark.parametrize("continuation", ["ordinary", "cancelled", "restored"])
@@ -232,7 +228,6 @@ async def test_accepted_teammate_turn_survives_ordinary_cancel_boundary(monkeypa
             scenario.release.set()
             await scheduler.cleanup()
             await asyncio.gather(active, return_exceptions=True)
-
 
 async def test_cancelled_public_turn_allows_other_recipient_messages(monkeypatch, tmp_path):
     scenario = Scenario(tmp_path, "generation", independent_recipient=True)

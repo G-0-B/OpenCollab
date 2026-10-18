@@ -77,7 +77,6 @@ def test_repository_launcher_resolves_symlinked_checkout_to_physical_root(tmp_pa
     assert f"arg={physical_root}" in result.stdout
     assert f"arg={logical_root}" not in result.stdout
 
-
 @pytest.mark.parametrize("kind", ["fifo", "symlink", "oversized"])
 def test_cli_prompt_file_rejects_unsafe_or_oversized_input(
     tmp_path,
@@ -98,17 +97,14 @@ def test_cli_prompt_file_rejects_unsafe_or_oversized_input(
     with pytest.raises(typer.BadParameter, match="Cannot read --prompt-file"):
         cli_main._resolve_one_shot_prompt(None, str(prompt))
 
-
 @pytest.mark.parametrize("prompt", ["", "   ", "\t\n"])
 def test_cli_rejects_explicit_blank_prompt(prompt):
     with pytest.raises(typer.BadParameter, match="--prompt must not be empty"):
         cli_main._resolve_one_shot_prompt(prompt, None)
 
-
 def test_cli_rejects_empty_prompt_file_path():
     with pytest.raises(typer.BadParameter, match="--prompt-file path must not be empty"):
         cli_main._resolve_one_shot_prompt(None, "")
-
 
 def test_cli_rejects_both_prompt_inputs_even_when_prompt_is_empty(tmp_path):
     prompt_file = tmp_path / "prompt.txt"
@@ -117,10 +113,8 @@ def test_cli_rejects_both_prompt_inputs_even_when_prompt_is_empty(tmp_path):
     with pytest.raises(typer.BadParameter, match="mutually exclusive"):
         cli_main._resolve_one_shot_prompt("", str(prompt_file))
 
-
 def test_cli_preserves_nonblank_unicode_prompt():
     assert cli_main._resolve_one_shot_prompt(" Grüß dich 🌍 ", None) == " Grüß dich 🌍 "
-
 
 class FakeConsole:
     # Chrome lines are truncated to the console width, as a real Console has.
@@ -128,7 +122,6 @@ class FakeConsole:
 
     def print(self, *args, **kwargs):
         return None
-
 
 class FakeTUI:
     def __init__(self, *args, **kwargs):
@@ -177,7 +170,6 @@ class FakeTUI:
     def print_turn_divider(self):
         return None
 
-
 class FakeTracer:
     path = "/tmp/trajectory.jsonl"
     run_id = "scheduler-test"
@@ -187,7 +179,6 @@ class FakeTracer:
 
     def close(self):
         self.closed = True
-
 
 def install_cli_fakes(monkeypatch, scheduler, tracer):
     ctx = SimpleNamespace(tracer=tracer)
@@ -199,7 +190,6 @@ def install_cli_fakes(monkeypatch, scheduler, tracer):
     monkeypatch.setattr(bootstrap, "build_scheduler", lambda *a, **k: scheduler)
     return ctx
 
-
 def config():
     return {
         "filter_messages": False,
@@ -207,7 +197,6 @@ def config():
         "provider": "provider",
         "budget": 100,
     }
-
 
 @pytest.mark.parametrize("budget_source", ["default", "file", "environment", "argument"])
 def test_cli_preserves_resolved_budget(monkeypatch, tmp_path, budget_source):
@@ -237,7 +226,6 @@ def test_cli_preserves_resolved_budget(monkeypatch, tmp_path, budget_source):
 
     assert result.exit_code == 0, result.output
     assert captured["cfg"]["budget"] == expected
-
 
 @pytest.mark.parametrize("allow_child_shell", [False, True])
 def test_cli_forwards_explicit_team_config(monkeypatch, tmp_path, allow_child_shell):
@@ -278,13 +266,11 @@ def test_cli_forwards_explicit_team_config(monkeypatch, tmp_path, allow_child_sh
     assert captured["hold_after_run"] is True
     assert captured["allow_local_child_shell"] is allow_child_shell
 
-
 def test_cli_hold_requires_one_shot_prompt():
     result = CliRunner().invoke(cli_main.app, ["--hold"], color=True)
 
     assert result.exit_code == 2
     assert "--hold requires --prompt or --prompt-file" in unstyle(result.output)
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("allow_child_shell", [False, True])
@@ -317,7 +303,6 @@ async def test_cli_run_passes_team_config_path_to_scheduler(monkeypatch, tmp_pat
     assert captured["allow_unisolated_child_shell"] is allow_child_shell
     assert captured["run_id"] == tracer.run_id
     assert tracer.closed is True
-
 
 @pytest.mark.asyncio
 async def test_cli_one_shot_failure_still_cleans_scheduler_and_closes_tracer(
@@ -361,7 +346,6 @@ async def test_cli_one_shot_failure_still_cleans_scheduler_and_closes_tracer(
 
     assert cleanup_calls == 1
     assert tracer.closed is True
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("hold_after_run", [False, True], ids=["one-shot", "hold-without-screen"])
@@ -413,7 +397,6 @@ async def test_cli_successful_one_shot_settles_then_cleans_up(monkeypatch, tmp_p
     assert events == ["run", "settle", "cleanup"]
     assert tracer.closed is True
 
-
 @pytest.mark.asyncio
 async def test_one_shot_prints_the_answer_even_if_focus_wandered_to_a_teammate(
     monkeypatch,
@@ -453,7 +436,6 @@ async def test_one_shot_prints_the_answer_even_if_focus_wandered_to_a_teammate(
 
         async def run_turn(self, aid, line, *, cancel_event=None):
             tui = holder["tui"]
-            # Settled while the lead still holds focus: already in scrollback.
             tui.event_handler(
                 SessionRuntimeEvent("text_delta", {"content": "an early lead line", "aid": 0})
             )
@@ -466,12 +448,9 @@ async def test_one_shot_prints_the_answer_even_if_focus_wandered_to_a_teammate(
             tui.event_handler(
                 SessionRuntimeEvent("text_delta", {"content": "teammate notes", "aid": 1})
             )
-            # Settles the teammate's text, so focusing it has something to show.
             tui.event_handler(
                 SessionRuntimeEvent("tool_start", {"tool": "bash", "args": {"command": "ls"}, "aid": 1})
             )
-            # The user Tabs to the teammate to read its trajectory, and the run
-            # ends there.
             tui.select_agent(1)
 
         def agent_step_count(self, aid):
@@ -497,7 +476,6 @@ async def test_one_shot_prints_the_answer_even_if_focus_wandered_to_a_teammate(
     assert "teammate notes" in scrollback
     assert scrollback.count("the final answer") == 1
     assert scrollback.count("an early lead line") == 1
-
 
 @pytest.mark.asyncio
 async def test_cli_warns_when_event_log_persistence_is_degraded(
@@ -545,7 +523,6 @@ async def test_cli_warns_when_event_log_persistence_is_degraded(
     assert "event log persistence degraded" in warning
     assert "dropped events: 0" in warning
     assert str(blocker / "events.jsonl") in warning
-
 
 @pytest.mark.asyncio
 async def test_cli_double_cancel_waits_for_cleanup_then_closes_tracer(
@@ -604,7 +581,6 @@ async def test_cli_double_cancel_waits_for_cleanup_then_closes_tracer(
     assert_cancel_reason(cancelled.value, "first")
     assert tracer.closed is True
 
-
 @pytest.mark.asyncio
 async def test_cli_team_provider_failure_still_cleans_scheduler_and_tracer(
     monkeypatch,
@@ -639,7 +615,6 @@ async def test_cli_team_provider_failure_still_cleans_scheduler_and_tracer(
     assert cleanup_calls == 1
     assert tracer.closed is True
 
-
 @pytest.mark.asyncio
 async def test_cli_scheduler_build_failure_still_closes_tracer(monkeypatch, tmp_path):
     tracer = FakeTracer()
@@ -659,7 +634,6 @@ async def test_cli_scheduler_build_failure_still_closes_tracer(monkeypatch, tmp_
         )
 
     assert tracer.closed is True
-
 
 @pytest.mark.asyncio
 async def test_cli_trajectory_print_failure_does_not_mask_primary_error(

@@ -38,7 +38,6 @@ class ControlledProvider:
                 raise
         return llm_response(content=f"answer-{len(self.calls)}")
 
-
 def build_addressed_scheduler(aid):
     provider = ControlledProvider()
     target = build_session(agent=FakeAgent(), llm=provider)
@@ -56,7 +55,6 @@ def build_addressed_scheduler(aid):
         scheduler._sessions[aid] = target
         scheduler._reserve_child_budget(aid)
     return scheduler, target, provider
-
 
 async def start_queued_turn(scheduler, aid, provider, first_event):
     def run(message, cancel_event=None):
@@ -76,7 +74,6 @@ async def start_queued_turn(scheduler, aid, provider, first_event):
     assert len(provider.calls) == 1
     return first, queued
 
-
 @pytest.mark.parametrize("aid", [0, 1])
 async def test_normal_queued_turn_runs_after_the_active_turn(aid):
     scheduler, target, provider = build_addressed_scheduler(aid)
@@ -93,7 +90,6 @@ async def test_normal_queued_turn_runs_after_the_active_turn(aid):
         provider.release.set()
         await scheduler.cleanup()
         await asyncio.gather(first, queued, return_exceptions=True)
-
 
 @pytest.mark.parametrize("aid", [0, 1])
 async def test_cancelling_a_queued_turn_preserves_the_active_turn_and_future_turns(aid):
@@ -119,7 +115,6 @@ async def test_cancelling_a_queued_turn_preserves_the_active_turn_and_future_tur
         provider.release.set()
         await scheduler.cleanup()
         await asyncio.gather(first, queued, return_exceptions=True)
-
 
 @pytest.mark.parametrize("aid", [0, 1])
 @pytest.mark.parametrize("stop_mode", ["cancel_owner", "cleanup"])

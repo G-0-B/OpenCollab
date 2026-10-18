@@ -42,7 +42,6 @@ class LateProvider:
         finally:
             self.active -= 1
 
-
 class RealSessionFactory:
     def __init__(self, provider, timeout):
         self.provider = provider
@@ -58,7 +57,6 @@ class RealSessionFactory:
         )
         self.sessions.append(session)
         return session
-
 
 @pytest.mark.asyncio
 async def test_pending_autosave_allows_synthesis_and_keeps_final_cleanup_owned():
@@ -105,7 +103,6 @@ async def test_pending_autosave_allows_synthesis_and_keeps_final_cleanup_owned()
         await asyncio.wait_for(ctx.wait_for_pending_cleanup(), 2.0)
     assert ctx.budget._leases == []
     assert ctx._semaphore._value == 1
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("interruption", ["provider_timeout", "workflow_timeout", "caller_cancel"])
@@ -171,7 +168,6 @@ async def test_provider_cleanup_keeps_lease_and_capacity(interruption, compositi
         await asyncio.gather(first, *([second] if second is not None else []), return_exceptions=True)
         await asyncio.wait_for(ctx.wait_for_pending_cleanup(), 1.0)
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("nested", [False, True])
 async def test_agent_reuses_one_permit_only_after_prior_provider_stops(nested):
@@ -204,7 +200,6 @@ async def test_agent_reuses_one_permit_only_after_prior_provider_stops(nested):
         provider.release.set()
         await asyncio.gather(call, return_exceptions=True)
         await asyncio.wait_for(ctx.wait_for_pending_cleanup(), 1.0)
-
 
 @pytest.mark.asyncio
 async def test_cancelled_permit_reentry_keeps_prior_cleanup_owned():
@@ -239,7 +234,6 @@ async def test_cancelled_permit_reentry_keeps_prior_cleanup_owned():
     assert ctx.budget._leases == []
     assert ctx._semaphore._value == 1
 
-
 @pytest.mark.asyncio
 async def test_inner_timeout_keeps_dead_scout_synthesizer_from_overlapping_provider():
     class EvidenceProvider(LateProvider):
@@ -265,7 +259,6 @@ async def test_inner_timeout_keeps_dead_scout_synthesizer_from_overlapping_provi
     finally:
         provider.release.set()
         await asyncio.wait_for(ctx.wait_for_pending_cleanup(), 1.0)
-
 
 @pytest.mark.asyncio
 async def test_completion_callback_cleanup_keeps_the_same_lease_and_slot():

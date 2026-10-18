@@ -20,11 +20,9 @@ TEST_COMMAND = f"{shlex.quote(sys.executable)} -B -m pytest -q -rA -p no:cachepr
 PASSING_SOURCE = "def ok():\n    return True\n"
 FAILING_SOURCE = "def ok():\n    return False\n"
 
-
 def _files(root: Path) -> None:
     (root / "app.py").write_text(FAILING_SOURCE)
     (root / "test_ok.py").write_text("from app import ok\ndef test_ok():\n    assert ok()\n")
-
 
 def _response(name: str | None = None, arguments: dict | None = None) -> LLMResponse:
     calls = [] if name is None else [{
@@ -37,10 +35,8 @@ def _response(name: str | None = None, arguments: dict | None = None) -> LLMResp
         usage=Usage(4, 2), finish_reason="tool_calls" if calls else "stop",
     )
 
-
 def _write(content: str) -> LLMResponse:
     return _response("file_write", {"path": "app.py", "mode": "create", "content": content})
-
 
 async def test_public_candidates_reusing_tools_keep_only_their_executed_tests(tmp_path, monkeypatch):
     _files(tmp_path)
@@ -96,7 +92,6 @@ async def test_public_candidates_reusing_tools_keep_only_their_executed_tests(tm
     )
     assert source.returncode == 1
     assert "1 failed" in source.stdout
-
 
 @pytest.mark.parametrize("reverse", [False, True])
 async def test_public_candidate_rerun_from_another_directory_clears_the_same_test(tmp_path, monkeypatch, reverse):
@@ -156,7 +151,6 @@ async def test_public_candidate_rerun_from_another_directory_clears_the_same_tes
     assert candidate.test_records[0]["target"] == ("test_ok.py" if reverse else "tests/test_ok.py")
     assert (tmp_path / "app.py").read_text() == FAILING_SOURCE
 
-
 class _AliasEnvironment:
     """Distinct environments can expose the same container-side workspace."""
 
@@ -193,7 +187,6 @@ class _AliasEnvironment:
     def revoke(self):
         self.delegate.revoke()
 
-
 class _AliasLease:
     def __init__(self, environment):
         self.environment = environment
@@ -203,7 +196,6 @@ class _AliasLease:
 
     async def cleanup(self):
         await self.environment.cleanup()
-
 
 class _AliasCandidates:
     def __init__(self, root):
@@ -220,7 +212,6 @@ class _AliasCandidates:
         environment = _AliasEnvironment(directory)
         self.environments.append(environment)
         return _AliasLease(environment)
-
 
 @pytest.mark.parametrize("parallel", [False, True])
 async def test_shared_tools_scope_edits_to_candidate_with_same_workspace(tmp_path, monkeypatch, parallel):

@@ -20,7 +20,6 @@ from tests.support.docker_env_test_support import (
 
 OTHER_ID = "b" * 64
 
-
 @pytest.mark.parametrize(
     ("probe_result", "expected_returncode", "pidfile_retained"),
     [(0, 125, True), (1, 0, False)],
@@ -50,7 +49,6 @@ def test_exec_cancel_only_succeeds_after_process_group_quiesces(
     assert result.returncode == expected_returncode
     assert pidfile.exists() is pidfile_retained
 
-
 async def test_owned_setup_is_network_isolated_and_cleanup_uses_full_id(monkeypatch) -> None:
     def respond(command, _kwargs):
         if command[1] == "run":
@@ -69,7 +67,6 @@ async def test_owned_setup_is_network_isolated_and_cleanup_uses_full_id(monkeypa
     assert "opencollab.owner=" in " ".join(run_command)
     await env.cleanup()
     assert fake.calls[-1][0] == ("docker", "rm", "-f", "--", CONTAINER_ID)
-
 
 async def test_concurrent_setup_reuses_one_owned_container(monkeypatch) -> None:
     env = DockerEnvironment()
@@ -102,7 +99,6 @@ async def test_concurrent_setup_reuses_one_owned_container(monkeypatch) -> None:
     assert outcomes == [CONTAINER_ID, CONTAINER_ID]
     await env.cleanup()
 
-
 async def test_start_failure_never_removes_foreign_name_collision(monkeypatch) -> None:
     def respond(command, _kwargs):
         if command[1] == "run":
@@ -117,7 +113,6 @@ async def test_start_failure_never_removes_foreign_name_collision(monkeypatch) -
         await DockerEnvironment().setup()
     assert all(call[0][1] != "rm" for call in fake.calls)
 
-
 async def test_start_failure_reports_unproven_inspect_cleanup(monkeypatch) -> None:
     def respond(command, _kwargs):
         if command[1] == "run":
@@ -131,7 +126,6 @@ async def test_start_failure_reports_unproven_inspect_cleanup(monkeypatch) -> No
     with pytest.raises(ProcessCleanupError, match="removal was not proven"):
         await DockerEnvironment().setup()
     assert all(call[0][1] != "rm" for call in fake.calls)
-
 
 @pytest.mark.parametrize("kind", ["missing", "file"])
 async def test_setup_rejects_invalid_mount_before_docker(
@@ -150,7 +144,6 @@ async def test_setup_rejects_invalid_mount_before_docker(
 
     assert fake.calls == []
 
-
 async def test_setup_mounts_canonical_host_directory(monkeypatch, tmp_path) -> None:
     target = tmp_path / "target"
     target.mkdir()
@@ -167,7 +160,6 @@ async def test_setup_mounts_canonical_host_directory(monkeypatch, tmp_path) -> N
     run_argv = fake.calls[0][0]
     assert run_argv[run_argv.index("-v") + 1] == f"{target.resolve()}:/repo"
     assert env.host_workspace == str(target.resolve())
-
 
 async def test_attached_name_binds_once_and_executes_by_full_id(monkeypatch) -> None:
     def respond(command, _kwargs):
@@ -189,7 +181,6 @@ async def test_attached_name_binds_once_and_executes_by_full_id(monkeypatch) -> 
     await env.cleanup()
     assert all(call[0][1] != "rm" for call in fake.calls)
 
-
 async def test_attached_binding_ignores_nonpositive_dropped_output_metadata(monkeypatch) -> None:
     fake = FakeDocker(
         lambda command, _kwargs: _result(
@@ -203,7 +194,6 @@ async def test_attached_binding_ignores_nonpositive_dropped_output_metadata(monk
 
     assert await env.setup() == CONTAINER_ID
 
-
 async def test_attached_binding_rejects_identity_mismatch(monkeypatch) -> None:
     fake = FakeDocker(
         lambda command, _kwargs: _result(stdout=f"{CONTAINER_ID}\t/other\ttrue\n".encode())
@@ -212,12 +202,10 @@ async def test_attached_binding_rejects_identity_mismatch(monkeypatch) -> None:
     with pytest.raises(RuntimeError, match="ambiguous or changed"):
         await DockerEnvironment(container_id="expected").setup()
 
-
 async def test_attached_reference_validation_rejects_options_and_short_ids() -> None:
     for value in ("--privileged", "abc123", "bad/name"):
         with pytest.raises(ValueError, match="unsafe or ambiguous"):
             DockerEnvironment(container_id=value)
-
 
 async def test_exec_preserves_bounded_output_metadata(monkeypatch) -> None:
     def respond(command, _kwargs):
@@ -237,7 +225,6 @@ async def test_exec_preserves_bounded_output_metadata(monkeypatch) -> None:
     assert result.stdout_truncated and result.stderr_truncated
     assert result.stdout_dropped_bytes == 12
     assert result.stderr_dropped_bytes == 3
-
 
 async def test_docker_text_range_requests_only_window_plus_probe(monkeypatch) -> None:
     env = DockerEnvironment(container_id=CONTAINER_ID)
@@ -267,7 +254,6 @@ async def test_docker_text_range_requests_only_window_plus_probe(monkeypatch) ->
     assert "10,12p;12q" in commands[0]
     assert "head -c 407" in commands[0]
 
-
 async def test_user_exit_125_does_not_destroy_owned_container(monkeypatch) -> None:
     exec_attempts = 0
 
@@ -288,7 +274,6 @@ async def test_user_exit_125_does_not_destroy_owned_container(monkeypatch) -> No
     assert (await env.exec_cmd("printf usable")).stdout == "usable"
     assert not env.revoked
     assert all(call[0][1] != "rm" for call in fake.calls)
-
 
 async def test_timeout_runs_container_inner_cancel_before_return(monkeypatch) -> None:
     exec_attempts = 0
@@ -314,12 +299,10 @@ async def test_timeout_runs_container_inner_cancel_before_return(monkeypatch) ->
     assert exec_attempts == 2
     assert docker_module._EXEC_CANCEL in fake.calls[-1][0]
 
-
 @pytest.mark.parametrize("value", [0, False, "0"])
 def test_timeout_returncode_rejects_success_and_non_integer_values(value) -> None:
     with pytest.raises(ValueError, match="non-zero integer"):
         DockerEnvironment(timeout_returncode=value)
-
 
 async def test_attached_timeout_revokes_when_inner_cancel_fails(monkeypatch) -> None:
     exec_attempts = 0
@@ -343,7 +326,6 @@ async def test_attached_timeout_revokes_when_inner_cancel_fails(monkeypatch) -> 
         await env.exec_cmd("sleep 20", timeout=0.01)
     assert env.revoked
     assert all(call[0][1] != "rm" for call in fake.calls)
-
 
 async def test_attached_abort_cancels_and_waits_for_all_active_execs(monkeypatch) -> None:
     started = [asyncio.Event(), asyncio.Event()]
@@ -382,7 +364,6 @@ async def test_attached_abort_cancels_and_waits_for_all_active_execs(monkeypatch
     with pytest.raises(RuntimeError, match="aborted"):
         await env.exec_cmd("echo after-abort")
 
-
 async def test_attached_cleanup_revokes_and_removes_owned_temporary_files(
     monkeypatch,
 ) -> None:
@@ -411,7 +392,6 @@ async def test_attached_cleanup_revokes_and_removes_owned_temporary_files(
 
     await env.cleanup()
     assert len(calls) == 2
-
 
 async def test_double_cancellation_cannot_interrupt_container_recovery(monkeypatch) -> None:
     fake = FakeDocker(
@@ -448,7 +428,6 @@ async def test_double_cancellation_cannot_interrupt_container_recovery(monkeypat
     with pytest.raises(asyncio.CancelledError):
         await owner
     assert recovery_done.is_set()
-
 
 async def test_double_cancellation_finishes_container_and_backing_cleanup(monkeypatch) -> None:
     backing_cleaned = asyncio.Event()
@@ -488,7 +467,6 @@ async def test_double_cancellation_finishes_container_and_backing_cleanup(monkey
     assert removal_done.is_set()
     assert backing_cleaned.is_set()
 
-
 async def test_cleanup_preserves_backing_when_container_removal_fails(
     monkeypatch,
 ) -> None:
@@ -514,7 +492,6 @@ async def test_cleanup_preserves_backing_when_container_removal_fails(
     assert backing_cleanup_calls == 0
     assert env._backing_environment is backing
 
-
 async def test_verified_write_threads_stdin_and_digest(monkeypatch) -> None:
     payload = b"hello"
     digest = __import__("hashlib").sha256(payload).hexdigest()
@@ -534,7 +511,6 @@ async def test_verified_write_threads_stdin_and_digest(monkeypatch) -> None:
     env = DockerEnvironment()
     await env.setup()
     await env.write_file("/workspace/result.txt", "hello")
-
 
 async def test_write_half_input_failure_keeps_old_target_and_cleans_temp(monkeypatch) -> None:
     old = b"old content"
@@ -571,7 +547,6 @@ async def test_write_half_input_failure_keeps_old_target_and_cleans_temp(monkeyp
     assert len(cleaned) == 1
     assert ".opencollab-write-" in cleaned[0]
 
-
 async def test_write_timeout_keeps_old_target_and_cleans_temp(monkeypatch) -> None:
     old = b"old content"
     files = {"/repo/result.txt": old}
@@ -602,7 +577,6 @@ async def test_write_timeout_keeps_old_target_and_cleans_temp(monkeypatch) -> No
     assert files["/repo/result.txt"] == old
     assert len(cleaned) == 1
     assert ".opencollab-write-" in cleaned[0]
-
 
 async def test_cancelled_write_keeps_old_target_and_cleans_temp(monkeypatch) -> None:
     old = b"old content"
@@ -639,7 +613,6 @@ async def test_cancelled_write_keeps_old_target_and_cleans_temp(monkeypatch) -> 
     assert files["/repo/result.txt"] == old
     assert len(cleaned) == 1
     assert ".opencollab-write-" in cleaned[0]
-
 
 async def test_concurrent_same_container_path_writes_are_serialized(monkeypatch) -> None:
     target = b"old"
@@ -682,7 +655,6 @@ async def test_concurrent_same_container_path_writes_are_serialized(monkeypatch)
     assert max_active == 1
     assert target in {b"A" * 2000, b"B" * 2000}
 
-
 @pytest.mark.parametrize("temporary", [False, True])
 async def test_docker_writes_reject_oversize_utf8_before_transport(
     monkeypatch,
@@ -708,11 +680,9 @@ async def test_docker_writes_reject_oversize_utf8_before_transport(
 
     assert calls == 0
 
-
 async def test_only_docker_declares_os_process_isolation(tmp_path) -> None:
     assert DockerEnvironment().process_isolated
     assert not LocalEnvironment(str(tmp_path)).process_isolated
-
 
 async def test_every_exec_carries_a_git_identity(monkeypatch) -> None:
     """A commit is the whole payload of a handoff, so it has to be possible.

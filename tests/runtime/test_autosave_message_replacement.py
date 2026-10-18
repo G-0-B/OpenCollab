@@ -36,7 +36,6 @@ class PausedStore(SessionStore):
         finally:
             self.active -= 1
 
-
 @pytest.mark.parametrize("replace_during_append", [False, True])
 @pytest.mark.parametrize("initial_saves", [0, 2])
 def test_message_replacement_survives_the_single_autosave_owner(

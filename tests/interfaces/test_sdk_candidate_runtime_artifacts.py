@@ -39,7 +39,6 @@ class EditingModel:
         assert any(message.get("tool_call_id") == "edit" for message in messages)
         return LLMResponse(content="done", usage=Usage(4, 2), finish_reason="stop")
 
-
 @pytest.mark.parametrize("trace", [False, True])
 @pytest.mark.parametrize("mode", ["agent", "workflow"])
 @pytest.mark.parametrize("layout", ["root", "nested", "sibling", "external"])
@@ -95,7 +94,6 @@ async def test_public_candidate_adopts_with_saved_runtime_records(tmp_path, trac
         cwd=workspace, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, check=True,
     )
 
-
 @pytest.mark.parametrize("mutation", ["tracked", "untracked", "head"])
 async def test_saved_candidate_still_rejects_concurrent_user_changes(tmp_path, mutation):
     repo = _repository(tmp_path)
@@ -128,7 +126,6 @@ async def test_saved_candidate_still_rejects_concurrent_user_changes(tmp_path, m
         assert note.read_text() == "user edit\n"
     if mutation != "tracked":
         assert (repo / "source.py").read_text() == "value = 1\n"
-
 
 @pytest.mark.parametrize("trace", [False, True])
 @pytest.mark.parametrize("internal", [False, True])
@@ -188,7 +185,6 @@ async def test_builtin_duo_selects_and_adopts_with_saved_runtime_records(tmp_pat
     )
     assert "1 passed" in verification.stdout
 
-
 @pytest.mark.parametrize("saved", [False, True])
 @pytest.mark.parametrize("size_mode", ["single", "aggregate"])
 async def test_saved_source_diff_preserves_complete_evidence_limit(tmp_path, saved, size_mode):
@@ -211,7 +207,6 @@ async def test_saved_source_diff_preserves_complete_evidence_limit(tmp_path, sav
     assert result.output is None
     assert all(user.read_text() == contents for user in users)
     assert (repo / ".git" / "index").read_bytes() == index
-
 
 @pytest.mark.parametrize("saved", [False, True])
 @pytest.mark.parametrize("source_changed", [False, True])

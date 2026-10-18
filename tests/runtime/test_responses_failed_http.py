@@ -22,7 +22,6 @@ def _response(body, error=None):
         "usage": None,
     }
 
-
 def _wire_response(body, error=None):
     response = _response(body, error)
     if not body["stream"]:
@@ -38,7 +37,6 @@ def _wire_response(body, error=None):
     payload = "".join("data: " + json.dumps(event) + "\n\n" for event in events)
     return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=payload)
 
-
 def _patch_transport(monkeypatch, handler):
     sdk_type = openai.AsyncOpenAI
 
@@ -46,7 +44,6 @@ def _patch_transport(monkeypatch, handler):
         return sdk_type(**kwargs, http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
 
     monkeypatch.setattr(openai, "AsyncOpenAI", create_sdk)
-
 
 @pytest.mark.parametrize("model,stream", [("o1-pro", False), ("gpt-4o", True)])
 async def test_failed_response_server_error_retries_and_recovers(monkeypatch, model, stream):
@@ -72,7 +69,6 @@ async def test_failed_response_server_error_retries_and_recovers(monkeypatch, mo
     assert result.content == "connected"
     assert len(requests) == 2
     assert all(body["stream"] is stream for body in requests)
-
 
 @pytest.mark.parametrize(
     "code,message,param,retryable",
@@ -105,7 +101,6 @@ async def test_failed_non_stream_response_preserves_error_identity(monkeypatch, 
     assert error.body["error"]["message"] == message
     assert is_retryable_error(error) is retryable
     assert len(requests) == 1
-
 
 def test_failed_non_stream_response_requires_model_identity():
     response = completed_response(

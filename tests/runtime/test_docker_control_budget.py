@@ -32,7 +32,6 @@ def test_disposal_after_two_minutes_does_not_lose_container_ownership(monkeypatc
 
     asyncio.run(scenario())
 
-
 def test_explicit_docker_command_timeout_remains_bounded(monkeypatch):
     def respond(command, kwargs):
         assert command == ("docker", "info")

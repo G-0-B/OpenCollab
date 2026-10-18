@@ -27,7 +27,6 @@ from opencollab.bootstrap import load_session, snapshot_session
 def run(coro):
     return asyncio.run(coro)
 
-
 class _FakeAgent:
     def __init__(self):
         self.name = "fake-agent"
@@ -45,11 +44,9 @@ class _FakeAgent:
     def find_tool(self, name):
         return None
 
-
 class _FakeLLM:
     async def complete(self, *args, **kwargs):  # pragma: no cover - unused
         raise AssertionError("FakeLLM.complete should not be called")
-
 
 class _ForkableEnvironment:
     workspace = "."
@@ -60,12 +57,10 @@ class _ForkableEnvironment:
     def fork_snapshot(self):
         return _ForkableEnvironment()
 
-
 def _new_session(**overrides) -> Session:
     kwargs = dict(agent=_FakeAgent(), llm=_FakeLLM())
     kwargs.update(overrides)
     return Session(**kwargs)
-
 
 def test_session_builds_runtime_collaborators_eagerly():
     session = _new_session()
@@ -73,7 +68,6 @@ def test_session_builds_runtime_collaborators_eagerly():
     assert isinstance(session.tool_execution, ToolExecutionUseCase)
     assert isinstance(session.runner, SessionRunUseCase)
     assert isinstance(session.store, SessionStore)
-
 
 def test_session_pending_cleanup_includes_tool_execution_owners():
     async def scenario():
@@ -88,7 +82,6 @@ def test_session_pending_cleanup_includes_tool_execution_owners():
 
     run(scenario())
 
-
 def test_session_seed_user_messages_follow_system_prompt():
     session = _new_session(
         seed_user_messages=[{"role": "user", "content": "Task:\nbuild it"}]
@@ -98,13 +91,11 @@ def test_session_seed_user_messages_follow_system_prompt():
         {"role": "user", "content": "Task:\nbuild it"},
     ]
 
-
 def test_session_wires_a_default_shaper_pipeline():
     from opencollab.application.shaping import ShaperPipeline
 
     session = _new_session()
     assert isinstance(session.runner.shaper, ShaperPipeline)
-
 
 def test_session_event_bus_reaches_injected_sink():
     from opencollab.domain.events import SessionRuntimeEvent as SessionEvent
@@ -120,7 +111,6 @@ def test_session_event_bus_reaches_injected_sink():
 
     assert seen == [event]
 
-
 def test_session_runtime_preserves_legacy_positional_optional_fields():
     subscriber = AutoSaveSubscriber(lambda: None)
     runtime = SessionRuntime(
@@ -132,7 +122,6 @@ def test_session_runtime_preserves_legacy_positional_optional_fields():
     assert runtime.owns_llm is True
     assert runtime.run_id is None
 
-
 def test_session_with_auto_save_path_subscribes_autosave_subscriber(tmp_path):
     path = tmp_path / "auto.jsonl"
     session = _new_session(auto_save_path=str(path))
@@ -140,12 +129,10 @@ def test_session_with_auto_save_path_subscribes_autosave_subscriber(tmp_path):
     subs = [t for t in session.event_bus._targets if isinstance(t, AutoSaveSubscriber)]
     assert len(subs) == 1
 
-
 def test_session_without_auto_save_path_does_not_subscribe_autosave():
     session = _new_session()
     subs = [t for t in session.event_bus._targets if isinstance(t, AutoSaveSubscriber)]
     assert subs == []
-
 
 def test_session_user_message_appended_triggers_autosave(tmp_path):
     path = tmp_path / "auto.jsonl"
@@ -158,7 +145,6 @@ def test_session_user_message_appended_triggers_autosave(tmp_path):
         saved = json.load(f)
     user_msgs = [m for m in saved["messages"] if m["role"] == "user"]
     assert any(m["content"] == "hello" and "timestamp" in m for m in user_msgs)
-
 
 def test_apply_launch_recovers_journal_when_atomic_base_is_absent(tmp_path):
     path = tmp_path / "journal-only.json"
@@ -191,7 +177,6 @@ def test_apply_launch_recovers_journal_when_atomic_base_is_absent(tmp_path):
 
     assert session.step_count == 7
     assert session.messages[-1]["content"] == "durable step"
-
 
 def test_checkpoint_compaction_does_not_erase_concurrent_journal_delta(tmp_path):
     path = tmp_path / "race.json"
@@ -254,7 +239,6 @@ def test_checkpoint_compaction_does_not_erase_concurrent_journal_delta(tmp_path)
     restored = store.load_snapshot(str(path), "system")
     assert restored["_autosave_sequence"] == 3
     assert restored["messages"][-1]["content"] == "new"
-
 
 def test_load_snapshot_serializes_base_and_journal_reads(tmp_path):
     path = str(tmp_path / "reader-race.json")
@@ -325,7 +309,6 @@ def test_load_snapshot_serializes_base_and_journal_reads(tmp_path):
     assert loaded[0]["_autosave_sequence"] == 2
     assert loaded[0]["messages"][-1]["content"] == "delta"
 
-
 def test_checkpoint_rejects_sequence_older_than_persisted_journal(tmp_path):
     path = tmp_path / "stale-checkpoint.json"
     store = SessionStore()
@@ -349,7 +332,6 @@ def test_checkpoint_rejects_sequence_older_than_persisted_journal(tmp_path):
     restored = store.load_snapshot(str(path), "system")
     assert restored["_autosave_sequence"] == 2
     assert restored["messages"][-1]["content"] == "newer-delta"
-
 
 def test_checkpoint_rejects_conflicting_same_sequence_journal(tmp_path):
     path = tmp_path / "same-sequence-checkpoint.json"
@@ -375,7 +357,6 @@ def test_checkpoint_rejects_conflicting_same_sequence_journal(tmp_path):
     assert restored["_autosave_sequence"] == 2
     assert restored["messages"][-1]["content"] == "newer-delta"
 
-
 def test_checkpoint_rejects_ambiguous_duplicate_journal_sequence(tmp_path):
     path = str(tmp_path / "duplicate-sequence-checkpoint.json")
     store = SessionStore()
@@ -399,10 +380,8 @@ def test_checkpoint_rejects_ambiguous_duplicate_journal_sequence(tmp_path):
             sequence=2,
         )
 
-    # The ambiguous journal remains intact rather than being truncated.
     with open(path + ".journal", encoding="utf-8") as journal:
         assert journal.read().count("\n") == 2
-
 
 def test_apply_launch_checkpoints_restore_into_distinct_autosave_target(tmp_path):
     source = tmp_path / "source.json"
@@ -452,7 +431,6 @@ def test_apply_launch_checkpoints_restore_into_distinct_autosave_target(tmp_path
     assert restored._auto_save_sequence == 4
     assert restored.messages[-1]["content"] == "continue here"
 
-
 def test_relative_save_alias_uses_autosave_checkpoint(tmp_path, monkeypatch):
     target = tmp_path / "alias.json"
     session = _new_session(auto_save_path=str(target))
@@ -465,7 +443,6 @@ def test_relative_save_alias_uses_autosave_checkpoint(tmp_path, monkeypatch):
     saved = json.loads(target.read_text())
     assert saved["_autosave_sequence"] == 5
     assert (tmp_path / "alias.json.journal").read_bytes() == b""
-
 
 def test_session_snapshot_returns_independent_session_without_autosave(tmp_path):
     path = tmp_path / "auto.jsonl"
@@ -483,13 +460,10 @@ def test_session_snapshot_returns_independent_session_without_autosave(tmp_path)
     assert snap.messages == session.messages
     assert snap.used_tokens == 42
     assert snap.step_count == 3
-    # Snapshot must not inherit the AutoSaveSubscriber.
     subs = [t for t in snap.event_bus._targets if isinstance(t, AutoSaveSubscriber)]
     assert subs == []
-    # Mutating snap.messages must not mutate the original.
     snap.messages.append({"role": "user", "content": "isolated"})
     assert {"role": "user", "content": "isolated"} not in session.messages
-
 
 def test_session_snapshot_preserves_queued_external_turn():
     session = _new_session(env=_ForkableEnvironment())
@@ -500,7 +474,6 @@ def test_session_snapshot_preserves_queued_external_turn():
     assert snap.state.pending_external_user_turn == session.state.pending_external_user_turn
     assert snap.state.pending_external_user_turn is not session.state.pending_external_user_turn
 
-
 def test_session_snapshot_preserves_external_sink():
     seen: list = []
 
@@ -510,12 +483,10 @@ def test_session_snapshot_preserves_external_sink():
     session = _new_session(event_sink=sink, env=_ForkableEnvironment())
     snap = snapshot_session(session)
 
-    # External subscribers are never silently shared with a runnable snapshot.
     targets = list(snap.event_bus._targets)
     assert sink not in targets
     observed = snapshot_session(session, event_sink=sink)
     assert sink in observed.event_bus._targets
-
 
 def test_session_load_returns_session_with_loaded_messages(tmp_path):
     path = tmp_path / "round.jsonl"
@@ -533,7 +504,6 @@ def test_session_load_returns_session_with_loaded_messages(tmp_path):
     assert loaded.messages[0]["content"] == agent.system_prompt
     assert {"role": "user", "content": "hello"} in loaded.messages
     assert {"role": "assistant", "content": "world"} in loaded.messages
-
 
 def test_session_permission_policy_setter_propagates_to_tool_processor():
     session = _new_session()

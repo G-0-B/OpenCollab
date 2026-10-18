@@ -22,7 +22,6 @@ def isolated_request_configuration(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
 
-
 @pytest.fixture(params=[
     ("openai", "chat_completions", "gpt-4o", "max_tokens"),
     ("openai", "chat_completions", "gpt-5", "max_completion_tokens"),
@@ -32,7 +31,6 @@ def isolated_request_configuration(monkeypatch, tmp_path):
 def sdk_configuration(request):
     provider, protocol, model, field = request.param
     return {"provider": provider, "wire_protocol": protocol, "model": model}, field
-
 
 @pytest.mark.parametrize("configured_limit", [None, 8191, 8192, 8193])
 async def test_public_agent_sends_default_and_explicit_output_limits(
@@ -62,7 +60,6 @@ async def test_public_agent_sends_default_and_explicit_output_limits(
     assert requests[0][field] == (8192 if configured_limit is None else configured_limit)
     assert result.tokens == 2 + requests[0][field]
 
-
 async def test_finite_budget_reduces_the_default_limit_after_reserving_input(
     monkeypatch, tmp_path, sdk_configuration,
 ):
@@ -89,7 +86,6 @@ async def test_finite_budget_reduces_the_default_limit_after_reserving_input(
 
     assert len(requests) == 1
     assert requests[0][field] == 3000
-
 
 @pytest.mark.parametrize("injected", [False, True])
 async def test_summary_sends_the_default_limit_through_the_provider_sdk(
@@ -124,7 +120,6 @@ async def test_summary_sends_the_default_limit_through_the_provider_sdk(
 
     assert len(requests) == 1
     assert requests[0][field] == 8192
-
 
 @pytest.mark.parametrize("configured_limit", [8192, 7000])
 @pytest.mark.parametrize("client_signature", ["legacy", "explicit", "kwargs"])
@@ -162,7 +157,6 @@ async def test_injected_client_keeps_legacy_defaults_and_receives_supported_limi
         assert await session.run_loop() == "ok"
         assert len(calls) == 1
         assert calls[0].get("max_output_tokens") == (None if client_signature == "legacy" else configured_limit)
-
 
 async def test_legacy_injected_client_summary_retains_the_original_signature(tmp_path):
     class LegacyClient:

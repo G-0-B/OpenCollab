@@ -42,7 +42,6 @@ async def test_nested_parallel_queue_pair_uses_available_task_slots(composition)
 
     assert await asyncio.wait_for(operation, timeout=2.0) == expected
 
-
 @pytest.mark.asyncio
 async def test_nested_parallel_runs_independent_units_in_available_slots():
     ctx = WorkflowContext(FakeFactory([]), task_concurrency=4)
@@ -75,7 +74,6 @@ async def test_nested_parallel_runs_independent_units_in_available_slots():
         result = await task
 
     assert result == [[0, 1, 2, 3]]
-
 
 @pytest.mark.asyncio
 async def test_sibling_nested_collections_use_slots_released_later():
@@ -160,7 +158,6 @@ async def test_sibling_nested_collections_use_slots_released_later():
     assert running == 0
     assert high_water <= 4
 
-
 @pytest.mark.asyncio
 async def test_nested_parallel_cancellation_releases_extra_task_slots():
     ctx = WorkflowContext(FakeFactory([]), task_concurrency=4)
@@ -191,7 +188,6 @@ async def test_nested_parallel_cancellation_releases_extra_task_slots():
     assert running == 0
     assert await asyncio.wait_for(ctx.parallel([lambda: asyncio.sleep(0, result="next")] * 4), 2.0) == ["next"] * 4
     assert ctx._task_semaphore._value == 4
-
 
 @pytest.mark.asyncio
 async def test_large_sibling_nested_collections_bound_workers_and_share_task_cap():
@@ -229,7 +225,6 @@ async def test_large_sibling_nested_collections_bound_workers_and_share_task_cap
     assert high_water == 3
     assert peak_tasks <= 3 * ctx._task_concurrency + 1
     assert results == [list(range(2_000))] * 4
-
 
 @pytest.mark.asyncio
 async def test_extra_task_slot_released_when_worker_cancelled_before_start():

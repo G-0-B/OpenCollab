@@ -27,10 +27,8 @@ from tests.support.tool_execution_test_support import (
 def run(coro):
     return asyncio.run(coro)
 
-
 class FakeSafetyPolicy:
     pass
-
 
 class SideEffectTool(RuntimeNativeTool):
     parameters = {
@@ -38,7 +36,6 @@ class SideEffectTool(RuntimeNativeTool):
         "required": ["value"],
         "properties": {"value": {"type": "integer"}},
     }
-
 
 @pytest.mark.parametrize(
     ("schema", "arguments", "expected_error"),
@@ -158,7 +155,6 @@ def test_declared_schema_constraints_block_side_effects(schema, arguments, expec
     )
     assert expected_error in result.messages_to_append[0]["content"]
 
-
 def test_structured_output_rejects_unsupported_assertion_schema_before_provider_use():
     with pytest.raises(ValueError, match="anyOf: unsupported schema keyword"):
         StructuredOutputTool(
@@ -169,7 +165,6 @@ def test_structured_output_rejects_unsupported_assertion_schema_before_provider_
                 ]
             }
         )
-
 
 def test_structured_output_preflight_accepts_large_json_integer():
     schema = {
@@ -183,7 +178,6 @@ def test_structured_output_preflight_accepts_large_json_integer():
     call = tool_call(name=tool.name, arguments=json.dumps({"value": value}))
 
     assert use_case.preflight_tool_batch([call]) == [""]
-
 
 def test_structured_output_preflight_rejects_large_integer_maximum():
     schema = {
@@ -201,7 +195,6 @@ def test_structured_output_preflight_rejects_large_integer_maximum():
     assert len(errors) == 1
     assert "must be <= 10" in errors[0]
 
-
 def test_structured_output_preflight_checks_large_integer_minimum():
     value = int("1" + "0" * 400) + 1
     schema = {
@@ -217,7 +210,6 @@ def test_structured_output_preflight_checks_large_integer_minimum():
 
     assert len(errors) == 1
     assert "must be >=" in errors[0]
-
 
 @pytest.mark.parametrize(
     ("arguments", "expected_error"),
@@ -243,7 +235,6 @@ def test_tool_execution_use_case_preserves_argument_errors(arguments, expected_e
         }
     ]
     assert publisher.events == []
-
 
 @pytest.mark.parametrize(
     "failure",
@@ -275,7 +266,6 @@ def test_short_circuited_tool_steps_advance_progress_watchdog(failure):
 
     assert state.turn.steps_since_progress == 3
 
-
 def test_rejected_batch_advances_progress_watchdog_once():
     state = SessionState(messages=[])
     use_case, _ = build_use_case(
@@ -296,7 +286,6 @@ def test_rejected_batch_advances_progress_watchdog_once():
         "broken",
     ]
 
-
 def test_tool_execution_use_case_handles_non_string_and_preparsed_arguments():
     tool = RuntimeNativeTool()
     use_case, _ = build_use_case(agent=FakeAgent(tools=[tool]))
@@ -307,7 +296,6 @@ def test_tool_execution_use_case_handles_non_string_and_preparsed_arguments():
     assert "must be a JSON object" in invalid.messages_to_append[0]["content"]
     assert valid.messages_to_append[0]["content"] == "runtime result"
     assert tool.runtime_calls[0][0] == {"value": 1}
-
 
 def test_terminal_structured_output_skips_later_side_effect_and_answers_every_call():
     terminal = StructuredOutputTool(
@@ -352,7 +340,6 @@ def test_terminal_structured_output_skips_later_side_effect_and_answers_every_ca
         },
     ]
 
-
 def test_terminal_submit_findings_skips_later_side_effect():
     terminal = SubmitFindingsTool()
     side_effect = SideEffectTool(output="side effect executed")
@@ -388,7 +375,6 @@ def test_terminal_submit_findings_skips_later_side_effect():
         "Skipped: terminal structured output accepted earlier in this batch."
     )
 
-
 def test_tool_execution_use_case_preserves_unknown_tool_error():
     agent = FakeAgent(tools=[SimpleNamespace(name="known_tool")])
     use_case, publisher = build_use_case(agent=agent)
@@ -403,7 +389,6 @@ def test_tool_execution_use_case_preserves_unknown_tool_error():
         }
     ]
     assert publisher.events == []
-
 
 def test_batch_preflight_prevents_partial_execution_on_late_schema_error():
     tool = SideEffectTool()
@@ -423,7 +408,6 @@ def test_batch_preflight_prevents_partial_execution_on_late_schema_error():
         for message in result.messages_to_append
     )
 
-
 def test_batch_preflight_rejects_duplicate_ids_before_execution():
     tool = SideEffectTool()
     use_case, _ = build_use_case(agent=FakeAgent(tools=[tool]))
@@ -436,7 +420,6 @@ def test_batch_preflight_rejects_duplicate_ids_before_execution():
 
     assert tool.runtime_calls == []
     assert all("duplicate tool_call id" in item["content"] for item in result.messages_to_append)
-
 
 def test_batch_preflight_caps_call_count_before_execution():
     tool = SideEffectTool()
@@ -452,7 +435,6 @@ def test_batch_preflight_caps_call_count_before_execution():
     assert len(result.messages_to_append) == MAX_TOOL_CALLS_PER_BATCH + 1
     assert all("maximum is" in item["content"] for item in result.messages_to_append)
 
-
 def test_tool_execution_use_case_preserves_loop_detection_event():
     state = SessionState(messages=[])
     use_case, publisher = build_use_case(state=state)
@@ -467,18 +449,12 @@ def test_tool_execution_use_case_preserves_loop_detection_event():
         ("loop_detected", {"tool": "fake_tool", "count": 3})
     ]
 
-
 def test_tool_execution_use_case_detects_cyclic_loop_spread_across_window():
-    # Regression: real 100-step stalls thrash in a CYCLE — the same (tool, args)
-    # recurs every ~13 calls (observed 10-17 apart), not back-to-back, because
-    # cleared tool outputs force re-reads. The old detector only scanned the last
-    # 6 hashes and never saw three of a cyclically-repeated call, so it never
-    # fired. The detector must count across the whole per-turn window.
+    # Count repeated calls across the turn to catch read cycles longer than six calls.
     state = SessionState(messages=[])
     use_case, _ = build_use_case(state=state)
     call_hash = use_case.tool_call_hash("fake_tool", {"value": 1})
-    filler = [f"other-{i}" for i in range(12)]  # one full thrash cycle of 13
-    # two prior occurrences, each separated by a full cycle -> 13 calls apart
+    filler = [f"other-{i}" for i in range(12)]
     state.replace_recent_tool_hashes([call_hash, *filler, call_hash, *filler])
 
     result = run(use_case.process([tool_call(arguments='{"value": 1}')]))
@@ -486,9 +462,7 @@ def test_tool_execution_use_case_detects_cyclic_loop_spread_across_window():
     assert result.loop_detections == [LoopDetection(tool="fake_tool", count=3)]
     assert "Loop detected" in result.messages_to_append[0]["content"]
 
-
 def test_tool_execution_use_case_catches_same_file_and_range_reread():
-    # Re-reading the same slice still trips the existing read threshold.
     state = SessionState(messages=[])
     use_case, _ = build_use_case(state=state)
     read_hash = use_case.tool_call_hash("file_read", {"path": "x/ccode.py", "offset": 900, "limit": 50})
@@ -503,31 +477,26 @@ def test_tool_execution_use_case_catches_same_file_and_range_reread():
     assert result.loop_detections == [LoopDetection(tool="file_read", count=8)]
     assert "on the same file and line range" in result.messages_to_append[0]["content"]
 
-
 def test_tool_execution_use_case_allows_a_few_legitimate_rereads():
-    # Three reads of one range is normal distill-as-you-read and
-    # must NOT trip — the read threshold is more lenient than the exact-arg loop,
-    # so the third read executes the tool instead of short-circuiting.
+    # The read threshold permits three reads of one range.
     state = SessionState(messages=[])
     tool = RuntimeNativeTool()
     tool.name = "file_read"
     agent = FakeAgent(tools=[tool])
     use_case, _ = build_use_case(state=state, agent=agent)
     path_hash = use_case.tool_call_hash("file_read", {"path": "x/ccode.py"})
-    state.replace_recent_tool_hashes([path_hash] * 2)  # two prior reads
+    state.replace_recent_tool_hashes([path_hash] * 2)
     call = tool_call(name="file_read", arguments='{"path": "x/ccode.py", "offset": 1}')
 
     result = run(use_case.process([call]))
 
     assert result.loop_detections == []
-    assert tool.runtime_calls  # the third read executed normally
-
+    assert tool.runtime_calls
 
 def _bash_tool(output: str = "ok"):
     tool = RuntimeNativeTool(output=output)
     tool.name = "bash"
     return tool
-
 
 def test_tool_execution_use_case_executes_runtime_native_tool_and_events():
     tool = RuntimeNativeTool()
@@ -563,12 +532,10 @@ def test_tool_execution_use_case_executes_runtime_native_tool_and_events():
     assert publisher.events[1].data["tool"] == "fake_tool"
     assert publisher.events[1].data["tool_call_id"] == "call-1"
 
-
 def _named_runtime_tool(name: str, output: str = "ok"):
     tool = RuntimeNativeTool(output=output)
     tool.name = name
     return tool
-
 
 @pytest.mark.parametrize(
     ("command", "expected"),
@@ -578,14 +545,11 @@ def _named_runtime_tool(name: str, output: str = "ok"):
         ("printf '%s' '>'", False),
         ("cat input 2>&1", False),
         ("cat input >/dev/null", False),
-        # A discarded stream stays discarded when another command follows it.
-        # Reading it as a write silently switches off the read-loop steering,
-        # because every such command resets the reads-since-last-edit counter.
+        # A discarded stream must stay a read so it cannot reset read-loop steering.
         ("ls / 2>/dev/null; echo done", False),
         ("ls -la /root 2>/dev/null; ls -la /tmp 2>/dev/null", False),
         ("find / -name x 2>/dev/null | head; ls 2>/dev/null", False),
         ("cat a 2>/dev/null && grep b c", False),
-        # ... and a real write after a discarded stream is still a write.
         ("ls 2>/dev/null; echo hi > target", True),
         ("cat a 2>/dev/null && echo x > b", True),
         ("cp source target", True),
@@ -600,7 +564,6 @@ def _named_runtime_tool(name: str, output: str = "ok"):
 )
 def test_bash_mutation_detection_uses_shell_tokens(command, expected):
     assert _bash_likely_mutates({"command": command}) is expected
-
 
 @pytest.mark.parametrize(
     ("command", "output", "expected_reads"),
@@ -629,7 +592,6 @@ def test_only_successful_mutating_bash_resets_read_counter(
 
     assert state.turn.reads_since_last_edit == expected_reads
 
-
 def test_failed_read_does_not_advance_read_without_write_counter():
     state = SessionState(messages=[])
     state.turn.reads_since_last_edit = 5
@@ -643,7 +605,6 @@ def test_failed_read_does_not_advance_read_without_write_counter():
     result.apply_read_write_counter_to(state)
 
     assert state.turn.reads_since_last_edit == 5
-
 
 @pytest.mark.parametrize(
     ("names", "expected_reads"),
@@ -671,7 +632,6 @@ def test_read_write_counter_replays_successful_batch_order(names, expected_reads
 
     assert state.turn.reads_since_last_edit == expected_reads
 
-
 @pytest.mark.parametrize("fail_type", ["tool_start", "tool_end"])
 def test_tool_event_failures_do_not_discard_executed_result(fail_type):
     class FailingPublisher:
@@ -693,7 +653,6 @@ def test_tool_event_failures_do_not_discard_executed_result(fail_type):
     assert result.messages_to_append[0]["content"] == "runtime result"
     assert len(tool.runtime_calls) == 1
 
-
 def test_short_circuit_invalid_json_is_traced():
     tracer = FakeTracer()
     use_case, _ = build_use_case(tracer=tracer)
@@ -705,7 +664,6 @@ def test_short_circuit_invalid_json_is_traced():
     assert step["step_type"] == "tool_error"
     assert step["payload"]["tool"] == "fake_tool"
     assert step["payload"]["error"] == "invalid_json_args"
-
 
 def test_short_circuit_unknown_tool_is_traced():
     tracer = FakeTracer()
@@ -719,7 +677,6 @@ def test_short_circuit_unknown_tool_is_traced():
     assert step["step_type"] == "tool_error"
     assert step["payload"]["tool"] == "missing_tool"
     assert step["payload"]["error"] == "unknown_tool"
-
 
 def test_loop_block_short_circuit_counts_toward_hard_brake():
     state = SessionState(messages=[])

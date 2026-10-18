@@ -79,14 +79,11 @@ CORRECTION = "A response with no tool call ends your turn, not the run."
 VARIANTS, LADDERS = load_registry(S2SC_CARDS)
 NAMES = sorted(VARIANTS)
 
-
 def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
-
 def _team(name: str):
     return load_team_config(path=str(CONFIGS / VARIANTS[name].team_file))
-
 
 def _cards_on_disk(name: str) -> dict[str, str]:
     variant = VARIANTS[name]
@@ -95,25 +92,19 @@ def _cards_on_disk(name: str) -> dict[str, str]:
         cards[peer] = _read(variant.peer_card_path(peer))
     return cards
 
-
 def _topology(name: str) -> str:
     return dict(VARIANTS[name].slots)["TOPOLOGY"]
-
 
 def _topology_text(name: str) -> str:
     return _read(PROMPTS / "topology" / f"{_topology(name)}.md")
 
-
 def _block_text(name: str) -> str:
     return _read(PROMPTS / "blocks" / f"{VARIANTS[name].block}.md")
-
 
 def _cell(block: str, topology: str) -> str:
     return f"s2sc-{block}-{topology}"
 
-
 _EDGE_LINE = re.compile(r"^- the (Analyst|Coder|Tester) can address (.+?)[;.]$")
-
 
 def _edges_stated(text: str) -> set[tuple[str, str]]:
     """The edges a card's topology paragraph says exist, read off its list."""
@@ -128,10 +119,6 @@ def _edges_stated(text: str) -> set[tuple[str, str]]:
             edges.add((source.lower(), target.removeprefix("the ").lower()))
     return edges
 
-
-# --- The seat is Single2 -------------------------------------------------------
-
-
 def test_the_registry_is_two_blocks_over_two_topologies() -> None:
     assert NAMES == sorted(_cell(b, t) for b in BLOCKS for t in TOPOLOGY_EDGES)
     for block in BLOCKS:
@@ -139,12 +126,10 @@ def test_the_registry_is_two_blocks_over_two_topologies() -> None:
             variant = VARIANTS[_cell(block, topology)]
             assert (variant.block, _topology(variant.name)) == (block, topology)
 
-
 @pytest.mark.parametrize("name", NAMES)
 def test_every_seat_declares_the_profile(name: str) -> None:
     profiles = declared_role_profiles(str(CONFIGS / VARIANTS[name].team_file))
     assert profiles == {role: PROFILE for role in ROLES}
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_the_seated_prompt_is_single2s_with_the_card_after_it(name: str) -> None:
@@ -164,7 +149,6 @@ def test_the_seated_prompt_is_single2s_with_the_card_after_it(name: str) -> None
         assert team.roles[role].prompt == cards[role], role
         assert cards[role] in prompt, role
 
-
 @pytest.mark.parametrize("name", NAMES)
 def test_every_card_corrects_what_the_profile_says_about_ending_a_run(name: str) -> None:
     assert PROFILE_SENTENCE in SINGLE2_SYSTEM_PROMPT
@@ -173,22 +157,16 @@ def test_every_card_corrects_what_the_profile_says_about_ending_a_run(name: str)
         assert CORRECTION in cards[role], role
     assert "`submit`" in cards[ENTRY]
 
-
-# --- The treatment: the topology, stated truly --------------------------------
-
-
 @pytest.mark.parametrize("name", NAMES)
 def test_the_scheduler_enforces_the_registered_edges(name: str) -> None:
     team = _team(name)
     walked = {(s, d) for s in ROLES for d in ROLES if s != d and team.topology.allows(s, d)}
     assert walked == TOPOLOGY_EDGES[_topology(name)]
 
-
 def test_the_two_topologies_differ_in_exactly_the_one_edge() -> None:
     bypass, pipeline = TOPOLOGY_EDGES["bypass"], TOPOLOGY_EDGES["pipeline"]
     assert bypass - pipeline == {THE_EDGE}
     assert pipeline - bypass == set()
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_every_card_states_the_topology_the_team_file_declares(name: str) -> None:
@@ -200,13 +178,11 @@ def test_every_card_states_the_topology_the_team_file_declares(name: str) -> Non
     for role, card in _cards_on_disk(name).items():
         assert _edges_stated(card) == declared, role
 
-
 @pytest.mark.parametrize("name", NAMES)
 def test_all_three_cards_carry_the_same_topology_text(name: str) -> None:
     text = _topology_text(name)
     for role, card in _cards_on_disk(name).items():
         assert card.count(text) == 1, role
-
 
 def test_no_card_promises_a_reply_the_topology_may_not_carry() -> None:
     """``s2dual``'s body said any addressee "can send one back to you the same
@@ -215,7 +191,6 @@ def test_no_card_promises_a_reply_the_topology_may_not_carry() -> None:
     for name in NAMES:
         for role, card in _cards_on_disk(name).items():
             assert "can send one back to you" not in card, (name, role)
-
 
 def test_no_analyst_card_asks_for_an_edge_the_topology_lacks() -> None:
     """Neither topology lets the Analyst address the Tester, so a card that told
@@ -226,12 +201,10 @@ def test_no_analyst_card_asks_for_an_edge_the_topology_lacks() -> None:
         assert "send the Tester" not in card, name
         assert "message the Tester" not in card, name
 
-
 def test_each_ladder_is_one_block_over_the_two_topologies_in_order() -> None:
     assert sorted(list(rungs) for rungs in LADDERS.values()) == sorted(
         [_cell(b, "bypass"), _cell(b, "pipeline")] for b in BLOCKS
     )
-
 
 def test_the_topology_ladder_is_one_contiguous_deletion() -> None:
     for ladder, rungs in LADDERS.items():
@@ -245,15 +218,10 @@ def test_the_topology_ladder_is_one_contiguous_deletion() -> None:
             assert len(moves) == 1, f"{ladder}: {upper} -> {lower} is {len(moves)} moves"
             assert moves[0][0] == "delete", f"{ladder}: {upper} -> {lower}"
 
-
-# --- Everything else is held fixed ---------------------------------------------
-
-
 def test_the_judge_block_is_s2dual_judges_byte_for_byte() -> None:
     ours = _read(PROMPTS / "blocks" / "judge.md")
     assert ours == _read(CONFIGS / "s2dual" / "blocks" / "judge.md")
     assert ours == _read(CONFIGS / "handoff-experiment" / "blocks" / "judge.md")
-
 
 def test_the_plain_block_is_cmd_plain_without_its_tester_sentence() -> None:
     """The handoff ladder's plain rung, less the one sentence that asks the
@@ -264,7 +232,6 @@ def test_the_plain_block_is_cmd_plain_without_its_tester_sentence() -> None:
     ours = _read(PROMPTS / "blocks" / "plain.md")
     assert ours == source.replace(TESTER_SENTENCE, "")
     assert "Tester" not in ours
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_every_role_holds_s2dual_judges_bundle(name: str) -> None:
@@ -277,18 +244,15 @@ def test_every_role_holds_s2dual_judges_bundle(name: str) -> None:
         assert tuple(team.roles[role].tools) == TEAM_TOOLS, role
         assert tuple(VARIANTS[name].tools) == TEAM_TOOLS
 
-
 @pytest.mark.parametrize("name", NAMES)
 def test_every_declared_edge_is_walkable(name: str) -> None:
     """``build_scheduler`` refuses a prebuilt team whose edges a seat cannot walk."""
     _reject_unwalkable_edges(_team(name))
 
-
 def test_the_capabilities_pair_states_the_bundle_every_role_holds() -> None:
     text = " ".join(_read(PROMPTS / "capabilities" / "full.md").split())
     assert "each holds the same tools you do" in text
     assert "minus" not in text
-
 
 @pytest.mark.parametrize("block", BLOCKS)
 def test_under_one_block_the_cells_are_the_same_bytes_outside_the_topology(block: str) -> None:
@@ -298,7 +262,6 @@ def test_under_one_block_the_cells_are_the_same_bytes_outside_the_topology(block
     assert ta != tb
     for role in ROLES:
         assert a[role].replace(ta, TOPOLOGY_SLOT) == b[role].replace(tb, TOPOLOGY_SLOT), role
-
 
 @pytest.mark.parametrize("topology", sorted(TOPOLOGY_EDGES))
 def test_over_one_topology_the_cells_differ_only_in_the_analysts_block(topology: str) -> None:
@@ -313,10 +276,6 @@ def test_over_one_topology_the_cells_differ_only_in_the_analysts_block(topology:
     assert bx != by
     assert a[ENTRY].replace(bx, BLOCK_SLOT) == b[ENTRY].replace(by, BLOCK_SLOT)
 
-
-# --- Assembly ------------------------------------------------------------------
-
-
 @pytest.mark.parametrize("name", NAMES)
 def test_every_checked_in_card_is_exactly_what_its_declaration_assembles_to(name: str) -> None:
     variant = VARIANTS[name]
@@ -324,7 +283,6 @@ def test_every_checked_in_card_is_exactly_what_its_declaration_assembles_to(name
     assert cards[ENTRY] == render(variant)
     for peer in S2SC_CARDS.peers:
         assert cards[peer] == render_peer(variant, peer), peer
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_the_analyst_card_is_the_shared_body_outside_its_slots(name: str) -> None:
@@ -339,18 +297,15 @@ def test_the_analyst_card_is_the_shared_body_outside_its_slots(name: str) -> Non
     )
     assert unfilled == shared_body(S2SC_CARDS)
 
-
 @pytest.mark.parametrize("peer", S2SC_CARDS.peers)
 def test_each_peer_card_is_its_template_outside_the_topology(peer: str) -> None:
     for name in NAMES:
         card = _cards_on_disk(name)[peer]
         assert card.replace(_topology_text(name), TOPOLOGY_SLOT) == peer_body(S2SC_CARDS, peer)
 
-
 def test_the_analyst_card_ends_on_the_shared_evidence_rule() -> None:
     for name in NAMES:
         assert _cards_on_disk(name)[ENTRY].endswith("\n" + CLOSING_LINE)
-
 
 def test_no_team_file_loads_a_template_or_a_card_with_a_slot_left_in_it() -> None:
     for name in NAMES:
@@ -361,7 +316,6 @@ def test_no_team_file_loads_a_template_or_a_card_with_a_slot_left_in_it() -> Non
         for template in ("s2sc/shared.md", "s2sc/coder.md", "s2sc/tester.md"):
             assert template not in text, (name, template)
 
-
 def test_every_registered_slot_file_exists_and_is_used() -> None:
     used = {dict(VARIANTS[name].slots)["TOPOLOGY"] for name in NAMES}
     assert used == {p.stem for p in (PROMPTS / "topology").glob("*.md")}
@@ -369,10 +323,6 @@ def test_every_registered_slot_file_exists_and_is_used() -> None:
     assert {VARIANTS[n].capabilities for n in NAMES} == {
         p.stem for p in (PROMPTS / "capabilities").glob("*.md")
     }
-
-
-# --- Team files ------------------------------------------------------------------
-
 
 def _team_file_body(path: Path) -> str:
     """The configuration below the header, with the lines the cells may vary
@@ -383,11 +333,9 @@ def _team_file_body(path: Path) -> str:
     head, _, _ = body.partition("\n# ")
     return head
 
-
 def test_every_team_file_differs_only_in_its_cards_and_its_topology() -> None:
     bodies = {name: _team_file_body(CONFIGS / VARIANTS[name].team_file) for name in NAMES}
     assert len(set(bodies.values())) == 1, bodies
-
 
 def test_this_family_names_its_files_apart() -> None:
     """``team.s2dual-*``, ``team.dual-*`` and ``team.handoff.*`` are globbed and
@@ -397,7 +345,6 @@ def test_this_family_names_its_files_apart() -> None:
         assert name.startswith("s2sc-")
     assert not list(CONFIGS.glob("team.s2dual-s2sc*.yaml"))
     assert not list(CONFIGS.glob("team.handoff.s2sc*.yaml"))
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_every_cell_carries_a_note(name: str) -> None:

@@ -18,7 +18,6 @@ SCHEMA = {"type": "object", "properties": {"result": {"type": "string"}}, "requi
 CHOICE = {"type": "function", "function": {"name": "structured_output"}}
 TOOLS = [{"type": "function", "function": {"name": "structured_output", "parameters": SCHEMA}}]
 
-
 @pytest.mark.parametrize("streamed", [False, True])
 @pytest.mark.parametrize("text", [None, '{"result":', '{"result":"ok"}'])
 async def test_schema_limit_preserves_reported_usage_and_skips_projection(streamed, text):
@@ -52,7 +51,6 @@ async def test_schema_limit_preserves_reported_usage_and_skips_projection(stream
     assert response.content == text
     assert response.tool_calls == []
     assert response.provider_items == items
-
 
 async def test_real_sdk_schema_limit_stops_session_and_keeps_billed_usage(monkeypatch, tmp_path):
     requests = []

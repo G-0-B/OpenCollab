@@ -26,8 +26,7 @@ from tests.support.session_characterization_test_support import (
 
 
 def test_save_and_load_round_trip_restores_stopped_phase_and_reason(tmp_path):
-    # The single graceful-stop terminal round-trips carrying its reason string;
-    # the *why* lives in terminal_reason, not in a per-terminal phase member.
+    # The stop reason survives the terminal-state round trip.
     agent = FakeAgent()
     session = Session(agent=agent, llm=FakeLLMClient())
     session.state.set_phase(SessionPhase.STOPPED)
@@ -45,10 +44,7 @@ def test_save_and_load_round_trip_restores_stopped_phase_and_reason(tmp_path):
     ["cancelled", "budget_exceeded", "step_limit_exceeded", "context_overflow"],
 )
 def test_restore_migrates_legacy_terminal_phase_string_to_stopped(tmp_path, legacy_phase):
-    # Snapshots written before the Lane S1 terminal collapse carry the old
-    # per-terminal phase strings. restore() migrates each to STOPPED (keeping its
-    # terminal_reason) instead of silently degrading to IDLE via the unknown-value
-    # fallback — the disposition survives the format change.
+    # Legacy terminal phases migrate to STOPPED while preserving terminal_reason.
     agent = FakeAgent()
     session = Session(agent=agent, llm=FakeLLMClient())
     session.state.set_phase(SessionPhase.STOPPED)
@@ -66,8 +62,7 @@ def test_restore_migrates_legacy_terminal_phase_string_to_stopped(tmp_path, lega
 
 @pytest.mark.parametrize("phase_string", ["a_phase_that_no_longer_exists", "scheduled"])
 def test_restore_of_unknown_or_retired_phase_string_falls_back_to_idle(tmp_path, phase_string):
-    # A genuinely unknown phase string, and the retired pure-transitional
-    # 'scheduled', both restore to IDLE (re-runnable) rather than a terminal.
+    # Unknown and retired transitional phases restore to the runnable IDLE state.
     agent = FakeAgent()
     session = Session(agent=agent, llm=FakeLLMClient())
     session.state.set_phase(SessionPhase.STOPPED)
@@ -82,7 +77,6 @@ def test_restore_of_unknown_or_retired_phase_string_falls_back_to_idle(tmp_path,
     loaded = load_session(str(path), agent=agent, llm=FakeLLMClient())
     assert loaded.state.phase is SessionPhase.IDLE
     assert loaded.state.terminal_reason is None
-
 
 @pytest.mark.parametrize("phase_string", ["idle", "calling_llm"])
 def test_restore_clears_terminal_reason_from_nonterminal_phase(
@@ -104,7 +98,6 @@ def test_restore_clears_terminal_reason_from_nonterminal_phase(
     assert loaded.state.phase is SessionPhase.IDLE
     assert loaded.state.terminal_reason is None
 
-
 def test_restore_rebinds_default_session_event_factories_to_snapshot_aid(
     tmp_path,
 ):
@@ -122,7 +115,6 @@ def test_restore_rebinds_default_session_event_factories_to_snapshot_aid(
     ]
     assert restored.state.aid == 7
     assert [event.data["aid"] for event in events] == [7, 7, 7]
-
 
 @pytest.mark.parametrize("operation", ["restore", "save"])
 def test_apply_launch_can_retry_after_persistence_failure(
@@ -155,7 +147,6 @@ def test_apply_launch_can_retry_after_persistence_failure(
 
     assert calls == 2
 
-
 def test_apply_launch_rejects_conflicting_spec_after_success(tmp_path, monkeypatch):
     session = Session(agent=FakeAgent(), llm=FakeLLMClient())
     monkeypatch.setattr(session, "save", lambda _path: None)
@@ -165,7 +156,6 @@ def test_apply_launch_rejects_conflicting_spec_after_success(tmp_path, monkeypat
         session.apply_launch(
             LaunchSpec(auto_save_path=str(tmp_path / "second.json"))
         )
-
 
 def test_restore_duplicate_pending_row_is_fully_transactional_and_retryable(
     tmp_path,
@@ -236,7 +226,6 @@ def test_restore_duplicate_pending_row_is_fully_transactional_and_retryable(
     assert target.state.step_count == 4
     assert set(target.state.pending_events.rows) == {"duplicate-row"}
 
-
 def test_restore_pairs_reused_tool_call_ids_in_transcript_order(tmp_path):
     agent = FakeAgent()
     session = Session(agent=agent, llm=FakeLLMClient())
@@ -300,7 +289,6 @@ def test_restore_converts_orphaned_deferred_child_to_failed_tool_result(tmp_path
     assert "interrupted by session restore" in (row.result or "")
     assert loaded.state.pending_events.is_complete()
 
-
 def test_restore_awaiting_turn_never_returns_previous_turn_answer(tmp_path):
     """A restored suspended turn must not scan back before its own boundary."""
     agent = FakeAgent()
@@ -344,7 +332,6 @@ def test_restore_awaiting_turn_never_returns_previous_turn_answer(tmp_path):
     assert restored.state.phase is SessionPhase.AWAITING_EVENTS
     assert restored.state.active_turn_start_message_index == 4
     assert run(restored.run_loop()) == ""
-
 
 def test_scheduler_init_preserves_and_drains_restored_awaiting_phase(tmp_path):
     from opencollab.application.scheduler import LaunchSpec, Scheduler
@@ -437,7 +424,6 @@ def test_scheduler_init_preserves_and_drains_restored_awaiting_phase(tmp_path):
     assert any(m.get("role") == "tool" for m in llm.calls[0]["messages"])
     assert llm.calls[1]["messages"][-1]["content"].startswith(queued_xml)
     assert llm.calls[2]["messages"][-1]["content"].startswith("new question")
-
 
 def test_scheduler_restores_queued_external_turn_before_accepting_new_turn(tmp_path):
     """A crash after autosave but before a driver starts must not merge turns."""
@@ -609,7 +595,6 @@ def test_session_accepts_explicit_store():
     assert fake_store.load_calls == [("fake-session.jsonl", agent.system_prompt)]
     assert loaded.messages == fake_store.loaded_messages
 
-
 def test_legacy_restore_resets_runtime_state_on_an_existing_session():
     class LegacyStore:
         def load_messages(self, _path, _system_prompt):
@@ -657,7 +642,6 @@ def test_legacy_restore_resets_runtime_state_on_an_existing_session():
     assert session.state.pending_user_messages == []
     assert session.state.pending_events.is_empty()
 
-
 def test_session_store_preserves_messages_only_jsonl_semantics(tmp_path):
     store = SessionStore()
     path = tmp_path / "stored.jsonl"
@@ -670,7 +654,6 @@ def test_session_store_preserves_messages_only_jsonl_semantics(tmp_path):
     store.save(str(path), messages)
 
     assert store.load_messages(str(path), "fallback") == messages
-
 
 @pytest.mark.asyncio
 async def test_manual_save_after_default_restore_supersedes_old_journal(tmp_path):

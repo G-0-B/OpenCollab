@@ -14,12 +14,10 @@ from opencollab.application.tool_execution import ToolRuntime
 def run(coro):
     return asyncio.run(coro)
 
-
 def _runtime(workspace):
     env = LocalEnvironment(str(workspace))
     sandbox = SandboxInterceptor(str(workspace))
     return ToolRuntime(environment=env, safety_policy=sandbox, permission_policy=None)
-
 
 def test_apply_patch_requires_environment():
     runtime = ToolRuntime(environment=None, safety_policy=None, permission_policy=None)
@@ -39,10 +37,8 @@ def test_apply_patch_requires_environment():
 
     assert result == "Error: no execution environment available."
 
-
 def test_apply_patch_explains_which_tool_has_str_replace_mode():
     assert "str_replace is a mode of the `file_write` tool" in ApplyPatchTool.description
-
 
 def test_apply_patch_unknown_mode_points_to_file_write(tmp_path):
     target = tmp_path / "f.py"
@@ -56,7 +52,6 @@ def test_apply_patch_unknown_mode_points_to_file_write(tmp_path):
 
     assert "file_write" in result
     assert target.read_text(encoding="utf-8") == "a\n"
-
 
 def test_line_replace_applies_range_and_stale_guard_keeps_file_unchanged(tmp_path):
     ws = tmp_path / "ws"
@@ -99,7 +94,6 @@ def test_line_replace_applies_range_and_stale_guard_keeps_file_unchanged(tmp_pat
     assert "expected_str does not match" in result
     assert target.read_text(encoding="utf-8") == "a\nX\nY\nd\n"
 
-
 def test_line_replace_guard_accepts_a_range_that_ends_in_a_blank_line(tmp_path):
     """A model quoting lines 1-3 of ``a / b / <blank>`` writes ``"a\\nb\\n\\n"``;
     the guard must read that as three lines, not strip the blank line away."""
@@ -125,7 +119,6 @@ def test_line_replace_guard_accepts_a_range_that_ends_in_a_blank_line(tmp_path):
 
     assert "Applied line_replace" in result
     assert target.read_text(encoding="utf-8") == "X\nc\n"
-
 
 @pytest.mark.parametrize(
     ("source", "end_line", "expected_str", "updated"),
@@ -160,7 +153,6 @@ def test_line_replace_guard_accepts_exact_range_with_optional_line_terminator(
     assert "Applied line_replace" in result
     assert target.read_text(encoding="utf-8") == updated
 
-
 @pytest.mark.parametrize(
     ("source", "end_line", "expected_str"),
     [
@@ -192,7 +184,6 @@ def test_line_replace_guard_rejects_missing_or_extra_blank_lines(tmp_path, sourc
     assert "expected_str does not match" in result
     assert target.read_text(encoding="utf-8") == source
 
-
 def test_unified_diff_matches_by_content_despite_line_drift(tmp_path):
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -216,7 +207,6 @@ def test_unified_diff_matches_by_content_despite_line_drift(tmp_path):
     assert "Applied unified_diff" in result
     assert target.read_text(encoding="utf-8") == "extra0\nextra1\nlineA\nlineB_fixed\nlineC\n"
 
-
 def test_fuzzy_block_search_uses_constant_auxiliary_memory():
     # Roughly 4 MiB of repeated source text. Every position matches, so the old
     # collect-and-sort implementation allocated hundreds of thousands of ints.
@@ -236,13 +226,11 @@ def test_fuzzy_block_search_uses_constant_auxiliary_memory():
     assert position == 175_000
     assert peak_bytes < 1_000_000
 
-
 def test_fuzzy_block_search_preserves_nearest_then_earliest_tie_break():
     source = ["x", "target", "x", "target", "x"]
 
     assert _find_block(source, ["target"], expected_idx=2, min_idx=0) == 1
     assert _find_block(source, ["target"], expected_idx=3, min_idx=0) == 3
-
 
 def test_unified_diff_failed_hunk_writes_nothing(tmp_path):
     ws = tmp_path / "ws"
@@ -270,7 +258,6 @@ def test_unified_diff_failed_hunk_writes_nothing(tmp_path):
 
     assert "hunk #2" in result
     assert target.read_text(encoding="utf-8") == original
-
 
 @pytest.mark.parametrize(
     "params",
@@ -301,7 +288,6 @@ def test_apply_patch_rejects_successful_noop_without_writing(tmp_path, params):
     assert "no changes" in result
     assert target.read_text(encoding="utf-8") == "a\nb\n"
 
-
 def test_unified_diff_treats_header_like_hunk_content_as_content(tmp_path):
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -321,7 +307,6 @@ def test_unified_diff_treats_header_like_hunk_content_as_content(tmp_path):
 
     assert "Applied unified_diff" in result
     assert target.read_text(encoding="utf-8") == "++value\n"
-
 
 def test_unified_diff_rejects_malformed_hunk_without_writing(tmp_path):
     ws = tmp_path / "ws"
@@ -343,7 +328,6 @@ def test_unified_diff_rejects_malformed_hunk_without_writing(tmp_path):
 
     assert "declares 3 old lines" in result
     assert target.read_text(encoding="utf-8") == original
-
 
 @pytest.mark.parametrize(
     ("header", "expected"),
@@ -372,7 +356,6 @@ def test_unified_diff_pure_insertions_use_header_position(tmp_path, header, expe
 
     assert "Applied unified_diff" in result
     assert target.read_text(encoding="utf-8") == expected
-
 
 @pytest.mark.parametrize(
     ("source", "patch", "expected"),
@@ -404,7 +387,6 @@ def test_unified_diff_applies_eof_newline_metadata(tmp_path, source, patch, expe
 
     assert "Applied unified_diff" in result
     assert target.read_text(encoding="utf-8") == expected
-
 
 @pytest.mark.parametrize(
     ("tool", "params"),
@@ -451,7 +433,6 @@ def test_edit_modes_match_logical_lines_and_preserve_crlf(tmp_path, tool, params
     assert not result.startswith("Error:")
     assert target.read_bytes() == b"alpha\r\nchanged\r\nomega\r\n"
 
-
 def test_line_edit_rejects_mixed_newlines_without_rewriting_file(tmp_path):
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -474,7 +455,6 @@ def test_line_edit_rejects_mixed_newlines_without_rewriting_file(tmp_path):
 
     assert "mixed newline styles" in result
     assert target.read_bytes() == original
-
 
 def test_apply_patch_reports_file_and_workspace_errors(tmp_path):
     ws = tmp_path / "ws"
@@ -511,7 +491,6 @@ def test_apply_patch_reports_file_and_workspace_errors(tmp_path):
     assert missing.startswith("Error: file not found:")
     assert missing.endswith("missing.py")
 
-
 def test_str_replace_identical_old_and_new_is_explicit_noop_error(tmp_path):
     ws = tmp_path / "ws"
     ws.mkdir()
@@ -532,9 +511,7 @@ def test_str_replace_identical_old_and_new_is_explicit_noop_error(tmp_path):
 
     assert "no-op" in result
     assert result.startswith("Error:")
-    # File untouched.
     assert target.read_text(encoding="utf-8") == "hello world\n"
-
 
 def test_str_replace_success_reports_content_changed(tmp_path):
     ws = tmp_path / "ws"
@@ -556,7 +533,6 @@ def test_str_replace_success_reports_content_changed(tmp_path):
 
     assert "content changed" in result
     assert target.read_text(encoding="utf-8") == "hello there\n"
-
 
 @pytest.mark.parametrize(
     ("tool", "params"),
@@ -591,7 +567,6 @@ def test_non_utf8_edit_attempt_is_explicit_and_preserves_bytes(tmp_path, tool, p
 
     assert result == "Error: refusing to edit non-UTF-8 file: invalid UTF-8 at byte 13."
     assert target.read_bytes() == original
-
 
 def test_str_replace_preserves_legal_utf8_with_cjk(tmp_path):
     ws = tmp_path / "ws"

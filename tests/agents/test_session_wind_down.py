@@ -73,16 +73,10 @@ def test_configure_enforcement_validates_runtime_knobs():
             enforcement_strength=ENFORCEMENT_ON, commit_reserve=101
         )
 
-
-# --------------------------------------------------------------------------- #
-# T1 — REFERENCE INVARIANT: off == today, never winds down.
-# --------------------------------------------------------------------------- #
-
-
 def test_t1_off_budget_exhausted_is_byte_for_byte_today():
     events, bus = collect_events()
     state = SessionState(messages=[{"role": "system", "content": "sys"}], used_tokens=10)
-    llm = FakeLLM()  # any LLM call would raise
+    llm = FakeLLM()
     runner = build_runner(
         state=state,
         agent=_agent_with_submit(),
@@ -96,7 +90,7 @@ def test_t1_off_budget_exhausted_is_byte_for_byte_today():
     result = run(runner.run_loop())
 
     assert result == ""
-    assert llm.calls == []  # no extra wind-down turn
+    assert llm.calls == []
     assert state.phase is SessionPhase.STOPPED
     assert state.terminal_reason == "budget exceeded: 10 tokens used"
     assert state.messages[-1] == {
@@ -104,13 +98,10 @@ def test_t1_off_budget_exhausted_is_byte_for_byte_today():
         "content": "[Budget exceeded: 10 tokens used. Session stopped.]",
     }
     assert events == [("error", {"reason": "budget exceeded: 10 tokens used", "aid": -1})]
-    # Wind-down state never touched, and tools never swapped.
     assert state.wind_down_done is False
     assert [t.name for t in runner.agent.tools] == ["file_read", SUBMIT_TOOL_NAME]
 
-
 def test_t1_default_enforcement_is_off():
-    # No enforcement_strength passed at all -> defaults to off, no wind-down.
     state = SessionState(messages=[{"role": "system", "content": "sys"}], used_tokens=10)
     llm = FakeLLM()
     runner = build_runner(state=state, agent=_agent_with_submit(), llm=llm, max_budget_tokens=10)
@@ -120,7 +111,6 @@ def test_t1_default_enforcement_is_off():
     assert state.phase is SessionPhase.STOPPED
     assert state.wind_down_done is False
     assert llm.calls == []
-
 
 @pytest.mark.parametrize(
     ("used_tokens", "team_budget_exhausted", "reason"),
@@ -166,7 +156,6 @@ def test_hard_budget_preempts_new_turn_wind_down(
     assert state.terminal_reason == reason
     assert state.wind_down_done is False
 
-
 def test_budget_wind_down_is_not_regranted_on_a_new_user_turn():
     state = SessionState(
         messages=[{"role": "user", "content": "first"}],
@@ -196,14 +185,7 @@ def test_budget_wind_down_is_not_regranted_on_a_new_user_turn():
     assert state.phase is SessionPhase.STOPPED
     assert state.terminal_reason == "budget reserve exhausted: protected commit turn already used"
 
-
-# --------------------------------------------------------------------------- #
-# T2 — WIND-DOWN BEHAVIOR.
-# --------------------------------------------------------------------------- #
-
-
 _FORCED_SUBMIT_CHOICE = {"type": "function", "function": {"name": SUBMIT_TOOL_NAME}}
-
 
 def test_t2_winddown_forces_tool_choice_and_commits_in_one_turn():
     # Provider HONORS the forced tool_choice: the single protected turn calls
@@ -228,19 +210,14 @@ def test_t2_winddown_forces_tool_choice_and_commits_in_one_turn():
 
     run(runner.run_loop(capture_done))
 
-    # Wind-down fired: flag + token mark; toolset narrowed to submit-only.
     assert state.wind_down_done is True
     assert state.wind_down_token_mark == 80_000
     assert [t.name for t in agent.tools] == [SUBMIT_TOOL_NAME]
-    # FIX #1: tool_choice was FORCED to the submit_findings function (both on the
-    # agent and on the wire), not "auto"/"required".
     assert agent.tool_choice == _FORCED_SUBMIT_CHOICE
     assert llm.calls[0]["tool_choice"] == _FORCED_SUBMIT_CHOICE
-    # Committed on the first forced turn -> exactly one model call, no retry.
     assert len(llm.calls) == 1
     assert submit.captured is not None
     assert state.phase.is_terminal()
-
 
 def test_budget_wind_down_persists_allocation_before_provider_call():
     events, bus = collect_events()
@@ -263,11 +240,8 @@ def test_budget_wind_down_persists_allocation_before_provider_call():
     assert state.budget_reserve_consumed is True
     assert any(event_type == "budget_reserve_allocated" for event_type, _ in events)
 
-
 def test_t2_winddown_retries_once_on_wrong_tool_then_commits_forced():
-    # Provider IGNORES the forced tool_choice (DashScope 400->auto): turn 1 calls a
-    # now-unknown tool. FIX #2: one retry is issued (not terminated), and on the
-    # retry the model calls submit_findings -> captured -> terminus "forced".
+    # The provider ignores the forced choice once, then submits on the sole retry.
     capture_done = asyncio.Event()
     submit = SubmitFindingsTool(on_capture=capture_done.set)
     agent = Agent(name="scout", system_prompt="s", tools=[_ReadStub(), submit])
@@ -293,17 +267,13 @@ def test_t2_winddown_retries_once_on_wrong_tool_then_commits_forced():
 
     run(runner.run_loop(capture_done))
 
-    # Forced turn + exactly ONE retry.
     assert len(llm.calls) == 2
-    # The retry re-stated submit-only availability.
     assert any(
         m["role"] == "system" and "Only submit_findings is available" in (m.get("content") or "")
         for m in state.messages
     )
-    # Both turns kept tool_choice forced to submit_findings.
     assert llm.calls[0]["tool_choice"] == _FORCED_SUBMIT_CHOICE
     assert llm.calls[1]["tool_choice"] == _FORCED_SUBMIT_CHOICE
-    # FIX #3: terminus reaches "forced" because submit_findings actually fired.
     assert submit.captured is not None
     payload = commitment_terminus_payload(
         role="scout:0", captured=submit.captured, wind_down_done=state.wind_down_done,
@@ -312,11 +282,8 @@ def test_t2_winddown_retries_once_on_wrong_tool_then_commits_forced():
     )
     assert payload["terminus"] == "forced"
 
-
 def test_t2_winddown_retry_capped_at_one_then_terminal_strayed():
-    # Both the forced turn AND the single retry call a wrong tool -> the loop goes
-    # terminal (capped at one retry, no loop). FakeLLM has exactly 2 responses, so a
-    # 3rd model call would raise — the cap is enforced by construction.
+    # Both scripted responses ignore the forced choice, and a third call would exhaust FakeLLM.
     submit = SubmitFindingsTool()
     agent = Agent(name="scout", system_prompt="s", tools=[_ReadStub(), submit])
     state = SessionState(messages=[{"role": "user", "content": "x"}], used_tokens=80_000)
@@ -338,7 +305,7 @@ def test_t2_winddown_retry_capped_at_one_then_terminal_strayed():
 
     run(runner.run_loop())
 
-    assert len(llm.calls) == 2  # capped: forced + 1 retry, NO third turn
+    assert len(llm.calls) == 2
     assert state.phase is SessionPhase.STOPPED
     assert submit.captured is None
     payload = commitment_terminus_payload(
@@ -347,7 +314,6 @@ def test_t2_winddown_retry_capped_at_one_then_terminal_strayed():
         wind_down_token_mark=state.wind_down_token_mark, artifact="",
     )
     assert payload["terminus"] == "strayed"
-
 
 def test_restored_wind_down_does_not_regrant_an_already_allocated_retry(tmp_path):
     session = Session(agent=_agent_with_submit(), llm=FakeLLM())
@@ -370,7 +336,6 @@ def test_restored_wind_down_does_not_regrant_an_already_allocated_retry(tmp_path
     assert restored.state.wind_down_attempts == 2
     assert restored_llm.calls == []
     assert restored.state.phase is SessionPhase.STOPPED
-
 
 def test_legacy_wind_down_snapshot_without_attempts_stops_conservatively(tmp_path):
     session = Session(agent=_agent_with_submit(), llm=FakeLLM())
@@ -395,11 +360,8 @@ def test_legacy_wind_down_snapshot_without_attempts_stops_conservatively(tmp_pat
     assert restored.state.budget_reserve_consumed is True
     assert restored_llm.calls == []
 
-
 def test_t2_winddown_not_entered_while_a_tool_result_is_pending():
-    # Red-team gate: never force-commit while a tool call's result has not been
-    # ingested. With a pending row in the table the threshold-crossed precheck must
-    # NOT wind down; it falls through to the normal (budget) path instead.
+    # A pending tool result delays wind-down even after the budget threshold is crossed.
     from opencollab.domain.pending import PendingRow, RowKind, RowStatus
 
     state = SessionState(messages=[{"role": "user", "content": "x"}], used_tokens=80_000)
@@ -420,15 +382,8 @@ def test_t2_winddown_not_entered_while_a_tool_result_is_pending():
 
     run(runner.run_loop())
 
-    # No wind-down: tools untouched, no system wind-down message injected.
     assert state.wind_down_done is False
     assert [t.name for t in agent.tools] == ["file_read", SUBMIT_TOOL_NAME]
-
-
-# --------------------------------------------------------------------------- #
-# T2 (harvest backstop) — captured payload -> report; chop -> "(partial …)".
-# --------------------------------------------------------------------------- #
-
 
 def _captured(insufficient=False, findings=None):
     return {
@@ -447,14 +402,12 @@ def _captured(insufficient=False, findings=None):
         "insufficient_evidence": insufficient,
     }
 
-
 def test_harvest_uses_captured_payload_as_report():
     report = harvest_findings(_captured(), fallback_text="", messages=[])
     assert "root cause located" in report
     assert "fs.py:42" in report
     assert "off-by-one" in report
     assert "scout died" not in report
-
 
 def test_harvest_chop_before_submit_yields_partial_not_scout_died():
     messages = [
@@ -470,7 +423,6 @@ def test_harvest_chop_before_submit_yields_partial_not_scout_died():
     assert "fs.py:42" in report
     assert "scout died" not in report
 
-
 def test_harvest_bounds_large_raw_transcript_and_reports_omissions():
     messages = [
         {"role": "tool", "tool_call_id": f"call-{index}", "content": f"{index}:" + "x" * 500}
@@ -481,30 +433,19 @@ def test_harvest_bounds_large_raw_transcript_and_reports_omissions():
     assert "omitted" in report
     assert "9999:" in report
 
-
 def test_harvest_falls_back_to_text_when_no_capture():
     report = harvest_findings(None, fallback_text="here is my prose report", messages=[])
     assert report == "here is my prose report"
 
-
 def test_harvest_truly_empty_returns_empty_string():
-    # Nothing captured, no text, no tool results -> "" so the caller's own
-    # fallback decides; harvest itself never fabricates.
+    # An empty harvest leaves fallback selection to the caller.
     assert harvest_findings(None, fallback_text="", messages=[]) == ""
-
-
-# --------------------------------------------------------------------------- #
-# submit_findings tool — cite-or-abstain post-validation.
-# --------------------------------------------------------------------------- #
-
 
 class _Runtime:
     pass
 
-
 def _exec(tool, params):
     return run(tool.execute_with_runtime(params, _Runtime()))
-
 
 def test_submit_findings_captures_valid_cited_payload():
     captured_flag = {"hit": False}
@@ -514,23 +455,20 @@ def test_submit_findings_captures_valid_cited_payload():
     assert tool.captured is not None
     assert captured_flag["hit"] is True
 
-
 def test_submit_findings_rejects_verified_without_anchor():
     tool = SubmitFindingsTool()
     bad = _captured(
         findings=[{"aspect": "a", "claim": "c", "evidence_anchor": "", "verified": True, "confidence": "low"}]
     )
     out = _exec(tool, bad)
-    assert tool.captured is None  # not captured
+    assert tool.captured is None
     assert "cite" in out.lower() or "evidence_anchor" in out.lower()
-
 
 def test_submit_findings_accepts_insufficient_evidence_abstention():
     tool = SubmitFindingsTool()
     out = _exec(tool, _captured(insufficient=True, findings=[]))
-    assert tool.captured is not None  # abstaining is a valid, non-penalized outcome
+    assert tool.captured is not None
     assert "accepted" in out.lower()
-
 
 def test_submit_findings_rejects_empty_non_abstaining_report():
     captured_flag = {"hit": False}
@@ -544,7 +482,6 @@ def test_submit_findings_rejects_empty_non_abstaining_report():
     assert captured_flag["hit"] is False
     assert "at least one finding" in out.lower()
 
-
 def test_submit_findings_requires_explanation_when_abstaining():
     tool = SubmitFindingsTool()
     out = _exec(
@@ -553,7 +490,6 @@ def test_submit_findings_requires_explanation_when_abstaining():
     )
     assert tool.captured is None
     assert "explain" in out.lower()
-
 
 def test_submit_findings_abstention_cannot_bypass_verified_anchor():
     tool = SubmitFindingsTool()
@@ -575,25 +511,12 @@ def test_submit_findings_abstention_cannot_bypass_verified_anchor():
     assert tool.captured is None
     assert "evidence_anchor" in out
 
-
-# --------------------------------------------------------------------------- #
-# commitment-terminus metric payload shape.
-# --------------------------------------------------------------------------- #
-
-
-# --------------------------------------------------------------------------- #
-# Workflow-level wiring: WorkflowContext.agent enforcement path (harvest + metric)
-# and the off-parity guard.
-# --------------------------------------------------------------------------- #
-
-
 class _FakeTracer:
     def __init__(self):
         self.steps = []
 
     def log_step(self, step_type, payload, tokens=0, latency=0.0):
         self.steps.append({"step_type": step_type, "payload": copy.deepcopy(payload)})
-
 
 class _FakeRunner:
     def __init__(self):
@@ -602,14 +525,12 @@ class _FakeRunner:
     def configure_enforcement(self, *, enforcement_strength, commit_reserve):
         self.configured = (enforcement_strength, commit_reserve)
 
-
 class _FakeState:
     def __init__(self, used_tokens=0):
         self.used_tokens = used_tokens
         self.wind_down_done = False
         self.wind_down_token_mark = 0
         self.messages = []
-
 
 class _EnforcedFakeSession:
     """A scripted session that simulates a scout calling submit_findings: when
@@ -631,7 +552,6 @@ class _EnforcedFakeSession:
             self.submit_tool.captured = self._capture
         return self.reply
 
-
 class _EnforcedFakeFactory:
     def __init__(self, session):
         self.session = session
@@ -645,12 +565,10 @@ class _EnforcedFakeFactory:
                 self.session.submit_tool = tool
         return self.session
 
-
 def _ctx_with(factory, tracer):
     from opencollab.application.workflow import WorkflowContext
 
     return WorkflowContext(factory, tracer=tracer, budget_total=None)
-
 
 def test_enforced_agent_injects_submit_configures_runner_harvests_and_emits_metric():
     tracer = _FakeTracer()
@@ -668,15 +586,10 @@ def test_enforced_agent_injects_submit_configures_runner_harvests_and_emits_metr
         )
     )
 
-    # Harvested from the captured submit_findings payload (not the empty reply).
     assert "root cause located" in result
     assert "fs.py:42" in result
-    # submit_findings was injected alongside the read tools.
     assert any(getattr(t, "name", None) == SUBMIT_TOOL_NAME for t in factory.builds[0]["tools"])
-    # The runner's brake was armed with the requested strength + reserve.
     assert session.runner.configured == (ENFORCEMENT_ON, 25_000)
-    # Exactly one commitment_terminus metric, classified voluntary (committed before
-    # any wind-down), with the right anchor count.
     metrics = [s for s in tracer.steps if s["step_type"] == "commitment_terminus"]
     assert len(metrics) == 1
     payload = metrics[0]["payload"]
@@ -684,7 +597,6 @@ def test_enforced_agent_injects_submit_configures_runner_harvests_and_emits_metr
     assert payload["role"] == "scout:0:bug-origin"
     assert payload["evidence_anchor_count"] == 1
     assert payload["artifact_nonempty"] is True
-
 
 def test_commitment_trace_failure_does_not_overturn_harvested_result():
     class ThrowingTracer:
@@ -704,14 +616,11 @@ def test_commitment_trace_failure_does_not_overturn_harvested_result():
     )
 
     assert "root cause located" in result
-    # Both of this path's observational records failed against the dead sink —
-    # the one naming the agent that started and the one naming how it wound
-    # down — and neither took the harvested result with it.
+    # Both metric writes fail against the sink while the harvested result must survive.
     assert ctx.trace_failures == (
         {"step_type": "workflow_agent_started", "exception_type": "OSError"},
         {"step_type": "commitment_terminus", "exception_type": "OSError"},
     )
-
 
 def test_off_default_does_not_inject_submit_or_emit_metric():
     tracer = _FakeTracer()
@@ -719,10 +628,9 @@ def test_off_default_does_not_inject_submit_or_emit_metric():
     factory = _EnforcedFakeFactory(session)
     ctx = _ctx_with(factory, tracer)
 
-    # No enforcement_strength passed -> off -> unchanged _run_agent path.
     result = run(ctx.agent("scout the bug", tools=[_ReadStub()], label="scout:0"))
 
     assert result == "plain text report"
     assert all(getattr(t, "name", None) != SUBMIT_TOOL_NAME for t in factory.builds[0]["tools"])
-    assert session.runner.configured is None  # runner never armed
+    assert session.runner.configured is None
     assert [s for s in tracer.steps if s["step_type"] == "commitment_terminus"] == []

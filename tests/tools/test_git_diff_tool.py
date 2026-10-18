@@ -11,10 +11,8 @@ from opencollab.application.tool_execution import ToolRuntime
 def run(coro):
     return asyncio.run(coro)
 
-
 def _git(repo, *args):
     subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
-
 
 @pytest.fixture
 def repo(tmp_path):
@@ -29,10 +27,8 @@ def repo(tmp_path):
     (repo / "app.py").write_text("def f():\n    return 2\n", encoding="utf-8")
     return repo
 
-
 def _runtime(path):
     return ToolRuntime(environment=LocalEnvironment(str(path)), safety_policy=None, permission_policy=None)
-
 
 def test_git_diff_shows_status_and_working_tree_patch(repo):
     result = run(GitDiffTool().execute_with_runtime({}, _runtime(repo)))
@@ -42,7 +38,6 @@ def test_git_diff_shows_status_and_working_tree_patch(repo):
     assert "-    return 1" in result
     assert "+    return 2" in result
 
-
 def test_git_diff_stat_only_summarizes_without_raw_patch(repo):
     result = run(GitDiffTool().execute_with_runtime({"stat_only": True}, _runtime(repo)))
 
@@ -50,7 +45,6 @@ def test_git_diff_stat_only_summarizes_without_raw_patch(repo):
     assert "app.py" in result
     assert "1 file changed" in result
     assert "-    return 1" not in result
-
 
 def test_git_diff_stat_only_uses_same_head_baseline_for_staged_changes(repo):
     _git(repo, "add", "app.py")
@@ -60,7 +54,6 @@ def test_git_diff_stat_only_uses_same_head_baseline_for_staged_changes(repo):
     assert "diff --stat:" in result
     assert "app.py" in result
     assert "1 file changed" in result
-
 
 def test_git_diff_path_filter_can_skip_status(repo):
     (repo / "other.py").write_text("x = 1\n", encoding="utf-8")
@@ -75,7 +68,6 @@ def test_git_diff_path_filter_can_skip_status(repo):
     assert "Status" not in result
     assert "app.py" in result
     assert "other.py" not in result.split("diff vs HEAD:")[1]
-
 
 @pytest.mark.parametrize("stat_only", [False, True])
 def test_git_diff_includes_untracked_files_in_default_change_set(repo, stat_only):
@@ -94,7 +86,6 @@ def test_git_diff_includes_untracked_files_in_default_change_set(repo, stat_only
         assert "1 insertion" in result
     else:
         assert "+new_value = 3" in result
-
 
 @pytest.mark.parametrize("stat_only", [False, True])
 def test_git_diff_supports_unborn_repository_with_staged_file(tmp_path, stat_only):
@@ -118,7 +109,6 @@ def test_git_diff_supports_unborn_repository_with_staged_file(tmp_path, stat_onl
     else:
         assert "+value = 1" in result
 
-
 def test_git_diff_reports_environment_errors(tmp_path):
     no_env = run(
         GitDiffTool().execute_with_runtime(
@@ -132,7 +122,6 @@ def test_git_diff_reports_environment_errors(tmp_path):
 
     assert no_env == "Error: no execution environment available."
     assert non_git == "Error: not a git repository."
-
 
 @pytest.mark.parametrize("stat_only", [False, True])
 def test_non_git_environment_reports_observed_filesystem_diff(stat_only):

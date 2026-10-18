@@ -21,7 +21,6 @@ def record(error):
     context._record_agent_failure("solver", error)
     return context.agent_failures[0]
 
-
 def wrapped_storage_failure():
     try:
         raise OSError(errno.ENOSPC, "private storage message", "/private/caller-token")
@@ -30,7 +29,6 @@ def wrapped_storage_failure():
             raise RuntimeError("private wrapped message") from storage
         except RuntimeError as wrapped:
             return wrapped
-
 
 @pytest.mark.asyncio
 async def test_role_preserves_wrapped_storage_errno_without_sensitive_text():
@@ -48,7 +46,6 @@ async def test_role_preserves_wrapped_storage_errno_without_sensitive_text():
     ]
     assert "private" not in json.dumps(failure)
 
-
 def test_implicit_context_and_exception_group_branches_are_preserved():
     group_type = getattr(builtins, "ExceptionGroup", None)
     if group_type is None:
@@ -59,13 +56,11 @@ def test_implicit_context_and_exception_group_branches_are_preserved():
     assert [item["type"] for item in chain] == ["RuntimeError", "ExceptionGroup", "ValueError", "OSError"]
     assert chain[-1]["errno"] == errno.EDQUOT
 
-
 def test_explicit_cause_excludes_suppressed_unrelated_context():
     error = RuntimeError("outer")
     error.__context__ = OSError(errno.ENOSPC, "unrelated handled exception")
     error.__cause__ = ValueError("explicit cause")
     assert [item["type"] for item in record(error)["exception_chain"]] == ["RuntimeError", "ValueError"]
-
 
 def test_cyclic_and_deep_chains_are_bounded():
     first, second = RuntimeError("first"), OSError(errno.EIO, "second")
@@ -77,14 +72,12 @@ def test_cyclic_and_deep_chains_are_bounded():
         current = current.__cause__
     assert len(record(root)["exception_chain"]) == 32
 
-
 def test_failure_snapshots_cannot_mutate_later_observations():
     context = WorkflowContext(FakeFactory([]))
     context._record_agent_failure("solver", wrapped_storage_failure())
     snapshot = context.agent_failures
     snapshot[0]["exception_chain"][-1]["errno"] = errno.EIO
     assert context.agent_failures[0]["exception_chain"][-1]["errno"] == errno.ENOSPC
-
 
 def test_nested_http_response_records_numeric_status_without_body():
     class ProviderError(RuntimeError):
@@ -99,7 +92,6 @@ def test_nested_http_response_records_numeric_status_without_body():
     assert "secret" not in json.dumps(failure)
     assert "credential" not in json.dumps(failure)
 
-
 def test_plain_existing_record_shape_and_non_numeric_codes_are_preserved():
     error = RuntimeError("ordinary")
     error.errno = True
@@ -108,7 +100,6 @@ def test_plain_existing_record_shape_and_non_numeric_codes_are_preserved():
         "label": "solver", "exception_type": "RuntimeError", "status_code": None,
         "provider_error_type": None,
     }
-
 
 @pytest.mark.asyncio
 async def test_public_workflow_result_exposes_role_error_chain(tmp_path):
@@ -127,7 +118,6 @@ async def test_public_workflow_result_exposes_role_error_chain(tmp_path):
     assert result.status == "completed"
     assert result.agent_failures[0]["exception_chain"][-1]["errno"] == errno.ENOSPC
     assert "private" not in json.dumps(result.agent_failures)
-
 
 def test_public_projection_filters_extra_chain_payload_and_copies_nodes():
     original = [{"type": "OSError", "module": "builtins", "errno": errno.ENOSPC,

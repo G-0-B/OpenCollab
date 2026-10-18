@@ -33,7 +33,6 @@ _CASES = [
     ("deepseek-v4.1-flash-preview", False, {}, False),
 ]
 
-
 def _completion_response(model, stream, *, content=None, calls=None, reasoning=None):
     message = {"role": "assistant", "content": content}
     if reasoning is not None:
@@ -55,7 +54,6 @@ def _completion_response(model, stream, *, content=None, calls=None, reasoning=N
     ]
     content = "".join(f"data: {json.dumps(frame)}\n\n" for frame in frames) + "data: [DONE]\n\n"
     return httpx.Response(200, headers={"Content-Type": "text/event-stream"}, content=content.encode())
-
 
 async def _run_tool_continuation(tmp_path, model, stream, thinking, params, keep):
     requests = []
@@ -117,7 +115,6 @@ async def _run_tool_continuation(tmp_path, model, stream, thinking, params, keep
         "phase": session.phase.value, "used_tokens": session.used_tokens,
         "history": session.state.messages, "requests": requests,
     }
-
 
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
 @pytest.mark.parametrize(("model", "thinking", "params", "keep"), _CASES)

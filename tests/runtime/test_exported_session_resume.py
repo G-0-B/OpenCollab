@@ -21,18 +21,14 @@ def model(turns=1):
         for index in range(turns)
     ])
 
-
 async def converse(session, turns):
     for index in range(turns):
         await session.add_user_message(f"Remember requirement {index}.")
         await session.run_loop()
 
-
 def transcript(snapshot):
-    # Timestamps are restored into Session's bookkeeping beside its messages.
     return [{key: value for key, value in row.items() if key != "timestamp"}
             for row in snapshot["messages"]]
-
 
 @pytest.mark.parametrize("turns", [1, 4])
 @pytest.mark.parametrize("entry", ["restore", "load_session"])
@@ -81,7 +77,6 @@ async def test_manual_export_resumes_original_autosave_and_continues(
         if restored is not None:
             await restored.aclose()
 
-
 async def test_export_keeps_original_autosave_bytes_unchanged(tmp_path):
     automatic = tmp_path / "automatic.json"
     exported = tmp_path / "exported.json"
@@ -100,7 +95,6 @@ async def test_export_keeps_original_autosave_bytes_unchanged(tmp_path):
         assert saved["session_state"] == source["session_state"]
     finally:
         await original.aclose()
-
 
 async def test_older_export_still_cannot_replace_a_newer_autosave(tmp_path):
     automatic = tmp_path / "automatic.json"
@@ -122,7 +116,6 @@ async def test_older_export_still_cannot_replace_a_newer_autosave(tmp_path):
         assert {path: path.read_bytes() for path in source_paths} == before
     finally:
         await restored.aclose()
-
 
 async def test_restored_export_can_be_exported_again_before_resuming(tmp_path):
     automatic = str(tmp_path / "automatic.json")
@@ -148,7 +141,6 @@ async def test_restored_export_can_be_exported_again_before_resuming(tmp_path):
     finally:
         await restored.aclose()
 
-
 @pytest.mark.parametrize("target_kind", ["same-file", "new-target"])
 async def test_export_without_original_autosave_can_start_autosaving(tmp_path, target_kind):
     exported = str(tmp_path / "exported.json")
@@ -170,7 +162,6 @@ async def test_export_without_original_autosave_can_start_autosaving(tmp_path, t
     finally:
         await restored.aclose()
 
-
 class SnapshotOnlyStore:
     """Exercise full-snapshot persistence without journal support."""
 
@@ -189,7 +180,6 @@ class SnapshotOnlyStore:
     def save_manifest(self, path, manifest):
         self.delegate.save_manifest(path, manifest)
 
-
 class CurrentColorModel(FakeLLM):
     async def complete(self, messages, **kwargs):
         requests = [row["content"] for row in messages if row["role"] == "user"]
@@ -205,7 +195,6 @@ class CurrentColorModel(FakeLLM):
         self.responses.append(response)
         return await super().complete(messages, **kwargs)
 
-
 def autosave_tracking(session):
     return copy.deepcopy({name: getattr(session, name) for name in (
         "_auto_save_sequence", "_auto_save_reserved_sequence", "_auto_save_message_count",
@@ -213,7 +202,6 @@ def autosave_tracking(session):
         "_auto_save_seen_result_hashes", "_next_auto_save_checkpoint", "_loop_checkpoint_results",
         "_loop_checkpoint_prefix", "_loop_checkpoint_step",
     )})
-
 
 @pytest.mark.parametrize("snapshot_kind", ["current", "legacy"])
 @pytest.mark.parametrize("failure", ["stale", "journal-write", "snapshot-write"])

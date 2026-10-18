@@ -9,14 +9,12 @@ from tests.tools.test_edit_tool import _runtime, run
 def _apply(ws, params):
     return run(ApplyPatchTool().execute_with_runtime(params, _runtime(ws)))
 
-
 def _file(tmp_path, text, name="f.py"):
     ws = tmp_path / "ws"
     ws.mkdir(exist_ok=True)
     target = ws / name
     target.write_text(text, encoding="utf-8")
     return ws, target
-
 
 def test_a_hunk_header_with_no_numbers_still_applies(tmp_path):
     ws, target = _file(tmp_path, "a\nb\nc\n")
@@ -30,7 +28,6 @@ def test_a_hunk_header_with_no_numbers_still_applies(tmp_path):
 
     assert result.startswith("Applied unified_diff")
     assert target.read_text(encoding="utf-8") == "a\nx\nc\n"
-
 
 def test_numberless_hunks_with_repeated_context_are_refused(tmp_path):
     # Repeated context does not identify one position without coordinates.
@@ -46,7 +43,6 @@ def test_numberless_hunks_with_repeated_context_are_refused(tmp_path):
     assert "matched 2 ranges" in result
     assert target.read_text(encoding="utf-8") == "b\nmiddle\nb\ntail\n"
 
-
 def test_a_hunk_whose_context_is_not_in_the_file_is_still_refused(tmp_path):
     ws, target = _file(tmp_path, "a\nb\nc\n")
 
@@ -60,7 +56,6 @@ def test_a_hunk_whose_context_is_not_in_the_file_is_still_refused(tmp_path):
     assert "did not match the file" in result
     assert target.read_text(encoding="utf-8") == "a\nb\nc\n"
 
-
 def test_a_header_with_an_empty_body_is_still_refused(tmp_path):
     ws, target = _file(tmp_path, "a\nb\n")
 
@@ -73,7 +68,6 @@ def test_a_header_with_an_empty_body_is_still_refused(tmp_path):
 
     assert "has no body" in result
     assert target.read_text(encoding="utf-8") == "a\nb\n"
-
 
 def test_line_replace_lands_on_a_uniquely_matching_expected_str(tmp_path):
     ws, target = _file(tmp_path, "one\ntwo\nthree\nfour\n")
@@ -90,7 +84,6 @@ def test_line_replace_lands_on_a_uniquely_matching_expected_str(tmp_path):
 
     assert result.startswith("Applied line_replace")
     assert target.read_text(encoding="utf-8") == "one\ntwo\nTHREE\nfour\n"
-
 
 def test_a_relocated_line_replace_says_where_it_actually_landed(tmp_path):
     # Silence here would leave the caller planning its next edit against line
@@ -110,7 +103,6 @@ def test_a_relocated_line_replace_says_where_it_actually_landed(tmp_path):
     assert "did not match lines 1-1" in result
     assert "matched lines 3-3 uniquely" in result
 
-
 def test_line_replace_refuses_an_expected_str_that_matches_twice(tmp_path):
     ws, target = _file(tmp_path, "dup\nmiddle\ndup\n")
 
@@ -126,7 +118,6 @@ def test_line_replace_refuses_an_expected_str_that_matches_twice(tmp_path):
 
     assert "appears 2 times" in result
     assert target.read_text(encoding="utf-8") == "dup\nmiddle\ndup\n"
-
 
 def test_line_replace_refuses_an_expected_str_that_is_not_in_the_file(tmp_path):
     ws, target = _file(tmp_path, "a\nb\n")
@@ -144,7 +135,6 @@ def test_line_replace_refuses_an_expected_str_that_is_not_in_the_file(tmp_path):
     assert "does not appear anywhere in the file" in result
     assert target.read_text(encoding="utf-8") == "a\nb\n"
 
-
 def test_unified_diff_count_normalization_is_explicit(tmp_path):
     ws, target = _file(tmp_path, "a\nb\nc\n")
     result = _apply(ws, {
@@ -153,7 +143,6 @@ def test_unified_diff_count_normalization_is_explicit(tmp_path):
     })
     assert result.startswith("Applied unified_diff")
     assert target.read_text(encoding="utf-8") == "a\nx\nc\n"
-
 
 def test_relocation_counts_a_terminated_line_once_and_keeps_following_blank(tmp_path):
     ws, target = _file(tmp_path, "zero\na\n\ntail\n")
@@ -165,7 +154,6 @@ def test_relocation_counts_a_terminated_line_once_and_keeps_following_blank(tmp_
     assert "matched lines 2-2 uniquely" in result
     assert target.read_text() == "zero\nB\n\ntail\n"
 
-
 def test_relocation_preserves_an_explicit_blank_line_in_the_requested_range(tmp_path):
     ws, target = _file(tmp_path, "zero\na\n\ntail\n")
     result = _apply(ws, {
@@ -176,7 +164,6 @@ def test_relocation_preserves_an_explicit_blank_line_in_the_requested_range(tmp_
     assert "matched lines 2-3 uniquely" in result
     assert target.read_text() == "zero\nB\ntail\n"
 
-
 def test_relocation_keeps_a_blank_line_quoted_with_its_terminator(tmp_path):
     ws, target = _file(tmp_path, "zero\na\n\ntail\n")
     result = _apply(ws, {
@@ -185,7 +172,6 @@ def test_relocation_keeps_a_blank_line_quoted_with_its_terminator(tmp_path):
     })
     assert result.startswith("Applied line_replace")
     assert target.read_text() == "zero\nB\ntail\n"
-
 
 def test_relocation_still_rejects_two_distinct_terminated_matches(tmp_path):
     source = "zero\na\n\na\ntail\n"
@@ -197,7 +183,6 @@ def test_relocation_still_rejects_two_distinct_terminated_matches(tmp_path):
     assert "appears 2 times" in result
     assert target.read_text() == source
 
-
 def test_relocation_with_a_terminator_keeps_crlf_bytes(tmp_path):
     ws, target = _file(tmp_path, "zero\na\n\ntail\n")
     target.write_bytes(b"zero\r\na\r\n\r\ntail\r\n")
@@ -207,7 +192,6 @@ def test_relocation_with_a_terminator_keeps_crlf_bytes(tmp_path):
     })
     assert result.startswith("Applied line_replace")
     assert target.read_bytes() == b"zero\r\nB\r\n\r\ntail\r\n"
-
 
 @pytest.mark.parametrize("target_text", ["value\n", "value", "value\n\n"])
 def test_empty_file_unified_diff_matches_git_eof_bytes(tmp_path, target_text):

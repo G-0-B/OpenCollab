@@ -26,31 +26,25 @@ ROLES = ("analyst", "coder", "tester")
 JUDGE_BLOCK = PROMPTS / "blocks" / "judge.md"
 CLOSING_LINE = "Do not report a change as verified unless you have the evidence for it.\n"
 
-
 def _card(name: str) -> str:
     return (PROMPTS / name).read_text(encoding="utf-8")
-
 
 def _primary() -> str:
     """The first-generation card this one was written to replace, frozen in ``legacy/``."""
     return (LEGACY / "analyst.md").read_text(encoding="utf-8")
-
 
 def _split(card: str) -> tuple[str, str]:
     head, _, judge = card.partition(JUDGE_HEADING)
     assert judge, "the card has no judge section"
     return head, judge
 
-
 @pytest.fixture(scope="module")
 def variant():
     return load_team_config(path=str(REPO_ROOT / "configs" / "team.handoff.facts-v2.yaml"))
 
-
 @pytest.fixture(scope="module")
 def baseline():
     return load_team_config(path=str(REPO_ROOT / "configs" / "team.handoff.experiment.yaml"))
-
 
 def test_the_stance_block_is_primarys_byte_for_byte() -> None:
     """The one thing this card must not vary is the thing the ladder varies.
@@ -60,15 +54,11 @@ def test_the_stance_block_is_primarys_byte_for_byte() -> None:
     """
     block = JUDGE_BLOCK.read_text(encoding="utf-8")
     assert block in _card("analyst.facts-v2.md")
-    # ``primary`` predates ``blocks/``, so its copy is compared against the file.
-    # The closing evidence rule belongs to the shared body, not to the block.
     assert _split(_primary())[1] == _split(block)[1] + "\n" + CLOSING_LINE
-
 
 def test_everything_outside_the_stance_block_did_change() -> None:
     """A card that says what primary says is primary, not a second axis."""
     assert _split(_card("analyst.facts-v2.md"))[0] != _split(_primary())[0]
-
 
 def test_the_card_does_not_claim_the_tester_holds_the_analysts_tools(variant) -> None:
     """The sentence this card was written to correct.
@@ -85,7 +75,6 @@ def test_the_card_does_not_claim_the_tester_holds_the_analysts_tools(variant) ->
     assert "The Coder and the Tester hold the same working tools you do" not in card
     assert "the Tester holds the same minus the two that edit files" in card
 
-
 def test_the_card_still_says_the_coder_can_do_the_analysts_work(variant) -> None:
     """The true half of the corrected sentence has to survive the correction.
 
@@ -95,7 +84,6 @@ def test_the_card_still_says_the_coder_can_do_the_analysts_work(variant) -> None
     assert variant.roles["coder"].tools == variant.roles["analyst"].tools
     card = " ".join(_card("analyst.facts-v2.md").split())
     assert "The Coder holds the same tools you do" in card
-
 
 def test_the_card_tells_the_analyst_the_seat_budget_is_not_transferable() -> None:
     """Primary gave the budget only as a negated cost, with no magnitude.
@@ -108,13 +96,11 @@ def test_the_card_tells_the_analyst_the_seat_budget_is_not_transferable() -> Non
     assert "a budget the size of yours" in card
     assert "what they do not spend is not returned to you" in card
 
-
 def test_the_rewrite_is_not_an_instruction_to_hand_work_over() -> None:
     """The axis is how the facts are stated, not what the Analyst is told to do."""
     card = _card("analyst.facts-v2.md").lower()
     for word in ("delegate", "you must", "do not apply the fix yourself"):
         assert word not in card, word
-
 
 def test_the_variant_changes_nothing_but_the_analysts_card(variant, baseline) -> None:
     """Tools, roster and topology are the instrument; only the prompt varies."""
@@ -128,7 +114,6 @@ def test_the_variant_changes_nothing_but_the_analysts_card(variant, baseline) ->
         (s, d) for s in ROLES for d in ROLES if variant.topology.allows(s, d)
     }
     assert walked == {(s, d) for s in ROLES for d in ROLES if s != d}
-
 
 def test_the_card_is_shorter_than_the_one_it_replaces() -> None:
     """Same facts in fewer words was the brief, and it is checkable."""

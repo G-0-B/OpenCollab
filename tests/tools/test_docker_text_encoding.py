@@ -48,7 +48,6 @@ def docker_runtime(tmp_path, monkeypatch):
     yield ToolRuntime(env, None, None), calls
     env.revoke()
 
-
 def edit_call(mode, path):
     if mode == "str_replace":
         return FileWriteTool(), {
@@ -63,7 +62,6 @@ def edit_call(mode, path):
         "path": str(path), "mode": mode, "start_line": 2, "end_line": 2,
         "expected_str": "flag = old", "new_str": "flag = new",
     }
-
 
 @pytest.mark.parametrize("mode", ["str_replace", "line_replace", "unified_diff"])
 async def test_docker_native_edit_rejects_non_utf8_and_preserves_all_bytes(
@@ -81,7 +79,6 @@ async def test_docker_native_edit_rejects_non_utf8_and_preserves_all_bytes(
     assert output.startswith("Error: refusing to edit non-UTF-8 file"), output
     assert calls and not any(call["write"] for call in calls)
     assert not runtime.environment._active_execs
-
 
 @pytest.mark.parametrize("title", ["café \u4e2d\u6587", "valid replacement �"])
 @pytest.mark.parametrize("mode", ["str_replace", "line_replace", "unified_diff"])
@@ -101,7 +98,6 @@ async def test_docker_native_edit_retains_untouched_utf8_bytes(
     assert title in read_output
     assert target.read_bytes() == original.replace(b"flag = old", b"flag = new")
     assert any(call["write"] for call in calls)
-
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 @pytest.mark.parametrize("trailing_newline", [False, True])
@@ -141,7 +137,6 @@ async def test_docker_displayed_unicode_line_edits_preserve_other_records(
         f"{number}\t{record}" for number, record in enumerate(records, 1)
     ]
 
-
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
 @pytest.mark.parametrize("trailing_newlines", [0, 1, 2])
 async def test_docker_single_line_pages_keep_inline_unicode_and_final_record(
@@ -166,7 +161,6 @@ async def test_docker_single_line_pages_keep_inline_unicode_and_final_record(
     ]
     assert all(not page.chars_truncated for page in pages)
     assert target.read_bytes() == source.encode("utf-8")
-
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
 @pytest.mark.parametrize("trailing_newlines", [0, 1, 2])
@@ -200,7 +194,6 @@ async def test_docker_file_read_continues_using_reported_line_offsets(
     assert all("head -c" in call["command"] for call in calls)
     assert not runtime.environment._active_execs
 
-
 async def test_docker_file_read_rejects_non_utf8(tmp_path, docker_runtime):
     runtime, _calls = docker_runtime
     target = tmp_path / "latin1.txt"
@@ -211,7 +204,6 @@ async def test_docker_file_read_rejects_non_utf8(tmp_path, docker_runtime):
         await runtime.environment.read_file(str(target))
 
     assert target.read_bytes() == original
-
 
 @pytest.mark.parametrize(("original", "max_chars"), [
     (b"title = caf\xe9\nflag = old\n", 30_000),
@@ -238,7 +230,6 @@ async def test_docker_paginated_read_rejects_invalid_utf8_at_eof_and_byte_bounda
     assert target.read_bytes() == original
     assert not runtime.environment._active_execs
 
-
 @pytest.mark.parametrize("text", ["A" + "é" * 12, "€" * 12, "😀" * 12])
 async def test_docker_text_range_accepts_utf8_character_split_by_byte_cap(
     tmp_path, docker_runtime, text,
@@ -254,7 +245,6 @@ async def test_docker_text_range_accepts_utf8_character_split_by_byte_cap(
     assert window.lines == [text[:2]]
     assert window.chars_truncated
     assert window.has_more
-
 
 async def test_docker_partial_later_line_is_read_again_before_character_truncation(tmp_path, docker_runtime):
     runtime, _calls = docker_runtime
@@ -273,7 +263,6 @@ async def test_docker_partial_later_line_is_read_again_before_character_truncati
     assert "offset=3" not in second
     assert "�" not in first + second
 
-
 async def test_docker_file_read_rejects_incomplete_utf8_at_file_end(
     tmp_path, docker_runtime,
 ):
@@ -284,7 +273,6 @@ async def test_docker_file_read_rejects_incomplete_utf8_at_file_end(
     with pytest.raises(UnicodeDecodeError):
         await runtime.environment.read_file(str(target))
 
-
 async def test_docker_file_read_keeps_capture_limit_error(tmp_path, docker_runtime):
     runtime, _calls = docker_runtime
     target = tmp_path / "large.txt"
@@ -292,7 +280,6 @@ async def test_docker_file_read_keeps_capture_limit_error(tmp_path, docker_runti
 
     with pytest.raises(OSError, match="capture limit"):
         await runtime.environment.read_file(str(target))
-
 
 async def test_docker_paginated_read_reports_capture_limit_instead_of_stitched_content(tmp_path, docker_runtime):
     runtime, _calls = docker_runtime
@@ -303,7 +290,6 @@ async def test_docker_paginated_read_reports_capture_limit_instead_of_stitched_c
         await runtime.environment.read_text_range(
             str(target), offset=1, limit=1, max_chars=PROCESS_OUTPUT_CAPTURE_BYTES,
         )
-
 
 async def test_docker_command_output_still_displays_non_utf8(docker_runtime):
     runtime, _calls = docker_runtime

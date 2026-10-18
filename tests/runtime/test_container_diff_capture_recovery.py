@@ -85,7 +85,6 @@ async def test_failed_capture_retains_resources_until_successful_export(
     assert not workspace.exists()
     assert branch not in git(repo, "branch", "--list")
 
-
 async def test_successful_empty_capture_releases_resources(worktree_transport, tmp_path):
     repo = make_repo(tmp_path / "repo")
     env = ContainerWorktreeEnvironment(

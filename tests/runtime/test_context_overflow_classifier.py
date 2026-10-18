@@ -36,11 +36,9 @@ class FakeProviderError(Exception):
         if param is not None:
             self.param = param
 
-
 class FakeResponse:
     def __init__(self, status_code):
         self.status_code = status_code
-
 
 class FakeErrorWithResponse(Exception):
     """A provider error that carries its status only on a ``.response`` object
@@ -50,17 +48,12 @@ class FakeErrorWithResponse(Exception):
         super().__init__(message)
         self.response = FakeResponse(status_code)
 
-
-# --- True cases: representative overflow rejections --------------------------
-
-
 def test_anthropic_prompt_too_long_is_overflow():
     err = FakeProviderError(
         "prompt is too long: 250000 tokens > 200000 maximum",
         status_code=400,
     )
     assert is_context_overflow_error(err) is True
-
 
 def test_openai_maximum_context_length_message_is_overflow():
     err = FakeProviderError(
@@ -71,7 +64,6 @@ def test_openai_maximum_context_length_message_is_overflow():
     )
     assert is_context_overflow_error(err) is True
 
-
 def test_openai_context_length_exceeded_code_is_overflow():
     # OpenAI surfaces the machine code even when the message wording varies.
     err = FakeProviderError(
@@ -80,7 +72,6 @@ def test_openai_context_length_exceeded_code_is_overflow():
         code="context_length_exceeded",
     )
     assert is_context_overflow_error(err) is True
-
 
 def test_provider_string_above_max_length_code_is_overflow():
     err = FakeProviderError(
@@ -91,14 +82,12 @@ def test_provider_string_above_max_length_code_is_overflow():
     assert is_context_overflow_error(err) is True
     assert is_retryable_error(err) is False
 
-
 @pytest.mark.parametrize(
     "param", ["input[0].content", "input[*].output", "input[2].content[0].text", "messages[3].content"],
 )
 def test_input_string_limit_uses_structured_selector(param):
     err = FakeProviderError("field exceeded its limit", status_code=400, code="string_above_max_length", param=param)
     assert is_context_overflow_error(err) is True
-
 
 def test_input_string_limit_reads_nested_selector():
     err = FakeProviderError(
@@ -107,7 +96,6 @@ def test_input_string_limit_reads_nested_selector():
     )
     assert is_context_overflow_error(err) is True
 
-
 @pytest.mark.parametrize("param", ["metadata.name", "input[0].name", "tools[0].description", "instructions"])
 def test_non_history_string_limit_is_not_context_overflow(param):
     err = FakeProviderError(
@@ -115,7 +103,6 @@ def test_non_history_string_limit_is_not_context_overflow(param):
     )
     assert is_context_overflow_error(err) is False
     assert is_retryable_error(err) is False
-
 
 @pytest.mark.parametrize("message", [
     "string too long",
@@ -127,7 +114,6 @@ def test_string_limit_without_input_evidence_is_not_context_overflow(message):
     error = FakeProviderError(message, status_code=400, code="string_above_max_length")
     assert is_context_overflow_error(error) is False
 
-
 def test_overflow_code_in_nested_body_is_overflow():
     err = FakeProviderError(
         "bad request",
@@ -135,7 +121,6 @@ def test_overflow_code_in_nested_body_is_overflow():
         body={"error": {"code": "context_length_exceeded"}},
     )
     assert is_context_overflow_error(err) is True
-
 
 def test_overflow_code_at_top_level_body_is_overflow():
     err = FakeProviderError(
@@ -145,13 +130,11 @@ def test_overflow_code_at_top_level_body_is_overflow():
     )
     assert is_context_overflow_error(err) is True
 
-
 def test_status_on_response_object_is_overflow():
     err = FakeErrorWithResponse(
         "input is too long: too many tokens for the context window", 400
     )
     assert is_context_overflow_error(err) is True
-
 
 def test_reduce_the_length_phrasing_is_overflow():
     err = FakeProviderError(
@@ -159,14 +142,9 @@ def test_reduce_the_length_phrasing_is_overflow():
     )
     assert is_context_overflow_error(err) is True
 
-
-# --- False cases: must NOT be classified as overflow -------------------------
-
-
 def test_generic_400_without_overflow_wording_is_not_overflow():
     err = FakeProviderError("Invalid 'tools': schema is malformed", status_code=400)
     assert is_context_overflow_error(err) is False
-
 
 def test_bad_model_id_400_is_not_overflow():
     err = FakeProviderError(
@@ -174,51 +152,37 @@ def test_bad_model_id_400_is_not_overflow():
     )
     assert is_context_overflow_error(err) is False
 
-
 def test_rate_limit_429_is_not_overflow():
     err = FakeProviderError("Rate limit exceeded", status_code=429)
     assert is_context_overflow_error(err) is False
-
 
 def test_server_error_500_is_not_overflow():
     err = FakeProviderError(
         "internal error: context length", status_code=500
     )
-    # Even with overflow-looking wording, a non-400 status is not an overflow.
     assert is_context_overflow_error(err) is False
 
-
 def test_overflow_wording_without_status_is_not_overflow():
-    # No 400-shaped status anywhere → conservative False.
     err = Exception("prompt is too long")
     assert is_context_overflow_error(err) is False
 
-
 def test_plain_exception_is_not_overflow():
     assert is_context_overflow_error(ValueError("boom")) is False
-
-
-# --- Retry guard: overflow stays non-retryable -------------------------------
-
 
 def test_overflow_is_not_retryable():
     err = FakeProviderError("prompt is too long", status_code=400)
     assert is_retryable_error(err) is False
 
-
 def test_overflow_with_retryable_sounding_message_still_not_retryable():
-    # Defensive: even if an overflow's text happened to contain a transient
-    # fragment, the explicit overflow guard must keep it out of the retry loop.
+    # The overflow guard takes precedence over transient fragments in the error text.
     err = FakeProviderError(
         "prompt is too long; the server is overloaded", status_code=400
     )
     assert is_retryable_error(err) is False
 
-
 def test_genuine_transient_error_still_retryable():
     err = FakeProviderError("Service temporarily unavailable", status_code=503)
     assert is_retryable_error(err) is True
-
 
 def test_retry_after_rejects_non_finite_and_negative_values():
     class Response:
@@ -233,7 +197,6 @@ def test_retry_after_rejects_non_finite_and_negative_values():
     assert extract_retry_after_seconds(Error("nan")) is None
     assert extract_retry_after_seconds(Error("-1")) is None
     assert extract_retry_after_seconds(Error("9999")) == 300.0
-
 
 def test_retry_after_accepts_standard_http_date():
     class Response:

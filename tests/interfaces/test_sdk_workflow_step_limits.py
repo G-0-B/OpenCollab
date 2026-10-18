@@ -12,7 +12,6 @@ class ReplyLLM:
     async def complete(self, messages, **kwargs):
         return LLMResponse(content="finished", usage=Usage(4, 2), finish_reason="stop")
 
-
 @pytest.mark.parametrize("global_unbounded", [False, True], ids=["finite-env", "unbounded-env"])
 @pytest.mark.parametrize("limit_mode", ["environment", "explicit"])
 @pytest.mark.parametrize(
@@ -42,7 +41,6 @@ async def test_workflow_step_limits_reach_sessions(
         "budget": None if unbounded else 1_000,
     }
     assert result.tokens == 6
-
 
 @pytest.mark.parametrize("max_steps", [True, False, 0, -1, 1.5, "1", []])
 @pytest.mark.parametrize("limit_mode", ["environment", "explicit"])

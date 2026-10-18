@@ -14,11 +14,9 @@ class FakeAgent:
     def find_tool(self, name):
         return next((tool for tool in self.tools if tool.name == name), None)
 
-
 class NullEventPublisher:
     async def emit(self, event):
         pass
-
 
 class RecordingEventPublisher:
     def __init__(self):
@@ -27,11 +25,9 @@ class RecordingEventPublisher:
     async def emit(self, event):
         self.events.append(event)
 
-
 class AlwaysAllowPermissionPolicy:
     async def confirm(self, prompt: str) -> bool:
         return True
-
 
 def build_sensor_use_case(state, tool):
     factory = default_session_event_factory(aid=-1)
@@ -56,7 +52,6 @@ def build_sensor_use_case(state, tool):
         event_factory=event_factory,
     )
 
-
 class RuntimeNativeTool:
     name = "fake_tool"
 
@@ -68,11 +63,8 @@ class RuntimeNativeTool:
         self.runtime_calls.append((args, runtime))
         return self.output
 
-
 def event_factory() -> SessionEventFactory:
     factory = default_session_event_factory(aid=-1)
-    # Wrap to use SimpleNamespace so tests that previously asserted on a
-    # plain object (no aid field) keep their assertion shapes.
     return SessionEventFactory(
         step_start=factory.step_start,
         step_end=factory.step_end,
@@ -95,7 +87,6 @@ def event_factory() -> SessionEventFactory:
             },
         ),
     )
-
 
 def build_use_case(
     *,
@@ -122,7 +113,6 @@ def build_use_case(
     )
     return use_case, publisher
 
-
 def tool_call(
     name: str = "fake_tool",
     arguments: object = "{}",
@@ -135,7 +125,6 @@ def tool_call(
             "arguments": arguments,
         },
     }
-
 
 class FakeTracer:
     def __init__(self):

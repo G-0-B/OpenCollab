@@ -34,7 +34,6 @@ async def test_create_rejects_directory_target_without_hidden_write(tmp_path, ki
     assert not list(tmp_path.rglob("*.opencollab-write-*.tmp"))
     assert not environment._active_execs
 
-
 @pytest.mark.parametrize("kind", ["missing", "regular_file", "file_symlink", "dangling_symlink"])
 @pytest.mark.parametrize("overwrite", [False, True])
 async def test_create_replaces_target_file_and_keeps_symlink_referent(tmp_path, kind, overwrite):
@@ -65,7 +64,6 @@ async def test_create_replaces_target_file_and_keeps_symlink_referent(tmp_path, 
     assert not list(tmp_path.rglob("*.opencollab-write-*.tmp"))
     assert not environment._active_execs
 
-
 async def test_write_receipt_verifies_final_target_content(tmp_path):
     transport = LocalDockerTransport(tmp_path, pair_reads=False)
     environment = docker_environment(tmp_path, transport)
@@ -76,7 +74,6 @@ async def test_write_receipt_verifies_final_target_content(tmp_path):
 
     assert (tmp_path / "requested.txt").read_text() == "tampered"
     assert not environment._active_execs
-
 
 async def test_failed_publish_keeps_original_and_discards_temporary(tmp_path):
     target = tmp_path / "requested.txt"

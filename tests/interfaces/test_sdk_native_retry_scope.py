@@ -43,7 +43,6 @@ class RateLimits:
             }})
         return completion_http_response(request, text="<summary>Preserved context.</summary>" if summary else "done")
 
-
 @pytest.fixture
 def rate_limits(monkeypatch):
     from opencollab.adapters.llm import retry
@@ -56,7 +55,6 @@ def rate_limits(monkeypatch):
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
     return RateLimits()
 
-
 def client(tmp_path, *, environment=None, mode="chat", allowance=1.5):
     return OpenCollab(
         tmp_path, model="fixture-model", provider="anthropic" if mode == "anthropic" else "openai",
@@ -66,7 +64,6 @@ def client(tmp_path, *, environment=None, mode="chat", allowance=1.5):
                 "provider_error_time_budget": allowance, "llm_max_retries": 2,
                 "max_output_tokens": 128, "budget": 100_000, "context_window": 40_000},
     )
-
 
 async def prepare(model):
     """Initialize the official SDK before measuring failed-attempt time."""
@@ -84,7 +81,6 @@ async def prepare(model):
         await model.close()
         raise
 
-
 async def run(client, model, prompt, entry):
     if entry == "agent":
         return await client.agent(prompt, tools=(), llm=model, trace=False)
@@ -96,7 +92,6 @@ async def run(client, model, prompt, entry):
         return row.output
 
     return await client.workflow(flow, {"prompt": prompt}, llm=model, trace=False)
-
 
 @pytest.mark.parametrize("mode", ["chat", "responses", "anthropic"])
 @pytest.mark.parametrize("entry", ["agent", "workflow"])
@@ -120,7 +115,6 @@ async def test_sequential_runs_recover_with_one_borrowed_connection(tmp_path, mo
         await environment.cleanup()
     assert transport.is_closed()
 
-
 @pytest.mark.parametrize("mode", ["chat", "responses", "anthropic"])
 async def test_concurrent_agent_and_workflow_runs_keep_separate_allowances(
     tmp_path, monkeypatch, rate_limits, mode,
@@ -138,7 +132,6 @@ async def test_concurrent_agent_and_workflow_runs_keep_separate_allowances(
         assert model.provider_retry_budget.remaining_seconds == 1.5
     finally:
         await model.close()
-
 
 @pytest.mark.parametrize("candidate", [False, True])
 @pytest.mark.parametrize("parallel", [False, True])
@@ -183,7 +176,6 @@ async def test_workflow_roles_and_candidate_share_the_run_allowance(
     finally:
         await model.close()
 
-
 async def test_summary_and_completion_share_the_workflow_allowance(tmp_path, monkeypatch, rate_limits):
     install_sdk_transport(monkeypatch, "openai", rate_limits)
     original = wiring.build_session
@@ -212,7 +204,6 @@ async def test_summary_and_completion_share_the_workflow_allowance(tmp_path, mon
     finally:
         await model.close()
 
-
 async def test_nested_public_run_is_independent_and_restores_the_outer_allowance(tmp_path, monkeypatch, rate_limits):
     install_sdk_transport(monkeypatch, "openai", rate_limits)
     oc = client(tmp_path)
@@ -235,7 +226,6 @@ async def test_nested_public_run_is_independent_and_restores_the_outer_allowance
     finally:
         await model.close()
 
-
 async def test_direct_native_calls_keep_their_existing_lifetime_budget(tmp_path, monkeypatch, rate_limits):
     install_sdk_transport(monkeypatch, "openai", rate_limits)
     oc = client(tmp_path)
@@ -252,7 +242,6 @@ async def test_direct_native_calls_keep_their_existing_lifetime_budget(tmp_path,
                                       "scope-task-agent-0": 2, "scope-task-direct-2": 1}
     finally:
         await model.close()
-
 
 @pytest.mark.parametrize("concurrent", [False, True])
 async def test_explicit_shared_budget_preserves_its_cross_run_limit(tmp_path, monkeypatch, rate_limits, concurrent):
@@ -279,7 +268,6 @@ async def test_explicit_shared_budget_preserves_its_cross_run_limit(tmp_path, mo
     finally:
         await model.close()
 
-
 @pytest.mark.parametrize("entry", ["agent", "workflow"])
 async def test_default_zero_allowance_retains_retry_count_behavior(tmp_path, monkeypatch, rate_limits, entry):
     install_sdk_transport(monkeypatch, "openai", rate_limits)
@@ -292,7 +280,6 @@ async def test_default_zero_allowance_retains_retry_count_behavior(tmp_path, mon
         assert rate_limits.counts == {"scope-task-zero-0": 2, "scope-task-zero-1": 2}
     finally:
         await model.close()
-
 
 async def test_third_party_model_keeps_its_existing_retry_state(tmp_path, rate_limits):
     class ThirdPartyModel:
@@ -314,7 +301,6 @@ async def test_third_party_model_keeps_its_existing_retry_state(tmp_path, rate_l
     assert model.provider_retry_budget.remaining_seconds == 0
     assert not model.closed
     await model.close()
-
 
 @pytest.mark.parametrize("ending", ["timeout", "cancel"])
 async def test_interrupted_run_releases_its_scope_and_preserves_borrowed_resources(

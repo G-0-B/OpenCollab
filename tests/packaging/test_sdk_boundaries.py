@@ -10,7 +10,6 @@ from tests.support.paths import REPO_ROOT
 _REPO_ROOT = REPO_ROOT
 _PACKAGE_ROOT = _REPO_ROOT / "opencollab"
 
-
 def _imports(path: Path) -> tuple[str, ...]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     names: list[str] = []
@@ -20,7 +19,6 @@ def _imports(path: Path) -> tuple[str, ...]:
         elif isinstance(node, ast.ImportFrom) and node.module:
             names.append(node.module)
     return tuple(names)
-
 
 def test_public_api_delegates_to_bootstrap_without_concrete_imports() -> None:
     public_files = [
@@ -38,7 +36,6 @@ def test_public_api_delegates_to_bootstrap_without_concrete_imports() -> None:
     ]
     assert offenders == []
 
-
 def test_public_api_does_not_depend_on_evaluation_implementations() -> None:
     public_files = [
         *_PACKAGE_ROOT.joinpath("sdk").glob("*.py"),
@@ -54,7 +51,6 @@ def test_public_api_does_not_depend_on_evaluation_implementations() -> None:
         if imported.startswith(forbidden)
     ]
     assert offenders == []
-
 
 def test_v2_request_dto_modules_stay_deleted() -> None:
     sdk_root = _PACKAGE_ROOT / "sdk"

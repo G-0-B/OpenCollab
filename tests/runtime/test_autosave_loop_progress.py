@@ -31,7 +31,6 @@ class SlowCheckpointStore(SessionStore):
                 raise OSError("manual checkpoint failed")
         return super().checkpoint_snapshot(*args, **kwargs)
 
-
 @pytest.mark.parametrize("manual_failure", [False, True])
 async def test_manual_checkpoint_io_keeps_the_loop_runnable_and_latest_snapshot_recoverable(
     tmp_path, manual_failure,
@@ -100,7 +99,6 @@ async def test_manual_checkpoint_io_keeps_the_loop_runnable_and_latest_snapshot_
         if timer is not None:
             timer.cancel()
         await asyncio.gather(save, *session.pending_cleanup_tasks, return_exceptions=True)
-
 
 async def test_slow_autosave_compaction_keeps_message_replacement_and_timers_runnable(tmp_path):
     path = str(tmp_path / "session.json")

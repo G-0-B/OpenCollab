@@ -22,13 +22,11 @@ from tests.support.session_characterization_test_support import llm_response
 
 _MARKER = "END_OF_FIXTURE"
 
-
 class _ForkableEnvironment(LocalEnvironment):
     def fork_snapshot(self):
         directory = tempfile.mkdtemp(prefix="snapshot-", dir=Path(self.workspace).parent)
         shutil.copytree(self.workspace, directory, dirs_exist_ok=True)
         return _ForkableEnvironment(directory)
-
 
 class _MarkerProvider:
     def __init__(self):
@@ -46,7 +44,6 @@ class _MarkerProvider:
                 "function": {"name": "file_read", "arguments": '{"path":"fixture.txt"}'},
             }], finish_reason="tool_calls")
         return llm_response(content="FOUND" if any(_MARKER in result for result in results) else "MISSING")
-
 
 @pytest.mark.parametrize("configuration", ["policy", "injected", "profile"])
 async def test_snapshot_keeps_the_configured_tool_result_view(tmp_path, configuration):
@@ -86,7 +83,6 @@ async def test_snapshot_keeps_the_configured_tool_result_view(tmp_path, configur
         if snapshot is not None:
             await snapshot.aclose()
         await source.aclose()
-
 
 async def test_snapshot_summary_charges_its_own_budget_and_has_an_independent_cache(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
@@ -128,7 +124,6 @@ async def test_snapshot_summary_charges_its_own_budget_and_has_an_independent_ca
             await snapshot.aclose()
         await source.aclose()
 
-
 class _OwnedShaper:
     def __init__(self, provider):
         self.provider = provider
@@ -137,7 +132,6 @@ class _OwnedShaper:
     def shape(self, messages):
         self.calls.append(len(messages))
         return messages
-
 
 async def test_injected_shaper_reuses_the_model_and_rebinds_session_owners(tmp_path):
     class Model(AccountingModel):
@@ -177,7 +171,6 @@ async def test_injected_shaper_reuses_the_model_and_rebinds_session_owners(tmp_p
         if snapshot is not None:
             await snapshot.aclose()
         await source.aclose()
-
 
 @pytest.mark.parametrize("copy_failure", ["exception", "same_object"])
 async def test_snapshot_reports_an_uncloneable_injected_shaper(tmp_path, copy_failure):

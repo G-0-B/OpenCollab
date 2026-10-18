@@ -22,7 +22,6 @@ from tests.support.worktree_delivery_support import worktree_transport as worktr
 def git(path, *args):
     return subprocess.check_output(["git", "-C", str(path), *args], text=True)
 
-
 def repository(path):
     path.mkdir()
     git(path, "init", "-q")
@@ -31,7 +30,6 @@ def repository(path):
     git(path, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.test",
         "commit", "-qm", "\u521d\u59cb\u5316\u9694\u79bb\u6d4b\u8bd5\u4ed3\u5e93")
     return path
-
 
 def response(request, calls, *, tool_calls=None, text=None):
     body = json.loads(request.content)
@@ -45,12 +43,10 @@ def response(request, calls, *, tool_calls=None, text=None):
         "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     })
 
-
 def tool(name, arguments, identity="result"):
     return {"id": identity, "type": "function", "function": {
         "name": name, "arguments": json.dumps(arguments),
     }}
-
 
 def structured_transport(monkeypatch):
     calls = []
@@ -59,7 +55,6 @@ def structured_transport(monkeypatch):
     ))
     return calls
 
-
 def client(workspace):
     return OpenCollab(
         workspace, model="offline-model", provider="openai",
@@ -67,13 +62,11 @@ def client(workspace):
         base_url="https://offline.example.invalid/v1",
     )
 
-
 async def isolated_answer(ctx, _args):
     return await ctx.agent("Return answer four", isolation=True, tools=[], schema={
         "type": "object", "properties": {"answer": {"type": "integer"}},
         "required": ["answer"], "additionalProperties": False,
     })
-
 
 @pytest.mark.parametrize("trace", [False, True])
 @pytest.mark.parametrize("nested", [False, True])
@@ -101,7 +94,6 @@ async def test_public_sdk_saved_workflow_uses_real_git_worktree(
     assert (artifacts / "orchestration.jsonl").exists() is trace
     assert len(git(repo, "worktree", "list", "--porcelain").split("worktree ")) == 2
     assert (repo / "app.py").read_text() == "answer = 4\n"
-
 
 @pytest.mark.parametrize("dirty", ["staged", "unstaged", "untracked", "old-run"])
 async def test_public_sdk_saved_workflow_preserves_dirty_source(
@@ -133,7 +125,6 @@ async def test_public_sdk_saved_workflow_preserves_dirty_source(
     after = git(workspace, "status", "--porcelain=v1", "--untracked-files=all")
     assert all(line in after.splitlines() for line in before.splitlines())
 
-
 async def test_second_saved_workflow_checks_previous_run_records(tmp_path, monkeypatch):
     workspace = repository(tmp_path / "repo")
     calls = structured_transport(monkeypatch)
@@ -151,7 +142,6 @@ async def test_second_saved_workflow_checks_previous_run_records(tmp_path, monke
     assert second.output is None
     assert len(calls) == 1
     assert previous.read_bytes() == content
-
 
 @pytest.mark.parametrize("dirty", [False, True])
 async def test_saved_workflow_in_subdirectory_owns_same_repository_records(tmp_path, monkeypatch, dirty):
@@ -173,7 +163,6 @@ async def test_saved_workflow_in_subdirectory_owns_same_repository_records(tmp_p
     assert len(calls) == (0 if dirty else 1)
     assert (repo / "app.py").read_text() == ("answer = 5\n" if dirty else "answer = 4\n")
 
-
 async def test_saved_workflow_keeps_container_isolation_on_container_side(
     worktree_transport, tmp_path, monkeypatch,
 ):
@@ -194,7 +183,6 @@ async def test_saved_workflow_keeps_container_isolation_on_container_side(
     assert len(calls) == 1
     assert any("worktree" in command and "add" in command for command in worktree_transport)
     assert (artifacts / "workflow.json").exists()
-
 
 def test_cli_default_save_runs_discovered_workflow_in_real_git_worktree(tmp_path, monkeypatch):
     workspace = repository(tmp_path / "repo")
@@ -229,7 +217,6 @@ def test_cli_default_save_runs_discovered_workflow_in_real_git_worktree(tmp_path
     assert (runs[0] / "orchestration.jsonl").is_file()
     assert (runs[0] / "workflow.json").is_file()
 
-
 @pytest.mark.parametrize("mutation", ["modified", "staged", "deleted", "renamed"])
 async def test_owned_save_directory_still_checks_tracked_changes(tmp_path, mutation):
     workspace = repository(tmp_path / "repo")
@@ -261,7 +248,6 @@ async def test_owned_save_directory_still_checks_tracked_changes(tmp_path, mutat
         await factory.release_isolated_envs()
     assert git(workspace, "status", "--porcelain=v1", "--untracked-files=all") == status
 
-
 @pytest.mark.parametrize("git_mode", [False, True])
 @pytest.mark.parametrize("save_location", ["source", "ancestor"])
 async def test_save_directory_covering_source_preserves_source(tmp_path, git_mode, save_location):
@@ -285,7 +271,6 @@ async def test_save_directory_covering_source_preserves_source(tmp_path, git_mod
             assert await env.read_file("user.txt") == "user data\n"
     finally:
         await factory.release_isolated_envs()
-
 
 @pytest.mark.parametrize("git_mode", [False, True])
 async def test_saved_worktree_uses_exact_directory_names(tmp_path, git_mode):
@@ -316,7 +301,6 @@ async def test_saved_worktree_uses_exact_directory_names(tmp_path, git_mode):
         assert not (Path(env.workspace) / owned.name).exists()
     finally:
         await factory.release_isolated_envs()
-
 
 async def test_public_team_copies_source_and_older_records_without_live_run(tmp_path, monkeypatch):
     workspace = tmp_path / "plain"

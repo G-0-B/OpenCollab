@@ -52,15 +52,11 @@ from tests.support.prebuilt_team_test_support import (
 )
 from tests.support.scheduler_awaiting_test_support import ScriptedFactory, ScriptedSession, terminal
 
-# The team the handoff experiment runs: three peers, two of them carrying bash
-# so they can hand a commit to each other over git.
 HANDOFF_TEAM_FILE = (
     REPO_ROOT / "configs" / "team.handoff.experiment.yaml"
 )
 
-
 SCHEDULER_STANDIN = object()
-
 
 def _spawn_config(ctx) -> SpawnConfig:
     return SpawnConfig(
@@ -74,16 +70,13 @@ def _spawn_config(ctx) -> SpawnConfig:
         permission_policy=None,
     )
 
-
 def _payloads(path: str, step_type: str) -> list[dict]:
     with open(path, encoding="utf-8") as handle:
         records = [json.loads(line) for line in handle if line.strip()]
     return [record["payload"] for record in records if record["type"] == step_type]
 
-
 def _git(repo, *args) -> None:
     subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
-
 
 def _repo(path):
     """A committed git repository — the precondition for real worktrees."""
@@ -96,18 +89,12 @@ def _repo(path):
     _git(path, "commit", "-qm", "base")
     return path
 
-
-# --- the switch, off ---------------------------------------------------------
-
-
 async def test_with_the_switch_off_nothing_is_seated_and_nothing_is_recorded(tmp_path):
     scheduler, tracer = _scheduler(tmp_path, prebuild_team=False)
     try:
         assert await scheduler.ensure_team_prebuilt() == ()
         assert _roles(scheduler) == {0: "analyst"}
         assert sorted(scheduler._sessions) == [0]
-        # The configured teammates are still what they always were: names on a
-        # roster with no agent behind them.
         assert [entry["phase"] for entry in scheduler.team_roster()] == [
             "idle",
             "available",
@@ -120,7 +107,6 @@ async def test_with_the_switch_off_nothing_is_seated_and_nothing_is_recorded(tmp
 
     assert _payloads(tracer.path, "assigned.topology_nodes") == []
     assert _payloads(tracer.path, "assigned.topology_edges") == []
-
 
 async def test_with_the_switch_off_spawn_still_creates_an_agent():
     lead = ScriptedSession("analyst", [terminal("done")])
@@ -138,13 +124,8 @@ async def test_with_the_switch_off_spawn_still_creates_an_agent():
     assert _roles(scheduler) == {0: "analyst", 1: "coder"}
     await scheduler.cleanup()
 
-
 async def _noop_sink(event) -> None:
     return None
-
-
-# --- the switch, on ----------------------------------------------------------
-
 
 async def test_every_declared_role_is_seated_before_the_first_model_call(tmp_path):
     scheduler, tracer = _scheduler(tmp_path, prebuild_team=True)
@@ -155,8 +136,6 @@ async def test_every_declared_role_is_seated_before_the_first_model_call(tmp_pat
 
         assert _roles(scheduler) == {0: "analyst", 1: "coder", 2: "tester"}
         assert sorted(scheduler._sessions) == [0, 1, 2]
-        # Not one model call has happened: every session is idle, unstepped and
-        # has spent nothing. This is what "before the first turn" has to mean.
         assert [scb.state.phase.value for scb in scheduler.table.entries.values()] == [
             "idle",
             "idle",
@@ -164,12 +143,10 @@ async def test_every_declared_role_is_seated_before_the_first_model_call(tmp_pat
         ]
         assert [session.step_count for session in scheduler._sessions.values()] == [0, 0, 0]
         assert [session.used_tokens for session in scheduler._sessions.values()] == [0, 0, 0]
-        # Nothing is left "available": the configured team is the live team.
         assert [entry["phase"] for entry in scheduler.team_roster()] == ["idle"] * 3
     finally:
         tracer.close()
         await scheduler.cleanup()
-
 
 async def test_a_prebuilt_peer_is_a_child_of_the_init_process_with_no_join_route(tmp_path):
     """``parent_aid`` is 0, and the spawn join path is deliberately empty.
@@ -191,7 +168,6 @@ async def test_a_prebuilt_peer_is_a_child_of_the_init_process_with_no_join_route
         tracer.close()
         await scheduler.cleanup()
 
-
 async def test_each_prebuilt_teammate_gets_its_own_worktree(tmp_path):
     workspace = _repo(tmp_path / "repo")
     scheduler, tracer = _scheduler(
@@ -200,17 +176,14 @@ async def test_each_prebuilt_teammate_gets_its_own_worktree(tmp_path):
     try:
         await scheduler.ensure_team_prebuilt()
         spaces = {aid: scheduler._sessions[aid].env.workspace for aid in sorted(scheduler._sessions)}
-        # Agent 0 keeps the real repository; nobody else touches it.
         assert spaces[0] == str(workspace.resolve())
         assert spaces[1] != spaces[0] and spaces[2] != spaces[0]
         assert spaces[1] != spaces[2]
-        # Each peer's tree is a real, separate checkout of the same repository.
         for aid in (1, 2):
             assert (Path(spaces[aid]) / "tracked.txt").read_text(encoding="utf-8") == "base\n"
     finally:
         tracer.close()
         await scheduler.cleanup()
-
 
 async def test_prebuilding_twice_seats_nobody_twice(tmp_path):
     scheduler, tracer = _scheduler(tmp_path, prebuild_team=True)
@@ -221,7 +194,6 @@ async def test_prebuilding_twice_seats_nobody_twice(tmp_path):
     finally:
         tracer.close()
         await scheduler.cleanup()
-
 
 async def test_a_five_role_team_seats_and_every_seat_gets_the_same_cap(tmp_path):
     """Team size is not a budget question any more.
@@ -260,20 +232,13 @@ async def test_a_five_role_team_seats_and_every_seat_gets_the_same_cap(tmp_path)
         cap = per_agent_cap(total, len(names))
         assert cap == int(total * PER_AGENT_BUDGET_SHARE / len(names))
         assert scheduler._per_agent_cap() == cap
-        # One cap for the whole team — agent 0 has no larger allowance.
         assert [
             scheduler._sessions[aid].max_budget_tokens for aid in sorted(scheduler._sessions)
         ] == [cap] * len(names)
-        # Seating five agents committed nothing: the pool is shared, so an agent
-        # that has not spent freezes nothing for the ones that have.
         assert scheduler.allocated_tokens == 0
     finally:
         tracer.close()
         await scheduler.cleanup()
-
-
-# --- spawn, refused and recorded --------------------------------------------
-
 
 def _spawn_tool(scheduler):
     tool = next(t for t in scheduler.lead_session.agent.tools if t.name == "spawn_agent")
@@ -285,7 +250,6 @@ def _spawn_tool(scheduler):
         tool_call_id="call_1",
     )
     return tool, runtime
-
 
 async def test_the_spawn_tool_survives_but_refuses_and_names_the_live_roster(tmp_path):
     """The tool is left in the tool set on purpose.
@@ -309,21 +273,17 @@ async def test_the_spawn_tool_survives_but_refuses_and_names_the_live_roster(tmp
         assert answer.startswith("Not spawned: 'reviewer' is not a role on this team.")
         assert "analyst (aid 0), coder (aid 1), tester (aid 2)" in answer
         assert "send_message" in answer
-        # Refused means refused: no agent, no aid burned, no worktree taken.
         assert sorted(scheduler._sessions) == [0, 1, 2]
         assert sorted(scheduler.table.entries) == [0, 1, 2]
     finally:
         tracer.close()
         await scheduler.cleanup()
 
-
 async def test_a_refused_spawn_records_who_wanted_which_role_and_whether_it_existed(tmp_path):
     scheduler, tracer = _scheduler(tmp_path, prebuild_team=True)
     try:
         await scheduler.ensure_team_prebuilt()
         tool, runtime = _spawn_tool(scheduler)
-        # One role the team was never given, and one it already has. Both are
-        # refused, and the record has to tell them apart.
         await tool.execute_with_runtime(
             {"role": "reviewer", "task": "check the patch", "context": "abc"}, runtime
         )
@@ -345,8 +305,6 @@ async def test_a_refused_spawn_records_who_wanted_which_role_and_whether_it_exis
             "requester_role": "analyst",
             "requested_role": "reviewer",
             "requested_role_declared": False,
-            # The closed default topology would have refused this edge anyway;
-            # recording it keeps the two causes from being conflated later.
             "topology_allowed": False,
             "declared_roles": ["analyst", "coder", "tester"],
             "live_roster": roster,
@@ -369,7 +327,6 @@ async def test_a_refused_spawn_records_who_wanted_which_role_and_whether_it_exis
         },
     ]
 
-
 async def test_a_long_delegation_is_still_measurable_as_long(tmp_path):
     scheduler, tracer = _scheduler(tmp_path, prebuild_team=True)
     try:
@@ -384,10 +341,6 @@ async def test_a_long_delegation_is_still_measurable_as_long(tmp_path):
     payload = _payloads(tracer.path, "spawn_refused")[0]
     assert payload["task"] == "x" * 1000
     assert payload["task_chars"] == 5000
-
-
-# --- the assigned topology ---------------------------------------------------
-
 
 async def test_the_recorded_edges_are_the_team_config_edges(tmp_path):
     scheduler, tracer = _scheduler(tmp_path, prebuild_team=True)
@@ -412,12 +365,10 @@ async def test_the_recorded_edges_are_the_team_config_edges(tmp_path):
             "edges": expected,
         }
     ]
-    # Spelled out, so a change to the built-in team has to be made here too.
     assert expected == [
         {"from_role": "analyst", "to_role": "coder"},
         {"from_role": "analyst", "to_role": "tester"},
     ]
-
 
 async def test_the_recorded_nodes_are_the_agents_that_were_actually_seated(tmp_path):
     scheduler, tracer = _scheduler(tmp_path, prebuild_team=True)
@@ -442,10 +393,7 @@ async def test_the_recorded_nodes_are_the_agents_that_were_actually_seated(tmp_p
             "role": "analyst",
             "entry": True,
             "model": CONFIG["model"],
-            # Headless, so the analyst's ask_user is dropped by the registry.
-            # ``message_agent`` is the one addition ``_prebuildable_default``
-            # makes: without it the Analyst's two edges are unwalkable and the
-            # team is refused before it is seated.
+            # _prebuildable_default adds message_agent so the Analyst can use its declared edges.
             "tools": [
                 "adopt_agent",
                 "file_read",
@@ -456,12 +404,7 @@ async def test_the_recorded_nodes_are_the_agents_that_were_actually_seated(tmp_p
             ],
             "permission_mode": "auto",
             "workspace": workspaces[0],
-            # use_worktrees=False: everyone shares one directory, and the record
-            # says so rather than implying an isolation that is not there.
             "workspace_isolated": False,
-            # The Analyst was never given ``bash`` — a different fact from
-            # "carries bash and would be refused", which is what the Coder and
-            # Tester record here.
             "shell": "absent",
             "token_allowance": per_agent_cap,
         },
@@ -474,10 +417,7 @@ async def test_the_recorded_nodes_are_the_agents_that_were_actually_seated(tmp_p
             "permission_mode": "auto",
             "workspace": workspaces[1],
             "workspace_isolated": False,
-            # ``interactive=False`` above, so nobody in this run may open a
-            # shell the OS does not sandbox — and a shared local directory is
-            # not one. The peers record the same answer agent 0 would: the
-            # switch is run-wide, not per-agent.
+            # Noninteractive mode applies the same sandboxed shell policy to every seat.
             "shell": "sandbox_required",
             "token_allowance": per_agent_cap,
         },
@@ -490,22 +430,16 @@ async def test_the_recorded_nodes_are_the_agents_that_were_actually_seated(tmp_p
             "permission_mode": "auto",
             "workspace": workspaces[2],
             "workspace_isolated": False,
-            # The tester uses the same sandboxed shell policy as the coder.
             "shell": "sandbox_required",
             "token_allowance": per_agent_cap,
         },
     ]
-
-
-# --- the capabilities a seat comes with --------------------------------------
-
 
 def _bash(session):
     for tool in session.agent.tools:
         if tool.name == "bash":
             return tool
     raise AssertionError(f"{session.agent.name} was built without bash")
-
 
 async def test_a_seated_peer_gets_the_entry_agent_s_shell(tmp_path):
     """The whole point of the split: one run, one answer about the shell.
@@ -537,17 +471,9 @@ async def test_a_seated_peer_gets_the_entry_agent_s_shell(tmp_path):
         tracer.close()
         await scheduler.cleanup()
 
-    # Agent 0 is the entry role, which is what makes the comparison below a
-    # comparison between the entry seat and the peers. This used to be read off
-    # ``ask_user``, which only the entry role was given; the team no longer
-    # declares that tool -- nobody answers it in an unattended run -- so the
-    # roster says it directly.
+    # The roster declares agent 0 as entry because unattended teams omit ask_user.
     assert entry.agent.name == team.entry == "analyst"
-    # The Analyst carries the working tools too on this team, so it is a seat
-    # in this map as well: the point is that every seat answers the same, not
-    # that only the two workers do.
     assert seats == {"analyst": False, "coder": False, "tester": False}
-
 
 async def test_a_child_the_model_spawns_is_not_a_seat_and_keeps_the_hard_default(
     tmp_path,
@@ -568,7 +494,6 @@ async def test_a_child_the_model_spawns_is_not_a_seat_and_keeps_the_hard_default
         interactive=True,
     )
     env = LocalEnvironment(str(workspace))
-    # A stand-in scheduler: the coordination tools only store the reference.
     ad_hoc = factory.build_spawn_session(
         role="coder", env=env, budget=10_000, aid=1, scheduler=SCHEDULER_STANDIN
     )
@@ -584,7 +509,6 @@ async def test_a_child_the_model_spawns_is_not_a_seat_and_keeps_the_hard_default
         role="coder", env=env, budget=10_000, aid=1, scheduler=SCHEDULER_STANDIN
     )
     assert _bash(seated).require_process_isolation is False
-
 
 async def test_no_seat_gets_a_shell_the_entry_agent_would_not_have(tmp_path):
     """The other direction of the same rule, and the one that keeps it honest.
@@ -615,10 +539,6 @@ async def test_no_seat_gets_a_shell_the_entry_agent_would_not_have(tmp_path):
 
     assert seats == {"analyst": True, "coder": True, "tester": True}
 
-
-# --- a declared edge nobody can walk -----------------------------------------
-
-
 def _mute_team(tmp_path, *, messaging: bool) -> Path:
     """A two-role team whose Coder is told to answer the Analyst.
 
@@ -644,7 +564,6 @@ def _mute_team(tmp_path, *, messaging: bool) -> Path:
     )
     return team
 
-
 async def test_a_prebuilt_role_with_an_edge_and_no_way_to_walk_it_is_refused(tmp_path):
     """Naming the role and the edge, because "invalid config" is not actionable.
 
@@ -665,10 +584,7 @@ async def test_a_prebuilt_role_with_an_edge_and_no_way_to_walk_it_is_refused(tmp
     assert "role 'coder' may address analyst" in message
     assert "unwalkable edges: coder -> analyst" in message
     assert "Add 'message_agent' to the `tools:` list of 'coder'" in message
-    # The Analyst holds the same kind of edge and the tool to walk it, so it is
-    # not named: the report is the roles that need changing, not every role.
     assert "role 'analyst'" not in message
-
 
 async def test_the_same_team_starts_once_the_missing_tool_is_given_back(tmp_path):
     scheduler, tracer = _scheduler(
@@ -682,7 +598,6 @@ async def test_the_same_team_starts_once_the_missing_tool_is_given_back(tmp_path
     finally:
         tracer.close()
         await scheduler.cleanup()
-
 
 async def test_the_refusal_lands_before_agent_0_exists(tmp_path):
     """Same bargain the unfillable-seat failure already makes: fail before a
@@ -703,7 +618,6 @@ async def test_the_refusal_lands_before_agent_0_exists(tmp_path):
         )
     assert not (workspace / ".opencollab").exists()
 
-
 async def test_the_shipped_team_still_starts_with_the_switch_off(tmp_path):
     """The product default must not be caught by this.
 
@@ -722,7 +636,6 @@ async def test_the_shipped_team_still_starts_with_the_switch_off(tmp_path):
     finally:
         tracer.close()
         await scheduler.cleanup()
-
 
 async def test_every_seat_gets_the_same_step_ceiling(tmp_path):
     """One run, one ceiling — for the entry agent and its teammates alike.
@@ -754,7 +667,6 @@ async def test_every_seat_gets_the_same_step_ceiling(tmp_path):
 
     assert ceilings == {"analyst": 777, "coder": 777, "tester": 777}
 
-
 async def test_the_default_ceiling_is_one_number_not_a_privilege(tmp_path):
     """Unset, every seat still lands on the same figure — the asymmetry is gone
     from the default, not merely overridable."""
@@ -774,7 +686,6 @@ async def test_the_default_ceiling_is_one_number_not_a_privilege(tmp_path):
         await scheduler.cleanup()
 
     assert ceilings == {SESSION_MAX_STEPS}
-
 
 async def test_a_run_records_whether_its_turns_were_serialized(tmp_path):
     """Holding the team to one turn at a time is a choice about the instrument.
@@ -809,7 +720,6 @@ async def test_a_run_records_whether_its_turns_were_serialized(tmp_path):
     (off,) = _payloads(concurrent_tracer.path, "assigned.topology_nodes")
     assert on["turns_serialized"] is True
     assert off["turns_serialized"] is False
-
 
 async def test_serializing_turns_does_not_narrow_who_may_address_whom(tmp_path):
     """The flag changes when an agent runs, never whether it may speak.

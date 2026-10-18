@@ -43,50 +43,36 @@ DUAL = CONFIGS / "dual-candidate"
 ROLES = ("adopter", "coder_a", "coder_b")
 ENTRY = "adopter"
 PROFILE = "single2"
-#: Four directed edges. The two coders are not connected, which is what makes
-#: the candidates independent by construction rather than by the model's
-#: restraint -- the treatment's instrument, so no cell may vary it.
+# Four directed edges keep the two coders disconnected.
 EDGES = {
     ("adopter", "coder_a"),
     ("adopter", "coder_b"),
     ("coder_a", "adopter"),
     ("coder_b", "adopter"),
 }
-#: Single2's six tools in its evaluated order, then the three a team seat needs.
-#: The order is the file's and reaches the model as written, so it is pinned
-#: here rather than sorted.
+# Keep the evaluated Single2 tool order before the added coordination tools.
 TEAM_TOOLS = (
     "bash", "file_read", "file_write", "apply_patch", "git_diff", "grep",
     "message_agent", "team_status", "submit",
 )
-#: The sentence in Single2's own prompt that is false for a team seat, and the
-#: card's correction of it. A card that lost the correction would leave a seat
-#: believing its silence ends the whole run rather than its own turn.
+# The card must correct the Single2 claim that one seat ending ends the whole run.
 PROFILE_SENTENCE = "A final response without tool calls ends the agent session."
 CORRECTION = "A response with no tool call ends your turn, not the run."
 
 VARIANTS, LADDERS = load_registry(S2DUAL_CARDS)
 NAMES = sorted(VARIANTS)
 
-
 def _block(name: str) -> str:
     return (PROMPTS / "blocks" / f"{name}.md").read_text(encoding="utf-8")
-
 
 def _card_on_disk(name: str) -> str:
     return VARIANTS[name].card_path.read_text(encoding="utf-8")
 
-
 def _unwrapped(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
-
 def _team(name: str):
     return load_team_config(path=str(CONFIGS / VARIANTS[name].team_file))
-
-
-# --- The seat is Single2 -------------------------------------------------------
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_every_seat_declares_the_profile(name: str) -> None:
@@ -94,7 +80,6 @@ def test_every_seat_declares_the_profile(name: str) -> None:
     would be a different organization from the one this family claims to run."""
     profiles = declared_role_profiles(str(CONFIGS / VARIANTS[name].team_file))
     assert profiles == {role: PROFILE for role in ROLES}
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_the_seated_prompt_is_single2s_with_the_card_after_it(name: str) -> None:
@@ -118,7 +103,6 @@ def test_the_seated_prompt_is_single2s_with_the_card_after_it(name: str) -> None
         assert prompt.startswith(SINGLE2_SYSTEM_PROMPT), role
         assert team.roles[role].prompt in prompt, role
 
-
 @pytest.mark.parametrize("name", NAMES)
 def test_the_card_corrects_what_the_profile_says_about_ending_a_run(name: str) -> None:
     """Single2's prompt ends a session on a reply with no tool call. Here that
@@ -134,17 +118,12 @@ def test_the_card_corrects_what_the_profile_says_about_ending_a_run(name: str) -
         assert CORRECTION in text
     assert "`submit`" in _card_on_disk(name)
 
-
-# --- The treatment is the older family's, unchanged ----------------------------
-
-
 @pytest.mark.parametrize("block", sorted({VARIANTS[n].block for n in NAMES}))
 def test_each_block_is_the_dual_candidate_block_byte_for_byte(block: str) -> None:
     """The ladder is the same five moves. If a word drifted here, a difference
     between the two families would be the seat AND the wording, with nothing
     saying which."""
     assert _block(block) == (DUAL / "blocks" / f"{block}.md").read_text(encoding="utf-8")
-
 
 def test_the_peer_paragraph_is_the_older_familys_too() -> None:
     """What each Coder is asked for, and what a Coder's budget is, are facts
@@ -154,14 +133,9 @@ def test_the_peer_paragraph_is_the_older_familys_too() -> None:
     theirs = (DUAL / "capabilities" / "full.md").read_text(encoding="utf-8")
     assert ours.split("\n\n")[1] == theirs.split("\n\n")[1]
 
-
-# --- Assembly ------------------------------------------------------------------
-
-
 @pytest.mark.parametrize("name", NAMES)
 def test_every_checked_in_card_is_exactly_what_its_declaration_assembles_to(name: str) -> None:
     assert _card_on_disk(name) == render(VARIANTS[name])
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_a_card_is_the_shared_body_everywhere_outside_its_block(name: str) -> None:
@@ -176,12 +150,10 @@ def test_a_card_is_the_shared_body_everywhere_outside_its_block(name: str) -> No
         CAPABILITIES_SLOT, capabilities
     )
 
-
 @pytest.mark.parametrize("name", NAMES)
 def test_every_card_ends_on_the_shared_evidence_rule(name: str) -> None:
     assert _card_on_disk(name).endswith("\n" + CLOSING_LINE)
     assert CLOSING_LINE not in _block(VARIANTS[name].block)
-
 
 def test_this_family_has_a_body_of_its_own() -> None:
     """Pointing it at the older family's body would have told a Single2 seat
@@ -191,10 +163,6 @@ def test_this_family_has_a_body_of_its_own() -> None:
     assert shared_body(S2DUAL_CARDS) != shared_body(DUAL_CARDS)
     assert S2DUAL_CARDS.directory != DUAL_CARDS.directory
 
-
-# --- Cells must not collapse into each other -----------------------------------
-
-
 def test_no_two_cells_assemble_to_the_same_card() -> None:
     cards = {name: _card_on_disk(name) for name in NAMES}
     duplicates = [
@@ -202,13 +170,11 @@ def test_no_two_cells_assemble_to_the_same_card() -> None:
     ]
     assert not duplicates, duplicates
 
-
 def test_every_registered_block_and_bundle_file_exists_and_is_used() -> None:
     used_blocks = {VARIANTS[name].block for name in NAMES}
     assert used_blocks == {p.stem for p in (PROMPTS / "blocks").glob("*.md")}
     used_capabilities = {VARIANTS[name].capabilities for name in NAMES}
     assert used_capabilities == {p.stem for p in (PROMPTS / "capabilities").glob("*.md")}
-
 
 def test_each_ladder_step_is_exactly_one_contiguous_move() -> None:
     for ladder, rungs in LADDERS.items():
@@ -221,10 +187,6 @@ def test_each_ladder_step_is_exactly_one_contiguous_move() -> None:
             ]
             assert len(moves) == 1, f"{ladder}: {upper} -> {lower} is {len(moves)} moves"
             assert moves[0][0] in {"insert", "delete"}, f"{ladder}: {upper} -> {lower}"
-
-
-# --- Every cell seats the same team --------------------------------------------
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_each_cell_seats_the_same_roster_and_topology(name: str) -> None:
@@ -241,7 +203,6 @@ def test_each_cell_seats_the_same_roster_and_topology(name: str) -> None:
     assert not team.topology.allows("coder_a", "coder_b")
     assert not team.topology.allows("coder_b", "coder_a")
 
-
 def test_the_two_coder_cards_differ_only_in_identity_and_the_answer_asked_for() -> None:
     heading = "## The answer you are asked for"
     a, b = (
@@ -256,9 +217,7 @@ def test_the_two_coder_cards_differ_only_in_identity_and_the_answer_asked_for() 
     )
     assert normalize(body_a) == normalize(body_b)
 
-
 ENTRY_PROMPT_LINE = "    prompt_file: s2dual/adopter."
-
 
 def _team_file_body(path: Path) -> str:
     text = path.read_text(encoding="utf-8")
@@ -267,7 +226,6 @@ def _team_file_body(path: Path) -> str:
         "PROMPT_FILE\n" if line.startswith(ENTRY_PROMPT_LINE) else line
         for line in body.splitlines(keepends=True)
     )
-
 
 def test_every_team_file_differs_only_in_the_adopters_prompt_line() -> None:
     paths = sorted(CONFIGS.glob("team.s2dual-*.yaml"))
@@ -278,7 +236,6 @@ def test_every_team_file_differs_only_in_the_adopters_prompt_line() -> None:
         name for name, body in bodies.items() if body != next(iter(distinct))
     )
 
-
 def test_this_family_stays_out_of_the_other_two_namespaces() -> None:
     """``team.dual-*.yaml`` and ``team.handoff.*.yaml`` are globbed and counted
     by their own test modules; a cell of this family filed under either name
@@ -287,7 +244,6 @@ def test_this_family_stays_out_of_the_other_two_namespaces() -> None:
     assert not list(CONFIGS.glob("team.handoff.s2dual-*.yaml"))
     for name in NAMES:
         assert VARIANTS[name].team_file.startswith("team.s2dual-")
-
 
 @pytest.mark.parametrize("name", NAMES)
 def test_every_cell_carries_a_note(name: str) -> None:

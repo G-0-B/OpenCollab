@@ -22,7 +22,6 @@ from tests.support.session_run_loop_test_support import FakeTracer
 
 RECORD_TYPE = "session.history_compaction"
 
-
 class _Llm:
     """Just the one thing the shaper wiring asks a resolved LLM for."""
 
@@ -35,14 +34,11 @@ class _Llm:
     async def complete(self, *args, **kwargs):  # pragma: no cover - never called
         raise AssertionError("no model call is made while building a session")
 
-
 def _agent() -> Agent:
     return Agent(name="coder", system_prompt="sys", model="fake-model")
 
-
 def _records(tracer: FakeTracer) -> list[dict]:
     return [step["payload"] for step in tracer.steps if step["step_type"] == RECORD_TYPE]
-
 
 def test_history_compaction_record_names_the_thresholds_in_force():
     tracer = FakeTracer()
@@ -61,7 +57,6 @@ def test_history_compaction_record_names_the_thresholds_in_force():
         "history_thresholds_from": "context_window",
     }
 
-
 def test_history_compaction_record_says_when_the_fixed_defaults_were_used():
     """An unknown window is the difference between compacting at 982,576 and at
     120,000. The record has to say the fallback branch ran, not leave a reader to
@@ -76,7 +71,6 @@ def test_history_compaction_record_says_when_the_fixed_defaults_were_used():
     assert records[0]["history_thresholds_from"] == "fixed_default"
     assert records[0]["history_trigger_tokens"] == 120_000
     assert records[0]["history_target_tokens"] == 90_000
-
 
 def test_history_compaction_record_declares_an_injected_shaper():
     """With a shaper injected, this wiring never derives thresholds. Say so
@@ -97,7 +91,6 @@ def test_history_compaction_record_declares_an_injected_shaper():
     assert records[0]["history_trigger_tokens"] is None
     assert records[0]["history_target_tokens"] is None
 
-
 def test_history_compaction_record_reaches_the_trajectory_file(tmp_path):
     """Drive the real tracer: a field that never reaches disk fails here."""
     tracer = Tracer(run_id="history-compaction", output_dir=str(tmp_path))
@@ -114,7 +107,6 @@ def test_history_compaction_record_reaches_the_trajectory_file(tmp_path):
     assert len(payloads) == 1
     assert payloads[0]["history_trigger_tokens"] == 167_000
     assert payloads[0]["history_target_tokens"] == 125_250
-
 
 def test_session_builds_without_a_tracer():
     """Observation only: no tracer, no record, no failure."""

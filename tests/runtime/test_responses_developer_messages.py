@@ -52,7 +52,6 @@ async def test_public_responses_client_preserves_developer_role(monkeypatch, con
     assert request["input"][0]["content"] == expected
     assert request["input"][3]["content"] == "Use the latest policy."
 
-
 def test_developer_history_keeps_tool_call_pairing():
     instructions, items = messages_to_input([
         {"role": "developer", "content": "Use the lookup result."},
@@ -64,7 +63,6 @@ def test_developer_history_keeps_tool_call_pairing():
     assert instructions is None
     assert items[0] == {"role": "developer", "content": "Use the lookup result."}
     assert items[1]["call_id"] == items[2]["call_id"] == "call_test"
-
 
 def test_unknown_roles_remain_rejected():
     with pytest.raises(ResponsesProtocolError, match="unsupported message role"):

@@ -35,7 +35,6 @@ class ReplyLLM:
             finish_reason="stop",
         )
 
-
 @pytest.mark.skipif(os.name != "posix", reason="POSIX shell required")
 @pytest.mark.parametrize("stage", ["model", "command"])
 async def test_agent_deadline_reports_timeout_after_owned_cleanup(tmp_path, stage):
@@ -77,7 +76,6 @@ async def test_agent_deadline_reports_timeout_after_owned_cleanup(tmp_path, stag
         with pytest.raises(ProcessLookupError):
             os.kill(pid, 0)
 
-
 async def test_agent_uses_real_hardened_runtime_and_persists_evidence(
     tmp_path: Path,
 ) -> None:
@@ -101,7 +99,6 @@ async def test_agent_uses_real_hardened_runtime_and_persists_evidence(
     assert (artifacts / ".opencollab-run").read_text() == "claimed\n"
     transcript = json.loads((artifacts / "agent.json").read_text())
     assert transcript["messages"][-1]["content"] == "finished"
-
 
 async def test_client_resolves_config_once_and_delegates_plain_arguments(
     monkeypatch: pytest.MonkeyPatch,
@@ -151,7 +148,6 @@ async def test_client_resolves_config_once_and_delegates_plain_arguments(
 
     await client.agent("legacy", steps=4)
     assert captured["max_steps"] == 4
-
 
 async def test_agent_forwards_all_llm_configuration_to_runtime_agent(
     monkeypatch: pytest.MonkeyPatch,
@@ -206,7 +202,6 @@ async def test_agent_forwards_all_llm_configuration_to_runtime_agent(
     assert agent.provider_error_time_budget == 9.0
     assert agent.llm_stream_chat is True
 
-
 def _completed_agent_metrics() -> dict[str, object]:
     return {
         "steps": 1,
@@ -223,7 +218,6 @@ def _completed_agent_metrics() -> dict[str, object]:
         "agent_profile": "single2",
         "agent_tool_names": [],
     }
-
 
 async def test_agent_does_not_claim_caller_owned_environment_quiescence(
     tmp_path: Path,
@@ -250,7 +244,6 @@ async def test_agent_does_not_claim_caller_owned_environment_quiescence(
     assert result.metrics["execution_quiesced"] is None
     assert environment.revoked is False
 
-
 async def test_agent_validates_controls_before_delegating(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -274,7 +267,6 @@ async def test_agent_validates_controls_before_delegating(
     with pytest.raises(ValueError, match="cannot both"):
         await client.agent("run", max_steps=3, steps=3)
     assert not called
-
 
 async def test_workflow_delegates_evaluation_controls(
     monkeypatch: pytest.MonkeyPatch,
@@ -319,7 +311,6 @@ async def test_workflow_delegates_evaluation_controls(
     assert captured["system_prompt"] == "Evaluation system prompt"
     assert captured["cleanup_timeout"] == 10.0
 
-
 async def test_workflow_unbounded_env_forwards_none_limits(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -352,7 +343,6 @@ async def test_workflow_unbounded_env_forwards_none_limits(
     assert result.ok
     assert captured["max_tokens"] is None
     assert captured["max_steps"] is None
-
 
 async def test_workflow_exposes_sanitized_agent_failures(
     monkeypatch: pytest.MonkeyPatch,
@@ -394,7 +384,6 @@ async def test_workflow_exposes_sanitized_agent_failures(
     assert "message" not in result.agent_failures[0]
     assert "private provider detail" not in repr(result)
 
-
 async def test_workflow_rejects_invalid_evaluation_controls(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -423,7 +412,6 @@ async def test_workflow_rejects_invalid_evaluation_controls(
         await client.workflow(plain, cleanup_timeout=float("nan"))
     assert not called
 
-
 async def test_workflow_threads_concurrency_caps_end_to_end(tmp_path: Path) -> None:
     async def plain(ctx, _inputs):
         return {
@@ -439,7 +427,6 @@ async def test_workflow_threads_concurrency_caps_end_to_end(tmp_path: Path) -> N
     )
 
     assert result.output == {"agent": 2, "task": 5}
-
 
 async def test_workflow_uses_real_runtime_and_returns_live_metrics(
     tmp_path: Path,
@@ -479,7 +466,6 @@ async def test_workflow_uses_real_runtime_and_returns_live_metrics(
     assert manifest["reason"] is None
     assert manifest["failure_type"] is None
     assert manifest["evidence_complete"] is True
-
 
 async def test_workflow_manifest_stays_incomplete_until_owned_environment_cleanup(
     monkeypatch: pytest.MonkeyPatch,
@@ -534,7 +520,6 @@ async def test_workflow_manifest_stays_incomplete_until_owned_environment_cleanu
     assert manifest["reason"] == "environment_cleanup_failed"
     assert manifest["evidence_complete"] is False
 
-
 async def test_workflow_rejects_non_json_inputs_before_claiming_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -563,7 +548,6 @@ async def test_workflow_rejects_non_json_inputs_before_claiming_artifacts(
     assert invoked is False
     assert not artifacts.exists()
 
-
 async def test_workflow_execution_failure_is_a_result(tmp_path: Path) -> None:
     @workflow
     async def broken(_ctx, _inputs):
@@ -587,7 +571,6 @@ async def test_workflow_execution_failure_is_a_result(tmp_path: Path) -> None:
     assert manifest["evidence_complete"] is True
     with pytest.raises(RunError, match="bad workflow"):
         result.raise_for_status()
-
 
 async def test_workflow_timeout_is_a_stopped_result(tmp_path: Path) -> None:
     @workflow
@@ -624,7 +607,6 @@ async def test_workflow_timeout_is_a_stopped_result(tmp_path: Path) -> None:
     assert manifest["failure_type"] == "CancelledError"
     assert manifest["evidence_complete"] is True
 
-
 async def test_workflow_budget_stop_persists_terminal_manifest(
     tmp_path: Path,
 ) -> None:
@@ -646,7 +628,6 @@ async def test_workflow_budget_stop_persists_terminal_manifest(
     assert manifest["failure_type"] is None
     assert manifest["evidence_complete"] is True
 
-
 async def test_user_workflow_status_payload_does_not_fake_a_budget_stop(
     tmp_path: Path,
 ) -> None:
@@ -659,7 +640,6 @@ async def test_user_workflow_status_payload_does_not_fake_a_budget_stop(
     assert result.status == "completed"
     assert result.reason is None
     assert result.output == {"status": "budget_exceeded", "source": "user"}
-
 
 async def test_workflow_does_not_claim_caller_owned_environment_quiescence(
     tmp_path: Path,
@@ -682,7 +662,6 @@ async def test_workflow_does_not_claim_caller_owned_environment_quiescence(
     assert result.metrics["cleanup_quiesced"] is None
     assert result.metrics["execution_quiesced"] is None
     assert environment.revoked is False
-
 
 @pytest.mark.parametrize(
     "failure_point",
@@ -727,7 +706,6 @@ async def test_real_workflow_technical_failures_raise_public_error(
             trace=failure_point == "trace",
         )
 
-
 async def test_incomplete_trace_upgrades_workflow_error_to_public_lifecycle_error(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -749,7 +727,6 @@ async def test_incomplete_trace_upgrades_workflow_error_to_public_lifecycle_erro
         )
 
     assert isinstance(caught.value.__cause__.__cause__, ValueError)
-
 
 async def test_artifact_directory_must_be_new_or_empty(tmp_path: Path) -> None:
     artifacts = tmp_path / "existing"

@@ -1,6 +1,5 @@
 """Message pairing observations shared by output shaper tests."""
 
-
 def _orphaned_tool_ids(messages):
     call_ids = {
         tc["id"]

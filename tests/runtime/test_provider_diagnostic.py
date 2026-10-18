@@ -75,7 +75,6 @@ async def test_provider_diagnostic_uses_framework_configuration(monkeypatch) -> 
     }
     assert captured["closed"] is True
 
-
 async def test_provider_diagnostic_closes_injected_client_on_failure(monkeypatch):
     clients = []
 

@@ -35,7 +35,6 @@ from tests.support.scheduler_awaiting_test_support import (
 
 GATE_TIMEOUT_SECONDS = 30.0
 
-
 def _snapshot_inside_first_turn(*, serialize_turns: bool) -> dict[str, dict]:
     """Roster as seen from inside whichever teammate runs first, by role."""
     seen: dict[str, dict] = {}
@@ -73,16 +72,14 @@ def _snapshot_inside_first_turn(*, serialize_turns: bool) -> dict[str, dict]:
     assert asyncio.run(scenario()) == "final: coder, tester"
     return seen
 
-
 def test_a_teammate_waiting_for_the_turn_is_marked_queued_not_the_one_running():
     seen = _snapshot_inside_first_turn(serialize_turns=True)
     running = next(e for e in seen.values() if e["me"])
     waiting = next(e for e in seen.values() if not e["me"] and e["role"] != "lead")
 
-    assert waiting["busy"] is True          # its driver task exists ...
-    assert waiting["turn_queued"] is True   # ... but it cannot run yet
+    assert waiting["busy"] is True
+    assert waiting["turn_queued"] is True
     assert running["turn_queued"] is False
-
 
 def test_the_manifest_roster_does_not_carry_the_display_field():
     """team_snapshot is also written to the team manifest; it stays as it was."""
@@ -107,13 +104,11 @@ def test_the_manifest_roster_does_not_carry_the_display_field():
     asyncio.run(scenario())
     assert seen and all("turn_queued" not in e for e in seen)
 
-
 def test_nothing_is_queued_when_turns_run_concurrently():
     seen = _snapshot_inside_first_turn(serialize_turns=False)
 
     assert set(seen) == {"lead", "coder", "tester"}
     assert all(e["turn_queued"] is False for e in seen.values())
-
 
 class _Roster:
     def __init__(self, entries):
@@ -122,11 +117,9 @@ class _Roster:
     def team_snapshot(self):
         return self._entries
 
-
 def _render(entries) -> str:
     tool = TeamStatusTool(_Roster(entries))
     return asyncio.run(tool.execute_with_runtime({}, runtime=None))
-
 
 def test_team_status_prints_a_queued_teammate_as_waiting_for_the_turn():
     out = _render([
@@ -141,20 +134,17 @@ def test_team_status_prints_a_queued_teammate_as_waiting_for_the_turn():
     assert "busy" not in coder
     assert "queued" in coder and "ends its turn" in coder
 
-
 def test_team_status_is_unchanged_for_a_roster_without_the_field():
     out = _render([{"aid": 1, "role": "coder_a", "parent_aid": 0, "phase": "idle", "busy": True}])
 
     assert out.splitlines()[1].endswith("— busy")
 
-
 def test_submit_says_it_is_also_how_to_wait_for_a_teammate():
     text = SubmitTool.description
 
-    assert "finished" in text                          # the original meaning stays
-    assert "waiting" in text and "teammate" in text    # and waiting is named
+    assert "finished" in text
+    assert "waiting" in text and "teammate" in text
     assert "reopens your turn" in text
-
 
 def test_team_status_run_by_the_running_agent_shows_its_teammate_queued():
     """End to end: the tool reads the scheduler's display rows, not the manifest roster."""

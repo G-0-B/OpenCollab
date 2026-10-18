@@ -33,7 +33,6 @@ def test_real_trace_writer_retains_first_storage_errno(tmp_path, monkeypatch, co
     finally:
         tracer.close()
 
-
 def test_agent_evidence_failure_preserves_errno_as_cause():
     tracer = SimpleNamespace(
         flush=lambda: None, write_error="write failed", dropped_steps=1, write_error_errno=errno.ENOSPC,
@@ -42,7 +41,6 @@ def test_agent_evidence_failure_preserves_errno_as_cause():
     with pytest.raises(programmatic.ProgrammaticLifecycleError) as error:
         programmatic._require_agent_evidence(result, None, None, tracer)
     assert error.value.__cause__.errno == errno.ENOSPC
-
 
 @pytest.mark.asyncio
 async def test_public_workflow_keeps_actual_trace_storage_failure(tmp_path, monkeypatch):
@@ -66,7 +64,6 @@ async def test_public_workflow_keeps_actual_trace_storage_failure(tmp_path, monk
         found = found or getattr(error, "errno", None) == errno.ENOSPC
         error = error.__cause__ or error.__context__
     assert found
-
 
 def test_unknown_tracer_errno_stays_unknown():
     assert _sticky_tracer_failure("storage failed", 1).errno is None

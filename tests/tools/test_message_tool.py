@@ -13,7 +13,6 @@ from opencollab.application.tool_execution import ToolRuntime
 def run(coro):
     return asyncio.run(coro)
 
-
 class FakeScheduler:
     def __init__(self, snapshot=None):
         self.sent = []
@@ -26,10 +25,8 @@ class FakeScheduler:
     def team_snapshot(self):
         return self._snapshot
 
-
 def _runtime(aid=0):
     return ToolRuntime(environment=None, safety_policy=None, permission_policy=None, aid=aid)
-
 
 def test_message_agent_tool_forwards_runtime_aid_and_returns_ack():
     sched = FakeScheduler()
@@ -42,13 +39,9 @@ def test_message_agent_tool_forwards_runtime_aid_and_returns_ack():
     )
     assert result.startswith("Message queued to aid 2.")
     assert sched.sent == [(0, 2, "quick check", "hi there")]
-    # The ack alone reads like the end of an exchange. A sender that expects an
-    # answer on this call and gets a queue receipt cannot tell "still working"
-    # from "never arrived", so the reply says both what happens next and that
-    # nothing comes back here.
+    # The queue receipt must explain how the sender will receive the eventual reply.
     assert "runs on its next turn" in result
     assert "nothing about its work comes back through this call" in result
-
 
 def test_message_agent_tool_addresses_a_teammate_by_role():
     """An aid is not knowable from a role card, so requiring one cost a turn.
@@ -74,7 +67,6 @@ def test_message_agent_tool_addresses_a_teammate_by_role():
     assert sched.sent == [(0, 1, "s", "c")]
     assert result.startswith("Message queued to aid 1.")
 
-
 def test_message_agent_tool_refuses_an_ambiguous_or_unknown_role():
     """Guessing which of two would be worse than saying so."""
     sched = FakeScheduler(
@@ -98,11 +90,9 @@ def test_message_agent_tool_refuses_an_ambiguous_or_unknown_role():
     )
 
     assert "aids 1, 2" in ambiguous
-    # The recoverable move is named, not just the refusal.
     assert "to_aid" in ambiguous
     assert "coder, tester" in unknown
     assert sched.sent == []
-
 
 def test_message_agent_tool_requires_exactly_one_address():
     tool = MessageAgentTool(FakeScheduler())
@@ -112,7 +102,6 @@ def test_message_agent_tool_requires_exactly_one_address():
     ):
         result = run(tool.execute_with_runtime(params, _runtime()))
         assert result == "Error: give exactly one of to_role or to_aid."
-
 
 def test_team_status_tool_formats_roster():
     sched = FakeScheduler(
@@ -129,11 +118,9 @@ def test_team_status_tool_formats_roster():
     assert "busy" in out
     assert "done" not in out
 
-
 def test_team_status_tool_handles_empty_team():
     out = run(TeamStatusTool(FakeScheduler()).execute_with_runtime({}, _runtime()))
     assert "No agents" in out
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(('stored', 'address'), [('Straße', 'STRASSE'), ('Café', 'Cafe\u0301')])

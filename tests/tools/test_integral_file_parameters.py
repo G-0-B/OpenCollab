@@ -49,7 +49,6 @@ async def test_integral_parameters_run_through_session(tmp_path, tool_type, numb
     finally:
         await environment.cleanup()
 
-
 @pytest.mark.parametrize("value", [True, False, 1.5, float("inf"), float("nan"), "1", None])
 @pytest.mark.parametrize("key", ["start_line", "end_line"])
 def test_line_replace_rejects_non_integer_arguments_without_editing(value, key):
@@ -58,13 +57,11 @@ def test_line_replace_rejects_non_integer_arguments_without_editing(value, key):
     assert updated is None
     assert "integer" in error
 
-
 def test_integral_insert_sentinel_preserves_zero_end_line():
     params = {"start_line": 1.0, "end_line": 0.0, "expected_str": "", "new_str": "new"}
     updated, error = _apply_line_replace("alpha\n", params)
     assert error == ""
     assert updated == "new\nalpha\n"
-
 
 @pytest.mark.parametrize("params", [{"start_line": -1.0, "end_line": 1.0},
                                    {"start_line": 2.0, "end_line": 0.0}])
@@ -72,7 +69,6 @@ def test_integral_ranges_keep_existing_bounds(params):
     updated, error = _apply_line_replace("alpha\n", {**params, "new_str": "new"})
     assert updated is None
     assert "must be" in error
-
 
 async def test_integral_read_range_works_with_read_file_only_backend():
     class Environment:
@@ -87,7 +83,6 @@ async def test_integral_read_range_works_with_read_file_only_backend():
     )
     assert "2\tbeta" in result
     assert "\talpha" not in result and "\tgamma" not in result
-
 
 @pytest.mark.parametrize("value", [True, False, 1.5, float("inf"), float("nan"), "1", None, 0, -1])
 @pytest.mark.parametrize("key", ["offset", "limit"])

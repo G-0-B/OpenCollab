@@ -30,7 +30,6 @@ from opencollab.application.tool_execution import ToolRuntime
 def test_git_global_options_keep_risky_subcommand_visible(tmp_path, command):
     assert SandboxInterceptor(str(tmp_path)).is_risky(command)
 
-
 @pytest.mark.parametrize("command", [
     "git -C repo status --short",
     "git -c core.quotePath=false diff",
@@ -45,7 +44,6 @@ def test_git_global_options_keep_risky_subcommand_visible(tmp_path, command):
 ])
 def test_ordinary_git_global_options_need_no_confirmation(tmp_path, command):
     assert not SandboxInterceptor(str(tmp_path)).is_risky(command)
-
 
 @pytest.mark.parametrize("options, operation", [
     ("-C .", "reset --hard HEAD"),

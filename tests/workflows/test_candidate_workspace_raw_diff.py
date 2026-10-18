@@ -28,7 +28,6 @@ async def test_candidate_diff_commands_disable_display_conversion(index_file):
     assert all("--no-textconv" in command for command in diff_commands)
     assert all("--no-ext-diff" in command for command in diff_commands)
 
-
 async def test_candidate_inherits_and_delivers_raw_source_contents(tmp_path, monkeypatch):
     repo = _repository(tmp_path)
     (repo / "source.py").write_text("value = 2\n")

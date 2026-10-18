@@ -16,7 +16,6 @@ def _git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProc
         ["git", "-C", str(repo), *args], check=check, capture_output=True, text=True,
     )
 
-
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     source = tmp_path / "repo"
@@ -29,15 +28,12 @@ def repo(tmp_path: Path) -> Path:
     _git(source, "commit", "-qm", "base")
     return source
 
-
 def _registered(repo: Path, workspace: Path) -> bool:
     listing = _git(repo, "worktree", "list", "--porcelain", "-z").stdout
     return f"worktree {workspace.resolve()}" in listing.split("\0")
 
-
 def _branch_exists(repo: Path, branch: str) -> bool:
     return _git(repo, "show-ref", "--verify", f"refs/heads/{branch}", check=False).returncode == 0
-
 
 @pytest.mark.skipif(os.name != "posix" or os.geteuid() == 0, reason="requires enforced POSIX permissions")
 @pytest.mark.parametrize("operation", ["cleanup", "abort"])
@@ -61,7 +57,6 @@ async def test_permission_failure_unregisters_worktree_and_cleanup_can_retry(rep
     try:
         with pytest.raises(RuntimeError, match="worktree cleanup failed"):
             await getattr(env, operation)()
-        # The command really failed, yet Git already removed its registration.
         assert len(removals) == 1 and removals[0].returncode != 0
         assert "Permission denied" in removals[0].stderr
         assert not _registered(repo, workspace)
@@ -73,9 +68,8 @@ async def test_permission_failure_unregisters_worktree_and_cleanup_can_retry(rep
         await env.cleanup()
     assert not workspace.exists()
     assert not _branch_exists(repo, "permission-recovery")
-    assert len(removals) == 1  # Retry only removes the residual directory.
-    await env.cleanup()  # Successful cleanup is idempotent.
-
+    assert len(removals) == 1
+    await env.cleanup()
 
 async def test_locked_worktree_retains_directory_and_branch_until_unlocked(repo, tmp_path, monkeypatch):
     temporary_root = tmp_path / "worktrees with spaces\nand unicode \u5de5\u4f5c"
@@ -96,7 +90,6 @@ async def test_locked_worktree_retains_directory_and_branch_until_unlocked(repo,
         await env.cleanup()
     assert not workspace.exists()
     assert not _branch_exists(repo, "locked-recovery")
-
 
 @pytest.mark.parametrize(
     "probe_result",

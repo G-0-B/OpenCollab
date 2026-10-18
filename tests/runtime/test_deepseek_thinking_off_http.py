@@ -32,7 +32,6 @@ _READ_CALL = {"id": "read-1", "type": "function", "function": {
     "name": "file_read", "arguments": '{"path":"f.py"}',
 }}
 
-
 @contextmanager
 def _deepseek_server(*, tool_round=False, keep_prior_reasoning=None):
     requests = []
@@ -93,7 +92,6 @@ def _deepseek_server(*, tool_round=False, keep_prior_reasoning=None):
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
-
 
 @pytest.mark.parametrize("model", _MODELS)
 @pytest.mark.parametrize("protocol", _PROTOCOLS)
@@ -166,7 +164,6 @@ async def test_deepseek_default_mode_reaches_all_public_entries(
             assert requests[0].get("thinking") == {"type": "disabled"}, requests[0]
         assert "enable_thinking" not in requests[0]
 
-
 @pytest.mark.parametrize("model", _MODELS)
 @pytest.mark.parametrize("protocol", _PROTOCOLS)
 @pytest.mark.parametrize("prefix", ["", "deepseek/", "gateway/"])
@@ -182,7 +179,6 @@ def test_deepseek_native_disable_accepts_existing_model_aliases(model, protocol,
         assert "extra_body" not in kwargs
     else:
         assert kwargs.get("thinking") == {"type": "disabled"}
-
 
 @pytest.mark.parametrize("model", _MODELS)
 @pytest.mark.parametrize("thinking", [False, True])
@@ -204,7 +200,6 @@ def test_deepseek_explicit_protocol_keeps_priority(model, thinking, params):
     assert kwargs["reasoning_effort"] == "max"
     assert params == original
 
-
 @pytest.mark.parametrize("model", _MODELS)
 @pytest.mark.parametrize("thinking", [False, True])
 @pytest.mark.parametrize("effort", [None, "high", "max"])
@@ -222,7 +217,6 @@ def test_deepseek_responses_keeps_explicit_effort_and_extensions(model, thinking
         assert kwargs["extra_body"] == (params if thinking else (
             {"enable_thinking": False} if "enable_thinking" in params else {"thinking": {"type": "disabled"}}
         ))
-
 
 @pytest.mark.parametrize("model", _MODELS)
 @pytest.mark.parametrize("protocol", _PROTOCOLS)
@@ -262,7 +256,6 @@ async def test_deepseek_native_sdk_disable_control(model, protocol):
     else:
         assert requests[0]["thinking"] == {"type": "disabled"}
 
-
 @pytest.mark.parametrize("model", [
     "deepseek-pro", "deepseek-reasoner", "deepseek-v4.1-flash", "deepseek-flash-preview",
     "deepseek-v4-pro-custom", "deepseek-v4-flash-vision-custom",
@@ -277,7 +270,6 @@ def test_unverified_models_keep_existing_default_fields(model, prefix, protocol)
     assert "extra_body" not in kwargs
     assert "thinking" not in kwargs
     assert "reasoning" not in kwargs
-
 
 @pytest.mark.parametrize("model", _MODELS)
 @pytest.mark.parametrize("protocol", _PROTOCOLS)
@@ -311,7 +303,6 @@ async def test_deepseek_workflow_override_selects_disabled_mode(monkeypatch, tmp
     else:
         assert requests[0]["thinking"] == {"type": "disabled"}
 
-
 @pytest.mark.parametrize("model", ["gpt-5.6-luna", "k3", "kimi-for-coding"])
 async def test_fixed_thinking_models_keep_workflow_protection(monkeypatch, tmp_path, model):
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(tmp_path / "usage.jsonl"))
@@ -330,7 +321,6 @@ async def test_fixed_thinking_models_keep_workflow_protection(monkeypatch, tmp_p
         result = await app.workflow(flow, trace=False, max_steps=1)
         assert result.ok and result.output == "done"
     assert requests[0]["thinking"] == {"type": "enabled"}
-
 
 @pytest.mark.parametrize("model", _MODELS)
 @pytest.mark.parametrize("thinking", [False, True])
@@ -385,7 +375,6 @@ async def test_deepseek_tool_continuation_keeps_selected_mode(
         assert tool["tool_call_id"] == _READ_CALL["id"]
         assert "x = 1" in tool["content"]
 
-
 @pytest.mark.parametrize("model", _MODELS + [f"gateway/{model}-2026-09-21" for model in _MODELS])
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])
 @pytest.mark.parametrize("params", [None, {"thinking": {"type": "disabled"}}])
@@ -430,7 +419,6 @@ async def test_thinking_change_preserves_required_tool_reasoning(monkeypatch, tm
         assert request["thinking"] == {"type": "disabled"}
         prior = next(message for message in request["messages"] if message.get("tool_calls"))
         assert prior["reasoning_content"] == _REASONING
-
 
 @pytest.mark.parametrize("model", ["gpt-4o", "gateway/unknown"])
 @pytest.mark.parametrize("stream", [False, True], ids=["json", "sse"])

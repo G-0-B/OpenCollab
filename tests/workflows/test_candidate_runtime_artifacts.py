@@ -70,7 +70,6 @@ async def test_candidate_source_and_restoration_share_runtime_record_filter(tmp_
             await lease.cleanup()
         await environment.cleanup()
 
-
 @pytest.mark.parametrize("mutation", ["modified", "staged", "deleted", "renamed"])
 async def test_owned_runtime_directory_keeps_tracked_user_changes(tmp_path, mutation):
     repo = _repository(tmp_path)
@@ -104,7 +103,6 @@ async def test_owned_runtime_directory_keeps_tracked_user_changes(tmp_path, muta
     finally:
         await environment.cleanup()
 
-
 @pytest.mark.parametrize("location", ["source", "ancestor"])
 async def test_owned_save_directory_covering_source_keeps_user_contents(tmp_path, location):
     repo = _repository(tmp_path)
@@ -122,7 +120,6 @@ async def test_owned_save_directory_covering_source_keeps_user_contents(tmp_path
         if lease is not None:
             await lease.cleanup()
         await environment.cleanup()
-
 
 async def test_container_source_keeps_paths_matching_host_runtime_directory(tmp_path):
     repo = _repository(tmp_path)
@@ -145,7 +142,6 @@ async def test_container_source_keeps_paths_matching_host_runtime_directory(tmp_
         assert await workspace._source_changed() is True
     finally:
         await local.cleanup()
-
 
 async def test_owned_source_status_preserves_index_when_clean_file_stat_changes(tmp_path):
     repo = _repository(tmp_path)

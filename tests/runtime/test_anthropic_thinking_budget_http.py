@@ -22,14 +22,12 @@ from tests.support.provider_sdk_http import completion_http_response, http_respo
 _THINKING = {"thinking": {"type": "enabled", "budget_tokens": 1024}}
 _MODEL = "claude-sonnet-4-6"
 
-
 @pytest.fixture(autouse=True)
 def isolate_configuration(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(tmp_path / "usage.jsonl"))
     monkeypatch.setenv("OPENCOLLAB_UNBOUNDED_LIMITS", "false")
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "every-step")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "on")
-
 
 @pytest.mark.parametrize("budget,thinking,expected", [
     (7000, True, "completed"), (3800, True, "stopped"),
@@ -95,7 +93,6 @@ async def test_public_agent_preserves_tool_results_when_thinking_budget_runs_out
         else:
             assert requests[1]["max_tokens"] < 1024
 
-
 @pytest.mark.parametrize("output_budget,expected_calls", [(1024, 0), (1025, 1)])
 async def test_manual_thinking_output_budget_boundary(monkeypatch, tmp_path, output_budget, expected_calls):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
@@ -130,7 +127,6 @@ async def test_manual_thinking_output_budget_boundary(monkeypatch, tmp_path, out
             assert session.phase is SessionPhase.STOPPED
             assert session.used_tokens == 0
 
-
 @pytest.mark.parametrize("budget", [500, 7000])
 @pytest.mark.parametrize("params,limit,error", [
     (_THINKING, 1024, "budget_tokens must be less than max_output_tokens"),
@@ -162,7 +158,6 @@ async def test_initial_invalid_thinking_configuration_remains_failed(
     assert result.tokens == 0
     assert requests == []
 
-
 async def test_summary_uses_ordinary_output_budget_for_manual_thinking_agent(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
@@ -193,7 +188,6 @@ async def test_summary_uses_ordinary_output_budget_for_manual_thinking_agent(mon
     assert requests[0]["max_tokens"] == 128
     assert "thinking" not in requests[0]
 
-
 async def test_custom_client_without_output_requirement_keeps_thinking_kwargs(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")
     monkeypatch.setenv("OPENCOLLAB_WRITE_NUDGE_MODE", "off")
@@ -215,7 +209,6 @@ async def test_custom_client_without_output_requirement_keeps_thinking_kwargs(mo
     assert calls[0]["max_output_tokens"] == 128
     assert calls[0]["thinking"] is True
     assert calls[0]["thinking_params"] == {"custom": True}
-
 
 @pytest.mark.parametrize("output_budget", [127, 128])
 async def test_custom_client_can_supply_its_output_requirement(monkeypatch, tmp_path, output_budget):
@@ -248,7 +241,6 @@ async def test_custom_client_can_supply_its_output_requirement(monkeypatch, tmp_
     else:
         assert answer == "ok"
         assert calls[0]["max_output_tokens"] == 128
-
 
 async def test_adaptive_thinking_allows_a_small_output_budget(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_BUDGET_NUDGE_MODE", "off")

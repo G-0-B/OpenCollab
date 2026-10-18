@@ -22,7 +22,6 @@ async def test_prebuilding_after_cleanup_does_not_create_new_roles(tmp_path):
         await scheduler.cleanup()
         tracer.close()
 
-
 @pytest.mark.asyncio
 async def test_shutdown_during_workspace_creation_rolls_back_new_role(tmp_path, monkeypatch):
     scheduler, tracer = _scheduler(tmp_path, prebuild_team=True)

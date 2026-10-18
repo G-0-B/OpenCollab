@@ -50,14 +50,12 @@ def recorded_provider(monkeypatch):
     monkeypatch.setattr(WorkflowSessionFactory, "build_workflow_session", build_session)
     return requests, sessions
 
-
 def _client(tmp_path):
     return OpenCollab(
         tmp_path, model="test-model", provider="openai",
         api_key="test-key",  # pragma: allowlist secret -- in-memory transport
         base_url="https://provider.example.invalid/v1",
     )
-
 
 @pytest.mark.parametrize("unbounded", [False, True])
 @pytest.mark.parametrize("count", [1, 3])
@@ -86,7 +84,6 @@ async def test_default_scouts_execute_after_internal_budget_split(
     assert [session.runner._commit_reserve for session in sessions] == [reserve] * count
     assert result.tokens == 15 * count
 
-
 @pytest.mark.parametrize("cap,reserve", [(20_000, 5_000), (25_000, 25_000), (30_000, 25_000)])
 async def test_default_reserve_preserves_valid_existing_values(tmp_path, recorded_provider, cap, reserve):
     requests, sessions = recorded_provider
@@ -105,7 +102,6 @@ async def test_default_reserve_preserves_valid_existing_values(tmp_path, recorde
     expected_choice = {"type": "function", "function": {"name": "submit_findings"}} if cap == 25_000 else "auto"
     assert requests[0].get("tool_choice") == expected_choice
 
-
 @pytest.mark.parametrize("reserve", [1, 5_000, 20_000])
 async def test_explicit_valid_reserve_is_used_unchanged(tmp_path, recorded_provider, reserve):
     requests, sessions = recorded_provider
@@ -120,7 +116,6 @@ async def test_explicit_valid_reserve_is_used_unchanged(tmp_path, recorded_provi
     assert result.ok and "Scout findings" in result.output
     assert len(requests) == 1
     assert sessions[0].runner._commit_reserve == reserve
-
 
 @pytest.mark.parametrize("unbounded", [False, True])
 @pytest.mark.parametrize("reserve", [0, -1, True, False, 1.5, "5000", 25_000])

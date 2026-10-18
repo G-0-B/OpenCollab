@@ -30,18 +30,8 @@ from tests.support.workflow_runtime_test_support import (
     _patch_build_session,
 )
 
-# Deadlines on cleanup that must SUCCEED. Every wait below is on pure
-# event-loop bookkeeping with no intrinsic duration, so a sub-second budget
-# does not bound the code — it bounds how starved the machine is, and reports a
-# cleanup that worked as a red build. These exist to fail a genuine hang; the
-# waits that are supposed to EXPIRE keep their own small timeouts, because the
-# cleanup path spends them in full on every run before it escalates: the
-# quiesce in test_cleanup_cancels_tasks_without_aborting_caller_environment
-# before it cancels, and the cleanup_timeout in
-# test_run_workflow_quiesces_late_session_before_manifest_and_tracer_close
-# before it aborts the environment.
+# Allow scheduling time for successful cleanup while keeping expiring cleanup deadlines short.
 MUST_SETTLE_SECONDS = 10.0
-
 
 @pytest.mark.asyncio
 async def test_cleanup_cancels_tasks_without_aborting_caller_environment():
@@ -80,7 +70,6 @@ async def test_cleanup_cancels_tasks_without_aborting_caller_environment():
     assert not environment.revoked
     assert environment.abort_calls == 0
 
-
 @pytest.mark.asyncio
 async def test_workflow_finalization_closes_session_resources():
     class ClosableSession:
@@ -111,7 +100,6 @@ async def test_workflow_finalization_closes_session_resources():
     assert succeeded
     assert not lingering
     assert session.close_calls == 1
-
 
 @pytest.mark.asyncio
 async def test_run_workflow_quiesces_late_session_before_manifest_and_tracer_close(

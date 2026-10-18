@@ -20,7 +20,6 @@ class NamedTool:
             },
         }
 
-
 def runtime() -> ToolRuntime:
     return ToolRuntime(
         environment=None,

@@ -42,7 +42,6 @@ async def test_external_turn_respects_existing_message_delivery_owner():
         scheduler._message_delivery_tasks.pop(0, None)
         await scheduler.cleanup()
 
-
 class _ReplyProvider:
     def __init__(self, release=None):
         self.release = release
@@ -54,14 +53,12 @@ class _ReplyProvider:
             await self.release.wait()
         return llm_response(f"answer-{len(self.calls)}")
 
-
 class _PassiveWorktreePool:
     async def acquire(self, role):
         return None
 
     async def release(self):
         pass
-
 
 class _MessageSessionFactory:
     def __init__(self, release):
@@ -81,7 +78,6 @@ class _MessageSessionFactory:
             aid=kwargs["aid"],
             seed_user_messages=[{"role": "user", "content": kwargs["task"]}],
         )
-
 
 async def _real_message_scheduler(tmp_path, *, max_steps=100):
     from opencollab.domain.agent import Agent
@@ -103,14 +99,12 @@ async def _real_message_scheduler(tmp_path, *, max_steps=100):
     sender = await scheduler.spawn(0, "worker", "Prepare an update.")
     return scheduler, lead, sender, release, provider
 
-
 async def _wait_for_external_append(lead):
     for _ in range(100):
         if lead.state.pending_external_user_turn is not None:
             return
         await asyncio.sleep(0)
     raise AssertionError("external user append did not start")
-
 
 async def _message_tool_send(scheduler, sender, content):
     from opencollab.adapters.tools.message import MessageAgentTool
@@ -123,14 +117,12 @@ async def _message_tool_send(scheduler, sender, content):
         ToolRuntime(environment=None, safety_policy=None, permission_policy=None, aid=sender),
     )
 
-
 def _delivered_updates(messages):
     return [
         message["content"]
         for message in messages
         if message.get("role") == "user" and "<teammate-message" in message.get("content", "")
     ]
-
 
 async def test_message_tool_queues_during_default_autosave_append_and_delivers_fifo(tmp_path):
     scheduler, lead, sender, release, provider = await _real_message_scheduler(tmp_path)
@@ -153,7 +145,7 @@ async def test_message_tool_queues_during_default_autosave_append_and_delivers_f
         assert "external question" in provider.calls[0][-1]["content"]
         delivered = _delivered_updates(lead.messages)
         assert len(delivered) == 1
-        assert delivered[0].count("first update") == 2  # summary and body
+        assert delivered[0].count("first update") == 2
         assert delivered[0].count("second update") == 2
         assert delivered[0].index("first update") < delivered[0].index("second update")
         assert not lead.state.pending_user_messages
@@ -166,7 +158,6 @@ async def test_message_tool_queues_during_default_autosave_append_and_delivers_f
         release.set()
         await scheduler.cleanup()
         await asyncio.gather(active, return_exceptions=True)
-
 
 @pytest.mark.parametrize("ending", ["cancel", "step_limit"])
 async def test_accepted_message_append_race_keeps_stopped_turn_explicit(tmp_path, ending):
@@ -215,7 +206,6 @@ async def test_accepted_message_append_race_keeps_stopped_turn_explicit(tmp_path
         await scheduler.cleanup()
         await asyncio.gather(active, return_exceptions=True)
 
-
 async def test_message_tool_preserves_real_append_failure_and_queued_message(tmp_path, monkeypatch):
     scheduler, lead, sender, release, provider = await _real_message_scheduler(tmp_path)
 
@@ -239,7 +229,6 @@ async def test_message_tool_preserves_real_append_failure_and_queued_message(tmp
     finally:
         release.set()
         await scheduler.cleanup()
-
 
 async def test_restored_queued_request_accepts_teammate_messages_and_delivers_fifo_once(tmp_path):
     from opencollab.adapters.storage import SessionStore

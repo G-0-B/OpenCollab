@@ -26,7 +26,6 @@ _MESSAGES = [
     {"role": "user", "content": "restore this export"},
 ]
 
-
 @pytest.mark.parametrize("file_mode", [0o444, 0o644])
 def test_public_read_and_restore_accept_readonly_standalone_export(
     tmp_path: Path, file_mode: int,
@@ -58,7 +57,6 @@ def test_public_read_and_restore_accept_readonly_standalone_export(
     finally:
         export.chmod(0o755)
 
-
 def test_readonly_existing_lock_replays_journal_without_changing_files(tmp_path: Path) -> None:
     path = tmp_path / "session.json"
     store = SessionStore()
@@ -83,7 +81,6 @@ def test_readonly_existing_lock_replays_journal_without_changing_files(tmp_path:
     finally:
         tmp_path.chmod(0o755)
 
-
 def test_existing_journal_without_lock_still_requires_coordination(tmp_path: Path) -> None:
     path = tmp_path / "session.json"
     store = SessionStore()
@@ -101,7 +98,6 @@ def test_existing_journal_without_lock_still_requires_coordination(tmp_path: Pat
         assert not lock.exists()
     finally:
         tmp_path.chmod(0o755)
-
 
 @pytest.mark.parametrize("journal_mode", [0o444, 0o000])
 def test_readonly_lock_preserves_journal_errors(tmp_path: Path, journal_mode: int) -> None:
@@ -124,7 +120,6 @@ def test_readonly_lock_preserves_journal_errors(tmp_path: Path, journal_mode: in
         tmp_path.chmod(0o755)
         journal.chmod(0o644)
 
-
 def test_standalone_readonly_export_preserves_missing_and_invalid_errors(tmp_path: Path) -> None:
     invalid = tmp_path / "invalid.json"
     invalid.write_text(json.dumps({"messages": None}), encoding="utf-8")
@@ -137,7 +132,6 @@ def test_standalone_readonly_export_preserves_missing_and_invalid_errors(tmp_pat
         assert list(tmp_path.iterdir()) == [invalid]
     finally:
         tmp_path.chmod(0o755)
-
 
 @pytest.mark.parametrize("lock_kind", ["unreadable", "symlink", "fifo"])
 def test_existing_invalid_lock_cannot_fall_back_to_standalone_read(
@@ -161,7 +155,6 @@ def test_existing_invalid_lock_cannot_fall_back_to_standalone_read(
         if lock_kind == "unreadable":
             lock.chmod(0o600)
 
-
 def test_existing_write_only_lock_retains_read_access(tmp_path: Path) -> None:
     path = tmp_path / "session.json"
     SessionStore().save(str(path), _MESSAGES)
@@ -171,7 +164,6 @@ def test_existing_write_only_lock_retains_read_access(tmp_path: Path) -> None:
         assert OpenCollab.read_session_snapshot(path)["messages"] == _MESSAGES
     finally:
         lock.chmod(0o600)
-
 
 @pytest.mark.parametrize("error_number", [errno.EROFS, errno.EIO, errno.ENOSPC])
 def test_standalone_fallback_requires_a_lock_creation_permission_error(

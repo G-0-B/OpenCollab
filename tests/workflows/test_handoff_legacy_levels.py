@@ -12,7 +12,6 @@ So the properties the measurement rests on are pinned here, by name, with the
 reason each one is load-bearing.
 """
 
-
 from __future__ import annotations
 
 import pytest
@@ -22,28 +21,21 @@ from tests.support.paths import REPO_ROOT
 
 TEAM_FILE = REPO_ROOT / "configs" / "team.handoff.primary-legacy.yaml"
 
-
 ROLES = ("analyst", "coder", "tester")
-
 
 @pytest.fixture(scope="module")
 def team():
     return load_team_config(path=str(TEAM_FILE))
 
-
 SINGLE_AGENT_WORKING_TOOLS = frozenset(
     {"apply_patch", "bash", "file_read", "file_write", "grep", "submit"}
 )
 
-
 COLLABORATION_TOOLS = frozenset({"git_diff", "message_agent", "team_status"})
-
 
 PROMPTS = REPO_ROOT / "configs" / "handoff-experiment"
 
-
 LEGACY = PROMPTS / "legacy"
-
 
 LEVELS = {
     "primary": ("analyst.md", "team.handoff.primary-legacy.yaml"),
@@ -51,19 +43,15 @@ LEVELS = {
     "strong": ("analyst.strong.md", "team.handoff.strong.yaml"),
 }
 
-
 JUDGE_HEADING = "## What is yours to judge"
-
 
 def _role_card(role: str) -> str:
     """The card ``team.handoff.primary-legacy.yaml`` actually seats this role with."""
     path = LEGACY / "analyst.md" if role == "analyst" else PROMPTS / f"{role}.md"
     return path.read_text(encoding="utf-8")
 
-
 def _analyst_card(level: str) -> str:
     return (LEGACY / LEVELS[level][0]).read_text(encoding="utf-8")
-
 
 def _split_legacy_judge_block(card: str) -> tuple[str, str]:
     """Everything outside the judge section, and the judge section itself.
@@ -80,7 +68,6 @@ def _split_legacy_judge_block(card: str) -> tuple[str, str]:
     assert sep, "the card does not end with the shared closing line"
     return head + tail, block
 
-
 def test_the_three_analyst_cards_differ_only_in_the_judge_block() -> None:
     """One dimension means one block.
 
@@ -92,12 +79,10 @@ def test_the_three_analyst_cards_differ_only_in_the_judge_block() -> None:
     shared = {level: _split_legacy_judge_block(_analyst_card(level))[0] for level in LEVELS}
     assert len(set(shared.values())) == 1, {k: len(v) for k, v in shared.items()}
 
-
 def test_the_three_levels_are_actually_three_different_levels() -> None:
     """Three files that happen to say the same thing are one level, not three."""
     blocks = {level: _split_legacy_judge_block(_analyst_card(level))[1] for level in LEVELS}
     assert len(set(blocks.values())) == 3, sorted(blocks)
-
 
 def test_the_weak_card_keeps_the_sentence_the_first_batches_ran_under() -> None:
     """``weak`` is not a new card: it is the one those runs were produced under.
@@ -108,7 +93,6 @@ def test_the_weak_card_keeps_the_sentence_the_first_batches_ran_under() -> None:
     """
     weak = " ".join(_analyst_card("weak").split())
     assert "carry out this request end to end without involving anyone" in weak
-
 
 def test_the_primary_card_pushes_neither_way() -> None:
     """The level every reported quantity is measured on has to be the neutral one.
@@ -123,18 +107,15 @@ def test_the_primary_card_pushes_neither_way() -> None:
         assert leaning_alone not in block, leaning_alone
     for leaning_over in ("decide what to hand over before", "hand the parts", "has not used the team"):
         assert leaning_over not in block, leaning_over
-    # Both courses named, neither made the expectation.
     assert "keeping all of it" in block
     assert "handing parts of it over" in block
     assert "neither one is what you are expected to do" in block
-
 
 def test_the_strong_card_asks_for_the_handoff_before_the_work() -> None:
     """The level that exists to test whether a non-zero first stage is reachable."""
     block = " ".join(_split_legacy_judge_block(_analyst_card("strong"))[1].split()).lower()
     assert "decide what to hand over before you start" in block
     assert "has not used the team it was given" in block
-
 
 @pytest.mark.parametrize("level", sorted(LEVELS))
 def test_each_level_loads_and_seats_the_same_team(level: str) -> None:

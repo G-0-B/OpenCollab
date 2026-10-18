@@ -21,7 +21,6 @@ async def _wait_for_queued_turn(scheduler, aid):
 
     await asyncio.wait_for(wait(), 5)
 
-
 @pytest.mark.parametrize("outcome", ["return", "exception", "cancel"])
 async def test_review_reacquires_before_parent_work_and_cancel_keeps_other_owner(
     outcome, monkeypatch,
@@ -120,7 +119,6 @@ async def test_review_reacquires_before_parent_work_and_cancel_keeps_other_owner
         other_release.set()
         await scheduler.cleanup(cleanup_timeout=1)
 
-
 async def test_cancelled_review_wait_releases_only_parent_and_later_turn_runs():
     child_started = asyncio.Event()
     child_release = asyncio.Event()
@@ -158,7 +156,6 @@ async def test_cancelled_review_wait_releases_only_parent_and_later_turn_runs():
     finally:
         child_release.set()
         await scheduler.cleanup(cleanup_timeout=1)
-
 
 async def test_external_review_waits_for_current_driver_to_finish():
     lead_started = asyncio.Event()

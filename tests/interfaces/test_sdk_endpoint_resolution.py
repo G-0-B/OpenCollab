@@ -16,7 +16,6 @@ INITIAL_API_KEY = "fake-key-at-construction"  # pragma: allowlist secret
 CHANGED_API_KEY = "fake-key-after-change"  # pragma: allowlist secret
 PROVIDERS = ["openai", "anthropic", "deepseek"]
 
-
 @pytest.fixture
 def requests(monkeypatch, tmp_path):
     for name in tuple(os.environ):
@@ -43,14 +42,11 @@ def requests(monkeypatch, tmp_path):
     install_sdk_transport(monkeypatch, "anthropic", handler)
     return captured
 
-
 def _base_url_env(provider):
     return "ANTHROPIC_BASE_URL" if provider == "anthropic" else "OPENAI_BASE_URL"
 
-
 def _default_base_url(provider):
     return "https://api.anthropic.com" if provider == "anthropic" else "https://api.openai.com/v1"
-
 
 def _request(base_url, provider, *, changed=False):
     path = "v1/messages" if provider == "anthropic" else "chat/completions"
@@ -59,7 +55,6 @@ def _request(base_url, provider, *, changed=False):
         "model": "changed-model" if changed else "initial-model",
         "api_key": CHANGED_API_KEY if changed else INITIAL_API_KEY,
     }
-
 
 async def _complete(client, entry_point):
     if entry_point == "agent":
@@ -70,7 +65,6 @@ async def _complete(client, entry_point):
         async with client.create_model_client() as model:
             response = await model.complete([{"role": "user", "content": "finish once"}])
         assert response.content == "finished"
-
 
 @pytest.mark.parametrize("provider", PROVIDERS)
 @pytest.mark.parametrize("entry_point", ["agent", "create_model_client"])
@@ -108,7 +102,6 @@ async def test_endpoint_is_selected_when_sdk_is_constructed(
     ]
     assert client.configuration["base_url_sha256"] == hashlib.sha256(initial_base_url.encode()).hexdigest()
 
-
 @pytest.mark.parametrize("provider", PROVIDERS)
 @pytest.mark.parametrize("source", ["dotenv", "environment", "config", "argument"])
 async def test_effective_base_url_priority_is_preserved(monkeypatch, tmp_path, requests, provider, source):
@@ -135,7 +128,6 @@ async def test_effective_base_url_priority_is_preserved(monkeypatch, tmp_path, r
     await _complete(client, "create_model_client")
     assert requests == [_request(expected, provider)]
 
-
 @pytest.mark.parametrize("provider", PROVIDERS)
 @pytest.mark.parametrize("entry_point", ["workflow", "team"])
 async def test_workflow_and_team_use_the_sdk_endpoint(monkeypatch, tmp_path, requests, provider, entry_point):
@@ -157,7 +149,6 @@ async def test_workflow_and_team_use_the_sdk_endpoint(monkeypatch, tmp_path, req
     assert result.ok
     assert result.output == "finished"
     assert requests == [_request(_default_base_url(provider), provider)]
-
 
 @pytest.mark.parametrize("provider", PROVIDERS)
 async def test_independent_llm_client_keeps_provider_environment_selection(monkeypatch, requests, provider):

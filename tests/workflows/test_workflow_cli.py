@@ -18,7 +18,6 @@ from opencollab.application.workflow_registry import Registry, workflow
 
 runner = CliRunner()
 
-
 def _stub_registry() -> Registry:
     @workflow(name="alpha", description="the alpha workflow")
     async def a(ctx, args):
@@ -32,7 +31,6 @@ def _stub_registry() -> Registry:
     reg.register(a.__workflow_spec__)
     reg.register(b.__workflow_spec__)
     return reg
-
 
 def test_workflow_run_prints_result_as_json(tmp_path, monkeypatch):
     @workflow(name="echo", description="echoes its args")
@@ -54,7 +52,6 @@ def test_workflow_run_prints_result_as_json(tmp_path, monkeypatch):
         captured["spec_or_fn"] = spec_or_fn
         captured["args"] = args
         captured["kwargs"] = kwargs
-        # Call the workflow fn directly with a stub ctx to mimic execution.
         return SimpleNamespace(output=await spec_or_fn.fn(object(), args), stop_reason=None)
 
     monkeypatch.setattr(workflow_cli, "run_workflow", fake_run_workflow)
@@ -89,7 +86,6 @@ def test_workflow_run_prints_result_as_json(tmp_path, monkeypatch):
     assert captured["kwargs"]["return_details"] is True
     assert captured["registry_workspace"] == str(workspace)
 
-
 def test_load_registry_resolves_relative_directory_from_workspace(tmp_path, monkeypatch):
     project = tmp_path / "project"
     workflow_dir = project / "custom-workflows"
@@ -114,7 +110,6 @@ def test_load_registry_resolves_relative_directory_from_workspace(tmp_path, monk
     registry = workflow_cli.load_registry(str(project))
 
     assert registry.get("workspace-flow").description == "workspace scoped"
-
 
 def test_workflow_run_prints_event_and_result_markup_literally(monkeypatch):
     @workflow(name="literal", description="returns bracketed data")
@@ -146,7 +141,6 @@ def test_workflow_run_prints_event_and_result_markup_literally(monkeypatch):
         "values": ["[bold]literal[/bold]", "[x]"],
     }
 
-
 def test_workflow_run_help_distinguishes_concurrency_caps():
     result = runner.invoke(workflow_cli.app, ["run", "--help"])
     without_ansi = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", result.stdout)
@@ -156,7 +150,6 @@ def test_workflow_run_help_distinguishes_concurrency_caps():
     assert "Max concurrent agent sessions" in normalized
     assert "Max active parallel/pipeline units" in normalized
     assert "defaults to --concurrency" in normalized
-
 
 def test_workflow_run_default_budget_raised_to_1m(monkeypatch):
     """With no --budget, run_cmd raises the workflow default to 1M.
@@ -200,11 +193,9 @@ def test_workflow_run_default_budget_raised_to_1m(monkeypatch):
     result = runner.invoke(workflow_cli.app, ["run", "echo", "--args", "{}"])
 
     assert result.exit_code == 0
-    # --budget was not given, so the explicit budget arg stays None and the
-    # effective budget flows from the raised cfg fallback.
+    # With --budget omitted, the raised config fallback supplies the effective budget.
     assert captured["budget_arg"] is None
     assert captured["cfg_budget"] == 1_000_000
-
 
 def test_workflow_run_explicit_budget_not_raised(monkeypatch):
     """An explicit --budget below 1M is honored verbatim, not floored up."""
@@ -230,11 +221,9 @@ def test_workflow_run_explicit_budget_not_raised(monkeypatch):
     result = runner.invoke(workflow_cli.app, ["run", "echo", "--args", "{}", "--budget", "12345"])
 
     assert result.exit_code == 0
-    # Explicit budget is passed through and the cfg budget equals it (resolve_config
-    # uses the given value); the 1M floor only applies when --budget is omitted.
+    # An explicit budget bypasses the default floor.
     assert captured["budget_arg"] == 12345
     assert captured["cfg_budget"] == 12345
-
 
 def test_workflow_run_unknown_name_exits_nonzero(monkeypatch):
     monkeypatch.setattr(workflow_cli, "load_registry", lambda _workspace=".": _stub_registry())
@@ -243,14 +232,12 @@ def test_workflow_run_unknown_name_exits_nonzero(monkeypatch):
 
     assert result.exit_code != 0
 
-
 def test_workflow_run_invalid_json_args_exits_nonzero(monkeypatch):
     monkeypatch.setattr(workflow_cli, "load_registry", lambda _workspace=".": _stub_registry())
 
     result = runner.invoke(workflow_cli.app, ["run", "alpha", "--args", "{not-json"])
 
     assert result.exit_code != 0
-
 
 def _last_json_block(text: str) -> str:
     """Extract the trailing JSON object/array printed by the run command.

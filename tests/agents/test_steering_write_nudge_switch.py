@@ -41,7 +41,6 @@ from tests.support.session_run_loop_test_support import (
 
 BUDGET = 100_000
 
-
 def _block(*, mode=None, reads=0, has_write=True, has_structured=False, write_landed=False,
            budget_mode=None):
     kwargs = dict(
@@ -61,23 +60,14 @@ def _block(*, mode=None, reads=0, has_write=True, has_structured=False, write_la
         kwargs["budget_nudge_mode"] = budget_mode
     return build_steering_block(**kwargs)
 
-
-# --------------------------------------------------------------------------
-# mode resolution
-# --------------------------------------------------------------------------
-
 def test_unset_or_unknown_env_resolves_to_on():
-    # Unset, blank and garbage all fall back to the pre-knob behaviour, so a run
-    # that does not opt in is not silently switched to a different instrument.
     assert resolve_write_nudge_mode({}) == WRITE_NUDGE_ON
     assert resolve_write_nudge_mode({WRITE_NUDGE_ENV_VAR: ""}) == WRITE_NUDGE_ON
     assert resolve_write_nudge_mode({WRITE_NUDGE_ENV_VAR: "disabled"}) == WRITE_NUDGE_ON
 
-
 def test_recognised_values_resolve_case_and_space_insensitively():
     assert resolve_write_nudge_mode({WRITE_NUDGE_ENV_VAR: "on"}) == WRITE_NUDGE_ON
     assert resolve_write_nudge_mode({WRITE_NUDGE_ENV_VAR: " OFF "}) == WRITE_NUDGE_OFF
-
 
 def test_resolution_reads_the_process_environment_by_default(monkeypatch):
     monkeypatch.setenv(WRITE_NUDGE_ENV_VAR, "off")
@@ -85,15 +75,7 @@ def test_resolution_reads_the_process_environment_by_default(monkeypatch):
     monkeypatch.delenv(WRITE_NUDGE_ENV_VAR)
     assert resolve_write_nudge_mode() == WRITE_NUDGE_ON
 
-
-# --------------------------------------------------------------------------
-# the default is today's behaviour, verbatim
-# --------------------------------------------------------------------------
-
 def test_default_still_emits_the_hard_write_demand_and_forces_a_tool():
-    # The control group's exact wording and its tool_choice force. If this test
-    # goes green with a different default, the 60 recorded runs are no longer
-    # comparable to anything run afterwards.
     msg, override, level = _block(reads=READS_NUDGE_HARD)
     assert override == "required" and level == "hard"
     assert (
@@ -101,23 +83,18 @@ def test_default_still_emits_the_hard_write_demand_and_forces_a_tool():
         " — your next action MUST be a file_write or apply_patch edit."
     ) in msg["content"]
 
-
 def test_default_still_emits_the_soft_write_advice():
     msg, override, level = _block(reads=READS_NUDGE_SOFT)
     assert override is None and level == "soft"
     assert "If you can describe the fix, make it now" in msg["content"]
 
-
 def test_default_still_emits_the_structured_output_demand():
-    # The rung that dominates the reading-analyst arm: no write tool in hand, so
-    # the harness demands a structured_output commit from reads >= SOFT.
     msg, override, level = _block(
         reads=READS_NUDGE_SOFT, has_write=False, has_structured=True
     )
     assert level == "hard"
     assert override == {"type": "function", "function": {"name": "structured_output"}}
     assert "your next action MUST be structured_output" in msg["content"]
-
 
 def test_passing_on_explicitly_matches_the_default():
     for reads, has_write, has_structured in (
@@ -131,22 +108,15 @@ def test_passing_on_explicitly_matches_the_default():
         )
         assert default == explicit
 
-
-# --------------------------------------------------------------------------
-# off silences every rung, and only the rungs
-# --------------------------------------------------------------------------
-
 def test_off_silences_the_hard_write_demand_and_the_force():
     msg, override, level = _block(mode=WRITE_NUDGE_OFF, reads=READS_NUDGE_HARD)
     assert override is None and level is None
     assert "STOP reading" not in msg["content"]
 
-
 def test_off_silences_the_soft_write_advice():
     msg, override, level = _block(mode=WRITE_NUDGE_OFF, reads=READS_NUDGE_SOFT)
     assert override is None and level is None
     assert "make it now" not in msg["content"]
-
 
 def test_off_silences_the_structured_output_demand():
     msg, override, level = _block(
@@ -155,7 +125,6 @@ def test_off_silences_the_structured_output_demand():
     assert override is None and level is None
     assert "structured_output" not in msg["content"]
 
-
 def test_off_keeps_the_budget_status_line_intact():
     # The budget line is a different quantity and is deliberately not switched
     # off with the nudge: an off run still tells the model what it has left.
@@ -163,17 +132,11 @@ def test_off_keeps_the_budget_status_line_intact():
     quiet, _override2, _level2 = _block(mode=WRITE_NUDGE_OFF, reads=0)
     assert off["content"] == quiet["content"] == "[Budget: ~50k/100k tokens left, ~37 steps left.]"
 
-
 def test_off_with_the_budget_line_also_off_returns_no_message_at_all():
     msg, override, level = _block(
         mode=WRITE_NUDGE_OFF, reads=READS_NUDGE_HARD, budget_mode=BUDGET_NUDGE_OFF
     )
     assert (msg, override, level) == (None, None, None)
-
-
-# --------------------------------------------------------------------------
-# through the run loop (the env var is read at the call site)
-# --------------------------------------------------------------------------
 
 def _runner(reads, *, tools=("file_read", "apply_patch"), tracer=None, schemas=False):
     # History ends on a tool message, so the block rides in the shaped copy only
@@ -192,12 +155,10 @@ def _runner(reads, *, tools=("file_read", "apply_patch"), tracer=None, schemas=F
         max_budget_tokens=BUDGET, max_steps=40,
     ), state
 
-
 def _prompt_text(llm):
     return "\n".join(
         m.get("content") or "" for call in llm.calls for m in call["messages"]
     )
-
 
 def test_run_loop_default_env_nudges_traces_and_forces(monkeypatch):
     monkeypatch.delenv(WRITE_NUDGE_ENV_VAR, raising=False)
@@ -208,7 +169,6 @@ def test_run_loop_default_env_nudges_traces_and_forces(monkeypatch):
     assert runner.llm.calls[0].get("tool_choice") == "required"
     assert len(_steering_steps(tracer)) == 1
 
-
 def test_run_loop_off_env_sends_no_nudge_no_force_and_no_trace(monkeypatch):
     monkeypatch.setenv(WRITE_NUDGE_ENV_VAR, "off")
     tracer = FakeTracer()
@@ -217,9 +177,7 @@ def test_run_loop_off_env_sends_no_nudge_no_force_and_no_trace(monkeypatch):
     assert "STOP reading" not in _prompt_text(runner.llm)
     assert runner.llm.calls[0].get("tool_choice") in (None, "auto")
     assert _steering_steps(tracer) == []
-    # the budget line still rides along
     assert "Budget:" in _prompt_text(runner.llm)
-
 
 def test_run_loop_off_env_leaves_the_tool_schemas_unfiltered(monkeypatch):
     # A hard nudge narrows the offered schemas to the write gate; with the nudge

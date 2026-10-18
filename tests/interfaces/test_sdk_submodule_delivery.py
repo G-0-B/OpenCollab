@@ -19,7 +19,6 @@ from tests.workflows.test_candidate_submodule_delivery import _source_with_depen
 def _call(name, arguments):
     return {"id": name, "type": "function", "function": {"name": name, "arguments": json.dumps(arguments)}}
 
-
 @pytest.mark.parametrize("backend", ["local", "container"])
 @pytest.mark.parametrize("trace", [False, True])
 @pytest.mark.parametrize("target", ["tracked", "untracked", "parent"])

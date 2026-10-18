@@ -24,7 +24,6 @@ def _git(path, *args):
         ["git", "-C", str(path), *args], capture_output=True, text=True, check=True,
     ).stdout
 
-
 def _repository(path, *, both_pass):
     path.mkdir()
     _git(path, "init", "-q")
@@ -42,7 +41,6 @@ def _repository(path, *, both_pass):
     _git(path, "commit", "-qm", "\u521d\u59cb\u6d4b\u8bd5\u4ed3\u5e93")
     return path
 
-
 def _tool_response(name, arguments, sequence):
     return LLMResponse(
         content=None,
@@ -53,10 +51,8 @@ def _tool_response(name, arguments, sequence):
         finish_reason="tool_calls", usage=Usage(5, 3),
     )
 
-
 def _last_tool_result(messages):
     return next(message["content"] for message in reversed(messages) if message["role"] == "tool")
-
 
 class _ScriptedCoder:
     def __init__(self, role, command, source):
@@ -81,7 +77,6 @@ class _ScriptedCoder:
         if step == 3:
             return _tool_response("bash", {"command": self.command}, step)
         return LLMResponse(content=f"Candidate {self.role} finished", usage=Usage(5, 3))
-
 
 class _ScriptedJudge:
     def __init__(self, *, file_evidence):
@@ -110,7 +105,6 @@ class _ScriptedJudge:
             "rationale": "The source.py diff for B returns the required value 3",
         }, step)
 
-
 def _script_sessions(monkeypatch, source, command):
     sessions = []
     original = workflow_session.build_session
@@ -128,7 +122,6 @@ def _script_sessions(monkeypatch, source, command):
 
     monkeypatch.setattr(workflow_session, "build_session", build)
     return sessions
-
 
 @pytest.mark.parametrize("profile", [None, "single2"])
 @pytest.mark.parametrize("flow_name,both_pass", [("duo", False), ("duo", True)])
@@ -213,7 +206,6 @@ async def test_duo_named_sdk_executes_candidates_and_adopts_verified_patch(
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert "1 passed" in completed.stdout
 
-
 async def test_runtime_resolves_cli_profile_name_in_composition_root(tmp_path, monkeypatch):
     observed = []
     original = workflow_session.build_session
@@ -234,7 +226,6 @@ async def test_runtime_resolves_cli_profile_name_in_composition_root(tmp_path, m
     )
     assert result == {"profile": "single2"}
     assert [profile.name for profile in observed] == ["single2"]
-
 
 @pytest.mark.parametrize("profile", [None, "single2"])
 @pytest.mark.parametrize(("filename", "desired"), [

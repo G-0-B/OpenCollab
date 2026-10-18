@@ -32,7 +32,6 @@ def test_public_sdk_reads_commented_settings(tmp_path, monkeypatch, quote, comme
     assert config["thinking"] is True
     assert config["model"] == "gpt-4o"
 
-
 @pytest.mark.parametrize(("raw", "expected"), [
     ("literal#hash", "literal#hash"),
     ("https://endpoint.invalid/v1#route # endpoint", "https://endpoint.invalid/v1#route"),

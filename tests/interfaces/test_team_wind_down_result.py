@@ -48,7 +48,6 @@ async def _run(monkeypatch, tmp_path: Path, *, primary=None, cleanup=None, trace
         environment=environment,
     )
 
-
 @pytest.mark.parametrize("failure_source", ["cleanup", "trace", "both"])
 async def test_wind_down_failure_preserves_completed_answer_and_cost(monkeypatch, tmp_path, failure_source):
     cleanup = OSError("cleanup failed") if failure_source != "trace" else None
@@ -68,7 +67,6 @@ async def test_wind_down_failure_preserves_completed_answer_and_cost(monkeypatch
     if cleanup is not None and trace is not None:
         assert any("trace failed" in note for note in getattr(cleanup, "__notes__", ()))
 
-
 async def test_wind_down_failure_retains_partial_answer_and_original_stop(monkeypatch, tmp_path):
     primary = SchedulerTurnError(0, SessionPhase.STOPPED, "budget exhausted", "partial answer")
 
@@ -82,7 +80,6 @@ async def test_wind_down_failure_retains_partial_answer_and_original_stop(monkey
     assert any("cleanup failed" in note for note in getattr(primary, "__notes__", ()))
     assert result.metrics["execution_quiesced"] is False
 
-
 async def test_wind_down_failure_does_not_claim_cleanup_of_external_environment(monkeypatch, tmp_path):
     result = await _run(monkeypatch, tmp_path, cleanup=OSError("cleanup failed"), environment=object())
 
@@ -90,7 +87,6 @@ async def test_wind_down_failure_does_not_claim_cleanup_of_external_environment(
     assert result.metrics["environment_quiesced"] is None
     assert result.metrics["environment_cleanup_quiesced"] is None
     assert result.metrics["execution_quiesced"] is False
-
 
 @pytest.mark.parametrize("stage", ["run", "cleanup", "trace"])
 async def test_cancellation_during_run_or_wind_down_is_raised(monkeypatch, tmp_path, stage):

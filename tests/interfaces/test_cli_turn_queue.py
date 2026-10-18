@@ -38,10 +38,8 @@ class _FakePrompt:
         self.delivered.append(line)
         return True
 
-
 def _tui(selected_aid: int = 0):
     return SimpleNamespace(selected_aid=selected_aid, print_turn_divider=lambda: None)
-
 
 @pytest.mark.asyncio
 async def test_a_line_is_addressed_to_the_agent_that_holds_focus():
@@ -54,7 +52,6 @@ async def test_a_line_is_addressed_to_the_agent_that_holds_focus():
 
     assert submitted == [("message selected agent", 2)]
 
-
 @pytest.mark.asyncio
 async def test_an_agents_question_is_answered_before_the_line_becomes_a_turn():
     submitted: list = []
@@ -65,7 +62,6 @@ async def test_an_agents_question_is_answered_before_the_line_becomes_a_turn():
 
     assert prompt.delivered == ["y"]
     assert submitted == [("now a real turn", 0)]
-
 
 @pytest.mark.asyncio
 async def test_exit_words_end_the_loop_and_q_only_counts_while_holding():
@@ -84,7 +80,6 @@ async def test_exit_words_end_the_loop_and_q_only_counts_while_holding():
         exit_words=cli_main._HOLD_EXIT_COMMANDS,
     )
     assert submitted == []
-
 
 @pytest.mark.asyncio
 async def test_ctrl_c_interrupts_a_running_turn_and_keeps_the_prompt():
@@ -105,7 +100,6 @@ async def test_ctrl_c_interrupts_a_running_turn_and_keeps_the_prompt():
     await cli_main._read_loop(prompt, queue, _tui(0), object())
 
     assert submitted == [("still here", 0)]
-
 
 @pytest.mark.asyncio
 async def test_ctrl_c_declines_a_waiting_question_even_with_no_turn_to_stop():
@@ -128,7 +122,6 @@ async def test_ctrl_c_declines_a_waiting_question_even_with_no_turn_to_stop():
 
     assert calls == ["read", "decline", "read", "decline"]
     assert prompt._lines == ["never read"]
-
 
 @pytest.mark.asyncio
 async def test_typing_during_a_turn_queues_instead_of_interleaving():
@@ -161,7 +154,6 @@ async def test_typing_during_a_turn_queues_instead_of_interleaving():
     assert depths[-1] == 0
     assert queue.busy is False
 
-
 @pytest.mark.asyncio
 async def test_interrupt_cancels_the_running_turn_and_drops_what_was_queued():
     """Cooperative, not a task cancel: the agent stops with its session settled."""
@@ -186,9 +178,7 @@ async def test_interrupt_cancels_the_running_turn_and_drops_what_was_queued():
 
     assert ran == ["first"]
     assert queue.depth == 0
-    # Nothing running and nothing queued: there is nothing left to interrupt.
     assert queue.interrupt() is False
-
 
 @pytest.mark.asyncio
 async def test_a_failing_turn_stops_the_run_rather_than_dying_in_the_background():
@@ -202,7 +192,6 @@ async def test_a_failing_turn_stops_the_run_rather_than_dying_in_the_background(
         await asyncio.wait_for(
             cli_main._drive(queue, reader=None, until_drained=True), timeout=2
         )
-
 
 @pytest.mark.asyncio
 async def test_a_one_shot_run_ends_when_its_queue_drains():
@@ -220,14 +209,12 @@ async def test_a_one_shot_run_ends_when_its_queue_drains():
 
     assert ran == ["do work"]
 
-
 @pytest.mark.asyncio
 async def test_a_run_with_nothing_reading_must_be_allowed_to_end():
     queue = TurnQueue(lambda *args: asyncio.sleep(0))
 
     with pytest.raises(ValueError, match="must end when its queue drains"):
         await cli_main._drive(queue, reader=None, until_drained=False)
-
 
 @pytest.mark.asyncio
 async def test_leaving_the_prompt_ends_the_run_even_mid_turn():
@@ -252,7 +239,6 @@ async def test_leaving_the_prompt_ends_the_run_even_mid_turn():
 
     assert stopped.is_set() is True
 
-
 def test_a_stopped_turn_reports_its_reason_and_salvages_the_partial_answer():
     output = StringIO()
     tui = SimpleNamespace(drained_partial_answer=lambda aid: False)
@@ -273,7 +259,6 @@ def test_a_stopped_turn_reports_its_reason_and_salvages_the_partial_answer():
     printed = output.getvalue()
     assert "Here is malformed rich: [bold]x[/red]" in printed
     assert "Agent 2 stopped: token budget exhausted" in printed
-
 
 def test_a_partial_answer_already_in_scrollback_is_not_printed_again():
     """The partial answer is salvage, and the turn's cleanup may have got there first.
@@ -297,7 +282,6 @@ def test_a_partial_answer_already_in_scrollback_is_not_printed_again():
     assert "partial answer" not in printed
     assert "Agent 2 stopped: token budget exhausted" in printed
 
-
 @pytest.mark.asyncio
 async def test_piped_input_finishes_all_turns_before_eof():
     prompt = _FakePrompt(['first', 'second'])
@@ -314,7 +298,6 @@ async def test_piped_input_finishes_all_turns_before_eof():
         until_drained=False,
     )
     assert completed == ['first', 'second']
-
 
 @pytest.mark.asyncio
 async def test_piped_reply_belongs_to_the_current_agent_question():
@@ -335,7 +318,6 @@ async def test_piped_reply_belongs_to_the_current_agent_question():
     )
     assert answers == ['yes']
     assert completed == ['first', 'second']
-
 
 @pytest.mark.asyncio
 async def test_real_redirected_prompt_runs_serially(monkeypatch, tmp_path):

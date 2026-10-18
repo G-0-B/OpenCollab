@@ -50,7 +50,6 @@ async def test_stream_accepts_terminal_projection_without_transport_metadata():
     assert parsed.content == "OK"
     assert parsed.provider_items == [streamed_message]
 
-
 @pytest.mark.asyncio
 async def test_stream_preserves_terminal_assistant_phase_when_stream_omits_it():
     streamed_message = message_item("OK")
@@ -75,7 +74,6 @@ async def test_stream_preserves_terminal_assistant_phase_when_stream_omits_it():
 
     assert parsed.provider_items[0]["phase"] == "final_answer"
 
-
 @pytest.mark.asyncio
 async def test_stream_rejects_conflicting_assistant_phases():
     streamed_message = {**message_item("OK"), "phase": "commentary"}
@@ -95,7 +93,6 @@ async def test_stream_rejects_conflicting_assistant_phases():
 
     with pytest.raises(ResponsesProtocolError, match="disagrees with streamed"):
         _parse_stream(state, [{"role": "user", "content": "work"}], "gpt-fake")
-
 
 @pytest.mark.asyncio
 async def test_stream_accepts_terminal_function_call_projection():
@@ -126,7 +123,6 @@ async def test_stream_accepts_terminal_function_call_projection():
 
     assert parsed.tool_calls[0]["id"] == "call_1"
 
-
 def _reasoning_item(encrypted_content: str | None) -> dict[str, object]:
     item: dict[str, object] = {
         "type": "reasoning",
@@ -135,7 +131,6 @@ def _reasoning_item(encrypted_content: str | None) -> dict[str, object]:
     if encrypted_content is not None:
         item["encrypted_content"] = encrypted_content
     return item
-
 
 @pytest.mark.asyncio
 async def test_stream_rejects_conflicting_reasoning_ciphertext():
@@ -156,7 +151,6 @@ async def test_stream_rejects_conflicting_reasoning_ciphertext():
 
     with pytest.raises(ResponsesProtocolError, match="disagrees with streamed"):
         _parse_stream(state, [{"role": "user", "content": "work"}], "gpt-fake")
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("stream_cipher,terminal_cipher", [("stream-A", None), (None, "terminal-A")])
@@ -183,7 +177,6 @@ async def test_stream_accepts_one_sided_reasoning_ciphertext_projection(
 
     expected_cipher = stream_cipher or terminal_cipher
     assert parsed.provider_items[0]["encrypted_content"] == expected_cipher
-
 
 @pytest.mark.asyncio
 async def test_stream_rejects_terminal_output_omission():

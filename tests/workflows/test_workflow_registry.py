@@ -36,9 +36,7 @@ def test_workflow_decorator_attaches_frozen_spec_metadata():
     assert spec.description == "Triage incoming issues"
     assert spec.phases == ("scan", "rank")
     assert spec.fn is fn
-    # The decorated function is still directly callable.
     assert callable(fn)
-
 
 def test_workflow_spec_is_frozen():
     @workflow(name="x", description="d")
@@ -48,14 +46,12 @@ def test_workflow_spec_is_frozen():
     with pytest.raises(Exception):
         fn.__workflow_spec__.name = "y"  # type: ignore[misc]
 
-
 def test_workflow_decorator_defaults_phases_to_empty_tuple():
     @workflow(name="bare", description="no phases")
     async def fn(ctx, args):
         return None
 
     assert fn.__workflow_spec__.phases == ()
-
 
 def test_registry_register_and_get_roundtrip():
     @workflow(name="solo", description="d")
@@ -65,7 +61,6 @@ def test_registry_register_and_get_roundtrip():
     reg = Registry()
     reg.register(fn.__workflow_spec__)
     assert reg.get("solo") is fn.__workflow_spec__
-
 
 def test_registry_rejects_duplicate_names():
     @workflow(name="dup", description="first")
@@ -81,12 +76,10 @@ def test_registry_rejects_duplicate_names():
     with pytest.raises(ValueError, match="dup"):
         reg.register(b.__workflow_spec__)
 
-
 def test_registry_get_unknown_raises_keyerror():
     reg = Registry()
     with pytest.raises(KeyError):
         reg.get("missing")
-
 
 def test_registry_list_specs_sorted_by_name():
     @workflow(name="zeta", description="z")
@@ -103,13 +96,8 @@ def test_registry_list_specs_sorted_by_name():
     names = [s.name for s in reg.list_specs()]
     assert names == ["alpha", "zeta"]
 
-
-# -- discovery ------------------------------------------------------------- #
-
-
 def _write_workflow_module(directory, filename: str, body: str) -> None:
     (directory / filename).write_text(textwrap.dedent(body), encoding="utf-8")
-
 
 def test_discover_workflows_collects_decorated_functions(tmp_path):
     from opencollab.bootstrap.workflow_runtime import discover_workflows
@@ -144,7 +132,6 @@ def test_discover_workflows_collects_decorated_functions(tmp_path):
     assert names == ["first", "second"]
     assert reg.get("second").phases == ("a",)
 
-
 def test_discover_workflows_ignores_non_workflow_files(tmp_path):
     from opencollab.bootstrap.workflow_runtime import discover_workflows
 
@@ -172,7 +159,6 @@ def test_discover_workflows_ignores_non_workflow_files(tmp_path):
 
     reg = discover_workflows(str(wf_dir))
     assert [s.name for s in reg.list_specs()] == ["real"]
-
 
 def test_discover_workflows_skips_dunder_and_private_files(tmp_path):
     from opencollab.bootstrap.workflow_runtime import discover_workflows
@@ -205,13 +191,11 @@ def test_discover_workflows_skips_dunder_and_private_files(tmp_path):
     reg = discover_workflows(str(wf_dir))
     assert [s.name for s in reg.list_specs()] == ["keep"]
 
-
 def test_discover_workflows_missing_dir_returns_empty_registry(tmp_path):
     from opencollab.bootstrap.workflow_runtime import discover_workflows
 
     reg = discover_workflows(str(tmp_path / "does-not-exist"))
     assert reg.list_specs() == []
-
 
 def test_discover_workflows_dedupes_aliased_workflow(tmp_path):
     """A decorated function bound under two module-level names (alias /
@@ -239,7 +223,6 @@ def test_discover_workflows_dedupes_aliased_workflow(tmp_path):
 
     reg = discover_workflows(str(wf_dir))
     assert [s.name for s in reg.list_specs()] == ["alpha"]
-
 
 def test_discover_workflows_ignores_decorated_imports(tmp_path):
     from opencollab.bootstrap.workflow_runtime import discover_workflows
@@ -273,7 +256,6 @@ def test_discover_workflows_ignores_decorated_imports(tmp_path):
     reg = discover_workflows(str(wf_dir))
 
     assert [s.name for s in reg.list_specs()] == ["local"]
-
 
 def test_load_workflow_specs_supports_dataclasses_and_relative_imports(tmp_path):
     """Discovery modules get a package context while they are executing."""
@@ -312,7 +294,6 @@ def test_load_workflow_specs_supports_dataclasses_and_relative_imports(tmp_path)
     assert [spec.name for spec in specs] == ["with_context"]
     assert specs[0].description == "loaded through a relative import"
 
-
 @pytest.mark.asyncio
 async def test_loaded_workflow_keeps_runtime_relative_imports_available(tmp_path):
     wf_dir = tmp_path / "workflows"
@@ -344,7 +325,6 @@ async def test_loaded_workflow_keeps_runtime_relative_imports_available(tmp_path
     assert module_name not in sys.modules
     assert package_name not in sys.modules
     assert package_name not in workflow_discovery._WORKFLOW_IMPORT_FINDER._package_roots
-
 
 @pytest.mark.asyncio
 async def test_overlapping_workflow_calls_share_runtime_package_until_last_release(tmp_path):
@@ -389,7 +369,6 @@ async def test_overlapping_workflow_calls_share_runtime_package_until_last_relea
     assert package_name not in sys.modules
     assert package_name not in workflow_discovery._WORKFLOW_IMPORT_FINDER._package_roots
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize("namespace_package", [False, True])
 async def test_loaded_workflow_supports_nested_local_packages(tmp_path, namespace_package):
@@ -417,7 +396,6 @@ async def test_loaded_workflow_supports_nested_local_packages(tmp_path, namespac
 
     assert await specs[0].fn(None, {}) == "nested helper"
 
-
 def test_repeated_loads_leave_no_global_workflow_modules_or_finder_roots(tmp_path):
     wf_dir = tmp_path / "workflows"
     wf_dir.mkdir()
@@ -442,7 +420,6 @@ def test_repeated_loads_leave_no_global_workflow_modules_or_finder_roots(tmp_pat
     assert all(specs[0].name == "repeat" for specs in loaded)
     assert {name for name in sys.modules if name.startswith("_opencollab_workflow_")} == before
     assert workflow_discovery._WORKFLOW_IMPORT_FINDER._package_roots == {}
-
 
 @pytest.mark.asyncio
 async def test_loaded_workflow_supports_function_local_dataclass(tmp_path):
@@ -470,7 +447,6 @@ async def test_loaded_workflow_supports_function_local_dataclass(tmp_path):
 
     result = await specs[0].fn(None, {})
     assert result.value == "created after discovery"
-
 
 @pytest.mark.parametrize("kind", ["symlink", "fifo", "oversized"])
 def test_relative_import_helpers_use_bounded_regular_loader(tmp_path, monkeypatch, kind):
@@ -517,7 +493,6 @@ def test_relative_import_helpers_use_bounded_regular_loader(tmp_path, monkeypatc
             os.close(fd)
             writer.join(timeout=1)
 
-
 def test_load_workflow_specs_rolls_back_registered_modules_after_failure(tmp_path, monkeypatch):
     wf_dir = tmp_path / "workflows"
     wf_dir.mkdir()
@@ -543,7 +518,6 @@ def test_load_workflow_specs_rolls_back_registered_modules_after_failure(tmp_pat
 
     assert not any(name.startswith(module_prefix) for name in sys.modules)
 
-
 @pytest.mark.parametrize("kind", ["fifo", "symlink", "oversized"])
 def test_discover_workflows_rejects_unsafe_or_oversized_source(
     tmp_path,
@@ -568,7 +542,6 @@ def test_discover_workflows_rejects_unsafe_or_oversized_source(
     with pytest.raises(ValueError, match="workflow source"):
         workflow_runtime.discover_workflows(str(wf_dir))
 
-
 def test_discover_workflows_rejects_symlink_directory(tmp_path):
     from opencollab.bootstrap.workflow_runtime import discover_workflows
 
@@ -579,7 +552,6 @@ def test_discover_workflows_rejects_symlink_directory(tmp_path):
 
     with pytest.raises(ValueError, match="not a real directory"):
         discover_workflows(str(linked))
-
 
 def test_discover_workflows_directory_enumeration_is_bounded(tmp_path, monkeypatch):
     from opencollab.bootstrap import workflow_runtime

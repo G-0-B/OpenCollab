@@ -18,7 +18,6 @@ def _import_state():
         dict(workflow_discovery._WORKFLOW_IMPORT_FINDER._package_roots),
     )
 
-
 def _write_sibling_workflow(workspace, *, entry, sibling):
     directory = workspace / "workflows"
     directory.mkdir()
@@ -34,7 +33,6 @@ def _write_sibling_workflow(workspace, *, entry, sibling):
         "    return shared_value()\n",
         encoding="utf-8",
     )
-
 
 @pytest.mark.parametrize(
     "entry,sibling",
@@ -52,7 +50,6 @@ def test_cli_lists_workflow_with_ordinary_sibling_import(tmp_path, monkeypatch, 
     assert "sibling-import" in result.stdout
     assert _import_state() == before
 
-
 @pytest.mark.parametrize(
     "entry,sibling",
     [("task", "workflow"), ("task", "helpers"), ("workflow", "helpers"),
@@ -69,7 +66,6 @@ async def test_sdk_runs_workflow_with_ordinary_sibling_import(tmp_path, monkeypa
     assert result.status == "completed", result.reason
     assert result.output == "ordinary sibling import"
     assert _import_state() == before
-
 
 async def test_multiple_workflow_files_keep_sibling_and_self_imports(tmp_path):
     directory = tmp_path / "workflows"

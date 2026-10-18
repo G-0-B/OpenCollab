@@ -22,7 +22,6 @@ def test_native_system_prompt_is_explicit_in_responses_request():
     assert request["instructions"] == SINGLE2_SYSTEM_PROMPT
     assert request["reasoning"]["effort"] == "max"
 
-
 def test_changed_instructions_are_archived_and_rejected(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENCOLLAB_REQUIRE_INSTRUCTIONS_ECHO", "1")
     monkeypatch.setenv("OPENCOLLAB_INSTRUCTIONS_AUDIT_DIR", str(tmp_path))
@@ -33,12 +32,10 @@ def test_changed_instructions_are_archived_and_rejected(monkeypatch, tmp_path):
     assert record["instructions_match"] is False
     assert record["validation_stage"] == "before_solver_delivery"
 
-
 def test_matching_native_instructions_are_accepted(monkeypatch):
     monkeypatch.setenv("OPENCOLLAB_REQUIRE_INSTRUCTIONS_ECHO", "1")
     response = SimpleNamespace(id="resp_test", instructions=SINGLE2_SYSTEM_PROMPT)
     _check_instructions_echo(response, {"instructions":SINGLE2_SYSTEM_PROMPT})
-
 
 def test_native_user_only_summary_keeps_system_instructions_empty(monkeypatch):
     monkeypatch.setenv("OPENCOLLAB_REQUIRE_INSTRUCTIONS_ECHO", "1")
@@ -50,7 +47,6 @@ def test_native_user_only_summary_keeps_system_instructions_empty(monkeypatch):
     _check_instructions_echo(SimpleNamespace(instructions=None), request)
     with pytest.raises(ResponsesProtocolError, match="instructions differ"):
         _check_instructions_echo(SimpleNamespace(instructions="injected prompt"), request)
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("streaming", [False, True])

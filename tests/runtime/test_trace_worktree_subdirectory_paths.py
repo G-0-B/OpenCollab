@@ -25,7 +25,6 @@ def _git(repository: Path | str, *arguments: str) -> str:
         text=True, capture_output=True, check=True,
     ).stdout.strip()
 
-
 @pytest.fixture
 def repository(tmp_path, monkeypatch):
     config = tmp_path / "gitconfig"
@@ -53,7 +52,6 @@ def repository(tmp_path, monkeypatch):
     )
     return root
 
-
 def _environment(source: Path, tmp_path: Path, backend: str):
     if backend == "local":
         return WorktreeEnvironment(str(source))
@@ -63,7 +61,6 @@ def _environment(source: Path, tmp_path: Path, backend: str):
     )
     LocalDockerTransport(source, pair_reads=False).attach(env)
     return env
-
 
 async def _capture(tmp_path, env) -> dict:
     tracer = Tracer(run_id="workspace-paths", output_dir=str(tmp_path / "traces"))
@@ -84,7 +81,6 @@ async def _capture(tmp_path, env) -> dict:
     assert payloads[0]["aid"] == 1
     assert payloads[0]["role"] == "coder"
     return {entry["path"]: entry for entry in payloads[0]["files"]}
-
 
 @pytest.mark.parametrize("backend", ["local", "docker-shell"])
 @pytest.mark.parametrize("subdirectory", ["", "app"], ids=["repository-root", "subdirectory"])
@@ -117,7 +113,6 @@ async def test_trace_content_matches_actual_modified_and_added_files(
         assert _git(repository, "status", "--porcelain") == ""
     finally:
         await env.cleanup()
-
 
 @pytest.mark.parametrize("backend", ["local", "docker-shell"])
 async def test_similar_prefix_outside_workspace_records_permission_error(
