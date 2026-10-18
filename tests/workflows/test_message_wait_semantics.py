@@ -1,19 +1,4 @@
-"""Finishing a turn is how a sender waits for a teammate's answer.
-
-``message_agent`` returns as soon as the message is queued, so a sender that
-wants the answer has to do something in the meantime. The tool now tells it
-that ending the turn is a real option; these tests are why that sentence is
-true. A finished sender is reopened when the reply arrives, and the team turn
-does not return while an inbox still holds a message.
-
-The alternative -- keeping the sender alive on ``team_status`` polls until the
-answer lands -- costs one full provider call per poll, which is the same
-resource the run is measured in. That is worth pinning against regression: the
-mechanism lives in two places that know nothing about each other (the phase FSM
-allows DONE -> IDLE; the quiescence predicate refuses to call a team finished
-while a message is undelivered), and either one alone would make the sentence
-false.
-"""
+"""A finished sender reopens on reply, and queued messages prevent team quiescence."""
 
 from __future__ import annotations
 

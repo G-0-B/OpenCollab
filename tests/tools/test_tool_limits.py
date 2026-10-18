@@ -1,9 +1,4 @@
-"""Per-tool output caps configurable from the team file (``tool_limits``).
-
-The YAML ``tool_limits`` section maps tool name -> constructor kwargs; the
-registry applies them when building a role's tools, so a team can tune output
-budgets to its backend's context size. Unknown tools/kwargs fail fast.
-"""
+"""Team-file tool limits configure output budgets through registered constructors."""
 
 import asyncio
 import shlex
@@ -76,11 +71,7 @@ def test_truncate_including_marker_never_exceeds_cap(cap):
     assert len(result) <= cap
 
 def test_a_cut_result_says_how_to_ask_a_narrower_question(tmp_path):
-    """A marker alone leaves re-running the same command as the obvious move.
-
-    And re-running produces the same cut. Naming the ways to ask for a specific
-    part is what makes the second attempt different from the first.
-    """
+    """A truncation hint must suggest a narrower request to avoid repeating the same cut."""
     ws = tmp_path / "ws"
     ws.mkdir()
     [bash] = build_tools_for_role(

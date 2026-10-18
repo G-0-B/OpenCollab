@@ -13,11 +13,7 @@ def test_qwen_flash_refuses_forced_tool_choice():
     assert capabilities.supports_forced_tool_choice is False
 
 def test_qwen_flash_leaves_every_unprobed_dimension_at_its_default():
-    """Four dimensions were never probed, so the entry must not assert them.
-
-    Copying them from the neighbouring ``deepseek-v4-flash`` row would read as
-    measurement and be invention; this fails if anyone does.
-    """
+    """Unprobed dimensions must retain defaults instead of inheriting a neighbouring row."""
     capabilities = model_capabilities("qwen3.8-flash")
     default = ModelCapabilities()
 
@@ -30,11 +26,7 @@ def test_qwen_flash_leaves_every_unprobed_dimension_at_its_default():
         assert getattr(capabilities, field) == getattr(default, field), field
 
 def test_adding_qwen_leaves_deepseek_byte_for_byte_unchanged():
-    """The recorded DeepSeek settings and its Chat replay protocol stay explicit.
-
-    Every field is spelled out rather than compared to the live table, so the
-    test fails if the row is edited as well as if the lookup is.
-    """
+    """Explicit field values detect changes to the stored row as well as its lookup."""
     assert dataclasses.asdict(model_capabilities("deepseek-v4-flash")) == {
         "context_window": 1_048_576,
         "supports_forced_tool_choice": False,

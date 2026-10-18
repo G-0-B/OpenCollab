@@ -1,14 +1,4 @@
-"""The rewritten shared blocks of the Analyst card, as a second axis.
-
-``configs/team.handoff.facts-v2.yaml`` exists because the primary card's shared
-text carried an untrue sentence and a one-sided account of what a handoff costs.
-It is not a fourth rung of the delegation-emphasis ladder: it keeps ``primary``'s
-``## What is yours to judge`` block byte for byte and changes what surrounds it,
-which is the opposite of what the ladder varies.
-
-What is pinned here is that the two axes stay separate, and that the sentence
-this card was written to correct does not come back.
-"""
+"""The facts-v2 card changes shared facts while preserving the primary stance block."""
 
 from __future__ import annotations
 
@@ -47,11 +37,6 @@ def baseline():
     return load_team_config(path=str(REPO_ROOT / "configs" / "team.handoff.experiment.yaml"))
 
 def test_the_stance_block_is_primarys_byte_for_byte() -> None:
-    """The one thing this card must not vary is the thing the ladder varies.
-
-    If the judge block drifted, a difference measured between this card and
-    primary would be reading the rewrite and a stance change at once.
-    """
     block = JUDGE_BLOCK.read_text(encoding="utf-8")
     assert block in _card("analyst.facts-v2.md")
     assert _split(_primary())[1] == _split(block)[1] + "\n" + CLOSING_LINE
@@ -61,13 +46,7 @@ def test_everything_outside_the_stance_block_did_change() -> None:
     assert _split(_card("analyst.facts-v2.md"))[0] != _split(_primary())[0]
 
 def test_the_card_does_not_claim_the_tester_holds_the_analysts_tools(variant) -> None:
-    """The sentence this card was written to correct.
-
-    The Tester carries no ``apply_patch`` and no ``file_write`` -- a declared
-    role boundary, stated in its own card. Primary told the Analyst all three
-    held the same working tools, so the Analyst was reasoning about its team
-    from a false premise.
-    """
+    """The Tester lacks the Analyst's apply_patch and file_write capabilities."""
     tester = variant.roles["tester"].tools
     assert "apply_patch" not in tester
     assert "file_write" not in tester
@@ -76,22 +55,12 @@ def test_the_card_does_not_claim_the_tester_holds_the_analysts_tools(variant) ->
     assert "the Tester holds the same minus the two that edit files" in card
 
 def test_the_card_still_says_the_coder_can_do_the_analysts_work(variant) -> None:
-    """The true half of the corrected sentence has to survive the correction.
-
-    The Coder does hold the Analyst's bundle. Dropping that would make the card
-    understate the team rather than describe it.
-    """
     assert variant.roles["coder"].tools == variant.roles["analyst"].tools
     card = " ".join(_card("analyst.facts-v2.md").split())
     assert "The Coder holds the same tools you do" in card
 
 def test_the_card_tells_the_analyst_the_seat_budget_is_not_transferable() -> None:
-    """Primary gave the budget only as a negated cost, with no magnitude.
-
-    A seat's cap is ``pool / 3``, which is the single agent's budget. Both
-    halves -- that it is the size of the Analyst's, and that an unspent share
-    does not come back to the Analyst -- are what make the resource legible.
-    """
+    """An unused seat allowance cannot transfer back to the Analyst."""
     card = " ".join(_card("analyst.facts-v2.md").split())
     assert "a budget the size of yours" in card
     assert "what they do not spend is not returned to you" in card

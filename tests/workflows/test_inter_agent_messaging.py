@@ -535,16 +535,7 @@ def test_add_user_message_failure_rolls_back_partial_state_and_restores_budget()
     assert 1 not in scheduler._turn_lease
 
 def test_run_lead_add_user_message_failure_rolls_back_turn_and_restores_lease():
-    """A-path (lead, aid=0) twin of the message-path rollback net above.
-
-    ``_run_turn_exclusive`` reserves a fresh lead turn lease, checkpoints, then calls
-    ``add_user_message``. If that raises, the same checkpoint -> try ->
-    except-restore -> finally-pop transaction must leave the lead turn
-    byte-identical and the lease released-then-restored — the exact contract
-    S2 single-sources into ``_append_user_turn_txn``. The message path (aid!=0)
-    is netted above; this locks the lead path so the extraction cannot silently
-    drift the lead's preamble contract.
-    """
+    """A lead add_user_message failure must roll back both turn state and its reserved lease."""
 
     class FailingAdd(FakeSession):
         async def add_user_message(self, content):

@@ -1,17 +1,4 @@
-"""Four rungs that locate which sentence in a command carries the effect.
-
-``instructed`` reads 3/3 delegation and ``default`` reads 0/3, and the two cards
-differ by more than one thing: a prohibition on doing the work oneself, a line
-suspending the Analyst's discretion, and an explicit permission to depart. Which
-of the three carries the effect cannot be read off those two batches, and the
-answer changes the claim: that a declared topology needs the alternative
-*blocked* is a different finding from that it needs an imperative.
-
-So the four cards here are one text with three switches, and each adjacent pair
-differs by exactly one of them. What is pinned is that property -- if two rungs
-ever drift apart in a second place, a difference measured across them stops
-naming the switch it is named for.
-"""
+"""Adjacent handoff-command rungs vary one instruction passage at a time."""
 
 from __future__ import annotations
 
@@ -32,13 +19,7 @@ def _card(name: str) -> str:
     return (PROMPTS / f"analyst.{name}.md").read_text(encoding="utf-8")
 
 def _closing(name: str) -> str:
-    """The rung's block, read from the file the card is assembled from.
-
-    This used to be recovered by splitting the card on a hardcoded heading.
-    That mechanism is retired: the heading is not shared across cells -- three
-    of the current blocks carry a different one -- so it silently stopped being
-    a way to find a block at all.
-    """
+    """Read the declared block file because headings vary across cards."""
     return (BLOCKS / f"{name}.md").read_text(encoding="utf-8")
 
 def _paragraphs(name: str) -> list[str]:
@@ -75,24 +56,14 @@ def test_only_the_bottom_rung_grants_permission_to_depart() -> None:
 
 @pytest.mark.parametrize("lower,upper", list(zip(LADDER, LADDER[1:])))
 def test_adjacent_rungs_differ_in_exactly_one_move(lower: str, upper: str) -> None:
-    """One switch per step, or the ladder cannot attribute a difference.
-
-    Paragraphs are compared as sets: deleting a sentence rewraps the paragraph it
-    lived in, so a single edit shows up as one paragraph leaving and at most one
-    arriving. Two paragraphs arriving means two things changed.
-    """
+    """Compare paragraph sets so sentence deletion and consequent rewrapping count as one move."""
     a, b = set(_paragraphs(lower)), set(_paragraphs(upper))
     assert len(b - a) <= 1, (lower, upper, sorted(b - a))
     assert len(a - b) <= 1, (lower, upper, sorted(a - b))
     assert a != b, (lower, upper)
 
 def test_the_top_rung_carries_the_instructed_cards_three_load_bearing_sentences() -> None:
-    """Rung 1 is the anchor: it has to be the stance that already read 3/3.
-
-    Its shared block is the corrected one, so it is not byte-identical to
-    ``analyst.instructed.md`` -- but the three sentences that make that card a
-    command have to survive verbatim, or the anchor is not the anchor.
-    """
+    """The top rung preserves the instructed card's three command sentences verbatim."""
     top = " ".join(_card("cmd-prohibit").split())
     inst = " ".join((LEGACY / "analyst.instructed.md").read_text(encoding="utf-8").split())
     for fragment in (SUSPENSION, PROHIBITION, "Verification is the Tester's"):

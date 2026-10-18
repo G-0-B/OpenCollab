@@ -1,9 +1,4 @@
-"""Unit tests for the pulsing brand dot (adapters/tui/brand_motion).
-
-Proves the dot is animated (its brightness breathes as elapsed seconds advance)
-and that every emitted segment carries an explicit, non-"white" style so the
-TUI's per-glyph chrome walk stays satisfied.
-"""
+"""Brand-dot animation emits explicit styles for the per-glyph chrome renderer."""
 
 from __future__ import annotations
 

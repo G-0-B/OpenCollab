@@ -1,12 +1,4 @@
-"""Trajectory records must name the agent that produced them.
-
-``steering_nudge`` and ``commit_brake`` already stamp ``aid`` into their
-payloads. These tests pin the same field onto the two high-volume record types
-— ``llm_call`` and ``tool_exec`` — so a multi-agent trajectory file can be
-attributed per agent after the fact. They drive the real
-:class:`~opencollab.adapters.trace.Tracer` and read the JSONL back off disk, so
-a field that never reaches the file fails here.
-"""
+"""Persist agent attribution on real llm_call and tool_exec trajectory records."""
 
 from __future__ import annotations
 

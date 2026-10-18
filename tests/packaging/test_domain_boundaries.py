@@ -1,10 +1,6 @@
-"""Structural tests for the domain layer's published shape.
+"""Concrete tool adapters and application ports satisfy the domain ToolSpec.
 
-The dependency rule itself (nothing inward may import outward) is enforced by
-``lint-imports`` against the contracts in ``.importlinter``, which walks the
-real import graph and therefore also catches indirect edges and cycles. What
-stays here is the part an import graph cannot check: that the concrete tool
-adapter and the application-layer port still satisfy the domain's ``ToolSpec``.
+Import direction is checked separately by lint-imports.
 """
 
 def test_tool_base_satisfies_tool_spec():

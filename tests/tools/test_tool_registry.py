@@ -74,12 +74,7 @@ def test_an_allowed_unisolated_shell_keeps_user_command_controls():
     assert bash.require_process_isolation is False
 
 def test_the_shell_decision_is_independent_of_the_ask_user_decision():
-    """The split itself: neither input may move the other's answer.
-
-    These were one ``interactive`` flag, and that is what left a prebuilt
-    team's peers without a shell — they are non-entry roles, so they were built
-    with ``ask_user`` off, and the same flag then took ``bash`` away.
-    """
+    """Prebuilt peers need shell access even when ask_user is disabled."""
     tools = build_tools_for_role(
         ["ask_user", "bash"],
         ask_user_available=False,

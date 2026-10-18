@@ -632,14 +632,7 @@ def test_forced_shape_through_pipeline_reaches_nested_layers():
     assert not any(m.get("role") == "tool" for m in out)
 
 def test_compaction_estimate_still_counts_reasoning_content():
-    """B3 guard: shaping is a compaction threshold, not a budget reservation.
-
-    The pre-call reservation now drops ``reasoning_content`` because streaming
-    strips it from the outbound request. This estimator must NOT follow: the
-    recorded reasoning still sits in the local history that compaction sizes,
-    and shrinking it here would move every arm's compaction trigger — a new
-    behaviour change on all arms, which is exactly what the plan declined.
-    """
+    """Compaction sizes local reasoning history even when outbound reservations omit it."""
     messages = [
         {"role": "system", "content": "sys"},
         {"role": "user", "content": "task"},

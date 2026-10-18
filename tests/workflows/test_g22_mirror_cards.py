@@ -1,18 +1,7 @@
-"""The G22-mirror cell's invariants: G22's words, this runtime's collaboration.
+"""Mirror G22 prompt wording and candidate capabilities in the team runtime.
 
-`team.dual-*.yaml` restates G22's ORGANIZATION in this repository's voice;
-`team.g22-mirror.yaml` restates G22's WORDS. What makes the second readable is
-that its departures from the source are a closed, declared list -- so this
-module pins the sentences that must have crossed unedited, and pins the bundle
-each seat actually gets against the bundle G22 gives the same seat.
-
-The expected strings below are copied from OpenCollab-Eval at
-``src/opencollab_eval/workflows/validation_council_dual_coder_contract.py``
-(``MINIMAL_CODER_PROMPT`` / ``CROSS_COMPONENT_CODER_PROMPT`` /
-``CONTRACT_PROMPT``) and ``_validation_council_solve_defs.SHARED_RULES``. They
-live here rather than being imported because that package is a separate
-repository: a copy that drifts is exactly what this file exists to catch, and a
-drifting copy fails loudly here instead of silently changing the instrument.
+Expected strings come from OpenCollab-Eval's validation_council_dual_coder_contract
+and _validation_council_solve_defs.SHARED_RULES in the separate repository.
 """
 
 from __future__ import annotations
@@ -120,21 +109,12 @@ def test_the_cell_seats_g22_s_roster_over_g22_s_four_edges(team) -> None:
 
 @pytest.mark.parametrize("role", ["coder_a", "coder_b"])
 def test_each_candidate_carries_g22_s_candidate_bundle_and_nothing_else(team, role) -> None:
-    """The one number a cross-arm comparison rests on.
-
-    A tool the workflow's candidate does not hold, or one it holds and this seat
-    does not, makes the two arms differ in capability while reporting the same
-    organization -- the defect this cell was written to remove.
-    """
     granted = frozenset(team.roles[role].tools)
     assert granted - COLLABORATION_TOOLS == G22_CANDIDATE_TOOLS
     assert "run_tests" not in granted
 
 def test_the_adjudicator_holds_no_tool_that_edits_a_file(team) -> None:
-    """G22's adjudicator is ``tools=[]``. A team seat cannot be, because the
-    tree it owns is the answer and someone has to check the winner out into it.
-    ``bash`` is that concession and it is the only one: the seat holds neither
-    ``apply_patch`` nor ``file_write``."""
+    """The adjudicator needs bash to check the winning commit into its answer tree."""
     granted = frozenset(team.roles[ENTRY].tools)
     assert granted & EDIT_TOOLS == frozenset()
     assert "bash" in granted
@@ -153,9 +133,7 @@ def test_g22_s_own_paragraphs_crossed_unedited(role: str, expected: str) -> None
 
 @pytest.mark.parametrize("role", ROLES)
 def test_the_shared_rules_cross_with_exactly_one_documented_inversion(role: str) -> None:
-    """``Do not run git commit.`` is the single rule this runtime forces to
-    move: a commit is the only thing that crosses between worktrees, so the
-    candidates must commit and the read-only seat still must not."""
+    """Worktree handoff requires candidate commits despite G22's original commit prohibition."""
     card = _card(role)
     assert SHARED_RULES_HEAD in card
     if role == ENTRY:
@@ -166,15 +144,7 @@ def test_the_shared_rules_cross_with_exactly_one_documented_inversion(role: str)
 
 @pytest.mark.parametrize("role", ROLES)
 def test_a_card_names_only_tools_this_team_actually_has(team, role: str) -> None:
-    """The card and the bundle are one declaration or the cell is broken: a seat
-    reasoning from tools nobody holds invents a workaround, and the workaround
-    becomes an artefact of the contradiction rather than a finding.
-
-    A card may name a TEAMMATE's tool -- the adjudicator's card names the edit
-    tools it does not have, which is the fact that tells it to delegate -- so
-    the bound here is the team's tools, with the seat's own bundle pinned by
-    ``test_the_adjudicator_holds_no_tool_that_edits_a_file`` above.
-    """
+    """Cards can describe teammate tools, so validate mentions against the whole team bundle."""
     held_by_anyone = {tool for seat in team.roles.values() for tool in seat.tools}
     named = {
         name
@@ -186,9 +156,6 @@ def test_a_card_names_only_tools_this_team_actually_has(team, role: str) -> None
     )
 
 def test_the_adjudicators_claim_about_the_candidates_bundles_is_true(team) -> None:
-    """The one cross-role sentence in the adjudicator's card, against the real
-    bundles. It is load-bearing: it is why the seat delegates rather than
-    repairing the code itself."""
     adopter = set(team.roles[ENTRY].tools)
     claimed = EDIT_TOOLS
     assert "They hold the edit tools you do not:" in _card(ENTRY)
@@ -197,10 +164,7 @@ def test_the_adjudicators_claim_about_the_candidates_bundles_is_true(team) -> No
         assert claimed <= set(team.roles[role].tools)
 
 def test_the_two_candidate_cards_differ_only_where_g22_differs() -> None:
-    """A and B are one seat twice unless their asks are different. G22 makes
-    them different in exactly one place -- the task paragraph -- so a card that
-    dropped that difference would turn this cell into best-of-2 with extra
-    steps."""
+    """The task paragraph carries G22's distinction between candidates A and B."""
     a, b = _card("coder_a"), _card("coder_b")
     assert MINIMAL_CODER_TASK in a and MINIMAL_CODER_TASK not in b
     assert CROSS_COMPONENT_CODER_TASK in b and CROSS_COMPONENT_CODER_TASK not in a

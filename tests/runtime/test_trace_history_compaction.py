@@ -1,15 +1,4 @@
-"""The compaction thresholds a session runs under must be on disk.
-
-``history_trigger_target`` scales the reactive history layers to the active
-model's context window, so two arms of one experiment compact at thresholds that
-differ by an order of magnitude — a 1,015,576-token window triggers at 982,576,
-an unrecognised model falls back to the fixed 120,000 — and until now neither
-number was written anywhere. A reader could only recover them by guessing which
-``context_window`` the model had and re-running the arithmetic by hand.
-
-These tests pin one session-level record naming both thresholds, the
-``context_window`` they came from, and which branch produced them.
-"""
+"""Persist model-derived or fallback compaction thresholds for each session."""
 
 from __future__ import annotations
 
@@ -58,9 +47,6 @@ def test_history_compaction_record_names_the_thresholds_in_force():
     }
 
 def test_history_compaction_record_says_when_the_fixed_defaults_were_used():
-    """An unknown window is the difference between compacting at 982,576 and at
-    120,000. The record has to say the fallback branch ran, not leave a reader to
-    infer it from a null."""
     tracer = FakeTracer()
 
     build_session_runtime(agent=_agent(), tracer=tracer, llm=_Llm(None), aid=0)
@@ -73,8 +59,7 @@ def test_history_compaction_record_says_when_the_fixed_defaults_were_used():
     assert records[0]["history_target_tokens"] == 90_000
 
 def test_history_compaction_record_declares_an_injected_shaper():
-    """With a shaper injected, this wiring never derives thresholds. Say so
-    rather than writing numbers no layer is using."""
+    """An injected shaper bypasses threshold derivation."""
     tracer = FakeTracer()
 
     class _Shaper:

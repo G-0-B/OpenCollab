@@ -1,12 +1,4 @@
-"""Contract tests for the opt-in chat-completions streaming path.
-
-Streaming exists for one reason: several OpenAI-compatible endpoints return the
-model's reasoning text ONLY over the streamed wire format. Reassembling a
-completion from chunks re-implements everything the single-response parser did
-for free, so most of these tests pin a failure mode that would otherwise be
-silent — a truncated turn read as a complete one, one tool call's arguments
-spliced onto another's, a budget driven by estimated tokens.
-"""
+"""Chat-completions streaming preserves reasoning, tool calls, finish state, and usage."""
 
 from __future__ import annotations
 
@@ -66,12 +58,7 @@ def chunk(
     index: int = 0,
     no_choices: bool = False,
 ) -> ChatCompletionChunk:
-    """A genuine ``ChatCompletionChunk``.
-
-    Validated through the SDK model rather than faked with ``SimpleNamespace``
-    so ``reasoning_content`` really has to survive as a pydantic extra, which is
-    the only reason the provider can read it at all.
-    """
+    """Use the SDK chunk model so reasoning_content must survive as a Pydantic extra."""
     payload: dict[str, Any] = {
         "id": "chatcmpl-1",
         "object": "chat.completion.chunk",
@@ -190,8 +177,6 @@ def tool_delta(
     return {"tool_calls": [call]}
 
 async def test_stream_off_sends_no_stream_keys_to_create():
-    """The switch off must not add a single request key: the existing runs are
-    the control arm, and a changed body makes them incomparable."""
     completion = ChatCompletion.model_validate({
         "id": "chatcmpl-1",
         "object": "chat.completion",
@@ -220,8 +205,6 @@ async def test_stream_on_adds_stream_and_include_usage():
     assert client.calls[0]["stream_options"] == {"include_usage": True}
 
 async def test_streamed_and_non_streamed_answers_parse_identically():
-    """One logical answer, delivered both ways, must produce the same
-    ``LLMResponse`` — the single guard against the two parsers drifting."""
     completion = ChatCompletion.model_validate({
         "id": "chatcmpl-1",
         "object": "chat.completion",
@@ -266,8 +249,7 @@ async def test_streamed_and_non_streamed_answers_parse_identically():
     assert streamed == expected
 
 async def test_finish_reason_length_survives_streaming():
-    """A turn cut off at max_tokens must still report ``length`` — the session's
-    truncation guard reads nothing else."""
+    """The session truncation check relies on finish_reason carrying length."""
     streamed, _ = await run_stream(text_script(finish_reason="length"))
 
     assert streamed.finish_reason == "length"
@@ -283,9 +265,7 @@ async def test_finish_reason_is_read_from_a_non_final_chunk():
     assert streamed.finish_reason == "stop"
 
 async def test_stream_without_any_finish_reason_raises():
-    """No finish_reason means the stream broke. Filling in a default would let a
-    truncated answer — possibly a half-written tool call — be executed as if
-    complete, with nothing in the trajectory saying so."""
+    """Missing finish_reason can hide a truncated answer or half-written tool call."""
     script = [chunk(delta={"content": "39"}), chunk(delta={"content": "1"}), usage_chunk()]
 
     with pytest.raises(TransientProviderError, match="finish_reason"):
@@ -329,8 +309,7 @@ async def test_usage_detail_fields_match_the_non_streaming_parse():
     assert streamed.usage.reasoning_tokens == 13
 
 async def test_missing_usage_chunk_is_raised_not_silently_estimated():
-    """Without a usage block the budget meter, the USD ledger and every token
-    comparison would run on an estimate flagged by a boolean nobody reads."""
+    """Missing usage must not turn token budgets and cost records into silent estimates."""
     with pytest.raises(StreamedUsageUnavailableError):
         await run_stream(text_script(with_usage=False))
 
@@ -355,8 +334,7 @@ async def test_tool_arguments_join_across_chunks():
     assert streamed.tool_calls[0]["function"]["arguments"] == '{"city": "Paris"}'
 
 async def test_parallel_tool_calls_keep_separate_index_slots():
-    """Interleaved fragments must follow ``index``, not arrival order: appending
-    in arrival order can splice two calls into one that still parses."""
+    """Arrival order can splice interleaved calls into one valid-looking payload."""
     script = [
         chunk(delta=tool_delta(0, call_id="c1", name="get_weather", arguments='{"city": ')),
         chunk(delta=tool_delta(1, call_id="c2", name="get_population", arguments='{"city": ')),
@@ -406,8 +384,6 @@ async def test_fragmented_tool_name_is_assembled():
     assert streamed.tool_calls[0]["function"]["name"] == "get_weather"
 
 async def test_assembled_tool_name_outside_the_request_tools_raises():
-    """A misassembled name would otherwise call a different tool, or none, with
-    no signal at all."""
     script = [
         chunk(delta=tool_delta(0, call_id="c1", name="weather", arguments="{}")),
         chunk(delta={}, finish_reason="tool_calls"),
@@ -504,8 +480,7 @@ async def test_reasoning_content_deltas_concatenate_in_order():
     assert streamed.reasoning == "17*23=391"
 
 async def test_reasoning_alias_field_is_accepted():
-    """OpenRouter-style gateways spell it ``reasoning``; without this the text
-    would silently stay empty and look exactly like today."""
+    """OpenRouter-style gateways use reasoning as an alias for reasoning_content."""
     script = [
         chunk(delta={"reasoning": "thinking "}),
         chunk(delta={"reasoning": "hard"}),
@@ -519,8 +494,6 @@ async def test_reasoning_alias_field_is_accepted():
     assert streamed.reasoning == "thinking hard"
 
 async def test_only_the_first_reasoning_spelling_is_read():
-    """A gateway sending both keys must not duplicate the chain of thought —
-    duplicated reasoning is unreadable as a bug to a human."""
     script = [
         chunk(delta={"reasoning_content": "step one "}),
         chunk(delta={"reasoning_content": "step two", "reasoning": "step two"}),
@@ -534,9 +507,7 @@ async def test_only_the_first_reasoning_spelling_is_read():
     assert streamed.reasoning == "step one step two"
 
 async def test_the_reasoning_spelling_stays_locked_for_the_whole_turn():
-    """Once a spelling has produced text, the other one is ignored even on a
-    later chunk that carries only the alias — otherwise a gateway echoing the
-    same thought under both names concatenates it twice."""
+    """Gateways may echo the same thought under the alias in a later chunk."""
     script = [
         chunk(delta={"reasoning_content": "step one"}),
         chunk(delta={"reasoning": "step one"}),
@@ -621,8 +592,6 @@ def test_explicit_disabled_thinking_preserves_required_prior_reasoning(model):
     assert kwargs["extra_body"] == {"thinking": {"type": "disabled"}}
 
 async def test_reasoning_only_turn_is_rescued_into_content():
-    """A turn with thinking but no answer and no tool call must not read as an
-    empty stop — the shared rescue rung applies here too."""
     script = [
         chunk(delta={"reasoning_content": "I considered it."}),
         chunk(delta={}, finish_reason="stop"),
@@ -635,8 +604,7 @@ async def test_reasoning_only_turn_is_rescued_into_content():
     assert streamed.reasoning == "I considered it."
 
 async def test_kimi_markup_in_streamed_content_is_recovered():
-    """The special-token recovery has to run on the ASSEMBLED text, not on
-    fragments; losing it would turn an intended tool call into prose."""
+    """A special-token sequence can span chunks and needs recovery after assembly."""
     markup = (
         "<|tool_calls_section_begin|><|tool_call_begin|>functions.get_weather:c9"
         '<|tool_call_argument_begin|>{"city": "Paris"}<|tool_call_end|>'
@@ -651,8 +619,7 @@ async def test_kimi_markup_in_streamed_content_is_recovered():
     assert streamed.usage.markup_recovered == 1
 
 async def test_provider_model_comes_from_the_first_chunk():
-    """Later frames may omit the model; the first one that carries it wins, so
-    ``provider_model`` never degrades to None on the streamed path."""
+    """Later chunks may omit the provider model."""
     script = text_script()
     script.append(
         SimpleNamespace(model=None, usage=None, choices=[])
@@ -663,8 +630,6 @@ async def test_provider_model_comes_from_the_first_chunk():
     assert streamed.provider_model == MODEL
 
 async def test_content_absent_stays_none_not_empty_string():
-    """The trajectory stores this verbatim; '""' and 'null' are not the same
-    value to a script reading old and new runs together."""
     script = [
         chunk(delta=tool_delta(0, call_id="c1", name="get_weather", arguments="{}")),
         chunk(delta={}, finish_reason="tool_calls"),
@@ -688,9 +653,7 @@ async def test_second_choice_of_a_multi_choice_stream_is_ignored():
     assert streamed.content == "391"
 
 async def test_first_chunk_timeout_bounds_the_wait_for_the_first_chunk():
-    """The elapsed time, not just the error text, decides which clock ran: a
-    first chunk billed against the (much longer) idle budget would still report
-    "first-chunk" while hanging for the wrong length of time."""
+    """The wrong timeout clock can still report the expected first-chunk error text."""
     client = FakeClient([text_script()], delays=[[20.0]])
     started = time.monotonic()
 
@@ -710,8 +673,7 @@ async def test_first_chunk_timeout_bounds_the_wait_for_the_first_chunk():
     assert time.monotonic() - started < 5.0
 
 async def test_idle_timeout_bounds_the_gap_between_chunks():
-    """A stream that stalls after its first chunk must not hang until the
-    per-call wall clock: the httpx timeout only bounds one socket read."""
+    """The httpx timeout bounds one socket read rather than the entire inter-chunk gap."""
     client = FakeClient([text_script()], delays=[[0.0, 20.0]])
     started = time.monotonic()
 

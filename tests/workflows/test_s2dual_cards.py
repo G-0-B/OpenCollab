@@ -1,16 +1,4 @@
-"""The Single2-seated two-candidate family, and what makes it its own instrument.
-
-Same roster as ``dual-candidate`` and the same five treatment blocks, byte for
-byte. One thing differs: every seat declares ``profile: single2``, so the agent
-under the card is the evaluated single agent rather than OpenCollab's own. That
-is the family's whole claim, and it is only true if four things hold at once --
-the blocks did not drift, the profile actually reaches the seat, the card is
-appended to the profile's prompt rather than replacing it, and the card says
-the things the profile's prompt gets wrong about a team seat.
-
-What is asserted here mirrors ``test_dual_candidate_cards.py`` for this roster,
-plus the profile-specific claims that file has no reason to make.
-"""
+"""Single2-seated dual-candidate cards preserve treatment blocks and adapt team semantics."""
 
 from __future__ import annotations
 
@@ -76,19 +64,11 @@ def _team(name: str):
 
 @pytest.mark.parametrize("name", NAMES)
 def test_every_seat_declares_the_profile(name: str) -> None:
-    """All three, not just the entry one: a team of one Single2 and two others
-    would be a different organization from the one this family claims to run."""
     profiles = declared_role_profiles(str(CONFIGS / VARIANTS[name].team_file))
     assert profiles == {role: PROFILE for role in ROLES}
 
 @pytest.mark.parametrize("name", NAMES)
 def test_the_seated_prompt_is_single2s_with_the_card_after_it(name: str) -> None:
-    """The claim the family is named for, checked on the assembled prompt.
-
-    Not "the card mentions Single2" -- the text a seat is actually seated with
-    has to open on that profile's prompt, or the agent under the card is not
-    the one the single-agent arm runs.
-    """
     team = _team(name)
     builder = ContextBuilder(
         team,
@@ -105,12 +85,10 @@ def test_the_seated_prompt_is_single2s_with_the_card_after_it(name: str) -> None
 
 @pytest.mark.parametrize("name", NAMES)
 def test_the_card_corrects_what_the_profile_says_about_ending_a_run(name: str) -> None:
-    """Single2's prompt ends a session on a reply with no tool call. Here that
-    reply ends a turn: a teammate's message reopens it, and the run ends only
-    once the team is quiescent -- nobody working, no message in flight. So the
-    card cannot repeat the profile's sentence, and it must not replace it with
-    "`submit` ends the run" either: ``submit`` records a deliberate ending, it
-    does not move where the run stops."""
+    """Single2's no-tool reply ends a turn, and teammate messages can reopen it.
+
+    The team run ends only at quiescence.
+    """
     assert PROFILE_SENTENCE in SINGLE2_SYSTEM_PROMPT
     for text in (_card_on_disk(name),
                  (PROMPTS / "coder-a.md").read_text(encoding="utf-8"),
@@ -120,15 +98,10 @@ def test_the_card_corrects_what_the_profile_says_about_ending_a_run(name: str) -
 
 @pytest.mark.parametrize("block", sorted({VARIANTS[n].block for n in NAMES}))
 def test_each_block_is_the_dual_candidate_block_byte_for_byte(block: str) -> None:
-    """The ladder is the same five moves. If a word drifted here, a difference
-    between the two families would be the seat AND the wording, with nothing
-    saying which."""
     assert _block(block) == (DUAL / "blocks" / f"{block}.md").read_text(encoding="utf-8")
 
 def test_the_peer_paragraph_is_the_older_familys_too() -> None:
-    """What each Coder is asked for, and what a Coder's budget is, are facts
-    about the organization rather than about the seat, so they are not restated
-    in this family's words."""
+    """Peer duties and budgets describe organization independently of the seated profile."""
     ours = (PROMPTS / "capabilities" / "full.md").read_text(encoding="utf-8")
     theirs = (DUAL / "capabilities" / "full.md").read_text(encoding="utf-8")
     assert ours.split("\n\n")[1] == theirs.split("\n\n")[1]
@@ -156,8 +129,7 @@ def test_every_card_ends_on_the_shared_evidence_rule(name: str) -> None:
     assert CLOSING_LINE not in _block(VARIANTS[name].block)
 
 def test_this_family_has_a_body_of_its_own() -> None:
-    """Pointing it at the older family's body would have told a Single2 seat
-    about tools twice, in two different sets of words."""
+    """Single2 already supplies tool wording, so the older body would describe tools twice."""
     from scripts.analyst_cards import DUAL_CARDS
 
     assert shared_body(S2DUAL_CARDS) != shared_body(DUAL_CARDS)
@@ -237,9 +209,7 @@ def test_every_team_file_differs_only_in_the_adopters_prompt_line() -> None:
     )
 
 def test_this_family_stays_out_of_the_other_two_namespaces() -> None:
-    """``team.dual-*.yaml`` and ``team.handoff.*.yaml`` are globbed and counted
-    by their own test modules; a cell of this family filed under either name
-    would fail those or force them to be loosened."""
+    """Other test modules glob and count team.dual-*.yaml and team.handoff.*.yaml."""
     assert not list(CONFIGS.glob("team.dual-s2*.yaml"))
     assert not list(CONFIGS.glob("team.handoff.s2dual-*.yaml"))
     for name in NAMES:

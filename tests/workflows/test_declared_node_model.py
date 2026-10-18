@@ -1,9 +1,4 @@
-"""The declaration a prebuilt run opens with names each seat's model.
-
-``assigned.topology_nodes`` already said who was seated, with which tools and
-under what shell; it did not say which model each seat ran, so a team whose
-roles override ``model:`` could not be read back from its own record.
-"""
+"""The prebuilt topology declaration records each seat's resolved model."""
 
 from __future__ import annotations
 

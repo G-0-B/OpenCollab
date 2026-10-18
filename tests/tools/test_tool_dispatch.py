@@ -1,10 +1,4 @@
-"""Contract checks for inline tool dispatch in ToolExecutionUseCase.
-
-The old ``execute_tool_with_runtime`` indirection was removed; the use case
-now calls ``tool.execute_with_runtime(args, runtime)`` directly. These tests
-guard the runtime wiring (env / safety / permission policy passed to tools)
-and the layer boundary of ``tool_execution.py`` (the home of ``ToolRuntime``).
-"""
+"""Inline tool dispatch passes runtime environment, safety, and permission policy."""
 
 import asyncio
 

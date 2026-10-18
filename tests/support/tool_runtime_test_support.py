@@ -1,9 +1,4 @@
-"""Shared fakes for the tool contract tests.
-
-``test_tool_runtime_contract.py``, ``test_file_tool_contract.py`` and
-``test_search_tool_contract.py`` were split out of a single oversized module;
-these are the module-level doubles they build their runtimes from.
-"""
+"""Shared fakes for tool, file, and search runtime tests."""
 
 from __future__ import annotations
 

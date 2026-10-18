@@ -1,11 +1,4 @@
-"""Repo map generation + startup injection into the project context layer.
-
-A bounded repo map answers the "where is everything" question once, at zero
-per-call cost — instead of mid-tier backends burning their early budget on
-ls/find exploration. The map ships as the PROJECT layer's startup content in
-the system prompt; when no map is available the layer stays a
-registered-but-deferred source (the pre-existing behavior).
-"""
+"""Generate a bounded repository map for startup project context."""
 
 from __future__ import annotations
 
@@ -254,15 +247,7 @@ def test_build_repo_map_via_env_reports_nothing_when_find_itself_failed():
     assert run(build_repo_map_via_env(env)) == ""
 
 def test_build_repo_map_via_env_puts_the_top_of_the_tree_first():
-    """Shallowest first, then alphabetical -- so a cut keeps the top level.
-
-    ``find`` emits its own traversal order, which is neither sorted nor
-    stable, so taking its first N entries kept an arbitrary sample. Observed
-    on django-11292: 300 paths survived and none of them were under
-    ``django/`` -- the source tree the task was about -- while ``js_tests/``
-    and ``tests/`` were listed in detail. Sorting after the cut, which is what
-    used to happen, made that arbitrary sample look systematic.
-    """
+    """Sort before truncation so find traversal order cannot hide top-level source paths."""
     env = _FakeEnv(
         stdout="./tests/admin/deep.py\n./zeta.py\n./django/db\n./alpha.py\n./django\n"
     )
@@ -279,13 +264,7 @@ def test_build_repo_map_via_env_puts_the_top_of_the_tree_first():
     ]
 
 def test_build_repo_map_via_env_rejects_find_diagnostics():
-    """A partial traversal must not be presented as a complete map.
-
-    The check moved into the script, because a diagnostic on the process's
-    stderr does not say whose it was. It now decides there, where find's own
-    stream is still separate, and reports the refusal as a status the caller
-    already rejects.
-    """
+    """Check find diagnostics while their stream is separate from the surrounding shell."""
     env = _FakeEnv(stdout="./visible.py\n", returncode=71)
 
     assert run(build_repo_map_via_env(env)) == ""
@@ -295,14 +274,7 @@ def test_build_repo_map_via_env_rejects_find_diagnostics():
     assert "exit 71" in probe.cmds[0]
 
 def test_build_repo_map_via_env_ignores_stderr_that_is_not_the_traversal_s():
-    """The shell around the listing writes to the same stream, every time.
-
-    With a command prefix the environment runs a *login* shell, so its profile
-    scripts print on every command. Treating any stderr as fatal meant the map
-    was empty in exactly the case it exists for -- a repository the caller
-    cannot walk itself -- and ``append_repository_layout`` drops an empty map
-    without a word, so nothing said so.
-    """
+    """Login-shell profiles can emit stderr unrelated to the repository traversal."""
     env = _FakeEnv(
         stdout="./src\n./src/core.py\n",
         stderr="Unable to determine terminal type\nconda: no such env\n",
@@ -472,13 +444,7 @@ class _ElsewhereEnvironment:
         raise AssertionError("this test never executes anything")
 
 def test_no_repo_map_when_the_agents_cannot_read_the_lead_workspace(tmp_path):
-    """A map of the launch directory is a false claim about a container run.
-
-    The lead workspace anchors the run's own bookkeeping and stays a host path.
-    Once the agents work inside a container, that directory is not the one they
-    can read, and a map of it sends them looking for files that are not there —
-    which costs them steps and tells them nothing.
-    """
+    """A container agent cannot use a repository map of the host bookkeeping workspace."""
     ws = _workspace(tmp_path)
     factory = DefaultSessionFactory(
         _spawn_cfg(), lead_workspace=str(ws), lead_environment=_ElsewhereEnvironment()

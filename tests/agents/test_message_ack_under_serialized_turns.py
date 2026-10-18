@@ -1,14 +1,4 @@
-"""What ``message_agent`` tells a sender when the team runs one turn at a time.
-
-Under ``serialize_turns`` a messaged teammate cannot start until the sender ends
-its turn. The general acknowledgement says "carry on with whatever you can do
-meanwhile", which under serialization is the one move that keeps the teammate
-from ever running. 09-25, gpt-5.6-luna on the s2dual judge card, after
-``team_status`` was fixed to say "queued": the Adopter read "queued" 11 times
-and made its next call itself 11 of 11 times; 15/36 runs ended with an empty
-patch because no Coder ran before the Adopter's budget was gone. So a
-serialized team's acknowledgement says it directly: submit now.
-"""
+"""A serialized sender must end its turn before a messaged teammate can run."""
 
 from __future__ import annotations
 

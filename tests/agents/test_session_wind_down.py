@@ -1,18 +1,4 @@
-"""STEP 0 — hardened scout wind-down + enforcement_strength flag + commitment metric.
-
-Two load-bearing tests plus their helpers:
-
-* T1 (REFERENCE INVARIANT) — ``enforcement_strength="off"`` (the default) NEVER
-  enters the wind-down branch: a budget-exhausted session behaves byte-for-byte
-  as it does today (terminal BUDGET_EXCEEDED, no extra LLM turn, no wind-down
-  state set, identical messages/events).
-* T2 (WIND-DOWN BEHAVIOR) — ``enforcement_strength="needs-enforcement"`` crossing
-  ``explore_threshold`` (no pending tool result) winds down: the agent's tools
-  are swapped to submit-only, exactly ONE more CALLING_LLM is allowed, then the
-  session goes terminal; and the harvest backstop turns a captured payload into a
-  findings report while a chop-before-submit yields a "(partial …)" salvage, never
-  a bare "(scout died)".
-"""
+"""Scout wind-down preserves the reference path when enforcement is off."""
 
 from __future__ import annotations
 
@@ -533,8 +519,7 @@ class _FakeState:
         self.messages = []
 
 class _EnforcedFakeSession:
-    """A scripted session that simulates a scout calling submit_findings: when
-    ``capture`` is set, run_loop stashes it on the injected submit tool."""
+    """Scripted scout session that stashes captured findings on the submit tool."""
 
     def __init__(self, *, capture=None, reply="", used_tokens=30_000, max_budget_tokens=100_000):
         self.runner = _FakeRunner()

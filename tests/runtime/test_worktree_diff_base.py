@@ -1,24 +1,7 @@
-"""A handoff must not put one agent's files in another agent's diff.
+"""Worktree diffs attribute handoff commits to their original author.
 
-Agents hand work over inside one repository: a coder commits in its own linked
-worktree and sends the sha to a tester, which runs ``git checkout <sha>`` in
-another linked worktree of the same repository (they share ``.git/objects``, so
-nothing is fetched and no patch is applied). The tester then writes its own
-files on top.
-
-``get_diff`` used to measure every worktree against ``_base_commit``, the HEAD
-pinned when that worktree was created. After a checkout that base is stale, so
-the tester's diff carried the coder's files too — and the scheduler's
-``worktree_changes`` record, which is the per-agent "who touched which file"
-evidence, filed them all under the tester.
-
-The base is now the commit HEAD was last moved *onto* rather than the one it
-*grew from*, read out of the worktree's own HEAD reflog. An agent's own commits
-therefore still count as its own work, and a worktree that never takes a handoff
-is measured exactly where it was before.
-
-These tests run real ``git`` against real linked worktrees. A mock cannot show
-this: the whole failure lives in what git reports for a base that has moved.
+After a checkout, the reflog supplies the commit HEAD moved onto as the new base.
+Real linked worktrees exercise shared Git objects and checkout behavior.
 """
 
 from __future__ import annotations
@@ -181,13 +164,7 @@ async def test_a_non_git_worktree_names_no_base_and_diffs_as_before(tmp_path) ->
         await env.cleanup()
 
 async def test_the_commits_an_agent_made_are_reported_beside_the_base(tmp_path) -> None:
-    """A base alone cannot say whether the agent committed, or what it can hand over.
-
-    ``diff_base`` names where a stretch of work started. What a teammate can be
-    handed is the other end of it — the commits reachable from HEAD but not from
-    that base — and until a run records them, a sha another agent checks out has
-    nothing on disk to be joined against.
-    """
+    """Commits reachable from HEAD beyond diff_base identify the payload available for handoff."""
     source = _repo(tmp_path / "repo")
     env = WorktreeEnvironment(str(source), branch_name="own-commits-coder")
     try:
@@ -262,14 +239,9 @@ async def test_a_non_git_worktree_names_no_head_and_no_commits(tmp_path) -> None
         await env.cleanup()
 
 async def test_a_handoff_is_read_in_a_sha256_repository_too(tmp_path) -> None:
-    """The same handoff, in a repository whose object ids are 64 characters.
+    """SHA-256 reflogs use 64-character IDs.
 
-    A harness that rebuilds the repository under test can choose SHA-256, and
-    the evaluation harness this project runs against does exactly that for
-    instances whose base tree is recorded that way. The base is read out of the
-    HEAD reflog, so a rule that recognised only 40-character ids would find no
-    entry it could parse, quietly fall back to the creation base, and report
-    every handoff as work the taker did itself — with nothing failing to say so.
+    A 40-character-only parser falls back to the creation base and misattributes handoffs.
     """
     source = _repo(tmp_path / "repo", object_format="sha256")
     coder = WorktreeEnvironment(str(source), branch_name="sha256-coder")

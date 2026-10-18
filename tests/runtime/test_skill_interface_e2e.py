@@ -1,13 +1,4 @@
-"""Headline end-to-end test for the P1 skill interface.
-
-Wires a real ``FileSkillStore`` (from a tmp skills/ dir) through ``ContextBuilder``
-for a role granted ``use_skill``, and asserts:
-  1. the catalog text appears in the assembled system prompt, and
-  2. invoking the bound ``UseSkillTool`` with a catalog name returns that
-     skill's body.
-
-No shipping config is touched — the role/team are constructed in-test.
-"""
+"""Exercise FileSkillStore through ContextBuilder and the bound UseSkillTool."""
 
 from __future__ import annotations
 

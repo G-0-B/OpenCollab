@@ -1,21 +1,6 @@
-"""Which seat was working when a delivered line arrived in the graded tree.
+"""Attribute delivered edits to the seat active at each graded-tree boundary.
 
-A team run is graded on one directory: the repository agent 0 was given. Every
-teammate works in a worktree of its own, cut somewhere else entirely, so nothing
-a teammate writes is in the graded tree unless agent 0 puts it there. The
-per-agent ``worktree_changes`` rows therefore cannot answer "who wrote the
-patch that was graded" -- they say what each seat produced in its own directory.
-
-``record_delivery_tree`` records the graded tree itself, at the boundaries a
-team run has: before each turn (under ``serialize_turns`` exactly one seat runs
-at a time, so consecutive rows bracket one seat's working period) and at each
-teammate message that was queued (the handoff, which is where "had the work
-already been done before anyone was asked" is asked).
-
-The end-to-end test below drives a real team over a real repository with a
-scripted model, and pins the reading the paper depends on: the analyst's edit is
-in the tree at the moment it hands off, and the coder's own write never reaches
-the graded tree at all.
+Teammate worktree edits reach the graded tree only when agent zero applies them.
 """
 
 from __future__ import annotations
@@ -209,13 +194,6 @@ async def test_a_team_run_says_which_seat_was_working_when_a_line_arrived(
     assert handoffs[0]["files"] == ["which.txt"]
 
 async def test_a_teammates_own_write_never_reaches_the_graded_tree(run_team_in):
-    """The finding the arm exists to measure, as a property of the record.
-
-    The coder does edit a file -- in its own worktree. The graded tree is
-    unchanged across the coder's whole turn, so the delivered patch contains
-    nothing the coder wrote, and the record says so rather than leaving it to
-    be inferred from an absence.
-    """
     observed = await run_team_in(record_delivery_tree=True)
     snapshots = observed["result"].metrics["tree_snapshots"]
 

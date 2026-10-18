@@ -685,17 +685,9 @@ async def test_only_docker_declares_os_process_isolation(tmp_path) -> None:
     assert not LocalEnvironment(str(tmp_path)).process_isolated
 
 async def test_every_exec_carries_a_git_identity(monkeypatch) -> None:
-    """A commit is the whole payload of a handoff, so it has to be possible.
+    """Anonymous benchmark images need a Git identity to create handoff commits.
 
-    A benchmark image configures no ``user.name``/``user.email``, and git
-    refuses to commit without one. The agent doing the work would then have no
-    sha to hand a teammate, and the only trace of it would be a shell error
-    inside a single turn.
-
-    The identity travels as exec environment rather than as repository config
-    on purpose: the harness rebuilds the workspace as a single anonymous commit
-    and verifies it afterwards, so writing a key into ``.git/config`` would make
-    the workspace differ from the one that was prepared.
+    Exec environment keeps that identity out of the harness-verified .git/config.
     """
     def respond(command, _kwargs):
         if command[1] == "run":

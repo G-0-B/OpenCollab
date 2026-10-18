@@ -1,21 +1,4 @@
-"""The Analyst cards are assembled, and this is the evidence the assembly is lossless.
-
-Every cell of the handoff experiment is a claim that two cards differ in one
-named place and nowhere else. That claim used to rest on tests that re-checked
-byte identity after each card was hand-copied, and it had already failed once:
-the shared body split into two generations, so ``analyst.md`` and
-``analyst.facts-v2.md`` are not comparable at all.
-
-``configs/handoff-experiment/`` now holds one copy of that body (``shared.md``)
-with two slots, one file per closing block (``blocks/``), one file per statement
-of the Analyst's own bundle (``capabilities/``), and one registry
-(``variants.yaml``). A card is what those assemble to.
-
-The load-bearing test in this file is
-``test_every_checked_in_card_is_exactly_what_its_declaration_assembles_to``: it
-is the whole evidence that introducing the assembly changed no card, and so
-changed nothing any measured batch was run under.
-"""
+"""Checked-in Analyst cards match their shared body, declared block, and capabilities."""
 
 from __future__ import annotations
 
@@ -65,23 +48,11 @@ def _card_on_disk(name: str) -> str:
 
 @pytest.mark.parametrize("name", NAMES)
 def test_every_checked_in_card_is_exactly_what_its_declaration_assembles_to(name: str) -> None:
-    """Byte for byte, or a measured batch has silently changed its treatment.
-
-    The team files load the checked-in card, not the assembly, so a card that
-    drifts from its declaration is a run that no longer matches the cell it is
-    filed under -- and nothing errors. This is also the only proof that moving
-    to an assembled card left the nine existing cards untouched.
-    """
+    """Team files load checked-in cards, so assembly declarations must match those bytes."""
     assert _card_on_disk(name) == render(VARIANTS[name])
 
 @pytest.mark.parametrize("name", NAMES)
 def test_a_card_is_the_shared_body_everywhere_outside_its_block(name: str) -> None:
-    """Substituting the block back out has to leave the shared body exactly.
-
-    This is the property the cells rest on stated directly: whatever surrounds
-    the block is not this cell's to vary. A word changed in ``shared.md`` fails
-    here for every cell at once, which is the point -- there is one copy.
-    """
     variant = VARIANTS[name]
     card = _card_on_disk(name)
     block = _block(variant.block)
@@ -91,12 +62,7 @@ def test_a_card_is_the_shared_body_everywhere_outside_its_block(name: str) -> No
     )
 
 def test_cells_that_share_a_bundle_are_identical_outside_their_blocks() -> None:
-    """Eight of the nine cells vary the block and nothing else at all.
-
-    ``starved`` is the exception by construction: it removes the Analyst's edit
-    tools, so the paragraph that states the bundle moves with them. Every other
-    pair of cells must reduce to one and the same text.
-    """
+    """The starved cell changes capability wording because it removes Analyst edit tools."""
     reduced: dict[str, set[str]] = {}
     for name in NAMES:
         variant = VARIANTS[name]
@@ -112,12 +78,6 @@ def test_every_card_ends_on_the_shared_evidence_rule(name: str) -> None:
     assert CLOSING_LINE not in _block(VARIANTS[name].block), "the closing line belongs to the shared body"
 
 def test_no_two_cells_assemble_to_the_same_card() -> None:
-    """Two cells that say the same thing are one cell.
-
-    They would then be a duplicate of an already-measured treatment, and any
-    difference between their numbers would be run-to-run noise reported as an
-    effect -- a wrong answer with no error anywhere.
-    """
     cards = {name: _card_on_disk(name) for name in NAMES}
     duplicates = [
         (a, b) for a, b in itertools.combinations(NAMES, 2) if cards[a] == cards[b]
@@ -125,12 +85,7 @@ def test_no_two_cells_assemble_to_the_same_card() -> None:
     assert not duplicates, duplicates
 
 def test_no_two_block_files_hold_the_same_text() -> None:
-    """The registry may point two cells at one block; two blocks may not be one text.
-
-    ``facts-v2`` and ``starved`` deliberately share ``blocks/judge.md`` -- they
-    vary capability, not stance. That is one block named once. Two *files* with
-    the same content is the drift this catches.
-    """
+    """facts-v2 and starved intentionally reference one judge block while varying capability."""
     blocks = sorted({VARIANTS[name].block for name in NAMES})
     texts = {name: _block(name) for name in blocks}
     duplicates = [
@@ -156,15 +111,7 @@ NO_WRITE_DISCLAIMER = "No tool in your bundle edits a file or runs the test suit
 
 @pytest.mark.parametrize("name", NAMES)
 def test_the_card_states_the_bundle_the_team_file_actually_grants(name: str) -> None:
-    """The wording and the capability are one declaration or the cell is broken.
-
-    The fourth arm shipped a card that still claimed tools its team file had
-    taken away. Nothing errored: the Analyst simply reasoned from a bundle it
-    did not have, and the workaround it invented became an artefact of the
-    contradiction rather than a finding. So the registry declares the bundle,
-    the team file grants it, and the ``capabilities/`` text describes it -- and
-    all three have to agree.
-    """
+    """The registry, granted tools, and capability text must describe the same bundle."""
     variant = VARIANTS[name]
     granted = tuple(load_team_config(path=str(CONFIGS / variant.team_file)).roles["analyst"].tools)
     assert variant.tools == granted, (
@@ -182,12 +129,7 @@ def test_the_card_states_the_bundle_the_team_file_actually_grants(name: str) -> 
 
 @pytest.mark.parametrize("name", NAMES)
 def test_each_cell_seats_the_baseline_team(name: str) -> None:
-    """Roster, topology, and both teammates are the instrument, not the treatment.
-
-    A cell that quietly dropped ``message_agent`` or a return edge would still
-    run and still produce a transcript -- one in which the handoff never
-    happened. The zero would read as a fact about the model.
-    """
+    """A missing tool or return edge can suppress handoff without failing the run."""
     variant = VARIANTS[name]
     team = load_team_config(path=str(CONFIGS / variant.team_file))
     baseline = load_team_config(path=str(CONFIGS / "team.handoff.experiment.yaml"))
@@ -203,12 +145,7 @@ def test_each_cell_seats_the_baseline_team(name: str) -> None:
 ANALYST_PROMPT_LINE = "    prompt_file: handoff-experiment/"
 
 def _team_file_body(path: Path) -> str:
-    """The configuration below the header comment, with the two Analyst lines masked.
-
-    The header comments differ on purpose -- each one records what its cell is
-    and what it may not be pooled with -- so they are not part of this
-    comparison. Everything the loader reads is.
-    """
+    """Mask the two Analyst fields and omit deliberately variant-specific header comments."""
     text = path.read_text(encoding="utf-8")
     body = text[text.index("entry:"):]
     lines = body.splitlines(keepends=True)
@@ -224,14 +161,6 @@ def _team_file_body(path: Path) -> str:
     return "".join(out)
 
 def test_every_team_file_differs_only_in_the_analysts_two_lines() -> None:
-    """Declared research variants and the current main entry share one roster.
-
-    A cell is selected by naming its team file, so each one repeats the whole
-    configuration. Only the Analyst's ``prompt_file`` and its ``tools`` may
-    differ; a drift anywhere else -- a tool added to the Coder, an edge dropped,
-    the entry role changed -- would make two cells incomparable while both
-    continued to run.
-    """
     bodies = {
         path.name: _team_file_body(path)
         for path in sorted(CONFIGS.glob("team.handoff.*.yaml"))
@@ -244,13 +173,7 @@ def test_every_team_file_differs_only_in_the_analysts_two_lines() -> None:
     )
 
 def test_the_first_generation_cards_are_still_where_their_batches_left_them() -> None:
-    """``legacy/`` is an archive, not a staging area.
-
-    These eight cards carry the attribution of every batch measured before the
-    shared body was rewritten. They are not assembled -- porting one of their
-    blocks onto ``shared.md`` produces a different cell, because the body around
-    it is a later generation -- so none of them may appear in the registry.
-    """
+    """Legacy cards preserve the shared body used by their measured batches."""
     legacy = {p.name for p in (PROMPTS / "legacy").glob("*.md")}
     assert legacy == {f"analyst{suffix}.md" for suffix in
                       ("", ".weak", ".strong", ".default", ".norm", ".salience",
@@ -268,11 +191,6 @@ def test_each_first_generation_team_file_still_loads_its_archived_card(level: st
 
 @pytest.mark.parametrize("name", NAMES)
 def test_every_cell_carries_a_note(name: str) -> None:
-    """Pooling two cells produces a number, not an error.
-
-    The note is where the registry says what a cell is, so whoever selects it
-    reads it. A ported first-generation block additionally has to say that its
-    body is a later generation -- ``variants.yaml`` states that rule in full.
-    """
+    """A ported legacy block needs a note identifying its later-generation shared body."""
     note = VARIANTS[name].note.strip()
     assert len(note) > 40, name

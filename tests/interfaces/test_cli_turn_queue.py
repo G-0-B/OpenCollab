@@ -83,11 +83,6 @@ async def test_exit_words_end_the_loop_and_q_only_counts_while_holding():
 
 @pytest.mark.asyncio
 async def test_ctrl_c_interrupts_a_running_turn_and_keeps_the_prompt():
-    """Ctrl+C is an interrupt while there is something to interrupt.
-
-    Ending the session on it would throw away the team the user is still
-    talking to; the way out is EOF, or an exit word.
-    """
     interrupts = iter([True, False])
     submitted: list = []
     queue = SimpleNamespace(
@@ -261,12 +256,7 @@ def test_a_stopped_turn_reports_its_reason_and_salvages_the_partial_answer():
     assert "Agent 2 stopped: token budget exhausted" in printed
 
 def test_a_partial_answer_already_in_scrollback_is_not_printed_again():
-    """The partial answer is salvage, and the turn's cleanup may have got there first.
-
-    ``settle_turn`` commits the trailing streamed text to scrollback, so
-    printing ``partial_answer`` unconditionally shows the user the same text
-    twice.
-    """
+    """settle_turn may have committed the streamed partial answer before cleanup."""
     output = StringIO()
     tui = SimpleNamespace(drained_partial_answer=lambda aid: aid == 2)
     console = Console(file=output, force_terminal=False, color_system=None, width=100)

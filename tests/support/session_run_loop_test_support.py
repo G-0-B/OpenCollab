@@ -79,11 +79,9 @@ class FakeLLM:
         return self.responses.pop(0)
 
 class FakeToolExecutionDeferred:
-    """Tool executor that also handles deferrable tools via ``execute_deferred``.
+    """Handle deferred outcomes mapped by tool_call_id to (ref, error).
 
-    ``deferred_outcomes`` maps a tool_call_id -> (ref, error): a non-None ref
-    means the tool deferred work (returns a child aid to await); a non-None
-    error means it resolved synchronously and fills its row at once.
+    A ref awaits a child, while an error resolves synchronously.
     """
 
     def __init__(self, process_result=None, deferred_outcomes=None):
@@ -203,11 +201,7 @@ def _is_overflow(exc):
     return isinstance(exc, FakeOverflowError)
 
 class OverflowThenOkLLM:
-    """Raises a context overflow on the FIRST ``complete`` call, then succeeds.
-
-    Records the messages it was handed each call so a test can assert the
-    retried (forced-compaction) prompt is smaller than the first attempt.
-    """
+    """Overflow once, then succeed while recording each prompt for compaction assertions."""
 
     def __init__(self, ok_response):
         self.ok_response = ok_response
@@ -230,13 +224,7 @@ class AlwaysOverflowLLM:
         raise FakeOverflowError("prompt is too long")
 
 class FakeForcedShaper:
-    """A shaper that no-ops on the normal pass but compacts hard when forced.
-
-    Mirrors the real reactive layers' ``_forced`` contract: ``shape`` returns
-    the messages unchanged until ``forced_shape`` flips ``_forced`` on, at which
-    point it drops all but the first (pinned) message — standing in for a
-    maximal compaction pass.
-    """
+    """Keep normal shaping unchanged and retain only the pinned message when forced."""
 
     def __init__(self):
         self._forced = False
@@ -247,11 +235,7 @@ class FakeForcedShaper:
         return messages[:1]
 
 class SlowLLM:
-    """A provider whose ``complete`` awaits ``delay`` seconds before answering.
-
-    Stands in for a death-slow thinking generation; with a small
-    ``per_call_timeout`` the run loop must surface ``GenerationTimeoutError``.
-    """
+    """Delay each completion to exercise the per-call generation timeout."""
 
     def __init__(self, response, delay):
         self.response = response

@@ -1,17 +1,6 @@
-"""STEP 5b — commit-first turn-0 draft (Design B: bounded pre-pass, no FSM changes).
+"""Seed scout drafts before exploration and retain them as harvest fallbacks.
 
-Each scout commits a DRAFT findings artifact from the static fact sheet BEFORE it
-explores; it then runs the unchanged capture→cancel→harvest path, revising the draft
-into its own refined submit (which is what gets harvested). The draft is also the
-per-scout HARVEST FALLBACK so a scout that dies/strays before refining never loses the
-fact-sheet anchors.
-
-* T1 — with enforcement on + a manifest, each scout is seeded a draft before exploring,
-  and the harvested report is the scout's REFINED submit (not the draft) when it refines.
-* T2 — a scout that dies before refining falls back to the draft (anchors preserved);
-  a dead scout WITH real reads (ledger) still prefers the grounded synth over the draft.
-* off==reference — enforcement off => no draft call, harvest_fallback ignored, scout
-  flow byte-for-byte unchanged.
+A grounded synthesis or refined submit takes precedence over the draft.
 """
 
 from __future__ import annotations

@@ -1,10 +1,4 @@
-"""Cadence of the budget status line: every-step / thresholds / off.
-
-The knob changes only *how often* the ``[Budget: ...]`` line rides along; the
-reads-without-write rungs (soft advice, hard ``tool_choice`` force) are the same
-in all three modes. The default must stay byte-identical to the pre-knob
-behaviour, so an unconfigured run is unchanged.
-"""
+"""Budget-line cadence is independent of the reads-without-write escalation."""
 
 from __future__ import annotations
 

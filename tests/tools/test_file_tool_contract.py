@@ -1,9 +1,4 @@
-"""Contract checks for the file-touching tools: read, write and apply_patch.
-
-Split out of ``test_tool_runtime_contract.py``. These cover the read and write
-paths through ``ToolRuntime`` plus the host write lock, which must only be
-taken when the I/O really lands on the host filesystem.
-"""
+"""File-tool runtime checks include host locks only for host filesystem writes."""
 
 from __future__ import annotations
 

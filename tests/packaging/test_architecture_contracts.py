@@ -1,11 +1,4 @@
-"""The `.importlinter` contracts must keep tracking the project they guard.
-
-``domain-stdlib-only`` is spelled as a blacklist: it names every third-party
-package the domain may not import. That is equivalent to "the standard library
-only" exactly as long as the list stays complete, and nothing keeps it complete
-on its own — a ninth entry in ``[project.dependencies]`` would simply not be
-covered, silently. This test is what makes the two move together.
-"""
+"""The domain import blacklist tracks every declared third-party dependency."""
 
 from __future__ import annotations
 

@@ -1,16 +1,4 @@
-"""The shipped experimental team: three peers that can hand work over git.
-
-``configs/team.handoff.primary-legacy.yaml`` exists to measure whether models hand
-work to each other when they are able to and nothing tells them to. That makes
-its *capabilities* the instrument: if a role loses ``message_agent``, or the
-Tester loses ``bash``, or a return edge disappears from the topology, the run
-still completes and still produces a transcript — one in which the handoff
-simply never happened. The result would read as a fact about the model and be a
-fact about this file.
-
-So the properties the measurement rests on are pinned here, by name, with the
-reason each one is load-bearing.
-"""
+"""Legacy handoff cards preserve the three-peer team used by earlier batches."""
 
 from __future__ import annotations
 
@@ -54,13 +42,9 @@ def _analyst_card(level: str) -> str:
     return (LEGACY / LEVELS[level][0]).read_text(encoding="utf-8")
 
 def _split_legacy_judge_block(card: str) -> tuple[str, str]:
-    """Everything outside the judge section, and the judge section itself.
+    """Split the legacy judge section by its heading.
 
-    Only ever applied to ``legacy/``. The current generation does not need this:
-    its blocks are files under ``blocks/``, and
-    ``tests/test_analyst_card_assembly.py`` compares them directly rather than
-    trying to recover them from a heading. Three of the current blocks do not
-    even carry this heading, so recovering them this way is not possible.
+    Current-generation blocks are separate files and use varying headings.
     """
     head, _, rest = card.partition(JUDGE_HEADING)
     assert rest, "the card has no judge section to vary"
@@ -69,13 +53,6 @@ def _split_legacy_judge_block(card: str) -> tuple[str, str]:
     return head + tail, block
 
 def test_the_three_analyst_cards_differ_only_in_the_judge_block() -> None:
-    """One dimension means one block.
-
-    If any other sentence drifted between the levels -- what the tools are, how
-    a sha travels, which tree is read -- the difference between two levels would
-    no longer be the thing the levels are named for, and a paired difference
-    across them would be reading off two variables at once.
-    """
     shared = {level: _split_legacy_judge_block(_analyst_card(level))[0] for level in LEVELS}
     assert len(set(shared.values())) == 1, {k: len(v) for k, v in shared.items()}
 
@@ -85,23 +62,11 @@ def test_the_three_levels_are_actually_three_different_levels() -> None:
     assert len(set(blocks.values())) == 3, sorted(blocks)
 
 def test_the_weak_card_keeps_the_sentence_the_first_batches_ran_under() -> None:
-    """``weak`` is not a new card: it is the one those runs were produced under.
-
-    The measured batches that showed a zero delegation rate ran on this exact
-    stance. If it drifts, those runs stop belonging to any level that still
-    exists and their numbers become unattributable.
-    """
+    """The weak card preserves the stance used by the first measured batches."""
     weak = " ".join(_analyst_card("weak").split())
     assert "carry out this request end to end without involving anyone" in weak
 
 def test_the_primary_card_pushes_neither_way() -> None:
-    """The level every reported quantity is measured on has to be the neutral one.
-
-    ``primary`` is ours to write, which is exactly why it is attackable: a card
-    that tells the Analyst it needs no one predicts its own result, and so does
-    one that tells it to delegate. What is pinned is that primary does neither
-    -- it names both courses and declines to name a default.
-    """
     block = " ".join(_split_legacy_judge_block(_analyst_card("primary"))[1].split()).lower()
     for leaning_alone in ("without involving anyone", "you can settle yourself"):
         assert leaning_alone not in block, leaning_alone

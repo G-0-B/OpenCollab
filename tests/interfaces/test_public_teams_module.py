@@ -1,12 +1,4 @@
-"""The roster size a budget has to be divided by is readable from the file.
-
-A team run's pool is sized per seat, so whoever starts one has to multiply a
-per-seat figure by the number of roles the team file declares. That count was
-only knowable by reading YAML or by remembering it, and remembering it is how a
-three-role team gets run on a one-role pool: every seat then holds a third of
-what the same agent gets working alone, and the run reads as something about
-working in a team.
-"""
+"""Read team roster size so a caller can scale a per-seat budget correctly."""
 
 from __future__ import annotations
 
@@ -76,14 +68,7 @@ def test_the_prompt_digest_is_of_the_card_text_not_of_its_path(tmp_path) -> None
     assert first != second
 
 def test_the_two_generations_of_the_analyst_card_do_not_pool() -> None:
-    """The failure this field exists to prevent.
-
-    ``legacy/analyst.md`` and the assembled ``analyst.facts-v2.md`` carry the
-    same stance block on two different shared bodies. Runs of the two are not
-    poolable, and a metrics row that recorded only the arm name -- or only the
-    path, which was repointed when the first generation moved to ``legacy/`` --
-    could not tell them apart afterwards.
-    """
+    """The same stance block can accompany different shared bodies or a repointed path."""
     first_generation = declared_role_prompt_digests(str(ICLR_EXPERIMENT_TEAM))["analyst"]
     second_generation = declared_role_prompt_digests(
         str(REPO_ROOT / "configs" / "team.handoff.facts-v2.yaml")

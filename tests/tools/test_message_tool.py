@@ -44,13 +44,7 @@ def test_message_agent_tool_forwards_runtime_aid_and_returns_ack():
     assert "nothing about its work comes back through this call" in result
 
 def test_message_agent_tool_addresses_a_teammate_by_role():
-    """An aid is not knowable from a role card, so requiring one cost a turn.
-
-    Every first message had to be preceded by a team_status call purely to
-    translate a name the role card already gave into a number. On a team whose
-    roles are declared before the run, the role is the stable name and the aid
-    is an accident of this run.
-    """
+    """Role cards expose stable role names without the run-specific agent IDs."""
     sched = FakeScheduler(
         snapshot=[
             {"aid": 0, "role": "analyst", "parent_aid": None, "phase": "idle"},

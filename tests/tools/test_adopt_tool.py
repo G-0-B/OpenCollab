@@ -1,11 +1,6 @@
-"""``adopt`` -- take a teammate's commit into the tree that is read as the answer.
+"""Adopt an existing teammate commit into the graded tree.
 
-In the s2dual cells the Adopter brings a Coder's work over with ``bash``:
-``git checkout <sha>``. The tools cell ``s2tools-adopt`` takes ``bash`` away,
-so the Adopter needs one narrow way to do that step and nothing else: check out
-a commit that already exists. It cannot run the tests, so what it is shown is
-what the commit changes from where the run started -- after a checkout the
-working tree is clean against HEAD, and ``git_diff`` alone would show nothing.
+After checkout, HEAD is clean, so report changes from the run's original base.
 """
 
 from __future__ import annotations

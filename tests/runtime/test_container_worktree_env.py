@@ -1,17 +1,6 @@
-"""A worktree inside the task container reports the same evidence as one outside.
+"""Container worktrees report Git ancestry and commits consistently with local worktrees.
 
-The Team arm's per-agent attribution rests on four values a worktree reports --
-the base its diff was measured against, where its HEAD stands, and the commits
-it made itself -- and a handoff is read as ``tester.diff_base in
-coder.commits``. Those readings have to mean the same thing when the repository
-under test lives inside a container, because that is where the evaluation
-harness keeps it and the host is never allowed to see it.
-
-These tests run real ``git`` against real linked worktrees, with ``docker exec``
-replaced by running the same argv locally. What is deliberately not covered here
-is the Docker plumbing itself -- ``tests/runtime/test_docker_env.py`` owns that. What is
-covered is everything this class decides: which commands it builds, where it
-puts the worktree, and what it concludes from what Git answers.
+The tests execute real Git commands with docker exec replaced by a local runner.
 """
 
 from __future__ import annotations
@@ -56,12 +45,7 @@ def _changed_files(diff: str) -> list[str]:
 
 @pytest.fixture
 def local_docker(monkeypatch):
-    """Run what would go to ``docker exec`` as a local process instead.
-
-    The container is the only thing faked. Everything the command does -- the
-    Git it runs, the files it touches, the worktrees it registers -- is real, so
-    a wrong command or a wrong conclusion still fails the test.
-    """
+    """Run docker exec argv locally against real Git repositories and linked worktrees."""
 
     async def shim(command, **kwargs):
         argv = list(command)
@@ -182,11 +166,7 @@ async def test_a_sibling_cannot_see_work_that_was_not_committed(local_docker, tm
 async def test_the_worktree_is_not_inside_the_repository_it_checks_out(
     local_docker, tmp_path
 ):
-    """An archive of the repository root is what the harness reads its patch from.
-
-    A worktree nested inside that root would arrive in the archive as a
-    directory full of files no agent wrote.
-    """
+    """A nested worktree would contaminate the harness archive of the repository root."""
     repo = _repo(tmp_path / "testbed")
     env = _env(repo, tmp_path, "container-outside")
     try:
@@ -201,12 +181,7 @@ async def test_the_worktree_is_not_inside_the_repository_it_checks_out(
 async def test_an_agents_commits_do_not_move_the_branch_it_leased(
     local_docker, tmp_path
 ):
-    """The claimed ref is an ownership lease, not the worktree's HEAD.
-
-    A detached worktree keeps its own commits off that ref, which is what lets
-    cleanup delete it only if it still stands where it was claimed -- so a ref
-    something else advanced stays visible instead of being quietly removed.
-    """
+    """Cleanup uses the claimed ref as a lease and must preserve refs advanced elsewhere."""
     repo = _repo(tmp_path / "testbed")
     env = _env(repo, tmp_path, "container-lease")
     try:

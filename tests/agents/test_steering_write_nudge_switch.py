@@ -1,19 +1,4 @@
-"""The reads-without-write nudge switch: on (default) / off.
-
-``OPENCOLLAB_WRITE_NUDGE_MODE`` decides whether the harness inserts a
-reads-without-write instruction into the turn at all. It exists as a knob
-because that instruction is an intervention on the behaviour under measurement:
-it orders an agent that has been reading to act itself, at the moment a
-delegation decision would be taken.
-
-Two properties are load-bearing here:
-
-* the DEFAULT must stay byte-identical to the pre-knob behaviour, or the runs
-  already recorded stop being a control group;
-* ``off`` must silence ALL THREE rungs (soft write advice, hard write demand,
-  hard structured-output demand) and set no ``tool_choice`` override, while the
-  ``[Budget: ...]`` status line — a different quantity — is untouched.
-"""
+"""The write-nudge switch controls all escalation rungs independently of budget status."""
 
 from __future__ import annotations
 

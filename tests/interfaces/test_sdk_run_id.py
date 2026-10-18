@@ -1,11 +1,4 @@
-"""Every SDK run has one run id, and every file the run writes carries it.
-
-A single agent used to stamp its trajectory with its name and a workflow with
-the workflow's name, so every run of one setting shared one "run id" and the
-records of two runs could not be told apart. Only a team generated a unique
-one. A harness that launches runs can also pass its own id, so the files it
-writes join the files the run writes on one key.
-"""
+"""SDK artifacts share a run ID that distinguishes repeated runs of the same setting."""
 
 from __future__ import annotations
 

@@ -1,13 +1,4 @@
-"""Guardrails added for mid-tier backends (Kimi/DeepSeek-class models).
-
-Covers the batch of tool-ergonomics fixes:
-- bash description deflects to the dedicated tools instead of suggesting
-  "running tests / git operations" via bash;
-- file_read and grep bound their output by chars, not just lines/matches;
-- str_replace's not-found error points at apply_patch as the fallback;
-- file_write 'create' refuses to silently replace a substantial file with
-  much shorter content unless overwrite is confirmed.
-"""
+"""Tool ergonomics and bounded output for model-driven calls."""
 
 import asyncio
 

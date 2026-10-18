@@ -1,13 +1,6 @@
-"""EnvWorkingTreeProbe.changed_excluding — source-scoped working-tree probe.
+"""Exclude injected support files when probing for agent source edits.
 
-An SDK consumer may apply support files without committing them, so
-``git status --porcelain`` remains non-empty for the whole run and ``changed()``
-is always true. ``changed_excluding(injected_paths)`` drops those files so the
-probe answers whether the agent edited source.
-
-The unit tests use a fake env that records the exact ``exec_cmd`` it was issued;
-the (skip-if-no-git) integration tests run real git to prove an untracked
-injected test file is excluded.
+Real Git integration checks untracked files as well as the scripted command path.
 """
 
 from __future__ import annotations

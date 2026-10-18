@@ -161,14 +161,9 @@ def test_conservative_input_reservation_blocks_estimator_overshoot():
     assert state.terminal_reason.startswith("budget exhausted before model call")
 
 def test_english_input_reservation_stays_within_twice_the_ordinary_estimate():
-    """Guard the unit the reservation is denominated in.
+    """A UTF-8 byte reservation overcharges English histories by 3-5x.
 
-    The reservation used to charge one token per serialized UTF-8 byte, which
-    ran 3-5x the ordinary estimate on English histories and stopped sessions
-    that still held most of their budget. Reserving in the same unit the
-    estimator uses keeps the framing allowances as the only margin; a ratio
-    creeping back toward 3x means the unit slipped again, not that the margin
-    was tuned.
+    The ordinary estimator and the reservation must use the same token unit.
     """
     messages = [{"role": "system", "content": "You are a careful engineer."}]
     for turn in range(12):
@@ -834,14 +829,7 @@ def test_shaper_bounds_model_view_but_leaves_state_messages_full():
     assert state.messages[1]["content"] == big
 
 def test_a_session_stopped_by_its_step_ceiling_says_so_on_disk():
-    """The ceiling is a guard, so a run has to be able to prove it never fired.
-
-    Tokens are the resource these arms are held to; steps vary and are counted.
-    A session stopped at its step ceiling with budget still unspent is that
-    story falling apart, and before this record it looked identical to a session
-    that simply finished: one STOPPED phase, a reason string that lived only in
-    memory, nothing in the trajectory.
-    """
+    """A step-ceiling stop must remain distinguishable from normal completion on disk."""
     tracer = FakeTracer()
     calls = [tool_call()]
     runner = build_runner(
@@ -882,8 +870,6 @@ def test_a_session_stopped_by_its_step_ceiling_says_so_on_disk():
     assert payload["used_tokens"] < payload["max_budget_tokens"]
 
 def test_a_session_that_finishes_on_its_own_reports_an_unreached_ceiling():
-    """The control. Without it the field above proves nothing: a record that
-    said "reached" for every session would pass the test above unchanged."""
     tracer = FakeTracer()
     runner = build_runner(
         llm=FakeLLM([llm_response(content="done", total_tokens=5)]),
@@ -898,8 +884,7 @@ def test_a_session_that_finishes_on_its_own_reports_an_unreached_ceiling():
     assert payload["step_count"] < payload["max_steps"]
 
 def test_a_finished_session_re_entered_for_its_answer_does_not_sign_off_twice():
-    """``run_loop`` doubles as a read-only query on a DONE session. One session
-    is one disposition; a second row would double-count it."""
+    """Re-entering a DONE session queries its answer without another disposition."""
     tracer = FakeTracer()
     runner = build_runner(
         llm=FakeLLM([llm_response(content="done", total_tokens=5)]),

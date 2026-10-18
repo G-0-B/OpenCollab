@@ -1,9 +1,4 @@
-"""Scrollback behaviour of the TUI: what reaches the terminal, and when.
-
-Split out of ``test_tui_event_rendering`` — those tests cover event dispatch,
-these cover the printing contract: only the focused agent's settled blocks are
-written, each exactly once, and focusing an agent redraws it in full.
-"""
+"""TUI scrollback output follows focus and settled-block state."""
 
 from __future__ import annotations
 
@@ -189,12 +184,6 @@ def test_settle_turn_settles_every_agent_but_prints_only_the_focused_one():
     assert "child notes" in _scrollback(tui)
 
 def test_finishing_on_an_unfocused_agent_prints_its_tail_exactly_once():
-    """The one-shot flush drains a tail; it must not replay the transcript.
-
-    A focus switch reprints an agent in full, which is right when the user asks
-    to look at one. Ending a run is not that ask: everything the target settled
-    while it held focus is already on screen.
-    """
     tui = _make_tui()
     tui.event_handler(SchedulerEvent("agent_spawned", {"aid": 1, "parent_aid": 0, "role": "coder"}))
     tui.event_handler(SessionRuntimeEvent("text_delta", {"content": "early lead line", "aid": 0}))
@@ -227,11 +216,7 @@ def test_settle_turn_reports_whose_trailing_text_it_committed():
     assert tui.drained_partial_answer(2) is False
 
 def test_focus_switch_scrolls_the_screen_away_instead_of_erasing_it():
-    """The redraw opens on row 1, and the rows it displaced stay in scrollback.
-
-    ``ESC[2J`` would also blank the screen, but erased rows never reach
-    scrollback — the previous agent's last screenful would be lost.
-    """
+    """ESC[2J discards the previous screen instead of moving its rows into scrollback."""
     console = Console(
         file=StringIO(), width=100, height=24, force_terminal=True, color_system=None
     )
@@ -261,12 +246,7 @@ def test_focus_switch_leaves_a_redirected_terminal_alone():
     assert "\x1b[" not in scrollback
 
 def test_focus_switch_scroll_and_redraw_leave_as_one_write():
-    """The scroll, the home, and the redraw are one write to the terminal.
-
-    The prompt repaints itself after every write it sees, so a repaint landing
-    between the newlines and the home would scroll a prompt's worth of rows
-    into scrollback — and the redraw would then open below them, not on row 1.
-    """
+    """A prompt repaint between scrolling and cursor-home inserts stray scrollback rows."""
     class RecordingFile(StringIO):
         def __init__(self) -> None:
             super().__init__()

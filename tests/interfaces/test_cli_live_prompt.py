@@ -80,11 +80,7 @@ def _render_layout_rows(app) -> list[str]:
     ]
 
 def test_the_prompt_paints_the_hud_above_its_own_input_line():
-    """The HUD is rows the prompt owns, not output printed near it.
-
-    Two in-place redrawers cannot share rows, so the in-flight frame is
-    rendered to ANSI by the TUI and handed over as part of the message.
-    """
+    """The prompt owns the HUD rows, so the TUI supplies an ANSI frame for its message."""
     prompt = LivePrompt(_FakeTUI("▸ bash · 2s   AGENTS 1/2"), console=Console())
 
     rendered = _text(prompt._message())
@@ -92,12 +88,6 @@ def test_the_prompt_paints_the_hud_above_its_own_input_line():
     assert rendered == "▸ bash · 2s   AGENTS 1/2\n❯ "
 
 def test_the_status_row_is_handed_to_the_toolbar_below_the_input_line():
-    """The answer above the input line, the status row below it.
-
-    The row is a ``bottom_toolbar``, so it must not also be in the message —
-    the message is painted above the cursor, and a row in both frames is a row
-    printed twice.
-    """
     prompt = LivePrompt(_FakeTUI("◆ streaming", "● thinking  AGENTS 1/3"), console=Console())
     prompt._session = SimpleNamespace(
         app=SimpleNamespace(renderer=SimpleNamespace(height_is_known=True))
@@ -107,12 +97,7 @@ def test_the_status_row_is_handed_to_the_toolbar_below_the_input_line():
     assert _text(prompt._status()) == "● thinking  AGENTS 1/3"
 
 def test_the_status_row_moves_back_above_the_input_when_the_toolbar_cannot_paint():
-    """A terminal that answers no cursor-position request gets no toolbar.
-
-    prompt_toolkit holds a ``bottom_toolbar`` back until the renderer knows the
-    room below the cursor. The status row is the run's only evidence of what
-    the team is doing, so it goes back above the input rather than disappearing.
-    """
+    """Without a cursor-position response, prompt_toolkit withholds the bottom toolbar."""
     prompt = LivePrompt(_FakeTUI("◆ streaming", "● thinking  AGENTS 1/3"), console=Console())
     prompt._session = SimpleNamespace(
         app=SimpleNamespace(renderer=SimpleNamespace(height_is_known=False))
@@ -134,15 +119,7 @@ async def test_a_question_holding_the_input_line_keeps_the_status_row_under_it()
 
 @pytest.mark.asyncio
 async def test_the_status_row_lands_on_the_row_under_the_input_line():
-    """Where the two frames end up on screen, row by row.
-
-    A prompt claims every row between the cursor and the bottom of the screen,
-    which is slack whenever it is not already at the bottom. Left to spread,
-    that slack lands *between* the input line and the toolbar, and the status
-    row drifts down the screen. ``_pin_status_row_under_input`` is what keeps
-    the two adjacent, so this renders the real layout into a screen far taller
-    than its content and reads the rows back.
-    """
+    """A tall screen exposes slack that would separate the input from its status toolbar."""
     with create_pipe_input() as pipe_input:
         session = PromptSession(input=pipe_input, output=DummyOutput())
         _pin_status_row_under_input(session)
@@ -183,12 +160,6 @@ async def test_an_agent_question_takes_the_input_line_and_gets_its_answer():
 
 @pytest.mark.asyncio
 async def test_overlapping_questions_are_answered_in_the_order_they_were_asked():
-    """Two agents can be waiting at once; one input line serves them in turn.
-
-    The old design gave each question its own prompt and let them overlap,
-    which is what made ownership of the screen a stack. One line means one
-    queue, and the user always sees whose question they are answering.
-    """
     prompt = LivePrompt(_FakeTUI(None), console=Console())
 
     first = asyncio.create_task(prompt.ask("first? "))
@@ -220,12 +191,7 @@ async def test_a_cancelled_question_gives_the_line_back():
 
 @pytest.mark.asyncio
 async def test_a_question_stashes_the_half_typed_message_and_puts_it_back():
-    """The user may be mid-sentence when an agent asks something.
-
-    Their draft cannot stay in the buffer: Enter would answer the agent's
-    question with it, and a permission prompt reads anything that is not "y"
-    as "no".
-    """
+    """A pending draft would otherwise become the answer to the agent question on Enter."""
     prompt = LivePrompt(_FakeTUI(None), console=Console())
     buffer = SimpleNamespace(text="please refactor the parser", cursor_position=26)
     prompt._session = SimpleNamespace(default_buffer=buffer, app=None)
@@ -408,12 +374,7 @@ async def test_interrupt_after_editing_restored_draft_starts_an_empty_prompt(res
 
 @pytest.mark.asyncio
 async def test_declining_turns_every_waiting_question_away():
-    """Ctrl+C has to answer the questions, not only stop the turn.
-
-    A tool parked on an answer never reaches the step boundary where the
-    turn's cooperative cancel is read, so interrupting without declining
-    would leave the agent waiting on a line the user has already abandoned.
-    """
+    """A tool awaiting input cannot reach the step boundary that reads cooperative cancel."""
     prompt = LivePrompt(_FakeTUI(None), console=Console())
     first = asyncio.create_task(prompt.ask("Allow? [y/N] "))
     second = asyncio.create_task(prompt.ask("Which one? "))
@@ -543,13 +504,7 @@ async def test_prompt_session_processes_tab_navigation_without_editing_text():
 
 @pytest.mark.asyncio
 async def test_prompt_tab_reprints_agent_into_scrollback_without_erasing_it(monkeypatch):
-    """Tab appends the newly focused agent to scrollback; it never rewrites it.
-
-    The old renderer carried each agent's history *inside* the prompt, so a
-    switch had to erase the previous agent's rows — and once that history grew
-    past the terminal height the erase could no longer reach them. Here the
-    reprint is ordinary terminal output that prompt_toolkit scrolls away from.
-    """
+    """History taller than the terminal must survive a focus switch in scrollback."""
     monkeypatch.setenv("PROMPT_TOOLKIT_NO_CPR", "1")
     master_fd, slave_fd = os.openpty()
     os.set_blocking(master_fd, False)
@@ -616,12 +571,6 @@ async def test_prompt_tab_reprints_agent_into_scrollback_without_erasing_it(monk
 
 @pytest.mark.asyncio
 async def test_agent_policies_read_through_the_shared_input_line():
-    """A permission y/N and an ask_user question are reads of the one line.
-
-    Nothing is suspended around them any more: the prompt owns the bottom of
-    the screen for the whole session, so the question is simply the next thing
-    that line is asked to read.
-    """
     prompt = LivePrompt(_FakeTUI(None), console=Console())
 
     confirm = asyncio.create_task(TuiPermissionPolicy(read_line=prompt.ask).confirm("Allow?"))

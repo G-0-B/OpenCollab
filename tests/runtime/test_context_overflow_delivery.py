@@ -1,11 +1,6 @@
-"""A context-overflowed CHILD delivers an explicit failure to its parent.
+"""An uncompacted child overflow delivers failure and wakes its parent.
 
-The third leg of the safety net: when a spawned child's prompt overflows the
-model window even after forced compaction, the child must reach the graceful
-CONTEXT_OVERFLOW terminal and deliver a failed result to its parent's pending
-row — re-activating the parent — rather than crashing the parent's turn with an
-unhandled exception. This exercises the real Scheduler lifecycle
-(_drive_agent / _deliver_to_parent / _wake) with a real child SessionRunUseCase.
+Exercise the real scheduler lifecycle with a child SessionRunUseCase.
 """
 
 from __future__ import annotations
@@ -43,8 +38,7 @@ def _is_overflow(exc):
     return isinstance(exc, FakeOverflowError)
 
 class ScriptedLLM:
-    """Returns scripted responses; a response that is a FakeOverflowError class
-    is raised instead of returned (lets one LLM both answer and overflow)."""
+    """Return scripted responses or raise a scripted FakeOverflowError class."""
 
     def __init__(self, responses):
         self.responses = list(responses)
@@ -66,8 +60,7 @@ class AlwaysOverflowChildLLM:
         raise FakeOverflowError("prompt is too long")
 
 class _NoOpShaper:
-    """A shaper that can never compact below the pinned seed — so even a forced
-    pass leaves the prompt overflowing (models the worst case)."""
+    """Keep the pinned seed overflowing even after forced compaction."""
 
     def __init__(self):
         self._forced = False

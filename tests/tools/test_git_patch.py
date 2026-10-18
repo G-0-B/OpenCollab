@@ -76,15 +76,7 @@ def test_patch_blocks_ignored_untracked_files_without_leaking_content(tmp_path):
     ],
 )
 def test_patch_rejects_config_it_cannot_make_harmless(tmp_path, key, value):
-    """Settings no command-line override can be trusted to defuse.
-
-    A clean/smudge filter and an external diff driver are reached through a
-    tracked ``.gitattributes`` this command does not control; a sparse
-    checkout's skip-worktree bits outlive the setting that made them; a
-    redirected working tree moves what is being read; and a monitor that is
-    *on* can lie about what changed. Each makes the command exit 125 rather
-    than report a patch it cannot vouch for.
-    """
+    """Attributes, sparse bits, redirected worktrees, or active monitors can defeat overrides."""
     repo = _repo(tmp_path)
     (repo / "tracked.txt").write_text("new\n", encoding="utf-8")
     _git(repo, "config", key, value)
@@ -107,13 +99,7 @@ def test_patch_rejects_repository_local_attributes(tmp_path):
 
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO requires POSIX")
 def test_patch_allows_attributes_that_only_turn_conversions_off(tmp_path):
-    """The exact line the evaluation harness writes into its own snapshot.
-
-    Every token unsets something -- line-ending conversion, clean/smudge
-    filters, ``$Id$`` expansion, encoding conversion -- so the diff it produces
-    is a more faithful reading of the bytes on disk, not a less faithful one.
-    Refusing it left an agent in such a repository unable to produce any patch.
-    """
+    """The harness disables conversions through tracked attributes to preserve disk bytes."""
     repo = _repo(tmp_path)
     (repo / "tracked.txt").write_text("new\n", encoding="utf-8")
     info = repo / ".git" / "info" / "attributes"
@@ -285,13 +271,7 @@ def test_raw_submodule_inspection_keeps_unusual_parent_filenames_patchable(tmp_p
     assert (repo / name).read_text() == "original\n"
 
 def test_patch_allows_a_repository_that_turns_its_monitor_off(tmp_path):
-    """The exact local configuration the evaluation harness writes.
-
-    Its snapshot sets these three to *disable* attribute and monitor influence
-    on the tree it hashes. A guard that read the key name alone refused all
-    three, so no agent working in such a repository could produce any patch at
-    all -- the failure this case exists to keep from coming back.
-    """
+    """The harness explicitly disables attributes and monitors in its snapshot configuration."""
     repo = _repo(tmp_path)
     (repo / "tracked.txt").write_text("new\n", encoding="utf-8")
     _git(repo, "config", "core.attributesFile", os.devnull)

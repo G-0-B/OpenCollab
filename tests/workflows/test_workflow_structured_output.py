@@ -1,12 +1,4 @@
-"""Tests for workflow structured output (phase 2).
-
-Covers the stdlib JSON-schema validator, the pure ``StructuredOutputTool``
-(capture on valid / error-list on invalid), and ``WorkflowContext.agent``'s
-``schema=`` path: a free-exploration first pass, a forced-commit corrective
-pass (a fresh single-tool session pinned to a named-function ``tool_choice``)
-when the first pass answers in free text, returns a dict on capture, yields
-``None`` when both passes miss, and counts both passes' tokens in the budget.
-"""
+"""Workflow schema capture validates output and retries missed captures with a single tool."""
 
 from __future__ import annotations
 
@@ -50,21 +42,11 @@ class _Cursor:
         return payload
 
 class CapturingSession:
-    """Session whose run_loop calls structured_output with a scripted payload.
+    """Call structured_output with successive scripted payloads from a shared cursor.
 
-    Draws successive payloads from a shared ``_Cursor`` and invokes the injected
-    StructuredOutputTool with each, simulating the model self-correcting.
-
-    Models the real ``Session.run_loop`` DONE short-circuit (session_run.py):
-    once a turn finishes, a bare re-run does NOT re-invoke the tool — it just
-    returns the prior answer. Only an intervening ``add_user_message`` (which
-    resets DONE -> IDLE) lets the next run_loop produce a fresh payload.
-
-    ``max_rounds`` models the post-capture runaway seen live: a single
-    run_loop keeps issuing rounds (the model re-calling the tool) until the
-    round cap — or until the engine's ``cancel_event`` is set, mirroring the
-    real precheck gate that stops the loop before the next LLM call. Each
-    round costs ``tokens_each``.
+    A DONE session reuses its answer until add_user_message resets it.
+    max_rounds models runaway capture calls, while cancel_event stops the next round.
+    Each round costs tokens_each.
     """
 
     def __init__(
@@ -431,19 +413,7 @@ async def test_forced_retry_carries_first_pass_exploration():
 
 @pytest.mark.asyncio
 async def test_structured_agent_inherits_the_run_wide_reasoning_setting():
-    """PART 3: neither session a schema= call builds may pin ``thinking`` — both
-    pass ``None`` so the run-wide reasoning default reaches them.
-
-    These two sessions used to force ``thinking=False``, on the theory that
-    reasoning makes a model answer in free text instead of calling the capture
-    tool. Pinning it meant a run that declared a reasoning setting silently did
-    not apply it to any schema-bound agent, so two arms of the same experiment
-    ran under different reasoning settings while reporting the same
-    configuration -- and the trajectory recorded the difference as
-    ``reasoning_effort_policy: suppressed`` on one side only. The behaviour that
-    justified pinning is a property of an endpoint, not of this code path, and
-    belongs to whoever chooses the run-wide default.
-    """
+    """Both schema sessions inherit the run-wide reasoning setting."""
     factory = ScriptedFactory(payloads=[_NO_CALL, {"x": 7}])
     ctx = WorkflowContext(factory)
 
@@ -579,18 +549,9 @@ def test_structured_retry_carries_history_through_declared_state_port():
     assert retry.state.messages is not prior_messages
 
 def test_forced_commit_retry_window_is_the_caller_s_remaining_time():
-    """B4, restated after the merge removed the fixed cap.
+    """A fixed retry cap can expire before the provider emits its first streamed event.
 
-    A 60s window used to cancel the corrective pass before it made a call:
-    ``complete_openai`` waits ``first_event_timeout`` (180s) for the first
-    streamed event, so a retry deadline below that can expire while the
-    provider is still on its first reasoning turn — observed once as
-    sympy-20438, whose forced commit issued zero LLM calls and ended
-    ``cancelled``. This branch raised the cap to 180s; main removed the cap
-    instead, so the corrective pass now inherits the caller's whole remaining
-    role time and only a caller deadline can shorten it. Both fixes close B4;
-    this pins the one that survived, and keeps the provider number in view so
-    a future cap cannot silently reintroduce a window below it.
+    The corrective pass therefore inherits the caller's remaining role time.
     """
     from opencollab.adapters.llm import openai_provider
     from opencollab.application.workflow_structured import _structured_retry_timeout

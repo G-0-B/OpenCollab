@@ -762,12 +762,7 @@ async def test_pool_finishes_cleanup_before_forwarding_cancellation(tmp_path, mo
     assert cleaned.is_set()
 
 async def test_pool_isolates_inside_the_container_the_run_was_given(tmp_path) -> None:
-    """A repository that exists only in a container is worked on there.
-
-    Reaching it from the host would take a bind mount, and a harness that reads
-    a run's result out of a bounded container archive is exactly one that cannot
-    allow a mount -- so the isolation has to be built on the far side.
-    """
+    """A bounded container archive requires worktree isolation inside the supplied environment."""
     base = DockerWorkspaceEnvironment(container_id="d" * 64, repo_root="/testbed")
     pool = WorktreePool(str(tmp_path), use_worktrees=True, base_environment=base)
 
@@ -793,11 +788,7 @@ async def test_pool_isolates_inside_a_supplied_host_workspace(tmp_path) -> None:
 async def test_pool_without_worktrees_hands_back_the_supplied_environment(
     tmp_path,
 ) -> None:
-    """Isolation off means every agent works where the run works.
-
-    The shared environment is the caller's, so the pool does not take it over
-    for cleanup: releasing the pool must not close something it was lent.
-    """
+    """The shared environment is borrowed, so releasing the pool must preserve its lifetime."""
     base = LocalEnvironment(str(tmp_path))
     pool = WorktreePool(str(tmp_path), use_worktrees=False, base_environment=base)
 

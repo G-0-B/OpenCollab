@@ -1,13 +1,4 @@
-"""Experiment 3: the reference cell with the budget stated, at four budgets.
-
-Each ``s2dual-judgeinfo-<X>`` cell is ``s2dual-judge`` with two sentences added
-to the end of the capabilities pair: the run's budget, the same for every seat,
-and what a single agent working alone used on these tasks. Two claims make the
-cells comparable, and both are checked on the text that is seated: a cell
-differs from ``s2dual-judge`` in those two sentences and nowhere else, and the
-cells differ from each other in the budget number and nowhere else -- the
-single-agent figure is one measurement, stated identically in all of them.
-"""
+"""Budget-information cards vary only the seat-budget number and added budget sentences."""
 
 from __future__ import annotations
 

@@ -101,8 +101,7 @@ def fake_chat_server() -> Iterator[tuple[str, list[dict[str, Any]]]]:
 
 @pytest.mark.asyncio
 async def test_switch_off_puts_no_stream_key_on_the_wire():
-    """Read at the socket, not at the call site: the 60 runs already on disk are
-    only usable as a control if the off path sends the same body it sent then."""
+    """Check the off-path request at the socket so adapter-side mutation remains visible."""
     with fake_chat_server() as (base_url, requests):
         client = LLMClient(
             model=MODEL,

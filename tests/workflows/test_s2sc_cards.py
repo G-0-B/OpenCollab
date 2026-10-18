@@ -1,14 +1,6 @@
-"""The Single2-seated self-collaboration family, and what makes it one instrument.
+"""Single2 self-collaboration cards vary one return edge or the Analyst block.
 
-The handoff experiment's Analyst, Coder and Tester, seated the way ``s2dual``
-seats its roster, over two topologies with edges removed, each under two
-blocks. The cells are a claim that two cells under one block differ in one
-directed edge -- ``coder -> analyst`` -- and in the one line of every card that
-states it, and that two cells over one topology differ in the Analyst's block
-and nowhere else. That claim holds only if the edge sets really differ by that
-edge, every card states the topology the scheduler actually enforces, no card
-asks for an edge the topology lacks, everything outside the varied part is the
-same bytes, and the seat and the bundle are ``s2dual-judge``'s.
+Every card describes the topology enforced by its team file.
 """
 
 from __future__ import annotations
@@ -170,9 +162,6 @@ def test_the_two_topologies_differ_in_exactly_the_one_edge() -> None:
 
 @pytest.mark.parametrize("name", NAMES)
 def test_every_card_states_the_topology_the_team_file_declares(name: str) -> None:
-    """A card that described an edge the scheduler refuses, or left out one it
-    allows, would put the seat in front of a false premise about the very thing
-    the cells vary."""
     team = _team(name)
     declared = {(s, d) for s in ROLES for d in ROLES if s != d and team.topology.allows(s, d)}
     for role, card in _cards_on_disk(name).items():
@@ -185,16 +174,12 @@ def test_all_three_cards_carry_the_same_topology_text(name: str) -> None:
         assert card.count(text) == 1, role
 
 def test_no_card_promises_a_reply_the_topology_may_not_carry() -> None:
-    """``s2dual``'s body said any addressee "can send one back to you the same
-    way". Here that is false of the Coder in the pipeline, so the sentence is
-    gone from every body and the topology paragraph says who can reply."""
+    """The pipeline Coder lacks a return edge, so replies depend on the declared topology."""
     for name in NAMES:
         for role, card in _cards_on_disk(name).items():
             assert "can send one back to you" not in card, (name, role)
 
 def test_no_analyst_card_asks_for_an_edge_the_topology_lacks() -> None:
-    """Neither topology lets the Analyst address the Tester, so a card that told
-    it to would order a message the scheduler refuses."""
     for name in NAMES:
         assert ("analyst", "tester") not in TOPOLOGY_EDGES[_topology(name)]
         card = _cards_on_disk(name)[ENTRY]
@@ -224,9 +209,7 @@ def test_the_judge_block_is_s2dual_judges_byte_for_byte() -> None:
     assert ours == _read(CONFIGS / "handoff-experiment" / "blocks" / "judge.md")
 
 def test_the_plain_block_is_cmd_plain_without_its_tester_sentence() -> None:
-    """The handoff ladder's plain rung, less the one sentence that asks the
-    Analyst to message the Tester. What is left names no Tester at all, so
-    whether the Tester works is decided by the topology, not by the card."""
+    """Removing the Tester request leaves topology to determine whether the Tester participates."""
     source = _read(CONFIGS / "handoff-experiment" / "blocks" / "cmd-plain.md")
     assert source.count(TESTER_SENTENCE) == 1
     ours = _read(PROMPTS / "blocks" / "plain.md")
@@ -265,9 +248,6 @@ def test_under_one_block_the_cells_are_the_same_bytes_outside_the_topology(block
 
 @pytest.mark.parametrize("topology", sorted(TOPOLOGY_EDGES))
 def test_over_one_topology_the_cells_differ_only_in_the_analysts_block(topology: str) -> None:
-    """Only the Analyst's card carries a block, so the Coder's and the Tester's
-    cards are the same bytes under both, and the Analyst's differ in the block
-    and nowhere else."""
     x, y = _cell("judge", topology), _cell("plain", topology)
     a, b = _cards_on_disk(x), _cards_on_disk(y)
     for peer in S2SC_CARDS.peers:
@@ -325,8 +305,7 @@ def test_every_registered_slot_file_exists_and_is_used() -> None:
     }
 
 def _team_file_body(path: Path) -> str:
-    """The configuration below the header, with the lines the cells may vary
-    -- the three cards and the topology block -- replaced by markers."""
+    """Mask the three cards and topology block below the configuration header."""
     text = _read(path)
     body = text[text.index("entry:"):]
     body = re.sub(r"prompt_file: s2sc/(\w+)\.s2sc-[\w-]+\.md", r"prompt_file: \1-CARD", body)

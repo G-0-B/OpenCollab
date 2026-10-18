@@ -1,9 +1,4 @@
-"""Characterization tests for TUI event rendering.
-
-Drives ``adapters.tui.renderer.TUI.event_handler`` with synthetic session-runtime
-and scheduler-orchestration events. The tests lock semantic render state and
-per-agent routing without golden-mastering a whole terminal frame.
-"""
+"""Characterization tests for TUI event state and per-agent routing."""
 
 from __future__ import annotations
 
@@ -116,8 +111,7 @@ def test_legacy_same_named_tool_events_receive_local_sequence_keys():
     assert state.active_tools == {}
 
 def test_tool_start_for_spawn_agent_promotes_role_from_args():
-    """The session emits tool_start when the LLM calls SpawnAgentTool;
-    role gets lifted from the tool args even though it's not at top level."""
+    """The role lives in SpawnAgentTool arguments rather than top-level event data."""
     tui = _make_tui()
     tui.set_redraw(lambda: None)
 
@@ -252,8 +246,6 @@ def test_follow_up_completion_is_not_labeled_as_another_spawn():
     assert all("A1:spawn" not in line for line in lines)
 
 def test_review_lifecycle_tracks_and_clears_review_loop_without_teammate_status():
-    """Review loop is a scheduler-orchestration boundary; it should not produce
-    a 'Teammate started' line — that fires only on the inner spawns."""
     tui = _make_tui()
     tui.set_redraw(lambda: None)
 
@@ -275,14 +267,7 @@ def test_review_lifecycle_tracks_and_clears_review_loop_without_teammate_status(
     assert "review_loop" not in tui._active_tools
 
 def test_scheduler_events_do_not_use_legacy_tool_start_dispatch():
-    """Sanity: a SchedulerEvent must not be routed through _handle_session_event.
-
-    A SessionRuntimeEvent('tool_start', {tool: 'spawn', role: 'x'}) used to
-    drive the Teammate-started status line. After refactoring that synthetic event
-    no longer fires; instead, SchedulerEvent('agent_spawned') does. Driving the
-    TUI with the legacy shape must therefore *not* produce the Teammate line
-    via the scheduler-event handler — only via the session handler (which has had
-    that branch removed)."""
+    """Legacy session tool_start data must not trigger scheduler-event rendering."""
     tui = _make_tui()
     tui.set_redraw(lambda: None)
 

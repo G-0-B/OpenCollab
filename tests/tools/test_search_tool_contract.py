@@ -1,9 +1,4 @@
-"""Contract checks for GrepTool: the command it builds and how it fails.
-
-Split out of ``test_tool_runtime_contract.py``. These pin the search command
-(option termination, hidden-path inclusion, the ERE fallback used when rg is
-missing) and keep backend failures from being reported as an empty result.
-"""
+"""Search command construction and backend failures through the tool runtime."""
 
 from __future__ import annotations
 

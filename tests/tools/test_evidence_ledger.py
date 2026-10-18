@@ -1,19 +1,6 @@
-"""Runtime-authored evidence ledger and transcript-only dead-scout synthesizer.
+"""Capture executed tool evidence and synthesize dead-scout findings from the transcript.
 
-Two load-bearing tests plus their helpers:
-
-* T1 (LEDGER) — a deterministic per-scout evidence ledger accumulates one compact
-  card ``{tool, target, outcome, snippet}`` per EXECUTED tool call, built purely
-  from the tool-result envelope (no model involvement). The ``outcome`` reuses the
-  STEP-1 classification: ``hit`` (novel informative), ``NO-MATCH`` (empty/no-match
-  intrinsic low-yield), ``duplicate`` (seen-before, non-novel). The ledger is the
-  always-on durable capture FLOOR — it is populated regardless of enforcement_strength
-  (like the STEP-1 counters) and never alters control flow (off == reference parity).
-* T2 (SYNTHESIZER) — a dead/empty scout (no captured submit_findings payload) with a
-  non-empty ledger triggers ONE bounded LLM call whose only tool is submit_findings
-  (tool_choice forced, cite-or-abstain) and whose only input is the captured ledger +
-  transcript — NO new exploration. It yields a non-empty cited findings report OR a
-  valid insufficient_evidence abstention, replacing the vacuous "(scout died)" fallback.
+Synthesis uses a bounded submit-only call without new exploration.
 """
 
 from __future__ import annotations
@@ -158,8 +145,7 @@ class _FakeRunner:
         self.configured = (enforcement_strength, commit_reserve)
 
 class _FakeSession:
-    """A scripted one-shot session. ``capture`` (when set) is stashed onto the
-    injected submit tool by ``run_loop`` to simulate a model calling it."""
+    """Script a submit capture from the injected tool during run_loop."""
 
     def __init__(self, *, capture=None, reply="", used_tokens=30_000,
                  max_budget_tokens=100_000, scout_ledger=None, messages=None):
@@ -179,8 +165,7 @@ class _FakeSession:
         return self.reply
 
 class _ScriptedFactory:
-    """Returns scripted sessions in build order; routes any injected submit tool
-    onto the session so its run_loop can capture into it."""
+    """Build sessions in script order and bind their injected submit tools."""
 
     def __init__(self, sessions):
         self.sessions = list(sessions)

@@ -1,15 +1,4 @@
-"""A team file sets each role's token allowance, and the allowances are independent.
-
-Until now a team's tokens were one number handed to ``client.team(budget=)``
-and divided by rule (``per_agent_cap``); the team file could not say what any
-role was allowed to spend. A file may now declare ``budget: {tokens: N}`` as
-every role's allowance and override it per role. Each agent is then held to its
-own allowance alone: what one teammate spends, overshoots included, never
-reduces what another may spend. The team's total is the sum of the allowances.
-
-A file that declares no budget runs exactly as before; that regression is held
-by ``test_declared_budget_rule.py``, which this change leaves untouched.
-"""
+"""Team files assign independent role allowances whose sum is the team total."""
 
 from __future__ import annotations
 
@@ -249,12 +238,7 @@ def test_client_team_refuses_a_budget_the_file_already_declares(tmp_path) -> Non
         )
 
 def test_a_programmatic_team_still_canonicalizes_its_topology() -> None:
-    """Guard for the validation this change sits beside in ``TeamConfig``.
-
-    Edges written with a role's name in another case must resolve to the
-    declared role; an edit that cut ``__post_init__`` short dropped this
-    silently while every other test stayed green.
-    """
+    """Budget validation must preserve case-insensitive topology canonicalization."""
     from opencollab.bootstrap.team_config import RoleConfig, TeamConfig
     from opencollab.domain.team import Topology
 

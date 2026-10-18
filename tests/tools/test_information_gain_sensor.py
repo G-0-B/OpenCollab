@@ -1,18 +1,4 @@
-"""STEP 1 — information-gain sensor.
-
-Classify each EXECUTED tool result as informative vs low-yield and maintain the
-novelty counters on ``SessionState``. STEP 1 adds NO braking — the counters are
-purely observational; later steps key brakes on them.
-
-* T1 (SENSOR) — duplicate / empty / "No matches"-class results increment
-  ``low_yield_since_progress``; a NOVEL informative result resets it AND
-  increments ``distinct_evidence_count``. Different read ranges can yield new
-  evidence; repeating a known range or returned content remains low-yield.
-* T2 (off==on parity) — folding the sensor (``apply_to``, the "on" path) leaves
-  every CONTROL-FLOW-visible piece of state byte-for-byte identical to NOT folding
-  it (the pre-sensor "off"/reference apply body); only the new observational
-  counters move.
-"""
+"""Observe novelty and low-yield tool results without changing session control flow."""
 
 from __future__ import annotations
 
@@ -29,8 +15,7 @@ def run(coro):
     return asyncio.run(coro)
 
 class ScriptedTool:
-    """A tool returning a queued list of outputs (so one path can yield differing
-    content across calls), recording the args it was invoked with."""
+    """Return queued outputs for repeated paths and record invocation arguments."""
 
     def __init__(self, name, outputs):
         self.name = name

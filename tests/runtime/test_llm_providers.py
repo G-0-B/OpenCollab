@@ -51,11 +51,7 @@ def test_near_miss_silent_for_real_providers(caplog, provider):
     assert caplog.records == []
 
 def test_anthropic_folds_cache_tokens_into_input():
-    """cache_read + cache_creation must be added to accounted input tokens.
-
-    Anthropic's ``input_tokens`` excludes cached portions, so the true input
-    the model processed is input + cache_read + cache_creation.
-    """
+    """Anthropic input_tokens excludes cache reads and cache creation."""
     usage = SimpleNamespace(
         input_tokens=100,
         output_tokens=20,
@@ -154,11 +150,7 @@ def test_openai_usage_estimate_includes_tool_call_structure_and_tool_schema():
     assert result.usage.input_tokens > estimate_messages_tokens(messages)
 
 def test_openai_normal_usage_unchanged_and_no_double_count():
-    """A normal usage block is used verbatim; cached_tokens is NOT added on top.
-
-    OpenAI ``prompt_tokens`` already includes cached tokens, so the accounted
-    input must equal prompt_tokens exactly (no additive cache fix here).
-    """
+    """OpenAI prompt_tokens already includes cached tokens."""
     usage = SimpleNamespace(
         prompt_tokens=1000,
         completion_tokens=50,

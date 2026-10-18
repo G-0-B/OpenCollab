@@ -1,12 +1,4 @@
-"""The s2dual roster with the Adopter's tools changed, and what keeps it comparable.
-
-Each cell of this family is a claim that it is ``s2dual-judge`` with one thing
-moved -- what the Adopter holds -- and that its card differs from
-``adopter.s2dual-judge.md`` only where it has to say so. Both halves are
-checked here on the files that are seated: the team files against
-``team.s2dual-judge.yaml``, and the body, rendered with ``s2dual``'s own text in
-this family's slots, against the ``s2dual-judge`` card byte for byte.
-"""
+"""Vary the Adopter's tools and matching card slots relative to s2dual-judge."""
 
 from __future__ import annotations
 
@@ -72,9 +64,6 @@ def _slot_text(name: str, slot: str) -> str:
     return _read(PROMPTS / slot.lower() / f"{value}.md")
 
 def test_the_body_outside_the_slots_is_s2dual_judges_card_byte_for_byte() -> None:
-    """Fill this family's slots with ``s2dual``'s own text and the result must be
-    the ``s2dual-judge`` card. Then a cell here differs from ``s2dual-judge``
-    exactly in what its slots hold, and nowhere a reader would have to find."""
     rebuilt = (
         shared_body(S2TOOLS_CARDS)
         .replace(slot_marker("TOOLS"), S2DUAL_TOOLS_LINE)
@@ -169,8 +158,7 @@ def test_every_slot_file_is_used() -> None:
         assert used == {p.stem for p in (PROMPTS / directory).glob("*.md")}, directory
 
 def test_this_family_names_its_files_apart() -> None:
-    """``team.s2dual-*.yaml`` is globbed by ``test_s2dual_cards.py`` and read as
-    one team; a cell of this family filed there would fail it."""
+    """test_s2dual_cards.py discovers its family through team.s2dual-*.yaml."""
     for name in NAMES:
         assert VARIANTS[name].team_file.startswith("team.s2tools-")
     assert len(list(CONFIGS.glob("team.s2tools-*.yaml"))) == len(NAMES)

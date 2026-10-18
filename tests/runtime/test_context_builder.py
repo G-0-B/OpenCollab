@@ -85,11 +85,7 @@ def test_ask_user_dropped_when_there_is_no_human_to_ask():
     assert "ask_user" in {t.name for t in attended.tools}
 
 def test_the_shell_answer_does_not_ride_on_the_ask_user_answer():
-    """A role built without ``ask_user`` may still be given a shell.
-
-    Every teammate of a prebuilt team is exactly that shape, and while the two
-    answers came from one ``interactive`` flag they could not be.
-    """
+    """Prebuilt teammates need shell access independently of ask_user availability."""
     builder = ContextBuilder(_team(), _cfg())
     peer = builder.build_agent(
         "coder", scheduler=SCHED, ask_user_available=False, allow_unisolated_shell=True

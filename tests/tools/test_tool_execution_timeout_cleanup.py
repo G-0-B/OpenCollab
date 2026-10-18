@@ -1,8 +1,4 @@
-"""Bounded tool cancellation and late-write cleanup tests.
-
-These lifecycle tests are kept separate from the core tool-use-case contract so
-the contract module remains small and focused.
-"""
+"""Bounded tool cancellation and late-write cleanup tests."""
 
 from __future__ import annotations
 

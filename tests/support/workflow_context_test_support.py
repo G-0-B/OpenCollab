@@ -18,13 +18,7 @@ class FakeState:
         self.aid = aid
 
 class FakeSession:
-    """A scripted one-shot session.
-
-    ``reply`` is the run_loop() return value. ``tokens`` is reported via
-    ``used_tokens``. ``gate`` (optional) lets a test hold run_loop() open to
-    observe concurrency; ``started`` is set when run_loop() begins. ``boom``
-    makes run_loop() raise to exercise error capture.
-    """
+    """Scripted one-shot session with controllable spend, concurrency, and failure."""
 
     def __init__(
         self,
@@ -173,12 +167,9 @@ class RecordingTracer:
         ]
 
 class _DeferredTokenSession(FakeSession):
-    """A FakeSession whose reported token spend can be deferred.
+    """Defer token spend until another agent passes its pre-call budget check.
 
-    ``used_tokens`` reads 0 until ``land_spend()`` flips it to ``_tokens``. This
-    models a concurrent agent whose spend lands AFTER another agent has passed
-    agent()'s budget gate but BEFORE that agent computes its per-session budget —
-    the exact window in which a naive ``int(remaining)`` would go negative.
+    This exposes a remaining budget that turns negative before session sizing.
     """
 
     def __init__(self, *, tokens: int, on_enter=None) -> None:
@@ -193,13 +184,7 @@ class _DeferredTokenSession(FakeSession):
         return self._tokens if self._landed else 0
 
 class FakeProbe:
-    """A scripted WorkingTreeProbe recording how often it is asked.
-
-    ``changed`` is the whole-tree answer. ``changed_excluding`` honors a
-    ``{path: dirty}`` map when given (a path present in ``excludes`` whose only
-    dirt is itself drops out): with no map it falls back to a scripted
-    ``excluded_changed`` bool so tests can assert "tree dirty but source clean".
-    """
+    """Script a whole-tree answer and optional per-path dirt for exclusion checks."""
 
     def __init__(
         self,

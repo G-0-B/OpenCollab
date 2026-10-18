@@ -1,11 +1,4 @@
-"""Every trajectory record says which agent wrote it.
-
-A team writes one trajectory for all of its agents. ``aid`` used to appear
-only inside the payloads that happened to include it, and ``role`` in fewer,
-so a record such as a refused tool call could not be attributed to anyone.
-Each record now carries ``aid`` and ``role`` beside ``run_id``; records the
-scheduler writes on no agent's behalf carry ``null`` for both.
-"""
+"""Trajectory records identify their agent, including refused tool calls."""
 
 from __future__ import annotations
 

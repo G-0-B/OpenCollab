@@ -87,12 +87,9 @@ def test_targeted_cancel_event_stops_only_addressed_agent_and_scheduler_reuses_i
     run(scenario())
 
 def test_a_turn_offered_a_cancel_event_still_ends_when_the_team_goes_quiet():
-    """The waiter is how a turn hears about cancellation, not work it waits on.
+    """A cancellation waiter can remain pending while every agent is idle.
 
-    Counting it as pending work means a turn that is offered a cancel event and
-    never cancelled never returns: every agent is idle, the team is quiescent,
-    and the loop is still waiting on an event nobody will set. The interactive
-    CLI offers one on every turn so Ctrl+C has something to reach.
+    Counting it as work prevents an uncancelled interactive turn from returning.
     """
     class AnsweringSession(ScriptedSession):
         async def add_user_message(self, content: str) -> None:

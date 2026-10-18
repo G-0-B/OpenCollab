@@ -1,10 +1,4 @@
-"""End-to-end: real run loop + real SpawnAgentTool + real Scheduler.
-
-Proves the central behavior change — a lead that calls ``spawn_agent`` suspends
-on AWAITING_EVENTS, the child runs, and the lead is re-activated to reason over
-the child's result in the SAME turn (delivered as the spawn tool call's result),
-rather than answering before the child finishes.
-"""
+"""Exercise spawn suspension and result delivery through the real run loop and scheduler."""
 
 from __future__ import annotations
 

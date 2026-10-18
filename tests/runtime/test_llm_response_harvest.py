@@ -325,8 +325,7 @@ def test_openai_real_tool_calls_skip_markup_parsing():
     assert result.usage.markup_recovered == 0
 
 def test_openai_markup_in_reasoning_content_is_synthesized():
-    """Under thinking mode kimi puts the tool-call markup in reasoning_content
-    (content empty). Recover it from reasoning, not just content."""
+    """Kimi thinking-mode tool markup can arrive in reasoning_content with empty content."""
     resp = _openai_resp_with_reasoning(
         content=None, reasoning_content=_markup("file_read", "2", '{"path": "a.py"}')
     )
@@ -341,8 +340,6 @@ def test_openai_markup_in_reasoning_content_is_synthesized():
     assert result.usage.markup_recovered == 1
 
 def test_openai_markup_buried_in_reasoning_preserves_thinking():
-    """Real thinking prose followed by buried markup -> call synthesized, the
-    genuine chain-of-thought is preserved in reasoning."""
     reasoning = "Let me check the test.\n\n" + _markup("grep", "1", '{"pattern": "X"}')
     resp = _openai_resp_with_reasoning(content=None, reasoning_content=reasoning)
 

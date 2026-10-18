@@ -1,23 +1,4 @@
-"""The workflow budget pool must leave a record when it refuses or waves a call through.
-
-``_acquire_budget_lease`` is the pre-call gate on the shared token pool, and it
-has two decision points that used to leave nothing behind. It raises
-``WorkflowBudgetExceeded`` when the pool is spent, and — when the caller passed
-``over_budget_ok=True`` — it instead waves the call through on an exhausted
-pool. A finished run showed only ``reason="budget_exceeded"`` in
-``workflow.json``: never which call was refused, at what point in the run, or by
-how much it overshot, and the escape was invisible altogether.
-
-These tests pin two structured trace records, ``budget_refusal`` and
-``budget_escape``. They drive the real :class:`~opencollab.adapters.trace.Tracer`
-and read the JSONL back off disk, so a field that never reaches the file fails
-here.
-
-They also pin the ENFORCEMENT around each record — the refusal still raises and
-still builds no session, the escape still runs the call with the cap it asked
-for. This change adds observation only; a test that proved the record landed but
-not that behaviour stayed put would let a semantics change ride along unnoticed.
-"""
+"""Persist budget refusals and escapes while preserving their execution behavior."""
 
 from __future__ import annotations
 
@@ -111,12 +92,7 @@ async def test_an_over_budget_escape_records_the_call_it_waved_through(tmp_path)
 async def test_an_uncapped_escape_records_a_null_overshoot_not_an_invented_number(
     tmp_path,
 ):
-    """No cap means no requested amount, so the overshoot is unknowable.
-
-    A number here would be a guess, and this record is evidence. The escape
-    still grants such a call ``UNBOUNDED_SESSION_BUDGET``, which the build
-    assertion pins so the record cannot be read as a smaller grant.
-    """
+    """An uncapped escape has no requested amount from which to calculate overshoot."""
     tracer = Tracer(run_id="budget-escape-uncapped", output_dir=str(tmp_path))
     factory = FakeFactory(
         [FakeSession(reply="a", tokens=150), FakeSession(reply="forced write", tokens=0)]

@@ -15,13 +15,7 @@ def run(coro):
     return asyncio.run(coro)
 
 async def _spawn_and_settle(scheduler, *args, **kwargs):
-    """Spawn and await the resulting background task within one event loop.
-
-    ``Scheduler.spawn`` returns after creating a detached ``_drive_agent`` task;
-    awaiting that task in a *second* ``asyncio.run`` would bind it to a different
-    loop (``ValueError: future belongs to a different loop``). Doing both in one
-    coroutine keeps spawn and the await on the same loop.
-    """
+    """Spawn and await the detached driver task on the same event loop."""
     aid = await scheduler.spawn(*args, **kwargs)
     task = scheduler._tasks.get(aid)
     if task is not None:

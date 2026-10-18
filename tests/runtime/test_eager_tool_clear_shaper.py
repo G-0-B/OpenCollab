@@ -1,9 +1,4 @@
-"""Unit tests for the always-on, cache-ready EagerToolOutputClearShaper.
-
-These tests assert the three cache-ready properties explicitly — DETERMINISTIC,
-MONOTONIC, IDEMPOTENT — plus the structural guarantees (pinned / non-compactable
-untouched, ``tool_call`` pairing preserved, input never mutated).
-"""
+"""Deterministic, monotonic, and idempotent eager tool-result clearing."""
 
 from __future__ import annotations
 

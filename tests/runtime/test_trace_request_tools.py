@@ -1,12 +1,6 @@
-"""Every ``llm_call`` records the tools the application offered before adaptation.
+"""Persist the tools and tool_choice offered for each request before provider adaptation.
 
-``assigned.topology_nodes`` records the tool list each seat was *given* at
-prebuild. It does not record what any individual request went out with, and the
-two come apart: the steering hard rung narrows the outbound list to
-``_WRITE_TOOLS``, which removes ``message_agent`` — the tool the delegation
-measurement is built on — for that turn, and nothing on disk said so. These
-tests pin the sent list (names only, sorted) and the sent ``tool_choice`` onto
-the record that already exists for the call.
+Steering can narrow this list after the team's initial tool assignment.
 """
 
 from __future__ import annotations
@@ -46,9 +40,6 @@ def test_llm_call_records_the_sent_tool_names_sorted():
     assert payloads[0]["request_tool_choice"] is None
 
 def test_llm_call_records_the_hard_write_gate_dropping_message_agent():
-    """The audit question this record exists to answer: was the tool table
-    rewritten mid-run? At the hard read threshold it is — ``message_agent`` is
-    not in the request the provider saw, and the trajectory now says that."""
     tracer = FakeTracer()
     state = SessionState(
         messages=[{"role": "tool", "content": "prev"}],
@@ -112,8 +103,6 @@ def test_llm_call_records_an_empty_list_when_no_tools_are_sent():
     assert _llm_payloads(tracer)[0]["request_tool_names"] == []
 
 def test_the_record_carries_names_only_not_the_schemas(tmp_path):
-    """Volume guard, checked on the real trajectory file: a few dozen bytes of
-    names per call, not the parameter schemas that would multiply the file."""
     tracer = Tracer(run_id="request-tools", output_dir=str(tmp_path))
     path = tracer.path
     try:

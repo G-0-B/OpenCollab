@@ -1,35 +1,8 @@
-"""The four steps of a git handoff, rebuilt from trace records and nothing else.
+"""Reconstruct assignment, commit, checkout, and reply from persisted trace fields.
 
-``configs/team.handoff.experiment.yaml`` seats three peers that can hand work to
-each other inside one repository: the Analyst assigns with ``message_agent``, the
-Coder edits and commits in its own worktree and sends the sha on, the Tester runs
-``git checkout <sha>`` in its own worktree and tests what it got, and the Tester
-reports back. The claim those runs are meant to support is that the assigned
-organization actually carried the work — so each of the four steps has to be
-recoverable from what a run leaves on disk, and recoverable *as a field*, not by
-reading what a model wrote about itself.
-
-So this drives the real scheduler, the real ``WorktreeEnvironment``, real ``git``,
-the real ``message_agent`` tool and the real topology check with one scripted LLM
-in place of a provider, and then rebuilds the four steps from the trajectory file
-alone. Every assertion below reads a trace field. The one value the script does
-not know in advance — the sha the Coder commits — is taken from git's own output
-inside the run, exactly as a model would have to take it.
-
-The negative case is the control: the same script with the Tester's checkout
-removed. If the same reconstruction accepts both, the records cannot tell a
-handoff from two agents working past each other, and the positive result means
-nothing.
-
-Nothing here reaches into the seated agents to give them their shell. A
-prebuilt roster's peers are declared nodes, and the session factory hands them
-the same shell answer it hands agent 0 — if that ever stops being true this
-test stops passing, which is the point of running the real ``BashTool`` against
-a real worktree instead of a stub.
-
-One thing this test does arrange that a real run would not:
-``PYTHONDONTWRITEBYTECODE`` keeps the Tester's own probe from writing a
-``__pycache__`` file into the worktree it is measuring.
+Run the real scheduler, Git worktrees, messaging, and topology checks with a
+scripted provider. The control omits only the Tester checkout.
+PYTHONDONTWRITEBYTECODE keeps the probe from dirtying its measured worktree.
 """
 
 from __future__ import annotations
@@ -112,13 +85,7 @@ def _last_user_text(messages: list[dict]) -> str:
     raise AssertionError("the script expected a teammate message and found none")
 
 def _scripted_llm(*, tester_checks_out: bool):
-    """One scripted provider class; each agent gets its own instance.
-
-    The role is read off the system prompt because the composition root builds a
-    client per agent and tells it only about the model. Every branch is fixed in
-    advance except the sha, which is read out of git's own output — the same
-    place the model would have to read it.
-    """
+    """Read roles from system prompts and commit IDs from Git output for each scripted client."""
 
     class ScriptedLLM:
         def __init__(self, **_kwargs) -> None:
@@ -294,12 +261,7 @@ async def test_every_step_of_the_handoff_is_recoverable_from_recorded_fields(
 async def test_a_tester_that_never_checked_out_reconstructs_as_not_having(
     tmp_path, monkeypatch
 ) -> None:
-    """The control: same run, same records, one step removed.
-
-    Everything else still happens — the Coder still commits, still sends the
-    sha, and the Tester still runs a command and answers. Only the checkout is
-    gone, and the step-3 reader has to say so on its own.
-    """
+    """Omit only checkout while preserving commit, message, command, and reply steps."""
     records = await _run_handoff(tmp_path, monkeypatch, tester_checks_out=False)
 
     committed = _commits_made_by(records, "coder")

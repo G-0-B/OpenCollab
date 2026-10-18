@@ -1,27 +1,7 @@
-"""Every ``send_message`` decision has to leave a record on disk.
+"""Persist message delivery and refusal decisions with their queue behavior.
 
-``Scheduler.send_message`` is the only way one agent reaches another, and it has
-eight rules that can stop a message. Each used to end the same way: a sentence
-handed back to the model, and nothing written down. Two of them decide findings
-on their own.
-
-``topology_forbidden`` is the direct observation the role-boundary axis is
-measured on — a model trying to contact a role its team's topology does not let
-it contact. Invisible, that attempt simply never happened.
-
-``inbox_message_limit`` / ``inbox_byte_limit`` drop a collaboration message
-because the recipient is backed up. Invisible, the run reads downstream as "this
-agent did not communicate", which is the opposite of what took place.
-
-These tests pin ``message_refused`` (one row per rule, carrying an enumerated
-``reason``) and ``message_sent`` (one row per queued message, same fields). They
-also pin the BEHAVIOUR beside each record — the same error string, the same
-queue state — because this change adds observation only, and a test that proved
-the row landed but not that the rule still bit would let a semantics change ride
-along unnoticed.
-
-They drive the real :class:`~opencollab.adapters.trace.Tracer` and read the JSONL
-back off disk, so a field that never reaches the file fails here.
+Refused topology edges and saturated inboxes must remain observable as attempted
+communication.
 """
 
 from __future__ import annotations
@@ -325,13 +305,9 @@ def test_no_tracer_means_no_records_and_no_failure(tmp_path):
     )
 
 def test_the_git_object_ids_a_message_carries_are_listed(tracer):
-    """The payload of a git handoff is a sha, and a size cannot stand in for it.
+    """Shared worktrees can see each other's commits without a message.
 
-    A team that hands work over commits and sends the id. Two worktrees of one
-    repository can already see each other's commits (``git worktree list`` names
-    them), so a tester standing on its teammate's commit is not by itself
-    evidence that the teammate sent it there. What settles that is whether the
-    id crossed the edge, which is a fact about this message.
+    Recording the object ID in the message proves that it crossed the handoff edge.
     """
     scheduler, _ = _scheduler(tracer)
     sha = "8f14e45fceea167a5a36dedd4bea2543b7dbabcd"  # pragma: allowlist secret
@@ -395,16 +371,7 @@ def test_more_object_ids_than_are_listed_still_measure_as_more(tracer):
     assert payload["commit_refs_found"] == len(refs)
 
 def test_a_restored_route_the_topology_now_forbids_is_recorded_too(tracer):
-    """The same observation, at the other moment it can happen.
-
-    A message can be legal when it is queued and forbidden when it is finally
-    delivered: the roster comes back from a reload, the topology is rebuilt, and
-    the route no longer exists. That rejection used to reach only
-    ``events.jsonl``, which a run writes only when ``OPENCOLLAB_EVENTS_FILE`` is
-    set — so in a default run the message was dropped and the trajectory said
-    nothing at all. It is the same ``role_boundary`` axis as a send-time refusal
-    and has to be countable in the same units.
-    """
+    """A restored message can become forbidden after roster reload rebuilds the topology."""
     scheduler, child = _scheduler(tracer)
 
     async def scenario():
@@ -431,14 +398,7 @@ def test_a_restored_route_the_topology_now_forbids_is_recorded_too(tracer):
     assert (refused[0]["from_role"], refused[0]["to_role"]) == ("lead", "coder")
 
 def test_the_two_moments_a_message_can_be_refused_are_counted_the_same_way(tracer):
-    """One edge, two refusals, one row shape — and still distinguishable.
-
-    Counting "how many messages the declared edge lead->coder lost" must not
-    require knowing which of the two gates stopped each one, so the rows carry
-    the same fields. Deciding whether a model reached for a forbidden edge is
-    the opposite question, and must not be answerable only by guessing from the
-    reason string, so ``restored`` carries that on its own.
-    """
+    """Common edge fields support refusal counts, while restored identifies the decision time."""
     scheduler, _child = _scheduler(tracer)
 
     async def scenario():

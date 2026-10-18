@@ -1,12 +1,4 @@
-"""Tests for the context-overflow classifier and its non-retryable guard.
-
-The classifier (``adapters/llm/errors.is_context_overflow_error``) is the first
-link in the context-overflow safety net: it must recognise the representative
-Anthropic / OpenAI-compatible overflow rejections while staying conservative
-enough that an unrelated 400 is never misread as an overflow (which would
-trigger a futile force-compaction). It must also keep overflows out of the
-transient-retry path.
-"""
+"""Classify provider context overflow separately from unrelated 400s and retryable errors."""
 
 from __future__ import annotations
 
@@ -20,10 +12,7 @@ from opencollab.adapters.llm.retry import extract_retry_after_seconds, is_retrya
 
 
 class FakeProviderError(Exception):
-    """A provider-error stand-in mirroring the SDK shape the classifier reads:
-    a ``status_code`` (and optionally a ``code`` / nested ``body``) plus a
-    human message. No real SDK / network involved.
-    """
+    """Provider-error stand-in with status_code and optional code or nested body."""
 
     def __init__(self, message="", *, status_code=None, code=None, body=None, param=None):
         super().__init__(message)

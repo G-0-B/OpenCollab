@@ -1,13 +1,4 @@
-"""Every model call must record which compaction rung actually fired.
-
-The shaping pipeline reshapes a *copy* of the history, so the transcript keeps
-the full content and nothing on disk says which of the five rungs ran on a given
-turn. These tests pin a ``context_shaping`` trajectory record per turn:
-``{seq, aid, rung, tokens_before, tokens_after}``, with ``rung`` drawn from a
-closed six-value vocabulary. They drive the real
-:class:`~opencollab.adapters.trace.Tracer` and read the JSONL back off disk, so
-a field that never reaches the file fails here.
-"""
+"""Persist the shaping rung applied to the copied history on each model call."""
 
 from __future__ import annotations
 

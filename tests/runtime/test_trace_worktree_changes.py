@@ -1,15 +1,6 @@
-"""Per-agent worktree changes must land on disk as a structured trace record.
+"""Persist per-file worktree changes from the untruncated diff.
 
-The diff a finished child hands its parent is prose: it is wrapped in a
-markdown code fence and, past ``WORKTREE_DIFF_MAX_CHARS``, has its middle cut
-out. That string is the only place the "which agent touched which file"
-evidence used to live, so it could not be used as evidence.
-
-These tests pin a second, separate destination: a ``worktree_changes`` trace
-record built from the *untruncated* diff, carrying one entry per changed file
-with the sha256 of the file's post-change content. They drive the real
-:class:`~opencollab.adapters.trace.Tracer` and read the JSONL back off disk, so
-a field that never reaches the file fails here.
+The prose result delivered to a parent may omit the middle of a large diff.
 """
 
 from __future__ import annotations
@@ -63,11 +54,7 @@ class _CommittedEnv(_Env):
     own_commit_count = 2
 
 class _BudgetStoppedSession(_ChildSession):
-    """A child that spends its whole budget and is stopped, not finished.
-
-    This is what a per-agent cap does: the loop winds down and the session ends
-    in STOPPED, which the scheduler reads as a terminal failure.
-    """
+    """A child stopped by its per-agent budget cap."""
 
     async def run_loop(self) -> str:
         self.state.set_phase(SessionPhase.STOPPED)
@@ -91,12 +78,7 @@ def _sha(text: str) -> str:
 def _run_one_child(
     tmp_path, env, run_id: str, *, session_class=None
 ) -> tuple[list[dict], PendingRow]:
-    """Spawn one child that ends with ``env``; return traces + parent row.
-
-    ``session_class`` picks how that child ends: it defaults to the one that
-    completes, and the failure tests pass one that stops at its budget or dies
-    on its provider instead.
-    """
+    """Spawn one child with the selected terminal behavior and return its traces and parent row."""
     tracer = Tracer(run_id=run_id, output_dir=str(tmp_path))
     trace_path = tracer.path
     child = (session_class or _ChildSession)("coder", "implemented it", env)
@@ -331,13 +313,7 @@ def test_parser_returns_nothing_for_input_that_is_not_a_diff():
     assert _parse_worktree_diff("no headers here\n") == []
 
 def test_an_agent_that_changed_nothing_still_gets_a_row(tmp_path):
-    """Absence of a row must not be the only signal for "changed nothing".
-
-    An empty diff is a real, reportable outcome — it says this agent produced
-    no files. Skipping the record would make that indistinguishable from a
-    recorder that broke, the same reason a turn with no compaction still emits
-    ``rung="none"``.
-    """
+    """An explicit empty row distinguishes no changes from a broken recorder."""
     env = _Env("", {})
 
     payloads, row = _run_one_child(tmp_path, env, "worktree-empty")
@@ -352,15 +328,7 @@ def test_an_agent_that_changed_nothing_still_gets_a_row(tmp_path):
     assert row.status is RowStatus.DONE
 
 def test_an_agent_stopped_at_its_budget_still_records_what_it_left_behind(tmp_path):
-    """A cap must not erase the evidence of the work it interrupted.
-
-    Only the completion path used to write this row, so an agent stopped at its
-    per-agent cap wrote nothing — and "nothing" is exactly what an agent that
-    changed no files writes. The two are opposite outcomes: this one committed
-    a fix and ran out of tokens before it could say so. Per-agent adherence is
-    scored off these rows, so scoring the first as the second counts real
-    collaboration as collaboration that never happened.
-    """
+    """A budget stop can occur after a child commits but before it reports its changes."""
     env = _CommittedEnv(THREE_FILE_DIFF, {"pkg/new.py": ADDED, "pkg/mod.py": MODIFIED})
 
     payloads, row = _run_one_child(

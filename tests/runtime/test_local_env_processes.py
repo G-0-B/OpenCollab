@@ -714,18 +714,9 @@ async def test_local_rejects_invalid_timeout_before_spawn(tmp_path) -> None:
         await env.exec_cmd("true", timeout=0)
 
 async def test_a_timed_out_command_returns_what_it_had_already_written(tmp_path):
-    """A killed command must not come back as if it had produced nothing.
+    """Preserve output captured before a command times out.
 
-    Everything printed before the deadline was read into the capture buffers
-    and then discarded when the reader tasks were cancelled, so a test run that
-    hung after reporting nine failures and one that hung immediately reached the
-    model as the same empty result. The only move left was to run it again --
-    and hit the same deadline.
-
-    Uses ``/bin/sh`` rather than a Python child on purpose: the interpreter's
-    cold start is a large fraction of a short deadline, and the deadline here is
-    already generous enough to sit above the worst case the terminate path
-    allows itself.
+    A shell child avoids interpreter cold-start variance in the short deadline.
     """
     env = LocalEnvironment(str(tmp_path))
     try:

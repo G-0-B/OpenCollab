@@ -146,12 +146,7 @@ def test_status_chrome_renderables_avoid_default_text_color():
     _assert_visible_text_has_non_white_style(tui._build_status_row())
 
 def test_status_row_stays_one_row_when_the_text_it_quotes_has_newlines():
-    """The chrome quotes text the renderer does not control.
-
-    A shell command, a tool argument and an error reason all reach the status
-    row verbatim, and a newline in any of them turns the single shared row into
-    three — undoing the whole point of collapsing the chrome onto one row.
-    """
+    """Commands, arguments, and error reasons can contain embedded newlines."""
     console = Console(file=StringIO(), width=100, color_system=None)
     tui = TUI(console)
 
@@ -219,12 +214,6 @@ def _stream(tui: TUI, paragraphs: int) -> None:
     )
 
 def test_the_status_row_is_rendered_apart_from_the_hud():
-    """The two frames are painted on opposite sides of the input line.
-
-    The HUD is the in-flight answer and goes above it; the status row goes
-    below it, as a ``bottom_toolbar``. Nothing about the team may reach the
-    rows above the input — that is the transcript's side.
-    """
     console = Console(file=StringIO(), width=50, height=8, color_system=None)
     tui = TUI(console)
     tui.set_team_provider(lambda: [
@@ -259,11 +248,6 @@ def test_the_hud_spends_its_whole_budget_on_the_body_when_cropped():
     assert "streamed paragraph 0" not in "\n".join(rows)
 
 def test_a_hud_with_nothing_in_flight_claims_no_rows_at_all():
-    """Between turns the input line is free to sit against the transcript.
-
-    The roster alone is no longer a reason to hold a row above the input: it
-    has a row of its own under it.
-    """
     console = Console(file=StringIO(), width=50, height=6, color_system=None)
     tui = TUI(console)
     tui.set_team_provider(lambda: [

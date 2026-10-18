@@ -1,9 +1,4 @@
-"""Tests for the minimal (phase-1, observe-only) hook system.
-
-Covers the four layers the feature touches: domain matching policy, the
-application event→hook subscriber, the adapter shell runner, the config parser,
-and the bootstrap wiring (including the eval-gating switch).
-"""
+"""Observe-only hooks across matching, subscriptions, shell execution, and configuration."""
 
 from __future__ import annotations
 
@@ -164,18 +159,10 @@ def test_runner_kills_on_timeout_without_raising():
 DESCENDANT_OUTLIVES_CLEANUP_SECONDS = HOOK_KILL_WORST_CASE_SECONDS + 5.0
 
 def _delayed_sentinel_command(started, finished) -> str:
-    """A backgrounded descendant that records its pid, sleeps, then marks its end.
+    """Create a background descendant with PID and completion sentinels.
 
-    The marks are shell builtins rather than a launched program: the callers
-    below kill this group on a sub-second timeout, and an interpreter's startup
-    does not reliably fit inside one — measured at 0.04-0.35s on the machines
-    this suite runs on, against a 0.2s hook timeout.
-
-    ``started`` carries the sleeping descendant's pid, so a caller asks whether
-    that process is gone rather than waiting out a wall-clock window. ``finished``
-    is written only when the sleep runs to completion (``&&`` drops it when a
-    signal ends the wait), and the sleep outlasts every grace the cleanup path
-    may spend, so a cleanup that worked cannot lose a race to it.
+    Shell builtins fit the 0.2s hook timeout despite interpreter startup variance.
+    The descendant outlasts cleanup grace, and a signal prevents its completion mark.
     """
     child = (
         f"sleep {DESCENDANT_OUTLIVES_CLEANUP_SECONDS} & "
@@ -185,13 +172,9 @@ def _delayed_sentinel_command(started, finished) -> str:
     return f"{{ {child}; }} & wait"
 
 async def _await_descendant_reaped(started) -> None:
-    """Wait, on the loop, until the recorded descendant is gone.
+    """Await descendant reaping on the loop that performs cancellation cleanup.
 
-    Bounded by what ``terminate_process`` permits itself rather than by a fixed
-    sleep, so a loaded machine buys time instead of a false failure. The wait
-    has to happen *on the running loop*: the cancellation path finishes its
-    cleanup there, so a caller that closed the loop first would be asking about
-    a descendant nobody is left to kill.
+    Use the cleanup time allowance so loaded machines can finish reaping.
     """
     deadline = time.monotonic() + HOOK_KILL_WORST_CASE_SECONDS + 1.0
     # ``started`` exists as soon as the redirection opens it, which can be a

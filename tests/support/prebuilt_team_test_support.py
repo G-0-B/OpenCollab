@@ -13,18 +13,9 @@ CONFIG = {
 }
 
 def _prebuildable_default() -> TeamConfig:
-    """The built-in team with the one change prebuild mode forces on it.
+    """Add message_agent to the built-in Analyst so a prebuilt team can traverse its edges.
 
-    A prebuilt team refuses ``spawn_agent``, so ``message_agent`` is the only
-    tool left that can walk a topology edge — and ``build_scheduler`` refuses a
-    prebuilt team whose Analyst is given two outgoing edges and nothing to walk
-    them with. The built-in team is exactly that team: it delegates by spawning
-    and collects results on the join path, which is legitimate everywhere except
-    here.
-
-    Everything else is the shipped configuration verbatim — the same three
-    roles, the same edges, the Coder's and Tester's tool bundles untouched — so
-    the assertions below still pin what OpenCollab ships.
+    Prebuilt teams refuse spawn_agent, the built-in team's usual delegation tool.
     """
     team = default_team_config()
     roles = dict(team.roles)

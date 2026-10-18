@@ -1,9 +1,4 @@
-"""Characterization tests for Session construction.
-
-Lock today's observable behavior of ``Session.__init__``, ``snapshot``,
-and ``load`` before Step13 moves runtime construction into
-``bootstrap/container.py``.
-"""
+"""Characterization tests for Session construction, snapshots, and loading."""
 
 from __future__ import annotations
 

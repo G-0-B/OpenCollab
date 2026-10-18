@@ -1,23 +1,4 @@
-"""What ``team_status`` and ``submit`` tell an agent when turns are serialized.
-
-Under ``serialize_turns`` exactly one agent runs at a time, and a teammate that
-has been messaged cannot start until the agent now running ends its turn. Two
-texts used to say otherwise:
-
-* ``team_status`` printed ``busy`` for every aid whose driver task existed and
-  had not finished. A messaged teammate's task exists at once and then waits on
-  the team gate, so the sender was shown its teammate as busy while that
-  teammate could not run until the sender itself stopped. 09-25, gpt-5.6-luna
-  on the s2dual plain card: the Adopter read ``coder_a — busy``, waited by
-  polling and sleeping inside its own turn, and in 29 of 36 runs no Coder ran
-  before the Adopter's budget was gone.
-* ``submit`` said only "your work on this task is finished". An agent waiting
-  on a teammate is not finished, so read literally it is not the way to wait,
-  although ending the turn is the only way a serialized teammate gets to run.
-
-The tests pin the roster field that tells the two states apart, the label it
-prints as, and the waiting sentence in ``submit``.
-"""
+"""Serialized teammates stay queued until the running agent ends its turn."""
 
 from __future__ import annotations
 

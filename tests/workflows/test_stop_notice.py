@@ -1,24 +1,6 @@
-"""A seat that stops without answering tells whoever is waiting on it.
+"""Notify waiting senders when a teammate stops without replying.
 
-``message_agent`` promises the sender that an answer, if one comes, reopens its
-turn, and tells it that finishing is how to wait. A teammate that is stopped --
-its token budget spent, its environment revoked -- can never send that answer,
-and a prebuilt teammate has no pending row for ``_deliver_to_parent`` to fill,
-so nothing reached the sender at all. The run then ended the moment the stopped
-seat did, with the sender still waiting.
-
-09-22 on the s2dual cells this was most of what the delegation readouts
-recorded: in 21 runs the Adopter briefed Coder A, ended its turn to wait as the
-tool told it to, and Coder A was stopped at its 2M cap before replying. The run
-ended there, Coder B was never briefed, nothing reached the graded tree, and
-the run read as "only one Coder was used". A notice is the fact the sender was
-missing -- that seat has stopped and will not answer -- and nothing else: it
-names the seat and the reason and does not say what to do about it.
-
-Scope, each pinned below: only a stop the seat did not choose (STOPPED or
-ERROR) sends one; a seat that answered first, or that finished on its own
-without answering, sends none; and a sender that is itself stopped is not
-reopened for it, because it could not act on it.
+Prebuilt peers have no pending spawn row through which to deliver that failure.
 """
 
 from __future__ import annotations

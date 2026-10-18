@@ -1,14 +1,4 @@
-"""Golden-master for the production context-assembly output (Lane S3 net).
-
-Freezes the *exact* messages the composition root assembles for a fully
-populated plan — identity + team + skills + project in the system prompt, the
-task as the sole user-context message — via the production accessors
-``system_prompt()`` + ``startup_user_messages()``. It was written *before* the
-S3 slim (the lazy-loader scaffold + the two inert shaper rungs) so that those
-deletions are provably *byte-identical*: the reserved long-term layers they
-removed (memory, tool-meta, deferred project) carried no content, so dropping
-them must not perturb a single character of this output.
-"""
+"""Exact production context assembly for a fully populated plan."""
 
 from __future__ import annotations
 

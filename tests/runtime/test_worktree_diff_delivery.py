@@ -1,9 +1,4 @@
-"""Worktree-diff delivery to parents.
-
-A finished child whose environment is diff-capable (``DiffCapablePort``) has
-its worktree diff appended to the result the scheduler fills into the parent's
-pending row, so the parent reasons over the child's actual changes.
-"""
+"""Deliver a diff-capable child's actual worktree changes in its parent result."""
 
 from __future__ import annotations
 

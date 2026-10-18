@@ -1,22 +1,4 @@
-"""What `configs/team.collab.yaml` promises, checked against what it configures.
-
-This file is the reusable team: one self-contained YAML a caller names on a
-command line, with every role's card inline. Two failure modes are worth a gate.
-
-The first is a card that says something untrue about the run. A role told it
-holds a tool it does not hold, or told a teammate holds one it does not, spends
-turns reaching for something that is not there -- and the discrepancy is
-invisible in the prose, because prose is not checked against the tool list
-anywhere else. So every tool a card names in backticks is checked against the
-tools that role actually receives, and the two cross-role claims the Analyst
-makes about its teammates' bundles are checked against those bundles.
-
-The second is drift in the sentence the file exists for. Delegation here comes
-from a command that blocks the alternative; deleting only the prohibition drops
-handoff from 3/3 runs to 1/3. That sentence, the imperative it qualifies, and
-the absence of `spawn_agent` are pinned, so a later edit that softens the card
-fails a test rather than quietly turning the team back into a solo Analyst.
-"""
+"""The self-contained collab team's cards match its tools and handoff instructions."""
 
 from __future__ import annotations
 
@@ -68,9 +50,7 @@ def test_every_ordered_pair_is_an_edge(team) -> None:
 
 @pytest.mark.parametrize("role", ROLES)
 def test_no_role_can_spawn(team, role: str) -> None:
-    """All three cards state that spawning is refused. Holding the tool would
-    make that statement false rather than making spawning work: a prebuilt team
-    refuses the call."""
+    """Prebuilt teams refuse spawning even if a seat holds the tool."""
     assert "spawn_agent" not in team.roles[role].tools
 
 @pytest.mark.parametrize("role", ROLES)
@@ -83,9 +63,7 @@ def _named_tools(text: str) -> set[str]:
     return {t for t in TOOL_TOKEN.findall(text) if t not in NOT_TOOLS}
 
 def _own_capability_paragraph(prompt: str) -> str:
-    """The card's first-person answer to "what can I do" -- the paragraph right
-    after `## What you can do`. Later paragraphs describe teammates, so a tool
-    named there is a claim about someone else's bundle, not about this role's."""
+    """Read the first-person capability paragraph before later teammate descriptions."""
     body = prompt.partition("## What you can do")[2]
     paragraphs = [p.strip() for p in body.split("\n\n") if p.strip()]
     assert paragraphs, "card has no capability paragraph"
@@ -93,8 +71,6 @@ def _own_capability_paragraph(prompt: str) -> str:
 
 @pytest.mark.parametrize("role", ROLES)
 def test_a_card_claims_no_tool_its_role_does_not_hold(team, role: str) -> None:
-    """The defect this catches: a card telling a role it can do something it
-    was never given a tool for. It reads as instruction and cannot be acted on."""
     held = set(team.roles[role].tools)
     named = _named_tools(_own_capability_paragraph(team.roles[role].prompt))
     assert named, f"{role} card names no tool at all"
@@ -102,16 +78,13 @@ def test_a_card_claims_no_tool_its_role_does_not_hold(team, role: str) -> None:
 
 @pytest.mark.parametrize("role", ROLES)
 def test_a_card_names_no_tool_that_exists_nowhere_on_this_team(team, role: str) -> None:
-    """A card may name a teammate's tool -- the Analyst says what the Tester
-    holds. It may not name one no seat has: that is a capability nobody can use."""
+    """A card can name a teammate's tools as well as its own."""
     on_team = {tool for cfg in team.roles.values() for tool in cfg.tools}
     named = _named_tools(team.roles[role].prompt)
     assert named <= on_team, f"{role} card names absent tools: {sorted(named - on_team)}"
 
 def test_the_analyst_could_do_the_whole_task_alone(team) -> None:
-    """Handing work over has to stay a thing the Analyst was told to do, not a
-    thing it had no alternative to. A seat without edit tools delegates because
-    it cannot do anything else, and the handoff then measures the config."""
+    """The Analyst must retain the capability to work alone for delegation to remain a choice."""
     assert {"apply_patch", "file_write", "bash"} <= set(team.roles["analyst"].tools)
 
 def test_the_analysts_claims_about_its_teammates_bundles_are_true(team) -> None:
@@ -123,17 +96,13 @@ def test_the_analysts_claims_about_its_teammates_bundles_are_true(team) -> None:
     }
 
 def test_the_analyst_is_commanded_and_the_alternative_is_blocked(team) -> None:
-    """The load-bearing pair. Measured: with both, 3/3 runs hand work over;
-    delete the prohibition alone and it is 1/3."""
     card = " ".join(team.roles["analyst"].prompt.split())
     assert "send the Coder a message with `message_agent` describing the change" in card
     assert "Do not apply the change yourself." in card
     assert "Verification is the Tester's" in card
 
 def test_the_analyst_is_told_to_check_the_roster_before_working(team) -> None:
-    """Without a prebuilt roster the teammates do not exist and no role can
-    spawn them, so the run would otherwise be a silent solo run reported as a
-    team's. The check turns that into something the output says."""
+    """Without prebuilt teammates, a spawn-disabled configuration silently runs solo."""
     card = " ".join(team.roles["analyst"].prompt.split())
     assert "Call `team_status` before anything else." in card
     assert "without a prebuilt roster" in card
@@ -141,8 +110,7 @@ def test_the_analyst_is_told_to_check_the_roster_before_working(team) -> None:
 def test_the_analyst_is_told_that_a_commit_reaches_the_answer_only_via_checkout(
     team,
 ) -> None:
-    """Delivery is agent 0's tree. A run where the Coder commits and the Analyst
-    never checks the sha out delivers nothing, and nothing else reports that."""
+    """Only a checkout into agent zero's tree delivers a teammate commit to the answer."""
     card = " ".join(team.roles["analyst"].prompt.split())
     assert "git checkout <sha>" in card
     assert "delivers nothing" in card
@@ -207,8 +175,7 @@ def test_the_runner_reads_a_task_from_a_file(monkeypatch, tmp_path):
     assert calls[-1]["prompt"] == "the bug\n"
 
 def test_the_runner_leaves_the_shell_sandboxed_unless_asked(monkeypatch, tmp_path):
-    """`bash` refuses to run with no OS sandbox, and the sha handoff is `git`.
-    The flag has to exist for a host run and must not be the default."""
+    """Host Git handoff needs an explicit opt-in when no OS shell sandbox is available."""
     module = _runner_module()
     calls = _record_calls(module, monkeypatch)
     module.main(["--workspace", str(tmp_path), "--prompt", "fix it"])
@@ -219,16 +186,13 @@ def test_the_runner_leaves_the_shell_sandboxed_unless_asked(monkeypatch, tmp_pat
 
 @pytest.mark.parametrize("role", ("coder", "tester"))
 def test_the_roles_that_run_tests_are_told_to_leave_no_ignored_files(team, role: str):
-    """A teammate's worktree that holds an ignored file cannot have its changes
-    read, and cleanup then raises *after* the answer is given: the team delivers
-    a correct patch and the run still reports failed. `pytest` alone causes it."""
+    """Ignored test artifacts prevent worktree diff extraction and can fail cleanup after success."""
     card = " ".join(team.roles[role].prompt.split())
     assert "Leave nothing behind in your worktree that git would ignore." in card
     assert "-p no:cacheprovider" in card
 
 def test_the_runner_keeps_test_caches_out_of_the_worktrees(monkeypatch, tmp_path):
-    """The same failure, closed on the route this repository controls: the
-    agents' shell inherits this process's environment."""
+    """Agent shells inherit the runner environment that redirects test caches."""
     module = _runner_module()
     _record_calls(module, monkeypatch)
     monkeypatch.delenv("PYTEST_ADDOPTS", raising=False)
@@ -274,8 +238,6 @@ def test_the_runner_reports_recorded_message_attempts(tmp_path):
     assert "coder=0" in line
 
 def test_the_runner_says_so_when_it_cannot_count_message_attempts(tmp_path):
-    """Silence and zero are different answers; reporting zero without evidence
-    is the failure this avoids."""
     module = _runner_module()
 
     class _Result:
@@ -285,9 +247,7 @@ def test_the_runner_says_so_when_it_cannot_count_message_attempts(tmp_path):
     assert "message attempts=unknown" in module._handoff_summary(_Result())
 
 def test_the_file_is_self_contained(tmp_path):
-    """The point of inlining every card: copied on its own to an unrelated
-    directory it still loads. A `prompt_file` would resolve against the team
-    file's directory and this would fail."""
+    """Relative prompt_file references would fail when only the YAML is copied elsewhere."""
     copied = tmp_path / "my-team.yaml"
     copied.write_text(CONFIG.read_text(encoding="utf-8"), encoding="utf-8")
     elsewhere = load_team_config(path=str(copied))
@@ -295,11 +255,7 @@ def test_the_file_is_self_contained(tmp_path):
     assert all(elsewhere.roles[r].prompt.strip() for r in ROLES)
 
 def test_the_analyst_is_told_a_teammates_commit_is_not_in_its_own_log(team):
-    """Measured failure this closes: the Coder committed, the Tester checked the
-    sha out and the suite passed, and the Analyst ran `git log` -- which does not
-    reach a commit held only by another worktree's detached HEAD -- concluded
-    nothing had been delivered, and spent its remaining budget on `sleep` waiting
-    for a commit that already existed."""
+    """git log omits a commit reachable only from another worktree's detached HEAD."""
     card = " ".join(team.roles["analyst"].prompt.split())
     assert "The sha you were sent is enough on its own: check it out." in card
     assert "only `git log --all` reaches it" in card

@@ -1,16 +1,4 @@
-"""``submit`` ends the turn on purpose, where every other step loops back.
-
-A turn ends today when the model returns a message with no tool calls, so the
-loop cannot tell "the work is done" from "the model stopped calling tools".
-`submit` gives the first one a positive act without moving where a run stops:
-a turn with no tool call still finishes exactly as it did, which is what keeps
-runs made before and after this tool comparable.
-
-The tests cover both halves of that sentence -- the submitted turn ends, and
-the unsubmitted turn is untouched -- plus the two things that make a submitted
-turn useful downstream: it is DONE (a success terminal, not a stop) and its
-answer is the summary the model gave.
-"""
+"""Explicit submit ends a turn and preserves the model-provided summary."""
 
 from __future__ import annotations
 
@@ -161,14 +149,7 @@ def test_a_bad_call_after_a_good_one_does_not_leave_the_turn_submitted():
     assert tool.submitted_summary is None
 
 def test_the_real_executor_carries_the_flag_out_of_the_batch():
-    """The wiring, end to end, with the tool the model actually calls.
-
-    Everything above this point runs against a fake executor holding a
-    pre-built result, which would keep passing if the executor stopped reading
-    the flag off the tool. This one calls the real ``submit`` through the real
-    dispatcher, and also pins the batch behaviour: a call the model issued
-    after ``submit`` cannot run, because the turn is over.
-    """
+    """Exercise the real dispatcher so a fake pre-built result cannot hide a lost flag."""
     from opencollab.application.tool_execution import ToolExecutionUseCase
     from tests.support.tool_execution_test_support import (
         AlwaysAllowPermissionPolicy,

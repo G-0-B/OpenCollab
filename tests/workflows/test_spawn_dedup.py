@@ -1,13 +1,4 @@
-"""Single-flight spawn dedup — the reliable, tool-level guard against the
-"won't stop" loop where a model re-spawns an identical delegated task.
-
-Prompt-level "don't duplicate" is unreliable; the scheduler enforces it. While
-a (parent, role, task, context) spawn is in flight, ``inflight_spawn`` reports
-the handling aid and ``SpawnAgentTool`` refuses to spawn again, returning a
-self-describing message instead of a second child. The reservation clears once
-the child reaches a terminal phase, so a legitimate later re-run is never
-blocked.
-"""
+"""Deduplicate identical in-flight spawns and release their reservations at termination."""
 
 from __future__ import annotations
 

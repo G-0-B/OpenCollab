@@ -1,17 +1,4 @@
-"""Global-budget enforcement for the team scheduler.
-
-Two mechanisms keep the global token pool a *true* ceiling (it used to be
-enforced only per-session against each session's own cap, so fan-out could
-oversubscribe it 2-3x):
-
-1. Reserve-at-allocation — each spawned child is granted budget from the
-   *unallocated remainder* (``_max_budget_tokens - _allocated_tokens``), and the
-   grant is booked synchronously before any await. The sum of grants therefore
-   never exceeds the global pool. A terminal child's reservation is reclaimed
-   so a later spawn can reuse the headroom.
-2. Aggregate runtime ceiling — a session's precheck stops the session once the
-   *team aggregate* spend reaches the global cap, regardless of per-session caps.
-"""
+"""Scheduler budget checks cover allocation reservations and aggregate runtime spend."""
 
 from __future__ import annotations
 
@@ -29,10 +16,7 @@ def run(coro):
     return asyncio.run(coro)
 
 class BlockingChild:
-    """A child whose run_loop blocks on a gate so in-flight state is observable.
-
-    Records the budget it was built with so tests can assert the granted caps.
-    """
+    """Block a child on a gate and record its granted budget."""
 
     def __init__(self, role: str, budget: int, gate: asyncio.Event):
         self.agent = type("_Agent", (), {"name": role})()
@@ -125,8 +109,6 @@ def _scheduler(factory: RecordingFactory, *, max_budget_tokens: int) -> Schedule
     return sched
 
 def test_concurrent_grants_never_exceed_global_pool():
-    """N children spawned against a global cap: the sum of granted caps plus the
-    Lead reserve never exceeds the global pool."""
 
     async def scenario():
         total = 400_000
@@ -152,8 +134,6 @@ def test_concurrent_grants_never_exceed_global_pool():
     run(scenario())
 
 def test_finished_child_reservation_is_reclaimed():
-    """A child that reaches a terminal phase frees its reservation so a later
-    spawn is granted from the reclaimed headroom, not the floor."""
 
     async def scenario():
         total = 400_000
@@ -179,10 +159,7 @@ def test_finished_child_reservation_is_reclaimed():
     run(scenario())
 
 def test_failed_worktree_acquire_releases_reservations():
-    """If ``_worktree_pool.acquire`` raises after the inflight + budget
-    reservations are booked, ``spawn`` must release BOTH and re-raise — otherwise
-    the budget grant leaks (shrinking the pool forever) and the inflight key
-    permanently refuses any re-spawn of the same (role, task)."""
+    """Acquisition failure can leak both token headroom and the same-task spawn reservation."""
 
     async def scenario():
         total = 400_000
@@ -215,9 +192,7 @@ def test_failed_worktree_acquire_releases_reservations():
     run(scenario())
 
 def test_failed_session_build_releases_reservations_then_respawn_succeeds():
-    """The second post-reservation failure site — ``build_spawn_session`` raising
-    — must also release both reservations, so a subsequent spawn of the same
-    (role, task) books fresh from the reclaimed headroom (not the floor)."""
+    """Session construction is a second failure point after both reservations are booked."""
 
     async def scenario():
         total = 400_000
@@ -309,8 +284,6 @@ def test_cancelled_spawn_rolls_back_reservations_before_driver_exists():
     run(scenario())
 
 def test_successful_spawn_does_not_double_release():
-    """Regression: a NORMAL spawn holds its reservation until the agent
-    terminates — the failure-path release must not fire on the success path."""
 
     async def scenario():
         total = 400_000

@@ -1,23 +1,6 @@
-"""STEP 3 — progress watchdog + anti-windup tool-removal actuator + low-yield brake.
+"""Progress watchdog and low-yield triggers share the wind-down actuator.
 
-Two additional triggers into the SAME forced-commit actuator (``_enter_wind_down``)
-the budget-threshold wind-down uses, so a scout that spins WHILE BUDGET IS STILL
-PLENTIFUL is force-committed instead of grepping to the cap. Both key strictly on
-the STEP-1 information-gain sensor via the DISTINCT brake gate (``_brake_on``),
-never on ``has_write``.
-
-* T1 (WATCHDOG) — ``steps_since_progress >= K`` with budget remaining routes the
-  scout through ``_enter_wind_down``: tools are physically narrowed to submit-only
-  (the non-degradable actuator), ``tool_choice`` is forced to the submit function,
-  and a committed turn reaches terminus "forced".
-* T2 (LOW-YIELD BRAKE + off==reference) — ``low_yield_since_progress >= M`` trips
-  the same actuator; AND with enforcement OFF neither brake fires even with the
-  counters pinned high (no watchdog/brake, no extra control flow) — byte-for-byte
-  the reference behavior.
-
-Plus: the ``steps_since_progress`` counter increments per no-progress STEP and
-resets on a hit/write; the red-team pending-result gate blocks a brake while a
-tool result is still un-ingested.
+Pending tool results defer the brake until the session ingests them.
 """
 
 from __future__ import annotations

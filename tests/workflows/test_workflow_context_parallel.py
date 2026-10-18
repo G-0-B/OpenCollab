@@ -629,14 +629,9 @@ async def test_budget_exceeded_raises_before_next_call():
 
 @pytest.mark.asyncio
 async def test_over_budget_ok_bypasses_the_pre_call_raise():
-    """``over_budget_ok=True`` lets the budget-floor's forced write run past zero.
+    """The final write may bypass an exhausted token pool under the caller's timeout.
 
-    The single guaranteed final write must execute even with the meter already
-    exhausted — otherwise it self-aborts on the pre-call gate and no patch lands
-    (the sympy-11400 regression). It is bounded instead by ``thinking=False`` +
-    a wall-clock ``timeout``, not by this budget gate. The default path stays
-    gated. The pre-call raise fires before any session is consumed, so the gated
-    attempt does not eat ``s2``.
+    An ordinary budget refusal occurs before consuming a scripted session.
     """
     s1 = FakeSession(reply="a", tokens=500)
     s2 = FakeSession(reply="forced", tokens=0)

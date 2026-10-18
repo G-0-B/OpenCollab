@@ -1,21 +1,7 @@
-"""The experimental condition, asserted at the SDK entry point.
+"""Exercise prebuilt roles and shell access through the real SDK scheduler.
 
-The Team arm of the handoff experiment is started with ``client.team()``, and
-what makes that arm an arm at all is a pair of facts about the run: every
-declared role is seated before the first model call, and a seated teammate's
-``bash`` actually runs a command. Neither was reachable from the SDK — the team
-runtime hardcoded ``interactive=False``, which switched off the shell along with
-``ask_user``, and never forwarded ``prebuild_team``.
-
-So this drives the real scheduler, real worktrees, the real ``BashTool`` and
-real ``git`` through ``OpenCollab.team`` with one scripted LLM in place of a
-provider, and reads the outcome out of the run's own trajectory. The control is
-the same run with ``allow_unisolated_shell`` left alone: if the seated Coder can
-run ``git`` either way, the switch is not what produced the condition.
-
-Agent 0 is checked for the other half. An SDK run has nobody sitting at it, so
-no agent in it may hold ``ask_user`` — the shell must arrive without dragging a
-question nobody can answer along with it.
+The default-shell control proves that the switch enables teammate git access.
+Every SDK agent must also remain runnable without interactive input.
 """
 
 from __future__ import annotations

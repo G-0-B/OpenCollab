@@ -1,7 +1,6 @@
-"""Per-attempt first-protocol-event timing across provider and trace paths.
+"""First-protocol-event timing across provider and trace paths.
 
-The legacy TTFT fields measure the first chunk or event, which can precede
-text. The explicit semantics field and source describe that sampling point.
+Legacy TTFT fields can measure a chunk or event that precedes text.
 """
 
 from __future__ import annotations
@@ -69,12 +68,7 @@ def _completion() -> ChatCompletion:
     )
 
 class _FakeStream:
-    """Sleeps before the first chunk, and again before the last one.
-
-    Both gaps matter: the first is what TTFT must see, the second is what makes
-    the call's total latency strictly larger than its TTFT, so a test can tell
-    a real measurement from ``ttft_s = latency_s``.
-    """
+    """Separate first- and last-chunk delays distinguish TTFT from total latency."""
 
     def __init__(self, chunks: list[Any], delays: list[float]):
         self._chunks = iter(chunks)
@@ -249,8 +243,7 @@ def test_streamed_responses_call_measures_time_to_first_token():
     assert block["ttft_s"] < block["attempt_s"]
 
 def test_responses_model_that_cannot_stream_reports_ttft_as_unmeasured():
-    """``o1-pro`` declares ``supports_responses_streaming=False``, so even on the
-    streaming wire protocol this model's calls have no first-token event."""
+    """o1-pro declares supports_responses_streaming=False and has no first-event sample."""
     model = "o1-pro"
 
     async def create(**_kwargs: Any) -> Any:
@@ -363,8 +356,6 @@ def test_every_arm_seat_records_transport_timing_on_its_llm_call(
         assert (block["ttft_s"] is not None) is stream
 
 def test_transport_timing_never_replaces_an_existing_field():
-    """Readers of six batches of ``metrics.jsonl`` and of the trajectories run
-    on the old keys; this change may only add."""
     tracer = FakeTracer()
     runner = build_runner(
         state=SessionState(messages=[{"role": "system", "content": "sys"}], aid=0),
@@ -383,8 +374,7 @@ def test_transport_timing_never_replaces_an_existing_field():
     assert step["payload"]["transport_timing"]["ttft_s"] < step["latency"]
 
 def test_usage_ledger_row_gains_the_block_and_keeps_every_old_key(tmp_path, monkeypatch):
-    """``api_usage.jsonl`` is read by OpenCollab-Eval's token/cost summary, which
-    keys off ``schema`` and ``usage``. The row may grow, never change shape."""
+    """OpenCollab-Eval reads schema and usage from api_usage.jsonl."""
     log = tmp_path / "api_usage.jsonl"
     monkeypatch.setenv("OPENCOLLAB_API_USAGE_LOG", str(log))
 
@@ -401,8 +391,7 @@ def test_usage_ledger_row_gains_the_block_and_keeps_every_old_key(tmp_path, monk
     assert block["ttft_s"] < row["latency_s"]
 
 def test_a_call_that_never_reached_the_provider_says_so():
-    """``None`` for TTFT has two causes and they are not the same fact: the
-    response was not streamed, or no request was ever issued."""
+    """Unstreamed responses and requests never sent both lack TTFT but have different causes."""
     timer = FirstTokenTimer()
     block = timer.snapshot()
 

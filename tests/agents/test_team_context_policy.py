@@ -1,15 +1,4 @@
-"""A team file names the context policy every seat runs under.
-
-Until now the shaper pipeline a seat ran was fixed by the code: every team
-session took the default lazy-degradation pipeline (or its profile's), and
-only a caller holding ``build_session(shaper=)`` could change it. A team file
-could not say which context policy its run used, so a run's context handling
-was recoverable only from the version of the code it ran on.
-
-What is pinned here: an omitted ``context`` is exactly today's pipeline; a
-named policy reaches every seat, entry agent and teammates alike; an unknown
-name or key is refused at load; and the session record names the policy.
-"""
+"""Team context policies reach every seat and appear in the session record."""
 
 from __future__ import annotations
 

@@ -402,16 +402,7 @@ async def test_one_shot_prints_the_answer_even_if_focus_wandered_to_a_teammate(
     monkeypatch,
     tmp_path,
 ):
-    """A one-shot run has no "later" in which to Tab back to the lead.
-
-    Only the focused agent's blocks reach scrollback, so a run that ends while
-    the user is watching a teammate would exit with the answer it was asked for
-    settled in memory and never printed.
-
-    Exactly once, too: the flush is a tail drain, not a focus switch. A focus
-    switch reprints an agent in full, which would repeat every row the lead had
-    already put on screen before the user wandered off.
-    """
+    """Drain the lead's unseen tail when a one-shot run ends with teammate focus."""
     from io import StringIO
 
     from rich.console import Console

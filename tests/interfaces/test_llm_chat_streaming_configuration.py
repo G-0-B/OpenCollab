@@ -15,8 +15,6 @@ def test_config_defaults_the_switch_off(monkeypatch, tmp_path):
     assert build_config(str(tmp_path)).llm_stream_chat is False
 
 def test_agent_flag_reaches_the_llm_client(monkeypatch):
-    """Without this the setting would look enabled and change nothing — the
-    failure mode that costs a whole batch of runs."""
     from opencollab.adapters.llm import client as client_module
     from opencollab.bootstrap import container
     from opencollab.domain.agent import Agent

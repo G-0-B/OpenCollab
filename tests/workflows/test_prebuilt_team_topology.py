@@ -1,24 +1,4 @@
-"""A prebuilt team gives a run an *assigned* topology, and refuses to grow.
-
-Ordinarily the only agent alive when a run starts is agent 0, and every teammate
-is created mid-run by a model calling ``spawn_agent``. So the shape of the team —
-how many agents, in which roles — is an outcome of the run, decided by the model,
-and knowable only afterwards. There is no assigned value to compare an observed
-one against, because nothing assigned one.
-
-``prebuild_team`` inverts that. The scheduler seats one agent per role declared in
-the team config before the first model call, records that roster and the
-topology's edges as ``assigned.topology_nodes`` / ``assigned.topology_edges``, and
-from then on refuses ``spawn`` — recording each refused attempt as
-``spawn_refused``, which is the observation that a model wanted a role its team
-was not given.
-
-The switch is off by default and these tests pin that too: with it off, the
-roster, the spawn path, and the trace are exactly what they were.
-
-The tests drive the real :class:`~opencollab.adapters.trace.Tracer` and read the
-JSONL back off disk, so a field that never reaches the file fails here.
-"""
+"""Prebuilt teams record assigned roles and edges before model calls and refuse later spawn."""
 
 from __future__ import annotations
 
@@ -149,13 +129,9 @@ async def test_every_declared_role_is_seated_before_the_first_model_call(tmp_pat
         await scheduler.cleanup()
 
 async def test_a_prebuilt_peer_is_a_child_of_the_init_process_with_no_join_route(tmp_path):
-    """``parent_aid`` is 0, and the spawn join path is deliberately empty.
+    """Peers use parent_aid=0 without a spawn join route.
 
-    ``parent_aid=None`` is the scheduler's marker for agent 0, the root — the
-    hook bridge reads exactly that to tell "the team stopped" from "a teammate
-    finished". A peer must not claim it. But a peer is also not a spawn: nothing
-    is blocked on its result, so it gets no ``_spawn_origin`` entry and no
-    completion of it is ever routed to a pending row.
+    The hook bridge reserves parent_aid=None for the root team lifecycle.
     """
     scheduler, tracer = _scheduler(tmp_path, prebuild_team=True)
     try:
@@ -196,19 +172,7 @@ async def test_prebuilding_twice_seats_nobody_twice(tmp_path):
         await scheduler.cleanup()
 
 async def test_a_five_role_team_seats_and_every_seat_gets_the_same_cap(tmp_path):
-    """Team size is not a budget question any more.
-
-    The pool used to be divided by reservation: each agent took up to a quarter
-    of it when it was created, so agent 0 plus three teammates emptied it and a
-    five-role team could not be seated at all. Nothing is reserved at seating
-    now — every agent draws from the one shared pool and is bounded by
-    ``per_agent_cap`` — so the declared roster decides how many agents there are
-    and the budget decides only how much each may spend.
-
-    The caps are equal, agent 0 included: it is seated under the same rule as
-    every teammate, and the session it was built with carries that same number
-    (which is what the model is told each turn).
-    """
+    """Seating reserves no tokens, so roster size is independent of the shared pool's spend."""
     team = tmp_path / "team.yaml"
     names = ("lead", "a", "b", "c", "d")
     team.write_text(
@@ -252,13 +216,7 @@ def _spawn_tool(scheduler):
     return tool, runtime
 
 async def test_the_spawn_tool_survives_but_refuses_and_names_the_live_roster(tmp_path):
-    """The tool is left in the tool set on purpose.
-
-    Removing ``spawn_agent`` would remove the observation: a model that never
-    gets to ask cannot be seen wanting a role its team does not have. So the ask
-    still reaches the scheduler, and the answer names the teammates it should
-    have messaged instead.
-    """
+    """Keeping spawn_agent exposes attempted roster expansion as a recorded refusal."""
     scheduler, tracer = _scheduler(tmp_path, prebuild_team=True)
     try:
         await scheduler.ensure_team_prebuilt()
@@ -442,14 +400,7 @@ def _bash(session):
     raise AssertionError(f"{session.agent.name} was built without bash")
 
 async def test_a_seated_peer_gets_the_entry_agent_s_shell(tmp_path):
-    """The whole point of the split: one run, one answer about the shell.
-
-    A peer is a non-entry role, so it is built with no ``ask_user``. While that
-    one fact also decided the shell, every peer was seated with a ``bash`` that
-    refused to run in the worktree it was given, while agent 0 — same run, same
-    machine, same repository — had a working one. A team measured against a lone
-    agent under that arrangement is not measuring the team.
-    """
+    """Prebuilt peers lack ask_user but still need the entry agent's shell capability."""
     team = load_team_config(path=str(HANDOFF_TEAM_FILE))
     scheduler, tracer = _scheduler(
         tmp_path,
@@ -478,12 +429,7 @@ async def test_a_seated_peer_gets_the_entry_agent_s_shell(tmp_path):
 async def test_a_child_the_model_spawns_is_not_a_seat_and_keeps_the_hard_default(
     tmp_path,
 ):
-    """The product default, unchanged: a mid-run child still needs a sandbox.
-
-    A prebuilt roster is declared in a file by a human before the run starts. A
-    ``spawn_agent`` child is not declared anywhere — a running model asked for
-    it — so it does not inherit agent 0's shell, whatever agent 0 has.
-    """
+    """Model-spawned children retain sandbox requirements independently of declared seats."""
     workspace = tmp_path / "ws"
     workspace.mkdir()
     ctx = build_runtime_context(str(workspace), dict(CONFIG), trace=False)
@@ -511,13 +457,7 @@ async def test_a_child_the_model_spawns_is_not_a_seat_and_keeps_the_hard_default
     assert _bash(seated).require_process_isolation is False
 
 async def test_no_seat_gets_a_shell_the_entry_agent_would_not_have(tmp_path):
-    """The other direction of the same rule, and the one that keeps it honest.
-
-    ``interactive=False`` is a run with nobody to show a risky command to, so
-    agent 0 may not open an unsandboxed shell — and neither may its peers. A
-    fix that only ever *adds* capability would pass the test above and still
-    leave the two sides on different answers.
-    """
+    """Entry and peer shells share the same restriction when interactive approval is unavailable."""
     scheduler, tracer = _scheduler(
         tmp_path,
         prebuild_team=True,
@@ -540,12 +480,7 @@ async def test_no_seat_gets_a_shell_the_entry_agent_would_not_have(tmp_path):
     assert seats == {"analyst": True, "coder": True, "tester": True}
 
 def _mute_team(tmp_path, *, messaging: bool) -> Path:
-    """A two-role team whose Coder is told to answer the Analyst.
-
-    With ``messaging`` off, the Coder holds the edge ``coder -> analyst`` and no
-    tool that can carry anything along it. That is the defect this section is
-    about: the topology promises a return channel the agent cannot use.
-    """
+    """Create a Coder return edge with optional message_agent capability."""
     coder_tools = "[file_read, message_agent]" if messaging else "[file_read]"
     team = tmp_path / f"team-{'talking' if messaging else 'mute'}.yaml"
     team.write_text(
@@ -565,14 +500,7 @@ def _mute_team(tmp_path, *, messaging: bool) -> Path:
     return team
 
 async def test_a_prebuilt_role_with_an_edge_and_no_way_to_walk_it_is_refused(tmp_path):
-    """Naming the role and the edge, because "invalid config" is not actionable.
-
-    A prebuilt team refuses ``spawn_agent``, so ``message_agent`` is the only
-    channel between two seated agents. A role given an outgoing edge without it
-    is seated mute: the run would start, record the edge as assigned, and end
-    with a transcript in which that edge was never used — which reads as a
-    finding about the model rather than about the config.
-    """
+    """A prebuilt seat needs message_agent to traverse any outgoing topology edge."""
     with pytest.raises(ValueError) as raised:
         _scheduler(
             tmp_path,
@@ -600,10 +528,6 @@ async def test_the_same_team_starts_once_the_missing_tool_is_given_back(tmp_path
         await scheduler.cleanup()
 
 async def test_the_refusal_lands_before_agent_0_exists(tmp_path):
-    """Same bargain the unfillable-seat failure already makes: fail before a
-    token is spent, not after a run has produced an assigned topology it could
-    never have honoured. Nothing is built here — not even the run folder that
-    every transcript is written into."""
     workspace = tmp_path / "ws"
     workspace.mkdir()
     ctx = build_runtime_context(str(workspace), dict(CONFIG), trace=False)
@@ -619,13 +543,7 @@ async def test_the_refusal_lands_before_agent_0_exists(tmp_path):
     assert not (workspace / ".opencollab").exists()
 
 async def test_the_shipped_team_still_starts_with_the_switch_off(tmp_path):
-    """The product default must not be caught by this.
-
-    The built-in Analyst has two outgoing edges and no ``message_agent`` — the
-    exact shape refused above. With ``prebuild_team`` off it is not a defect:
-    ``spawn_agent`` walks those edges and the join path carries the results
-    back. The guard is behind the switch precisely so this keeps working.
-    """
+    """Dynamic rosters use spawn_agent and its join path instead of message_agent."""
     scheduler, tracer = _scheduler(tmp_path, prebuild_team=False)
     try:
         shipped = default_team_config()
@@ -638,17 +556,7 @@ async def test_the_shipped_team_still_starts_with_the_switch_off(tmp_path):
         await scheduler.cleanup()
 
 async def test_every_seat_gets_the_same_step_ceiling(tmp_path):
-    """One run, one ceiling — for the entry agent and its teammates alike.
-
-    A team and a solo agent can be held to equal tokens or to equal steps, not
-    both: the solo agent carries one long history and pays more per step than a
-    teammate carrying a short one. These arms hold tokens equal, which makes the
-    step ceiling a runaway guard rather than an allowance — and a guard that
-    hands the entry agent twice what a teammate gets is neither.
-
-    Before this, the two seat paths took two different hard-coded defaults (100
-    for the entry agent, 50 for every teammate) and no caller could set either.
-    """
+    """Equal token budgets can permit different step counts because histories differ in size."""
     scheduler, tracer = _scheduler(
         tmp_path,
         prebuild_team=True,
@@ -668,8 +576,6 @@ async def test_every_seat_gets_the_same_step_ceiling(tmp_path):
     assert ceilings == {"analyst": 777, "coder": 777, "tester": 777}
 
 async def test_the_default_ceiling_is_one_number_not_a_privilege(tmp_path):
-    """Unset, every seat still lands on the same figure — the asymmetry is gone
-    from the default, not merely overridable."""
     scheduler, tracer = _scheduler(
         tmp_path,
         prebuild_team=True,
@@ -688,12 +594,6 @@ async def test_the_default_ceiling_is_one_number_not_a_privilege(tmp_path):
     assert ceilings == {SESSION_MAX_STEPS}
 
 async def test_a_run_records_whether_its_turns_were_serialized(tmp_path):
-    """Holding the team to one turn at a time is a choice about the instrument.
-
-    It is not OpenCollab's default, so a run says which way it was set the same
-    way each node says whether its workspace was isolated — otherwise a reader
-    of the trajectory cannot tell one condition's runs from the other's.
-    """
     on_dir = tmp_path / "on"
     on_dir.mkdir()
     off_dir = tmp_path / "off"
@@ -722,11 +622,6 @@ async def test_a_run_records_whether_its_turns_were_serialized(tmp_path):
     assert off["turns_serialized"] is False
 
 async def test_serializing_turns_does_not_narrow_who_may_address_whom(tmp_path):
-    """The flag changes when an agent runs, never whether it may speak.
-
-    Whether the models hand work to each other has to stay their decision, so
-    the declared edges must come out identical under either setting.
-    """
     scheduler, tracer = _scheduler(
         tmp_path, prebuild_team=True, serialize_turns=True
     )
