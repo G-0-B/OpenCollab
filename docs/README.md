@@ -34,9 +34,9 @@ when extending a runtime or reproducing a result.
 
 [Benchmark results](results.md) reports the recorded cross-harness comparison
 and paired Duo–Base test. [Adherence](adherence.md) separates declared team
-conditions from measured collaboration. The [collaborating-team study](2026-08-31-collab-team.md)
-preserves the August 31 handoff experiment, its recorded failures, and current
-launch instructions. Benchmark datasets, runs, and remote execution belong to
+conditions from measured collaboration. The
+[collaborating-team study](https://github.com/RISE-X-Lab/OpenCollab-Eval/tree/main/experiment/framework/collaborating-team.md)
+and experiment cards live with their generators and checks in OpenCollab-Eval. Benchmark datasets, runs, and remote execution belong to
 [OpenCollab-Eval](https://github.com/RISE-X-Lab/OpenCollab-Eval#readme).
 
 The [ICLR integration record](iclr-integration.md) and

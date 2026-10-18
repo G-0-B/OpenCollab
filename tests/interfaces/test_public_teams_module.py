@@ -20,7 +20,8 @@ from opencollab.teams import (
 )
 from tests.support.paths import REPO_ROOT
 
-EXPERIMENT_TEAM = REPO_ROOT / "configs" / "team.handoff.experiment.yaml"
+# Inline fixtures preserve API regressions independently of experiment ownership.
+EXPERIMENT_TEAM = REPO_ROOT / "tests" / "fixtures" / "teams" / "team.handoff.experiment.yaml"
 
 
 def test_the_declared_roles_are_the_file_s_roles_in_order() -> None:
@@ -40,7 +41,7 @@ def test_a_pool_of_n_seats_gives_each_seat_one_solo_agent_s_budget() -> None:
     assert per_agent_cap(solo_budget, len(roles)) == solo_budget // 3
 
 
-ICLR_EXPERIMENT_TEAM = REPO_ROOT / "configs" / "team.handoff.primary-legacy.yaml"
+ICLR_EXPERIMENT_TEAM = REPO_ROOT / "tests" / "fixtures" / "teams" / "team.handoff.primary-legacy.yaml"
 
 
 def test_the_declared_tools_are_read_through_the_loader_a_run_uses() -> None:
@@ -106,7 +107,7 @@ def test_the_two_generations_of_the_analyst_card_do_not_pool() -> None:
     """
     first_generation = declared_role_prompt_digests(str(ICLR_EXPERIMENT_TEAM))["analyst"]
     second_generation = declared_role_prompt_digests(
-        str(REPO_ROOT / "configs" / "team.handoff.facts-v2.yaml")
+        str(REPO_ROOT / "tests" / "fixtures" / "teams" / "team.handoff.facts-v2.yaml")
     )["analyst"]
 
     assert first_generation != second_generation
@@ -116,7 +117,7 @@ def test_roles_that_share_a_card_share_a_digest() -> None:
     """The Coder and Tester are held fixed across cells, so they must not move."""
     primary = declared_role_prompt_digests(str(ICLR_EXPERIMENT_TEAM))
     facts_v2 = declared_role_prompt_digests(
-        str(REPO_ROOT / "configs" / "team.handoff.facts-v2.yaml")
+        str(REPO_ROOT / "tests" / "fixtures" / "teams" / "team.handoff.facts-v2.yaml")
     )
 
     assert primary["coder"] == facts_v2["coder"]

@@ -215,16 +215,11 @@ def test_a_team_file_reports_the_profile_each_seat_declares(tmp_path) -> None:
 # --- The whole wiring, on the file a batch actually launches -------------------
 
 
-def test_the_shipped_cell_seats_single2_through_the_scheduler(tmp_path, monkeypatch) -> None:
-    """End to end on ``configs/team.s2dual-plain.yaml``, not on a fixture.
+def test_a_declared_team_seats_single2_through_the_scheduler(tmp_path, monkeypatch) -> None:
+    """The configuration must reach the scheduler with the selected profile.
 
-    The unit tests above build a plan and a session factory directly. This one
-    goes the way a run goes -- ``build_runtime_context`` then
-    ``build_scheduler``, which is what the SDK's ``team()`` and therefore the
-    evaluation harness reach -- because every step between those two is a place
-    a declaration can be dropped without anything failing: the seat would run,
-    it would read a card, and it would be OpenCollab's agent wearing Single2's
-    words.
+    The self-contained fixture preserves the former experiment's role and tool
+    declarations without making framework regressions depend on research assets.
     """
     from pathlib import Path
 
@@ -235,7 +230,7 @@ def test_the_shipped_cell_seats_single2_through_the_scheduler(tmp_path, monkeypa
     (workspace / "README.md").write_text("hi", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
 
-    team_file = Path(__file__).resolve().parents[2] / "configs" / "team.s2dual-plain.yaml"
+    team_file = Path(__file__).resolve().parents[1] / "fixtures" / "teams" / "team.s2dual-plain.yaml"
     ctx = build_runtime_context(
         str(workspace),
         {

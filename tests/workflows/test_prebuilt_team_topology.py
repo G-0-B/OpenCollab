@@ -55,7 +55,7 @@ from tests.support.scheduler_awaiting_test_support import ScriptedFactory, Scrip
 # The team the handoff experiment runs: three peers, two of them carrying bash
 # so they can hand a commit to each other over git.
 HANDOFF_TEAM_FILE = (
-    REPO_ROOT / "configs" / "team.handoff.experiment.yaml"
+    REPO_ROOT / "tests" / "fixtures" / "teams" / "team.handoff.experiment.yaml"
 )
 
 

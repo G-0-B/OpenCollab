@@ -1,6 +1,6 @@
 """The four steps of a git handoff, rebuilt from trace records and nothing else.
 
-``configs/team.handoff.experiment.yaml`` seats three peers that can hand work to
+The inline team fixture seats three peers that can hand work to
 each other inside one repository: the Analyst assigns with ``message_agent``, the
 Coder edits and commits in its own worktree and sends the sha on, the Tester runs
 ``git checkout <sha>`` in its own worktree and tests what it got, and the Tester
@@ -45,7 +45,7 @@ from opencollab.bootstrap import build_runtime_context, build_scheduler, contain
 from opencollab.bootstrap.team_config import load_team_config
 from tests.support.paths import REPO_ROOT
 
-TEAM_FILE = REPO_ROOT / "configs" / "team.handoff.experiment.yaml"
+TEAM_FILE = REPO_ROOT / "tests" / "fixtures" / "teams" / "team.handoff.experiment.yaml"
 
 CONFIG = {
     "model": "gpt-4o",
