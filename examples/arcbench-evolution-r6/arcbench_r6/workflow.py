@@ -31,7 +31,6 @@ from .state import RunState
 def emit(data):
     print(json.dumps(data, ensure_ascii=False, default=str), flush=True)
 
-
 def _initial_status(workspace, run_id):
     path = workspace / ".arc/checks/outcome.json"
     if path.is_file():
@@ -40,7 +39,6 @@ def _initial_status(workspace, run_id):
         destination = Path(tempfile.mkdtemp(prefix="outcome-", dir=history))
         shutil.copy2(path, destination / "outcome.json")
     write_json(path, {"run_id": run_id, "status": "running", "delivery_ok": False, "official_score": None})
-
 
 async def _prepare_environment(workspace, timeout):
     cancel = threading.Event()
@@ -51,7 +49,6 @@ async def _prepare_environment(workspace, timeout):
         cancel.set()
         await task
         raise
-
 
 @workflow(
     name="arcbench-weave-r6",

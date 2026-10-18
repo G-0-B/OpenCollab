@@ -21,7 +21,6 @@ EVOLUTION_ADDITIONS = frozenset(
     }
 )
 
-
 def roots(document):
     if isinstance(document, list):
         return [item for item in document if isinstance(item, dict)]
@@ -36,7 +35,6 @@ def roots(document):
         if isinstance(value, list):
             return [item for item in value if isinstance(item, dict)]
     return []
-
 
 def write_cards(document, output, *, directory_name="requirements/by-id"):
     directory = output / directory_name
@@ -104,7 +102,6 @@ def write_cards(document, output, *, directory_name="requirements/by-id"):
         (directory / filename).write_text(yaml.safe_dump(card, allow_unicode=True, sort_keys=False), encoding="utf-8")
     return rows
 
-
 def unfinished_ids(summary, index):
     known = {row["id"] for row in index if row["atomic"]}
     match = re.search(r"^Unfinished:[ \t]*(.*)$", summary or "", re.I | re.M)
@@ -120,7 +117,6 @@ def unfinished_ids(summary, index):
         if row["id"] in known and re.search(r"(?<![\w-])" + re.escape(row["id"]) + r"(?![\w-])", text)
     ]
 
-
 def report_summary(output):
     """Keep the handoff fields before shortening prose or file lists."""
     lines = re.findall(r"^(?:Unfinished|Blockers|Files):[^\r\n]*", str(output or ""), re.I | re.M)
@@ -129,7 +125,6 @@ def report_summary(output):
         if lines
         else str(output or "")[-1800:]
     )
-
 
 def completion_prompt(index, missing, summary, interrupted, target_ids=None):
     by_id = {row["id"]: row for row in index}
@@ -164,7 +159,6 @@ an environment capability is missing. Read .arc/checks/preflight.json for actual
 Finish with three brief lines: Unfinished: original IDs or none; Blockers: remaining blockers;
 Files: key implementation paths. No claim of official test passes.
 """
-
 
 def strip_code_comments(text: str) -> str:
     """Small lexer keeps quoted URLs and literals while excluding JS/CSS comments from hints."""

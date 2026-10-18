@@ -22,7 +22,6 @@ def parse_args(argv=None):
     reuse.add_argument("--fresh", action="store_true", help="Declare a new input application and preserve old reports")
     return parser.parse_args(argv)
 
-
 async def execute(args):
     from arcbench_r6.model import CompetitionModel
     from arcbench_r6.settings import Settings
@@ -83,7 +82,6 @@ async def execute(args):
     finally:
         await model_client.close()
 
-
 def _record_failure(args, error):
     from arc_light.reports import write_json
     from arcbench_r6.diagnostics import failure_message
@@ -106,7 +104,6 @@ def _record_failure(args, error):
             },
         )
 
-
 def main(argv=None):
     args = parse_args(argv)
     args.run_id = "arc-" + uuid.uuid4().hex
@@ -121,7 +118,6 @@ def main(argv=None):
             print(f"Run report unavailable ({type(reporting_error).__name__})", file=sys.stderr)
         print(f"ARC-Bench runner failed ({type(error).__name__})", file=sys.stderr)
         return 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

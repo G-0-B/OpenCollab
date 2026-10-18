@@ -16,17 +16,14 @@ DEFAULT_GIT_USER_EMAIL = "arcbench@example.com"
 ARC_GITIGNORE_START = "# >>> arcbench-agent-runtime >>>"
 ARC_GITIGNORE_END = "# <<< arcbench-agent-runtime <<<"
 
-
 def _utc_timestamp() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-
 
 def _resolve_under_project(project_dir: Path, value: str | os.PathLike[str]) -> Path:
     path = Path(value)
     if path.is_absolute():
         return path
     return project_dir / path
-
 
 def _paths(
     project_dir: str | None,
@@ -57,12 +54,10 @@ def _paths(
     traceability_path.mkdir(parents=True, exist_ok=True)
     return resolved_project_dir, runner_events_path, traceability_path
 
-
 def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as output:
         output.write(json.dumps(payload, ensure_ascii=True) + "\n")
-
 
 def _emit_refresh_signal(
     runner_events_path: Path,
@@ -92,7 +87,6 @@ def _emit_refresh_signal(
         },
     )
 
-
 def _git_env() -> tuple[dict[str, str], str, str]:
     env = os.environ.copy()
     user_name = (
@@ -113,7 +107,6 @@ def _git_env() -> tuple[dict[str, str], str, str]:
     env["GIT_COMMITTER_EMAIL"] = user_email
     return env, user_name, user_email
 
-
 def _run_git(project_dir: Path, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
     env, _, _ = _git_env()
     completed = subprocess.run(
@@ -131,13 +124,11 @@ def _run_git(project_dir: Path, args: list[str], *, check: bool = True) -> subpr
         raise RuntimeError(stderr)
     return completed
 
-
 def _configure_identity(project_dir: Path) -> tuple[str, str]:
     _, user_name, user_email = _git_env()
     _run_git(project_dir, ["config", "user.name", user_name])
     _run_git(project_dir, ["config", "user.email", user_email])
     return user_name, user_email
-
 
 def _ensure_arc_gitignore(project_dir: Path) -> Path:
     gitignore_path = project_dir / ".gitignore"
@@ -177,13 +168,11 @@ def _ensure_arc_gitignore(project_dir: Path) -> Path:
     gitignore_path.write_text(content, encoding="utf-8")
     return gitignore_path
 
-
 def _current_head(project_dir: Path) -> str | None:
     result = _run_git(project_dir, ["rev-parse", "HEAD"], check=False)
     if result.returncode != 0:
         return None
     return result.stdout.strip() or None
-
 
 def _ensure_repo(project_dir: Path, runner_events_path: Path, *, create_initial_commit: bool = True) -> None:
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -217,7 +206,6 @@ def _ensure_repo(project_dir: Path, runner_events_path: Path, *, create_initial_
         },
     )
 
-
 def _commit(project_dir: Path, runner_events_path: Path, message: str) -> bool:
     _run_git(project_dir, ["add", "."])
     result = _run_git(project_dir, ["commit", "-m", message], check=False)
@@ -228,7 +216,6 @@ def _commit(project_dir: Path, runner_events_path: Path, message: str) -> bool:
     if "nothing to commit" in output:
         return False
     raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "git commit failed")
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Manage ARC Bench git checkpoints.")
@@ -279,7 +266,6 @@ def main() -> int:
 
     print(json.dumps(result, ensure_ascii=True))
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

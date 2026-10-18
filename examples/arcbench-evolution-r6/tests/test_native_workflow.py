@@ -28,7 +28,6 @@ from opencollab.bootstrap.workflow_runtime import discover_workflows
 flow_module = importlib.import_module("arcbench_r6.workflow")
 runner_module = importlib.import_module("arcbench_r6.runner")
 
-
 def application(root):
     for name in ("frontend", "backend"):
         directory = root / name
@@ -60,7 +59,6 @@ def application(root):
     path = root / "task.yaml"
     path.write_text(yaml.safe_dump(document))
     return path
-
 
 def checks(monkeypatch, *, repair=False):
     monkeypatch.setattr(flow_module, "preflight", lambda *a, **kw: {"ok": True, "fatal": False, "checks": []})
@@ -98,7 +96,6 @@ def checks(monkeypatch, *, repair=False):
 
     monkeypatch.setattr(delivery, "verify", verify)
     monkeypatch.setattr(runner_module, "verify", verify)
-
 
 class LocalModel:
     def __init__(self, *, repair=False):
@@ -139,7 +136,6 @@ class LocalModel:
     def close(self):
         self.closed += 1
 
-
 async def execute(root, task, model, **inputs):
     client = OpenCollab(root, model="test-model", config={"max_output_tokens": 128})
     return await client.workflow(
@@ -153,7 +149,6 @@ async def execute(root, task, model, **inputs):
         run_id="fixture-run",
         trace=False,
     )
-
 
 @pytest.mark.asyncio
 async def test_discovered_weave_entry_runs_the_native_workflow(tmp_path, monkeypatch):
@@ -182,7 +177,6 @@ async def test_discovered_weave_entry_runs_the_native_workflow(tmp_path, monkeyp
     assert (tmp_path / "backend/src/feature.js").read_text() == "initial"
     assert len(model.calls) == 3
     assert model.calls[0][0]["content"] == SYSTEM_PROMPT
-
 
 @pytest.mark.asyncio
 async def test_two_instances_share_files_but_not_history_and_resume_without_generation(tmp_path, monkeypatch):
@@ -214,7 +208,6 @@ async def test_two_instances_share_files_but_not_history_and_resume_without_gene
     assert (tmp_path / ".arc/checks/evolution-baseline.json").read_bytes() == original
     assert model.closed == 0
 
-
 @pytest.mark.asyncio
 async def test_repair_is_a_new_instance_with_real_failure_feedback(tmp_path, monkeypatch):
     task = application(tmp_path)
@@ -228,7 +221,6 @@ async def test_repair_is_a_new_instance_with_real_failure_feedback(tmp_path, mon
     assert len(state["repair_rounds"]) == 1
     assert state["repair_rounds"][0]["observable_progress"]
     assert result.tokens == result.output["total_tokens"] == 30
-
 
 @pytest.mark.asyncio
 async def test_database_source_change_rechecks_the_prior_requirement_group(tmp_path, monkeypatch):
@@ -272,7 +264,6 @@ async def test_database_source_change_rechecks_the_prior_requirement_group(tmp_p
         ("all", ()),
     ]
 
-
 @pytest.mark.asyncio
 async def test_resume_preserves_platform_traceability(tmp_path, monkeypatch):
     from arcbench_agent_runtime import AgentRuntime, traceability
@@ -298,7 +289,6 @@ async def test_resume_preserves_platform_traceability(tmp_path, monkeypatch):
     assert resumed.ok and resumed.output["delivery_ok"], resumed
     assert runtime.traceability.export_snapshot() == before
 
-
 @pytest.mark.asyncio
 async def test_resume_retains_the_two_stagnant_repair_round_stop(tmp_path, monkeypatch):
     task = application(tmp_path)
@@ -319,7 +309,6 @@ async def test_resume_retains_the_two_stagnant_repair_round_stop(tmp_path, monke
     assert recovered.output["delivery_ok"] and recovered.output["repair_stop_reason"] == "passed"
     assert resumed_model.calls == []
 
-
 @pytest.mark.asyncio
 async def test_old_success_is_replaced_when_new_inputs_fail(tmp_path):
     output = tmp_path / ".arc/checks/outcome.json"
@@ -334,7 +323,6 @@ async def test_old_success_is_replaced_when_new_inputs_fail(tmp_path):
     assert current["error_type"] == "FileNotFoundError"
     assert not model.calls
     assert list((tmp_path / ".arc/history").glob("*/outcome.json"))
-
 
 @pytest.mark.asyncio
 async def test_preparation_cancellation_waits_for_the_writer(tmp_path, monkeypatch):
@@ -357,7 +345,6 @@ async def test_preparation_cancellation_waits_for_the_writer(tmp_path, monkeypat
         await owner
     assert cleaned.is_set()
     assert json.loads((tmp_path / ".arc/checks/outcome.json").read_text())["status"] == "cancelled"
-
 
 @pytest.mark.asyncio
 async def test_delivery_cancellation_waits_for_the_verification_writer(tmp_path, monkeypatch):
@@ -384,7 +371,6 @@ async def test_delivery_cancellation_waits_for_the_verification_writer(tmp_path,
     assert (tmp_path / "verification-cleaned.txt").read_text() == "cleaned"
     outcome = json.loads((tmp_path / ".arc/checks/outcome.json").read_text())
     assert outcome["status"] == "cancelled" and not outcome["delivery_ok"]
-
 
 @pytest.mark.asyncio
 async def test_cancelled_request_without_usage_retains_its_step_on_resume(tmp_path, monkeypatch):
@@ -413,7 +399,6 @@ async def test_cancelled_request_without_usage_retains_its_step_on_resume(tmp_pa
     assert resumed.ok and resumed.output["delivery_ok"], resumed
     assert resumed.output["main_steps"] == 1 + len(model.calls)
 
-
 def test_cli_configuration_failure_cannot_reuse_old_success(tmp_path, monkeypatch):
     monkeypatch.delenv("MODEL", raising=False)
     monkeypatch.delenv("OPENCOLLAB_MODEL", raising=False)
@@ -426,7 +411,6 @@ def test_cli_configuration_failure_cannot_reuse_old_success(tmp_path, monkeypatc
     )
     assert process.returncode == 1
     assert not json.loads(output.read_text())["delivery_ok"]
-
 
 @pytest.mark.parametrize("kwargs", [{"budget": True}, {"max_steps": 0}, {"wall_seconds": float("inf")}])
 def test_invalid_run_limits_are_rejected(kwargs):

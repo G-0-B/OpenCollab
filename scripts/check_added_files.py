@@ -33,14 +33,12 @@ MAX_BYTES = 512_000
 MAX_PY_LINES = 800
 ADVISORY_LIMITS = frozenset({"lines"})
 
-
 class Violation(NamedTuple):
     """A broken ceiling: which one, where, and how it was broken."""
 
     limit: str
     path: str
     message: str
-
 
 def _changed_paths(repository: Path, base: str, head: str) -> list[str]:
     """Return added, modified, or type-changed paths relative to the repository root.
@@ -73,7 +71,6 @@ def _changed_paths(repository: Path, base: str, head: str) -> list[str]:
             if raw_path
         ]
 
-
 def _blob_at(repository: Path, revision: str, relative: str) -> bytes | None:
     """Return the file's bytes at ``revision``, or ``None`` when absent there."""
     completed = subprocess.run(
@@ -85,7 +82,6 @@ def _blob_at(repository: Path, revision: str, relative: str) -> bytes | None:
     if completed.returncode:
         return None
     return completed.stdout
-
 
 def _regular_file_sizes_at(repository: Path, revision: str) -> dict[str, int]:
     """Return regular file sizes recorded in the revision's tree."""
@@ -105,11 +101,9 @@ def _regular_file_sizes_at(repository: Path, revision: str) -> dict[str, int]:
             sizes[os.fsdecode(raw_path)] = int(fields[3])
     return sizes
 
-
 def _line_count(payload: bytes) -> int:
     """Count lines the way iterating a file does: only ``\\n`` ends one."""
     return payload.count(b"\n") + (1 if payload and not payload.endswith(b"\n") else 0)
-
 
 def _exceeded_limits(
     size: int,
@@ -126,7 +120,6 @@ def _exceeded_limits(
         exceeded["lines"] = f"Python module is {line_count} lines, limit is {max_py_lines}"
     return exceeded
 
-
 def _command_property(value: str) -> str:
     return (
         value.replace("%", "%25")
@@ -136,10 +129,8 @@ def _command_property(value: str) -> str:
         .replace(",", "%2C")
     )
 
-
 def _command_message(value: str) -> str:
     return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-
 
 def _annotate(severity: str, path: str, message: str) -> None:
     print(
@@ -147,14 +138,11 @@ def _annotate(severity: str, path: str, message: str) -> None:
         flush=True,
     )
 
-
 def _error(path: str, message: str) -> None:
     _annotate("error", path, message)
 
-
 def _warning(path: str, message: str) -> None:
     _annotate("warning", path, message)
-
 
 def check_added_files(
     repository: Path,
@@ -211,7 +199,6 @@ def check_added_files(
             violations.append(Violation(limit, relative, f"{description} ({origin} this change)"))
     return violations
 
-
 def main(argv: list[str] | None = None) -> int:
     parser = ArgumentParser()
     parser.add_argument("base")
@@ -240,7 +227,6 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print("File hygiene checks passed.")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

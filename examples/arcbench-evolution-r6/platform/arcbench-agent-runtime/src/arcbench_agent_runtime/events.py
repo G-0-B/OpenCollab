@@ -10,7 +10,6 @@ from .jsonio import append_jsonl
 def utc_timestamp() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
 
-
 class EventClient:
     def __init__(self, paths: RuntimePaths) -> None:
         self.paths = paths

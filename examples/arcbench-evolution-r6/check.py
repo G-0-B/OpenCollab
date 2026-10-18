@@ -50,6 +50,5 @@ def main() -> int:
     finally:
         signal.signal(signal.SIGINT, previous)
 
-
 if __name__ == "__main__":
     raise SystemExit(main())

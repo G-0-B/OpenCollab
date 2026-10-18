@@ -18,7 +18,6 @@ CHECK_COMMAND = re.compile(
     re.I,
 )
 
-
 class RunProgress:
     def __init__(self, workspace: Path, index: list[dict], emit):
         self.workspace, self.emit = (workspace, emit)
@@ -208,7 +207,6 @@ class RunProgress:
             },
             ensure_ascii=False,
         )
-
 
 class CheckpointTool(CoordinatorTool):
     name = "checkpoint"

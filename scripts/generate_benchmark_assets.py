@@ -36,11 +36,9 @@ PALETTES = {
     },
 }
 
-
 def _text(x: float, y: float, value: str, **attrs: str | int) -> str:
     attributes = " ".join(f'{key.replace("_", "-")}="{escape(str(v), quote=True)}"' for key, v in attrs.items())
     return f'<text x="{x:g}" y="{y:g}" {attributes}>{escape(value)}</text>'
-
 
 def _start(width: int, height: int, title: str, description: str, colors: dict) -> list[str]:
     return [
@@ -52,17 +50,14 @@ def _start(width: int, height: int, title: str, description: str, colors: dict) 
         f'<g font-family="{FONT}" fill="{colors["text"]}" style="font-variant-numeric:tabular-nums">',
     ]
 
-
 def _rate(result: dict, dataset: dict) -> float:
     return 100 * result["passed"] / dataset["tasks"]
-
 
 def _description(data: dict) -> str:
     return " ".join(
         f"{dataset['name']}. " + "; ".join(f"{r['label']} {_rate(r, dataset):.2f}%" for r in dataset["results"]) + "."
         for dataset in data["datasets"]
     )
-
 
 def render_hero(data: dict, theme: str) -> str:
     """Render three aligned benchmark panels."""
@@ -133,7 +128,6 @@ def render_hero(data: dict, theme: str) -> str:
                 )
             )
     return "\n".join([*svg, "</g>", "</svg>", ""])
-
 
 def render_results(data: dict, theme: str) -> str:
     """Render all 18 result rows, keeping OpenHands immediately after Mini."""
@@ -212,13 +206,11 @@ def render_results(data: dict, theme: str) -> str:
     ]
     return "\n".join([*svg, "</g>", "</svg>", ""])
 
-
 def main() -> None:
     data = json.loads((ROOT / "docs" / "benchmark-results.json").read_text(encoding="utf-8"))
     for theme in PALETTES:
         for kind, render in [("hero", render_hero), ("results", render_results)]:
             (ROOT / "assets" / f"benchmark-{kind}-{theme}.svg").write_text(render(data, theme), encoding="utf-8")
-
 
 if __name__ == "__main__":
     main()

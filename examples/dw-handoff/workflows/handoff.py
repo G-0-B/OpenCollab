@@ -46,17 +46,14 @@ from opencollab import workflow
 from opencollab.tools import builtin_tools
 from opencollab.workflows import WorkflowContext
 
-# One repair round after the first verdict, matching the bounded retry the
-# scripted team baselines use. More rounds would change what is being compared.
+# Match the scripted team comparison with one repair round.
 MAX_REPAIR_ROUNDS = 1
 
 ROLE_TOOLS = {
-    # The team's analyst bundle minus the coordination tools, which is the
-    # single agent's working set: it could finish the task without anyone.
+    # The analyst retains the single agent's working tools, minus coordination.
     "analyst": ("apply_patch", "bash", "file_read", "grep"),
     "coder": ("apply_patch", "bash", "file_read", "grep"),
-    # No ``apply_patch``: the team's tester carries ``git_diff`` in its place,
-    # so this one does too.
+    # Match the team's tester bundle, using git_diff instead of apply_patch.
     "tester": ("bash", "file_read", "git_diff", "grep"),
 }
 
@@ -79,10 +76,7 @@ BRIEF_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
-# ``commit`` is the handoff. It is required and it is a string because a coder
-# that edited but never committed has produced nothing anyone else can read,
-# and the run should record that as a coder that answered rather than as a
-# script that forgot to ask.
+# Require a commit so isolated peers can access the coder's changes.
 PATCH_SCHEMA: dict[str, Any] = {
     "type": "object",
     "required": ["commit", "summary"],
@@ -97,9 +91,7 @@ VERDICT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "required": ["adopted_commit", "verdict", "findings"],
     "properties": {
-        # What the tester actually checked out, in its own words. The run does
-        # not have to trust it: the tester's worktree records the revision its
-        # diff was measured against, and the two either agree or they do not.
+        # Compare the reported checkout with the tester's worktree evidence.
         "adopted_commit": {"type": "string"},
         "verdict": {"type": "string", "enum": ["PASS", "FAIL"]},
         "findings": {"type": "string"},
@@ -150,14 +142,11 @@ against the task. Report which sha you actually adopted, your verdict, and what
 you found.
 """
 
-
 def _tools(role: str, *, allow_unisolated_shell: bool = False) -> list[Any]:
     return list(builtin_tools(*ROLE_TOOLS[role], headless=not allow_unisolated_shell))
 
-
 def _dump(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True)
-
 
 @workflow(
     name="dw-handoff",
@@ -228,10 +217,7 @@ async def dw_handoff(ctx: WorkflowContext, args: dict[str, Any]) -> dict[str, An
                 "round": round_no,
                 "offered_commit": patch["commit"],
                 "adopted_commit": verdict["adopted_commit"],
-                # The handoff either happened or it did not, and the script
-                # cannot make it happen: it hands over a sha, and the tester
-                # chooses whether to work from it. This is the one thing the
-                # scripted arm and the model-directed arm measure the same way.
+                # Compare the tester's reported commit with the offered handoff.
                 "handoff_taken": verdict["adopted_commit"] == patch["commit"],
                 "verdict": verdict["verdict"],
             }

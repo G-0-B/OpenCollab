@@ -70,7 +70,6 @@ def select_contract(contract, scope="all", requirement_ids=(), *, shared_require
     selected["mapped_scenarios"] = len(selected.get("evolution_checks", []))
     return selected
 
-
 def source_digest(workspace):
     """Include app code/config and coordinator inputs, excluding reports and installed files."""
     digest = hashlib.sha256()
@@ -100,7 +99,6 @@ def source_digest(workspace):
             digest.update(path.relative_to(workspace).as_posix().encode())
             digest.update(path.read_bytes())
     return digest.hexdigest()
-
 
 def failure_cards(report):
     """Keep individual errors intact instead of truncating a JSON array of all failures."""
@@ -166,7 +164,6 @@ def failure_cards(report):
         ]
     return cards
 
-
 def repair_frontier(report):
     cards = [c for c in failure_cards(report) if c["repairable"]]
     # Build/startup/data integrity failures must be fixed before feature assertions.
@@ -187,7 +184,6 @@ def repair_frontier(report):
         group["source_ids"] = sorted(set(group["source_ids"]) | set(card["source_ids"]))
     return list(groups.values())
 
-
 def summarize(report):
     return {
         "ok": report.get("ok", False),
@@ -198,7 +194,6 @@ def summarize(report):
         "stability": report.get("stability"),
         "evidence_kind": "coordinator_checks_not_official_score",
     }
-
 
 def improvement(before, after):
     def facts(report):

@@ -1,16 +1,9 @@
 #!/bin/sh
-# build.sh — assemble a self-contained, interactive HTML blueprint from a team
-# YAML file. Pure shell glue: it splices the team YAML into a pre-built HTML
-# template (head + [your team.yaml] + body + vendored js-yaml + foot). No
-# Python, no build tools, no network — just `cat`.
-#
-# Usage:
-#   sh build.sh <team.yaml> [output.html]
-#
-# Defaults output to ./team-blueprint.html . Open the result in any browser.
+# Assemble a standalone HTML blueprint from team YAML and the bundled template.
+# Usage: sh build.sh <team.yaml> [output.html]
 set -eu
 
-HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)   # this skill's directory
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 SRC=${1:-}
 OUT=${2:-team-blueprint.html}
 
@@ -39,10 +32,8 @@ done
 # The renderer decodes these two substitutions once before parsing YAML.
 guard() { sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' "$1"; }
 
-# Create the output directory if the caller pointed at a fresh path (e.g. the
-# gitignored .opencollab/). The explicit "|| exit 1" on the redirect matters:
-# busybox ash does NOT treat a redirection failure on a group command as fatal
-# under `set -e`, so without it an unwritable $OUT would falsely report success.
+# Busybox ash can ignore group-redirection failures under set -e, so the
+# explicit failure branch below prevents reporting an unwritable output as success.
 mkdir -p "$(dirname "$OUT")" 2>/dev/null || true
 {
   cat "$HERE/blueprint.head.html"

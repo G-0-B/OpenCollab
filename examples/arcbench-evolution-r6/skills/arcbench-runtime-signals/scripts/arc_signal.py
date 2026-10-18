@@ -11,17 +11,14 @@ DEFAULT_RUNNER_EVENTS_PATH = ".arc/runner-events.jsonl"
 DEFAULT_TRACEABILITY_DIR = ".arc/traceability"
 DEFAULT_PROJECT_DIR = "."
 
-
 def _utc_timestamp() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-
 
 def _resolve_under_project(project_dir: Path, value: str | os.PathLike[str]) -> Path:
     path = Path(value)
     if path.is_absolute():
         return path
     return project_dir / path
-
 
 def _paths(
     project_dir: str | None,
@@ -52,12 +49,10 @@ def _paths(
     traceability_path.mkdir(parents=True, exist_ok=True)
     return resolved_project_dir, runner_events_path, traceability_path
 
-
 def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as output:
         output.write(json.dumps(payload, ensure_ascii=True) + "\n")
-
 
 def _read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
     if not path.exists():
@@ -68,7 +63,6 @@ def _read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
         return dict(default)
     return payload if isinstance(payload, dict) else dict(default)
 
-
 def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(f"{path.suffix}.tmp")
@@ -76,7 +70,6 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
         json.dump(payload, output, ensure_ascii=False, indent=2)
         output.write("\n")
     tmp_path.replace(path)
-
 
 def _emit_refresh_signal(
     runner_events_path: Path,
@@ -106,7 +99,6 @@ def _emit_refresh_signal(
         },
     )
 
-
 def _notify_traceability_changed(runner_events_path: Path, reason: str) -> None:
     _emit_refresh_signal(
         runner_events_path,
@@ -115,7 +107,6 @@ def _notify_traceability_changed(runner_events_path: Path, reason: str) -> None:
         traceability_selected=True,
         traceability_all=True,
     )
-
 
 def _upsert_node_state(traceability_dir: Path, runner_events_path: Path, req_id: str, state: str, phase: str) -> None:
     normalized_req_id = str(req_id or "").strip()
@@ -131,7 +122,6 @@ def _upsert_node_state(traceability_dir: Path, runner_events_path: Path, req_id:
     }
     _write_json_atomic(table_path, dict(sorted(rows.items())))
     _notify_traceability_changed(runner_events_path, "node_state_updated")
-
 
 def _emit_requirement_state(
     runner_events_path: Path,
@@ -171,7 +161,6 @@ def _emit_requirement_state(
     if state:
         _upsert_node_state(traceability_dir, runner_events_path, normalized_node_id, state, normalized_phase)
 
-
 def _emit_runner_state(runner_events_path: Path, state: str, message: str | None = None) -> None:
     _append_jsonl(
         runner_events_path,
@@ -182,7 +171,6 @@ def _emit_runner_state(runner_events_path: Path, state: str, message: str | None
             "message": message,
         },
     )
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Emit ARC Bench runtime events.")
@@ -256,7 +244,6 @@ def main() -> int:
 
     print(json.dumps({"ok": True, "action": action, "events_path": str(runner_events_path)}, ensure_ascii=True))
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

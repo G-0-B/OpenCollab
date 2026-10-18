@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Bootstrap and start OpenCollab from the repository root.
 set -euo pipefail
 
 # Resolve the checkout physically so a symlinked repository path does not leak

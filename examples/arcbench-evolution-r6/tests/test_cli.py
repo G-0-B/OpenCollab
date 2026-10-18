@@ -10,7 +10,6 @@ from arc_light.delivery import capture_baseline
 
 ENTRY = Path(__file__).resolve().parents[1] / "check.py"
 
-
 def test_cli_missing_inputs_returns_failure_and_writes_current_report(tmp_path):
     output = tmp_path / ".arc/checks/verification.json"
     output.parent.mkdir(parents=True)
@@ -19,7 +18,6 @@ def test_cli_missing_inputs_returns_failure_and_writes_current_report(tmp_path):
     assert result.returncode == 1
     assert not json.loads(result.stdout)["ok"]
     assert not json.loads(output.read_text())["ok"]
-
 
 def test_cli_reinitialization_keeps_original_snapshot_and_reports_input_error(tmp_path):
     backend = tmp_path / "backend"

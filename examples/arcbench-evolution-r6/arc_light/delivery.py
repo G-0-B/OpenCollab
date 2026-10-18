@@ -52,11 +52,9 @@ def stop_process(proc: subprocess.Popen) -> None:
     except subprocess.TimeoutExpired:
         pass
 
-
 def check_cancelled(cancel_event):
     if cancel_event is not None and cancel_event.is_set():
         raise TimeoutError("Verification cancelled; no acceptance verdict")
-
 
 def run_command(
     args: list[str], cwd: Path, seconds: float, env: dict | None = None, cancel_event=None
@@ -102,7 +100,6 @@ def run_command(
         stop_process(proc)
         raise
 
-
 def sqlite_snapshot(backend: Path, *, row_fingerprints=False) -> dict:
     snapshot = {}
     for path in database_files(backend):
@@ -128,7 +125,6 @@ def sqlite_snapshot(backend: Path, *, row_fingerprints=False) -> dict:
                     data[table]["row_fingerprints"] = [hashlib.sha256(row.encode()).hexdigest() for row in encoded]
             snapshot[path.relative_to(backend).as_posix()] = data
     return snapshot
-
 
 def database_delta(before, after):
     changes = []
@@ -162,14 +158,12 @@ def database_delta(before, after):
         "Never restore or delete user data to silence this check.",
     }
 
-
 def _digest(package: Path) -> str:
     hasher = hashlib.sha256()
     for name in ("package.json", "package-lock.json"):
         path = package / name
         hasher.update(path.read_bytes() if path.exists() else b"")
     return hasher.hexdigest()
-
 
 def capture_baseline(workspace: Path, *, run_id=None, input_source=None) -> dict:
     """Consistent pre-edit DB contents and inherited test hashes, before any model work."""
@@ -213,7 +207,6 @@ def capture_baseline(workspace: Path, *, run_id=None, input_source=None) -> dict
     write_json(path, data)
     return data
 
-
 def load_baseline(workspace: Path, *, run_id=None) -> dict:
     """Read the first input snapshot and verify its existing protection evidence."""
     path = workspace / ".arc/checks/evolution-baseline.json"
@@ -243,7 +236,6 @@ def load_baseline(workspace: Path, *, run_id=None) -> dict:
             raise ValueError("Original database snapshot changed or is damaged")
     return data
 
-
 def restore_inherited(workspace: Path, isolated: Path) -> bool:
     """Apply the pre-agent snapshot only to a disposable application copy."""
     if workspace.resolve() == isolated.resolve() or not (isolated / ".arc-isolated").is_file():
@@ -267,10 +259,8 @@ def restore_inherited(workspace: Path, isolated: Path) -> bool:
         shutil.copy2(source / str(number), target)
     return True
 
-
 def diagnostic(stage, **data):
     print(json.dumps({"diag": "delivery_progress", "stage": stage, **data}, ensure_ascii=False), flush=True)
-
 
 @contextmanager
 def isolated_application(workspace: Path, *, inherited=True):
@@ -311,7 +301,6 @@ def isolated_application(workspace: Path, *, inherited=True):
                 json.dumps({"kind": "disposable_application_copy", "inherited_snapshot_used": True}), encoding="utf-8"
             )
         yield target
-
 
 def prepare_dependencies(workspace: Path, deadline: float, cancel_event=None, *, cache_workspace=None) -> list[dict]:
     check_cancelled(cancel_event)
@@ -377,7 +366,6 @@ def prepare_dependencies(workspace: Path, deadline: float, cancel_event=None, *,
         cache_path.write_text(json.dumps(cache), encoding="utf-8")
     return checks
 
-
 def probe_backend(backend: Path, log_path: Path, deadline: float, cancel_event=None) -> dict:
     check_cancelled(cancel_event)
     npm = shutil.which("npm.cmd" if os.name == "nt" else "npm") or "npm"
@@ -419,7 +407,6 @@ def probe_backend(backend: Path, log_path: Path, deadline: float, cancel_event=N
         "detail": status + "\n" + log_path.read_text(encoding="utf-8", errors="replace")[-4500:],
         "repairable": True,
     }
-
 
 def preflight(workspace: Path, *, timeout=600, cancel_event=None) -> dict:
     """Early executable checks; failed app startup is evidence for the main agent, not acceptance."""
@@ -512,16 +499,13 @@ def preflight(workspace: Path, *, timeout=600, cancel_event=None) -> dict:
             failed=[c["step"] for c in report["checks"] if not c["ok"]],
         )
 
-
 def _port() -> int:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         return sock.getsockname()[1]
 
-
 def network_failure(text: str) -> bool:
     return any(code in text.upper() for code in ("EAI_AGAIN", "ENOTFOUND", "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT"))
-
 
 def _verify_copy(workspace: Path, output: Path, *, timeout: float = 600, cancel_event=None) -> dict:
     workspace = workspace.resolve()
@@ -893,7 +877,6 @@ def _verify_copy(workspace: Path, output: Path, *, timeout: float = 600, cancel_
         copies.close()
         report["seconds_remaining"] = round(max(0, deadline - time.monotonic()), 1)
         (output / "verification.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-
 
 def verify(
     workspace: Path,

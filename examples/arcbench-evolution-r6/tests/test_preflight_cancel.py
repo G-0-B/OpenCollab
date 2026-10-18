@@ -13,7 +13,6 @@ from arc_light import delivery
 
 pytestmark = pytest.mark.skipif(os.name == "nt", reason="Controlled POSIX executable fixtures")
 
-
 CHILD = """
 import json
 import os
@@ -34,7 +33,6 @@ if phase == os.environ['ARC_PREFLIGHT_TEST_PHASE']:
             stream.write('tick\\n')
         time.sleep(.02)
 """
-
 
 def controlled_preflight(tmp_path, monkeypatch, phase):
     workspace = tmp_path / "application"
@@ -59,7 +57,6 @@ def controlled_preflight(tmp_path, monkeypatch, phase):
     # The child deliberately never becomes healthy. Port zero avoids allocating a server socket.
     monkeypatch.setattr(delivery, "_port", lambda: 0)
     return workspace, ready, heartbeat
-
 
 @pytest.mark.parametrize("phase", ["install", "browser", "health"])
 def test_cancelled_preflight_waits_for_real_writer_exit(tmp_path, monkeypatch, phase):
@@ -96,7 +93,6 @@ def test_cancelled_preflight_waits_for_real_writer_exit(tmp_path, monkeypatch, p
         cancelled.set()
         thread.join(25)
 
-
 def test_precancelled_preflight_starts_no_process(tmp_path, monkeypatch):
     workspace, ready, _ = controlled_preflight(tmp_path, monkeypatch, "install")
     cancelled = Event()
@@ -106,7 +102,6 @@ def test_precancelled_preflight_starts_no_process(tmp_path, monkeypatch):
     )
     report = delivery.preflight(workspace, cancel_event=cancelled)
     assert report["cancelled"] and report["fatal"] and not ready.exists()
-
 
 def test_default_preflight_keeps_repairable_startup_failure(tmp_path, monkeypatch):
     workspace, ready, _ = controlled_preflight(tmp_path, monkeypatch, "none")

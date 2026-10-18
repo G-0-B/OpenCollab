@@ -31,7 +31,6 @@ def test_nested_database_verifies_published_inputs(tmp_path):
     assert report["ok"] and report["supported"]
     assert {check["kind"] for check in report["checks"]} == {"account", "workbook"}
 
-
 def test_unknown_schema_cannot_verify_required_account_or_workbook(tmp_path):
     with sqlite3.connect(tmp_path / "unknown.sqlite") as db:
         db.execute("CREATE TABLE arbitrary(id INTEGER)")

@@ -14,7 +14,6 @@ def scenario(given="visitor unauthenticated"):
         "then": "reads its description",
     }
 
-
 def test_observation_only_applies_to_exact_matching_missing_field(monkeypatch):
     item = scenario()
     monkeypatch.setitem(compatibility.RELEASE_OBSERVATION, "scenario_sha256", compatibility.scenario_fingerprint(item))
@@ -25,7 +24,6 @@ def test_observation_only_applies_to_exact_matching_missing_field(monkeypatch):
     result = compatibility.enrich_contract({"evolution_checks": [scenario("changed unknown GIVEN")]})
     assert not result["evaluation_observations"]
     assert "release_description" not in result["evolution_checks"][0]["assertions"]
-
 
 def test_public_description_wins_over_historical_feedback():
     result = compatibility.enrich_contract(

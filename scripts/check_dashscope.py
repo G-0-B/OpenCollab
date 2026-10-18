@@ -15,12 +15,10 @@ from opencollab.bootstrap.inspection import configured_model_client
 WORKSPACE = Path(__file__).resolve().parents[1]
 DEFAULT_PROMPT = "Reply with one short sentence confirming provider connectivity."
 
-
 class CompletionClient(Protocol):
     async def complete(self, messages: list[dict[str, Any]], **kwargs: Any) -> Any: ...
 
     async def close(self) -> None: ...
-
 
 async def request_completion(
     prompt: str,
@@ -60,19 +58,16 @@ async def request_completion(
     finally:
         await client.close()
 
-
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("prompt", nargs="?", default=DEFAULT_PROMPT)
     parser.add_argument("--workspace", type=Path, default=WORKSPACE)
     return parser
 
-
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     print(asyncio.run(request_completion(args.prompt, workspace=args.workspace)))
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

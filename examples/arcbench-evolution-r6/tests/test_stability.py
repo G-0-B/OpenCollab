@@ -19,7 +19,6 @@ def result(identifier, status):
         }
     }
 
-
 def test_failure_between_successes_resets_only_its_scenario(tmp_path):
     observe(tmp_path, result("REQ-A", "passed"), "source", tmp_path / "first.json")
     observe(tmp_path, result("REQ-B", "passed"), "source", tmp_path / "second.json")
@@ -36,7 +35,6 @@ def test_failure_between_successes_resets_only_its_scenario(tmp_path):
         ]
     }
     assert len(targets(contract, history)) == 2
-
 
 def test_duplicate_results_reset_streak_instead_of_manufacturing_fresh_passes(tmp_path):
     report = result("REQ-A", "passed")

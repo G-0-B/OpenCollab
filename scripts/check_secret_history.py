@@ -12,12 +12,8 @@ import tempfile
 from pathlib import Path, PurePosixPath
 
 BASELINE_PATH = ".secrets.baseline"
-# ``detect-secrets-hook`` reserves this exit code for "I rewrote the baseline",
-# which it does whenever a baselined secret moved to a different line. That is
-# bookkeeping, not a finding; a real detection exits 1 and never rewrites the
-# baseline. The two are told apart in ``_scan_materialized_tree``.
+# Exit 3 means baseline line-number bookkeeping; real detections exit 1.
 BASELINE_UPDATED_EXIT = 3
-
 
 def _git(repository: Path, *args: str) -> bytes:
     return subprocess.run(
@@ -27,12 +23,10 @@ def _git(repository: Path, *args: str) -> bytes:
         capture_output=True,
     ).stdout
 
-
 def _commits(repository: Path, base: str, head: str) -> list[str]:
     output = _git(repository, "rev-list", "--reverse", f"{base}..{head}")
     commits = output.decode("ascii").split()
     return commits or [head]
-
 
 def _tree_blobs(repository: Path, commit: str) -> list[tuple[str, str]]:
     entries: list[tuple[str, str]] = []
@@ -50,7 +44,6 @@ def _tree_blobs(repository: Path, commit: str) -> list[tuple[str, str]]:
         entries.append((relative, object_id))
     return entries
 
-
 def _materialize_blobs(
     repository: Path,
     blobs: list[tuple[str, str]],
@@ -64,10 +57,8 @@ def _materialize_blobs(
         paths.append(relative)
     return paths
 
-
 def _scannable_blobs(repository: Path, commit: str) -> list[tuple[str, str]]:
     return [blob for blob in _tree_blobs(repository, commit) if blob[0] != BASELINE_PATH]
-
 
 def _secret_fingerprints(payload: bytes) -> set[tuple[str, str, str]]:
     """Identify every baselined secret as (file, detector, hashed secret).
@@ -85,11 +76,9 @@ def _secret_fingerprints(payload: bytes) -> set[tuple[str, str, str]]:
         for entry in entries
     }
 
-
 def _introduced_secrets(trusted_baseline: bytes, scanned_baseline: Path) -> set[tuple[str, str, str]]:
     """Fingerprints the scanner recorded that the trusted baseline does not hold."""
     return _secret_fingerprints(scanned_baseline.read_bytes()) - _secret_fingerprints(trusted_baseline)
-
 
 def _scan_materialized_blobs(
     repository: Path,
@@ -141,7 +130,6 @@ def _scan_materialized_blobs(
             )
     print(f"::error::Secret scan failed for proposed commit {commit}.")
     return completed.returncode
-
 
 def check_secret_history(
     repository: Path,
@@ -208,7 +196,6 @@ def check_secret_history(
     print("Secret history checks passed.")
     return 0
 
-
 def check_trusted_tree(repository: Path, commit: str, scanner: list[str]) -> int:
     """Scan a trusted branch tree using the audited baseline in that tree."""
     commit = _git(repository, "rev-parse", "--verify", f"{commit}^{{commit}}").decode("ascii").strip()
@@ -225,7 +212,6 @@ def check_trusted_tree(repository: Path, commit: str, scanner: list[str]) -> int
     if not result:
         print("Trusted tree secret check passed.")
     return result
-
 
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -247,7 +233,6 @@ def _arguments() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-
 def main() -> int:
     args = _arguments()
     try:
@@ -268,7 +253,6 @@ def main() -> int:
     except (OSError, ValueError, subprocess.CalledProcessError) as exc:
         print(f"::error::Secret history preparation failed: {exc}")
         return 2
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -11,7 +11,6 @@ DELIVERY_RULES = (_ROOT / "delivery.md").read_text(encoding="utf-8")
 PLUS_RULES = (_ROOT / "evolution.md").read_text(encoding="utf-8")
 SPEC_DIR = ".arc/evolution-spec/by-id"
 
-
 def workspace_context(output_dir: Path, baseline: str | None = None) -> str:
     text = (
         f"Application workspace: {output_dir.resolve()}\n"
@@ -26,7 +25,6 @@ def workspace_context(output_dir: Path, baseline: str | None = None) -> str:
             "uncommitted git diff may be empty.\n"
         )
     return text + "\n"
-
 
 def _repair_prompt(result):
     return (

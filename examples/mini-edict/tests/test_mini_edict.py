@@ -17,7 +17,6 @@ TEAM = WORKFLOW.parents[1] / "team.yaml"
 README = WORKFLOW.parents[1] / "README.md"
 README_ZH_CN = WORKFLOW.parents[1] / "README.zh-CN.md"
 
-
 class RecordingContext:
     def __init__(self, reviews: list[dict[str, Any]] | None = None, fail_label: str | None = None) -> None:
         self.labels: list[str] = []
@@ -59,7 +58,6 @@ class RecordingContext:
     def tokens_spent(self) -> int:
         return 123
 
-
 def test_demo_revises_then_routes_only_relevant_ministries() -> None:
     ctx = RecordingContext([
         {"verdict": "revise", "findings": ["Add a rollback plan"]},
@@ -81,7 +79,6 @@ def test_demo_revises_then_routes_only_relevant_ministries() -> None:
     ]
     assert ctx.phases[-1] == "Menxia audits the memorial"
 
-
 def test_demo_rejects_empty_tasks_and_honors_repeated_veto() -> None:
     spec = load_workflow_specs(str(WORKFLOW))[0]
     with pytest.raises(ValueError, match="non-empty"):
@@ -94,7 +91,6 @@ def test_demo_rejects_empty_tasks_and_honors_repeated_veto() -> None:
     assert len(result["reviews"]) == 3
     assert "Shangshu Department" not in ctx.labels
 
-
 def test_demo_blocks_a_memorial_that_fails_the_final_audit() -> None:
     ctx = RecordingContext([
         {"verdict": "approve", "findings": []},
@@ -105,7 +101,6 @@ def test_demo_blocks_a_memorial_that_fails_the_final_audit() -> None:
     assert result["stage"] == "audit"
     assert result["audit"]["findings"] == ["Missing execution evidence"]
 
-
 def test_interactive_court_enters_through_zhongshu() -> None:
     team = load_team_config(path=TEAM)
     ministries = {"personnel", "revenue", "rites", "war", "justice", "works"}
@@ -115,7 +110,6 @@ def test_interactive_court_enters_through_zhongshu() -> None:
     assert team.topology.edges["shangshu"] == frozenset(ministries)
     assert not team.topology.allows("zhongshu", "war")
     assert not team.topology.allows("menxia", "shangshu")
-
 
 def test_example_keeps_its_bilingual_guides_together() -> None:
     english = README.read_text(encoding="utf-8")

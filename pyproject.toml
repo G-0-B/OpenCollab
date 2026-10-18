@@ -51,17 +51,12 @@ Issues = "https://github.com/RISE-X-Lab/OpenCollab/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["opencollab"]
 
-# Ruff configuration lives in the repo-root ruff.toml, so a single config governs
-# the whole repository tree.
-
 [tool.deptry]
 # `examples/` holds fixture workspaces that are run, not imported by the package.
 extend_exclude = ["examples"]
 
 [tool.deptry.per_rule_ignores]
-# Tools invoked as commands or loaded as pytest plugins; never imported.
-# `pytest` is here because deptry excludes `tests/` by default, so its only
-# import sites are invisible to this scan.
+# CLI tools and pytest plugins; deptry also excludes the pytest imports in tests/.
 DEP002 = ["pytest", "pytest-asyncio", "ruff", "import-linter", "deptry"]
 # `scripts/generate_brand_assets.py` runs out of project via
 # `uv run --no-project --with fonttools`, so fontTools is not a project dependency.

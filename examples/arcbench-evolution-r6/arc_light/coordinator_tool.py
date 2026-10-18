@@ -1,6 +1,5 @@
 """Structural OC tool implementation shared by the coordinator tools."""
 
-
 class CoordinatorTool:
     default_timeout = None
     disable_outer_timeout = False

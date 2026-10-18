@@ -25,14 +25,11 @@ def database_files(backend: Path) -> list[Path]:
                 found.append(Path(directory) / name)
     return sorted(found)
 
-
 def quote(value):
     return '"' + value.replace('"', '""') + '"'
 
-
 def connect_readonly(path):
     return sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True, timeout=5)
-
 
 def consistent_backup(source, destination, timeout=20):
     destination = Path(destination)
@@ -52,12 +49,10 @@ def consistent_backup(source, destination, timeout=20):
     finally:
         temporary.unlink(missing_ok=True)
 
-
 def row_hash(row):
     # Preserve SQLite value types and BLOB contents without logging business data.
     values = [(type(value).__name__, value.hex() if isinstance(value, bytes) else value) for value in row]
     return hashlib.sha256(json.dumps(values, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
-
 
 def database_values(path, expected=None):
     with closing(connect_readonly(path)) as connection:
@@ -83,7 +78,6 @@ def database_values(path, expected=None):
             result[table] = {"columns": selected, "rows": sum(counts.values()), "row_hashes": dict(counts)}
         return result
 
-
 def inherited_damage(backend, baseline):
     damage = []
     for filename, expected in baseline.get("inherited_values", {}).items():
@@ -106,7 +100,6 @@ def inherited_damage(backend, baseline):
                 )
     return damage
 
-
 def protected_test_files(workspace):
     result = {}
     excluded = {"node_modules", ".git", ".arc", ".venv", "__pycache__", "dist", "build"}
@@ -128,7 +121,6 @@ def protected_test_files(workspace):
                 if path.is_file():
                     result[path.relative_to(workspace).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
     return result
-
 
 def working_integrity(workspace):
     path = workspace / ".arc/checks/evolution-baseline.json"
