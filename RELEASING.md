@@ -60,8 +60,10 @@ the exact release commit.
 
 ## Build and inspect artifacts
 
-Read the candidate version from project metadata, then build the wheel from
-the source distribution as CI does. The following Bash commands set variables
+Read the candidate version from project metadata. Export the verified commit
+before building: ignored local files such as DOM-test `node_modules` can enter
+a source archive even when Git reports a clean tree. Build the wheel from
+that source distribution as CI does. The following Bash commands set variables
 used across multiple steps, so run them all in the same shell session.
 
 ```bash
@@ -69,9 +71,13 @@ set -euo pipefail
 shopt -s nullglob
 release_version="$(uv run python -c 'from pathlib import Path; import tomllib; print(tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"])')"
 artifact_root="$(mktemp -d -t "opencollab-${release_version}.XXXXXX")"
-mkdir -p "$artifact_root/sdist" "$artifact_root/wheel" "$artifact_root/assets"
+mkdir -p "$artifact_root/source" "$artifact_root/sdist" "$artifact_root/wheel" "$artifact_root/assets"
 
-uv build --sdist --no-sources --out-dir "$artifact_root/sdist"
+git archive "$release_sha" | tar -x -C "$artifact_root/source"
+(
+  cd "$artifact_root/source"
+  uv build --sdist --no-sources --out-dir "$artifact_root/sdist"
+)
 sdists=("$artifact_root"/sdist/*.tar.gz)
 test "${#sdists[@]}" -eq 1
 
