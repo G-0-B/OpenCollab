@@ -61,7 +61,7 @@ regressions with Node 20 or newer. The distribution job builds a wheel from the
 source archive, checks its contents and metadata, and exercises the installed
 package outside the checkout. A macOS job executes the selected file and
 terminal regressions. A separate ARC-Bench r6 job runs the example's opt-in
-browser checks with Node and Chromium. See [docs/testing.md](docs/testing.md)
+browser checks with Node and Chromium. See [CONTRIBUTING.md](CONTRIBUTING.md#checks-must-pass-before-a-pr)
 for the corresponding local commands.
 
 The Conventional Title workflow validates PR titles and direct-push subjects,
