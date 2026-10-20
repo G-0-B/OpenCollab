@@ -16,6 +16,7 @@ from openai.types.chat import ChatCompletion, ChatCompletionChunk
 from opencollab.adapters.llm.client import LLMClient
 from opencollab.adapters.llm.first_token import TRANSPORT_TIMING_KEYS, FirstTokenTimer
 from opencollab.domain.session import SessionState
+from tests.support.responses_provider_test_support import FakeStream as _DelayedStream
 from tests.support.session_run_loop_test_support import FakeAgent, FakeTracer, build_runner, run
 
 MODEL = "deepseek-fake"
@@ -67,28 +68,13 @@ def _completion() -> ChatCompletion:
         }
     )
 
-class _FakeStream:
+class _FakeStream(_DelayedStream):
     """Separate first- and last-chunk delays distinguish TTFT from total latency."""
 
     def __init__(self, chunks: list[Any], delays: list[float]):
-        self._chunks = iter(chunks)
-        self._delays = iter(delays)
+        self.events = iter(chunks)
+        self.delays = iter(delays)
         self.closed = False
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        delay = next(self._delays, 0.0)
-        if delay:
-            await asyncio.sleep(delay)
-        try:
-            return next(self._chunks)
-        except StopIteration as exc:
-            raise StopAsyncIteration from exc
-
-    async def close(self):
-        self.closed = True
 
 class _FakeChatClient:
     """Stands in for ``AsyncOpenAI`` on the chat-completions path."""

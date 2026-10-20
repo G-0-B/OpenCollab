@@ -202,12 +202,6 @@ class WorktreePool:
             {"owned_output_paths": self._owned_output_paths}
             if self._enable_adoption and self._owned_output_paths else {}
         )
-        if base is None:
-            return WorktreeEnvironment(
-                self._workspace, branch_name=branch,
-                owned_save_dir=self._owned_save_dir,
-                **output_options,
-            )
         if isinstance(base, DockerEnvironment) and base.container_reference is not None:
             worktree_root = CONTAINER_WORKTREE_ROOT
             if posixpath.commonpath((base.workspace, worktree_root)) == base.workspace:
@@ -219,9 +213,9 @@ class WorktreePool:
                 branch_name=branch,
                 command_prefix=base.command_prefix,
             )
-        if getattr(base, "local_filesystem", False):
+        if base is None or getattr(base, "local_filesystem", False):
             return WorktreeEnvironment(
-                base.workspace, branch_name=branch,
+                base.workspace if base is not None else self._workspace, branch_name=branch,
                 owned_save_dir=self._owned_save_dir,
                 **output_options,
             )

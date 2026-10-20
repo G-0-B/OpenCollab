@@ -19,6 +19,15 @@ from tests.support.duo_test_support import Context, candidate, decision
 def with_diff(value):
     return CandidateRun(label="candidate", output="finished", diff=value, test_records=(), verified_targets=())
 
+async def _evidence_chunks(tool, path, *, limit=32768):
+    chunks, offset = [], 0
+    while True:
+        page = json.loads(await tool.execute_with_runtime({"path": path, "offset": offset, "limit": limit}, None))
+        chunks.append(page["content"])
+        if page["eof"]:
+            return chunks
+        offset = page["next_offset"]
+
 @pytest.mark.asyncio
 async def test_all_text_and_binary_bytes_are_retained_with_exact_index_ranges(tmp_path):
     patch = (
@@ -34,15 +43,7 @@ async def test_all_text_and_binary_bytes_are_retained_with_exact_index_ranges(tm
     assert index[1]["kind"] == "binary_patch"
     assert "".join(patch[row["offset"]:row["offset"] + row["length"]] for row in index) == patch
     tool = ReadCandidateEvidence(files)
-    chunks, offset = [], 0
-    while True:
-        out = json.loads(await tool.execute_with_runtime(
-            {"path": view["diff_path"], "offset": offset, "limit": 7}, None,
-        ))
-        chunks.append(out["content"])
-        if out["eof"]:
-            break
-        offset = out["next_offset"]
+    chunks = await _evidence_chunks(tool, view["diff_path"], limit=7)
     assert "".join(chunks) == patch
     assert files.directory.exists()
 
@@ -246,13 +247,7 @@ async def test_inline_limit_includes_reports_and_individual_public_records(tmp_p
     tool, = options["tools"]
     assert tool.name == "read_candidate_evidence"
     saved_path = payload["B"]["result_path" if large_field == "candidate_report" else "public_evidence_path"]
-    chunks, offset = [], 0
-    while True:
-        page = json.loads(await tool.execute_with_runtime({"path": saved_path, "offset": offset, "limit": 32768}, None))
-        chunks.append(page["content"])
-        if page["eof"]:
-            break
-        offset = page["next_offset"]
+    chunks = await _evidence_chunks(tool, saved_path)
     saved = json.loads("".join(chunks))
     assert saved[large_field] == output["coder_output" if large_field == "candidate_report" else large_field]
 
@@ -271,15 +266,7 @@ async def test_inline_size_uses_utf8_bytes_and_complete_large_evidence_stays_rea
     payload, _ = json.JSONDecoder().raw_decode(prompt)
     assert "inline_comparison" not in payload
     tool, = options["tools"]
-    chunks, offset = [], 0
-    while True:
-        page = json.loads(await tool.execute_with_runtime({
-            "path": payload["B"]["diff_path"], "offset": offset, "limit": 32768,
-        }, None))
-        chunks.append(page["content"])
-        if page["eof"]:
-            break
-        offset = page["next_offset"]
+    chunks = await _evidence_chunks(tool, payload["B"]["diff_path"])
     assert "".join(chunks) == b.diff
 
 @pytest.mark.asyncio

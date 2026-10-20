@@ -34,6 +34,18 @@ class ReplyLLM:
             usage=Usage(4, 2),
         )
 
+def _capture_sessions(monkeypatch):
+    sessions = []
+    original = agent_runtime.build_session
+
+    def capture(**kwargs):
+        session = original(**kwargs)
+        sessions.append(session)
+        return session
+
+    monkeypatch.setattr(agent_runtime, "build_session", capture)
+    return sessions
+
 def test_single2_prompt_obeys_task_permissions_and_preserves_validation():
     assert "only as needed for the task and within granted permissions" in SINGLE2_SYSTEM_PROMPT
     assert "Keep existing tests unchanged unless the task explicitly requests a test change" in SINGLE2_SYSTEM_PROMPT
@@ -136,15 +148,7 @@ async def test_selected_profile_explicit_limits_survive_unbounded_environment(
     profile,
 ):
     monkeypatch.setenv("OPENCOLLAB_UNBOUNDED_LIMITS", "true")
-    sessions = []
-    original = agent_runtime.build_session
-
-    def capture(**kwargs):
-        session = original(**kwargs)
-        sessions.append(session)
-        return session
-
-    monkeypatch.setattr(agent_runtime, "build_session", capture)
+    sessions = _capture_sessions(monkeypatch)
     client = OpenCollab(tmp_path, model="unit-model", provider="openai")
     result = await client.agent(
         "inspect",
@@ -169,15 +173,7 @@ async def test_default_agent_keeps_unbounded_environment_semantics(
     monkeypatch,
 ):
     monkeypatch.setenv("OPENCOLLAB_UNBOUNDED_LIMITS", "true")
-    sessions = []
-    original = agent_runtime.build_session
-
-    def capture(**kwargs):
-        session = original(**kwargs)
-        sessions.append(session)
-        return session
-
-    monkeypatch.setattr(agent_runtime, "build_session", capture)
+    sessions = _capture_sessions(monkeypatch)
     result = await OpenCollab(
         tmp_path,
         model="unit-model",
@@ -195,15 +191,7 @@ async def test_default_agent_keeps_unbounded_environment_semantics(
 @pytest.mark.asyncio
 @pytest.mark.parametrize("profile", [None, "base", "single2"])
 async def test_explicit_tools_and_system_prompt_customize_selected_profile(tmp_path, monkeypatch, profile):
-    sessions = []
-    original = agent_runtime.build_session
-
-    def capture(**kwargs):
-        session = original(**kwargs)
-        sessions.append(session)
-        return session
-
-    monkeypatch.setattr(agent_runtime, "build_session", capture)
+    sessions = _capture_sessions(monkeypatch)
     tools = builtin_tools("file_read")
     llm = ReplyLLM()
     result = await OpenCollab(tmp_path, model="unit-model", provider="openai").agent(
@@ -219,15 +207,7 @@ async def test_explicit_tools_and_system_prompt_customize_selected_profile(tmp_p
 
 @pytest.mark.asyncio
 async def test_programmatic_standalone_omitted_profile_uses_base(tmp_path, monkeypatch):
-    sessions = []
-    original = agent_runtime.build_session
-
-    def capture(**kwargs):
-        session = original(**kwargs)
-        sessions.append(session)
-        return session
-
-    monkeypatch.setattr(agent_runtime, "build_session", capture)
+    sessions = _capture_sessions(monkeypatch)
     result = await programmatic.run_agent(
         prompt="inspect", config={"model": "unit-model", "provider": "openai"}, workspace=str(tmp_path),
         tools="coding", max_tokens=100_000, max_steps=200, timeout=None, cleanup_timeout=2.0,
@@ -265,15 +245,7 @@ async def test_new_named_factory_and_base_mapping_select_the_new_implementation(
     monkeypatch.setitem(agent_profiles._PROFILE_FACTORIES, "future", build_future_profile)
     monkeypatch.setattr(agent_profiles, "BASE_PROFILE", "future")
     client = OpenCollab(tmp_path, model="unit-model", provider="openai")
-    sessions = []
-    original = agent_runtime.build_session
-
-    def capture(**kwargs):
-        session = original(**kwargs)
-        sessions.append(session)
-        return session
-
-    monkeypatch.setattr(agent_runtime, "build_session", capture)
+    sessions = _capture_sessions(monkeypatch)
     selected_llm = ReplyLLM()
     explicit_llm = ReplyLLM()
     selected = await client.agent("inspect", tools=(), llm=selected_llm, trace=False)

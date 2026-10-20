@@ -81,19 +81,22 @@ async def _execute_mixed(session, *calls):
     session.runner._pending = PendingStep(response=llm_response(tool_calls=list(calls)), latency=0)
     await session.runner.execute_pending_tools()
 
-@pytest.mark.parametrize("prefix", ["edit", "fresh-read", "duplicate-unknown"])
-async def test_prefix_progress_is_persisted_without_counting_an_unfinished_batch(tmp_path, prefix):
-    session, environment, path, reserved = await _prepare(tmp_path, timeout_recovery=prefix != "edit")
+def _prefix_call(tmp_path, prefix):
     if prefix == "edit":
-        prefix_call = _call("file_write", {
+        return _call("file_write", {
             "path": "observed.txt", "mode": "create", "content": "new\n", "overwrite": True,
         }, "prefix")
     elif prefix == "fresh-read":
         (tmp_path / "fresh.txt").write_text("fresh evidence\n")
-        prefix_call = _call("file_read", {"path": "fresh.txt"}, "prefix")
+        return _call("file_read", {"path": "fresh.txt"}, "prefix")
     else:
-        prefix_call = _call("bash", {"command": "cat observed.txt", "timeout": 10}, "prefix")
+        return _call("bash", {"command": "cat observed.txt", "timeout": 10}, "prefix")
 
+
+@pytest.mark.parametrize("prefix", ["edit", "fresh-read", "duplicate-unknown"])
+async def test_prefix_progress_is_persisted_without_counting_an_unfinished_batch(tmp_path, prefix):
+    session, environment, path, reserved = await _prepare(tmp_path, timeout_recovery=prefix != "edit")
+    prefix_call = _prefix_call(tmp_path, prefix)
     previous_step = session.state.turn.loop_state.last_counted_step
     previous_distinct = session.state.turn.distinct_evidence_count
     previous_steps = session.state.turn.steps_since_progress
@@ -151,15 +154,7 @@ async def test_mixed_batch_checkpoints_completed_progress_before_interruption(tm
     session, environment, path, reserved = await _prepare(
         tmp_path, timeout_recovery=prefix != "edit", deferred=True,
     )
-    if prefix == "edit":
-        prefix_call = _call("file_write", {
-            "path": "observed.txt", "mode": "create", "content": "new\n", "overwrite": True,
-        }, "prefix")
-    elif prefix == "fresh-read":
-        (tmp_path / "fresh.txt").write_text("fresh evidence\n")
-        prefix_call = _call("file_read", {"path": "fresh.txt"}, "prefix")
-    else:
-        prefix_call = _call("bash", {"command": "cat observed.txt", "timeout": 10}, "prefix")
+    prefix_call = _prefix_call(tmp_path, prefix)
     previous_step = session.state.turn.loop_state.last_counted_step
     previous_distinct = session.state.turn.distinct_evidence_count
     previous_steps = session.state.turn.steps_since_progress

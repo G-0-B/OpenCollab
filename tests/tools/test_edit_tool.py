@@ -19,6 +19,13 @@ def _runtime(workspace):
     sandbox = SandboxInterceptor(str(workspace))
     return ToolRuntime(environment=env, safety_policy=sandbox, permission_policy=None)
 
+def _file(tmp_path, text):
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    target = workspace / "f.py"
+    target.write_text(text, encoding="utf-8")
+    return workspace, target
+
 def test_apply_patch_requires_environment():
     runtime = ToolRuntime(environment=None, safety_policy=None, permission_policy=None)
 
@@ -54,10 +61,7 @@ def test_apply_patch_unknown_mode_points_to_file_write(tmp_path):
     assert target.read_text(encoding="utf-8") == "a\n"
 
 def test_line_replace_applies_range_and_stale_guard_keeps_file_unchanged(tmp_path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    target = ws / "f.py"
-    target.write_text("a\nb\nc\nd\n", encoding="utf-8")
+    ws, target = _file(tmp_path, "a\nb\nc\nd\n")
     tool = ApplyPatchTool()
     runtime = _runtime(ws)
 
@@ -97,10 +101,7 @@ def test_line_replace_applies_range_and_stale_guard_keeps_file_unchanged(tmp_pat
 def test_line_replace_guard_accepts_a_range_that_ends_in_a_blank_line(tmp_path):
     """A model quoting lines 1-3 of ``a / b / <blank>`` writes ``"a\\nb\\n\\n"``;
     the guard must read that as three lines, not strip the blank line away."""
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    target = ws / "f.py"
-    target.write_text("a\nb\n\nc\n", encoding="utf-8")
+    ws, target = _file(tmp_path, "a\nb\n\nc\n")
     tool, runtime = ApplyPatchTool(), _runtime(ws)
 
     result = run(
@@ -185,10 +186,7 @@ def test_line_replace_guard_rejects_missing_or_extra_blank_lines(tmp_path, sourc
     assert target.read_text(encoding="utf-8") == source
 
 def test_unified_diff_matches_by_content_despite_line_drift(tmp_path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    target = ws / "f.py"
-    target.write_text("extra0\nextra1\nlineA\nlineB\nlineC\n", encoding="utf-8")
+    ws, target = _file(tmp_path, "extra0\nextra1\nlineA\nlineB\nlineC\n")
     patch = (
         "@@ -1,3 +1,3 @@\n"
         " lineA\n"
@@ -277,10 +275,7 @@ def test_unified_diff_failed_hunk_writes_nothing(tmp_path):
     ],
 )
 def test_apply_patch_rejects_successful_noop_without_writing(tmp_path, params):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    target = ws / "f.py"
-    target.write_text("a\nb\n", encoding="utf-8")
+    ws, target = _file(tmp_path, "a\nb\n")
 
     result = run(ApplyPatchTool().execute_with_runtime(params, _runtime(ws)))
 
@@ -289,10 +284,7 @@ def test_apply_patch_rejects_successful_noop_without_writing(tmp_path, params):
     assert target.read_text(encoding="utf-8") == "a\nb\n"
 
 def test_unified_diff_treats_header_like_hunk_content_as_content(tmp_path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    target = ws / "f.py"
-    target.write_text("old\n", encoding="utf-8")
+    ws, target = _file(tmp_path, "old\n")
 
     result = run(
         ApplyPatchTool().execute_with_runtime(
@@ -338,10 +330,7 @@ def test_unified_diff_rejects_malformed_hunk_without_writing(tmp_path):
     ],
 )
 def test_unified_diff_pure_insertions_use_header_position(tmp_path, header, expected):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    target = ws / "f.py"
-    target.write_text("a\nb\nc\n", encoding="utf-8")
+    ws, target = _file(tmp_path, "a\nb\nc\n")
 
     result = run(
         ApplyPatchTool().execute_with_runtime(
@@ -373,10 +362,7 @@ def test_unified_diff_pure_insertions_use_header_position(tmp_path, header, expe
     ],
 )
 def test_unified_diff_applies_eof_newline_metadata(tmp_path, source, patch, expected):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    target = ws / "f.py"
-    target.write_text(source, encoding="utf-8")
+    ws, target = _file(tmp_path, source)
 
     result = run(
         ApplyPatchTool().execute_with_runtime(
@@ -492,10 +478,7 @@ def test_apply_patch_reports_file_and_workspace_errors(tmp_path):
     assert missing.endswith("missing.py")
 
 def test_str_replace_identical_old_and_new_is_explicit_noop_error(tmp_path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    target = ws / "f.py"
-    target.write_text("hello world\n", encoding="utf-8")
+    ws, target = _file(tmp_path, "hello world\n")
 
     result = run(
         FileWriteTool().execute_with_runtime(
@@ -514,10 +497,7 @@ def test_str_replace_identical_old_and_new_is_explicit_noop_error(tmp_path):
     assert target.read_text(encoding="utf-8") == "hello world\n"
 
 def test_str_replace_success_reports_content_changed(tmp_path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    target = ws / "f.py"
-    target.write_text("hello world\n", encoding="utf-8")
+    ws, target = _file(tmp_path, "hello world\n")
 
     result = run(
         FileWriteTool().execute_with_runtime(
@@ -569,10 +549,7 @@ def test_non_utf8_edit_attempt_is_explicit_and_preserves_bytes(tmp_path, tool, p
     assert target.read_bytes() == original
 
 def test_str_replace_preserves_legal_utf8_with_cjk(tmp_path):
-    ws = tmp_path / "ws"
-    ws.mkdir()
-    target = ws / "f.py"
-    target.write_text("\u4f60\u597d\uff0c\u4e16\u754c\n", encoding="utf-8")
+    ws, target = _file(tmp_path, "\u4f60\u597d\uff0c\u4e16\u754c\n")
 
     result = run(
         FileWriteTool().execute_with_runtime(

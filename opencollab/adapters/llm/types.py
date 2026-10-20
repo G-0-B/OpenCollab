@@ -73,16 +73,12 @@ def to_plain_data(value: Any) -> Any:
         return {str(key): to_plain_data(item) for key, item in value.items() if item is not None}
     if isinstance(value, (list, tuple)):
         return [to_plain_data(item) for item in value]
-    if hasattr(value, "model_dump"):
-        try:
-            return to_plain_data(value.model_dump(exclude_none=True))
-        except TypeError:
-            return to_plain_data(value.model_dump())
-    if hasattr(value, "dict"):
-        try:
-            return to_plain_data(value.dict(exclude_none=True))
-        except TypeError:
-            return to_plain_data(value.dict())
+    for method in ("model_dump", "dict"):
+        if hasattr(value, method):
+            try:
+                return to_plain_data(getattr(value, method)(exclude_none=True))
+            except TypeError:
+                return to_plain_data(getattr(value, method)())
     if hasattr(value, "__dict__"):
         return {
             str(key): to_plain_data(item)

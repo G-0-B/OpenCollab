@@ -180,6 +180,17 @@ def _autocompact(summarizer, **kw):
         target_tokens=800, keep_recent_groups=1, **kw,
     )
 
+class _CountingSummarizer:
+    cache_key = "model-a:prompt-v1"
+    last_call_cacheable = True
+
+    def __init__(self):
+        self.calls = 0
+
+    def __call__(self, segment):
+        self.calls += 1
+        return f"SUMMARY-{self.calls}"
+
 def test_snip_noop_below_trigger_returns_input_identity():
     messages = [_sys(), _user(), _text("small"), _text("recent")]
     out = _snip().shape(messages)
@@ -365,18 +376,7 @@ def test_autocompact_accepts_strict_reduction_that_misses_target():
     assert _chars(out) > shaper.target_tokens
 
 def test_autocompact_reuses_summary_for_unchanged_segment():
-    class CountingSummarizer:
-        cache_key = "model-a:prompt-v1"
-        last_call_cacheable = True
-
-        def __init__(self):
-            self.calls = 0
-
-        def __call__(self, segment):
-            self.calls += 1
-            return f"SUMMARY-{self.calls}"
-
-    summarizer = CountingSummarizer()
+    summarizer = _CountingSummarizer()
     shaper = _autocompact(summarizer=summarizer)
     messages = [_sys(), _user(), _text("x" * 1000), _text("y" * 1000), _text("recent")]
 
@@ -387,18 +387,7 @@ def test_autocompact_reuses_summary_for_unchanged_segment():
     assert summarizer.calls == 1
 
 def test_autocompact_cache_invalidates_on_segment_or_summarizer_key_change():
-    class CountingSummarizer:
-        cache_key = "model-a:prompt-v1"
-        last_call_cacheable = True
-
-        def __init__(self):
-            self.calls = 0
-
-        def __call__(self, segment):
-            self.calls += 1
-            return f"SUMMARY-{self.calls}"
-
-    summarizer = CountingSummarizer()
+    summarizer = _CountingSummarizer()
     shaper = _autocompact(summarizer=summarizer)
     messages = [_sys(), _user(), _text("x" * 1000), _text("y" * 1000), _text("recent")]
 
@@ -447,18 +436,7 @@ def test_autocompact_reuses_summary_when_only_kept_tool_group_grows():
     assert summarizer.calls == 1
 
 def test_autocompact_summary_cache_is_bounded_lru():
-    class CountingSummarizer:
-        cache_key = "model-a:prompt-v1"
-        last_call_cacheable = True
-
-        def __init__(self):
-            self.calls = 0
-
-        def __call__(self, segment):
-            self.calls += 1
-            return f"SUMMARY-{self.calls}"
-
-    summarizer = CountingSummarizer()
+    summarizer = _CountingSummarizer()
     shaper = _autocompact(summarizer=summarizer, summary_cache_size=1)
     first = [_sys(), _user(), _text("x" * 1000), _text("y" * 1000), _text("recent")]
     second = copy.deepcopy(first)

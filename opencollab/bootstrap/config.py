@@ -393,20 +393,11 @@ def build_config(workspace: str | None = None, overrides: dict[str, Any] | None 
     dotenv = load_config_env(workspace)
 
     def resolve(key: str, *fallback_keys: str, default: str | None = None) -> str | None:
-        val = os.environ.get(key)
-        if val and val.strip():
-            return val
-        for fk in fallback_keys:
-            val = os.environ.get(fk)
-            if val and val.strip():
-                return val
-        val = dotenv.get(key)
-        if val and val.strip():
-            return val
-        for fk in fallback_keys:
-            val = dotenv.get(fk)
-            if val and val.strip():
-                return val
+        for source in (os.environ, dotenv):
+            for name in (key, *fallback_keys):
+                val = source.get(name)
+                if val and val.strip():
+                    return val
         return default
 
     def resolve_ordered(*keys: str, default: str | None = None) -> str | None:
@@ -441,37 +432,31 @@ def build_config(workspace: str | None = None, overrides: dict[str, Any] | None 
         *api_key_env_precedence(provider_value, base_url_value)
     )
 
-    values: dict[str, Any] = {
-        "model": resolve("OPENCOLLAB_MODEL", default="gpt-4o"),
-        "provider": provider_value,
-        "wire_protocol": resolve("OPENCOLLAB_WIRE_PROTOCOL", default="chat_completions"),
-        "api_key": api_key_value,
-        "base_url": base_url_value,
-        "budget": resolve("OPENCOLLAB_BUDGET", default="1000000"),
-        "temperature": resolve("OPENCOLLAB_TEMPERATURE", default=str(DEFAULT_TEMPERATURE)),
-        "top_p": resolve("OPENCOLLAB_TOP_P", default=None),
-        "max_output_tokens": resolve(
-            "OPENCOLLAB_MAX_OUTPUT_TOKENS", default=str(DEFAULT_MAX_OUTPUT_TOKENS)
-        ),
-        "context_window": resolve("OPENCOLLAB_CONTEXT_WINDOW"),
-        "thinking": resolve("OPENCOLLAB_THINKING", default=str(DEFAULT_THINKING)),
-        "thinking_params": resolve("OPENCOLLAB_THINKING_PARAMS"),
-        "reasoning_effort": resolve("OPENCOLLAB_REASONING_EFFORT"),
-        "llm_max_retries": resolve("OPENCOLLAB_LLM_MAX_RETRIES", default="3"),
-        "llm_timeout": resolve("OPENCOLLAB_LLM_TIMEOUT", default="600"),
-        "llm_connect_timeout": resolve("OPENCOLLAB_LLM_CONNECT_TIMEOUT", default="30"),
-        "llm_first_event_timeout": resolve(
-            "OPENCOLLAB_LLM_FIRST_EVENT_TIMEOUT", default="180"
-        ),
-        "llm_stream_idle_timeout": resolve(
-            "OPENCOLLAB_LLM_STREAM_IDLE_TIMEOUT", default="180"
-        ),
-        "llm_stream_chat": resolve("OPENCOLLAB_LLM_STREAM_CHAT", default="false"),
-        "provider_error_time_budget": resolve(
-            "OPENCOLLAB_PROVIDER_ERROR_TIME_BUDGET", default="0"
-        ),
-        "filter_messages": resolve("OPENCOLLAB_FILTER_MESSAGES", default="false"),
+    defaults = {
+        "model": "gpt-4o",
+        "wire_protocol": "chat_completions",
+        "budget": "1000000",
+        "temperature": str(DEFAULT_TEMPERATURE),
+        "top_p": None,
+        "max_output_tokens": str(DEFAULT_MAX_OUTPUT_TOKENS),
+        "context_window": None,
+        "thinking": str(DEFAULT_THINKING),
+        "thinking_params": None,
+        "reasoning_effort": None,
+        "llm_max_retries": "3",
+        "llm_timeout": "600",
+        "llm_connect_timeout": "30",
+        "llm_first_event_timeout": "180",
+        "llm_stream_idle_timeout": "180",
+        "llm_stream_chat": "false",
+        "provider_error_time_budget": "0",
+        "filter_messages": "false",
     }
+    values: dict[str, Any] = {
+        key: resolve(f"OPENCOLLAB_{key.upper()}", default=default)
+        for key, default in defaults.items()
+    }
+    values.update(provider=provider_value, api_key=api_key_value, base_url=base_url_value)
     values.update(selected_overrides)
     # Defaults share the same payload as an explicit DashScope protocol. Keep
     # its source before validation replaces None with that default mapping.

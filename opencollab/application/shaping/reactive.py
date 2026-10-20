@@ -289,14 +289,7 @@ class AutoCompactShaper(_ReactiveHistoryShaper):
             return self._summary_cache[key][1]
 
         summary = self.summarizer(segment)
-        if not getattr(self.summarizer, "last_call_cacheable", True):
-            return ""
-        if key is not None and summary:
-            self._summary_cache[key] = (len(segment), summary)
-            self._summary_cache.move_to_end(key)
-            while len(self._summary_cache) > self._summary_cache_size:
-                self._summary_cache.popitem(last=False)
-        return summary
+        return self._cache_summary(key, segment, summary)
 
     async def _asummarize(self, segment: list[dict[str, Any]]) -> str:
         asummarize = getattr(self.summarizer, "asummarize", None)
@@ -307,6 +300,9 @@ class AutoCompactShaper(_ReactiveHistoryShaper):
             self._summary_cache.move_to_end(key)
             return self._summary_cache[key][1]
         summary = await asummarize(segment)
+        return self._cache_summary(key, segment, summary)
+
+    def _cache_summary(self, key: str | None, segment: list[dict[str, Any]], summary: str) -> str:
         if not getattr(self.summarizer, "last_call_cacheable", True):
             return ""
         if key is not None and summary:

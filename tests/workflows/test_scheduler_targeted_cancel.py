@@ -11,20 +11,21 @@ from opencollab.domain.session import SessionPhase
 from tests.support.scheduler_awaiting_test_support import ScriptedSession, build_scheduler, run
 
 
+class _CancelAwareSession(ScriptedSession):
+    async def add_user_message(self, content: str) -> None:
+        await super().add_user_message(content)
+        self.state.reset_for_user_turn()
+
+    async def run_loop(self, cancel_event=None) -> str:
+        step = self._steps.pop(0)
+        return await step(self, cancel_event)
+
+
 def test_targeted_cancel_event_stops_only_addressed_agent_and_scheduler_reuses_it():
     lead_started = asyncio.Event()
     lead_release = asyncio.Event()
     child_started = asyncio.Event()
     child_stopped = asyncio.Event()
-
-    class CancelAwareSession(ScriptedSession):
-        async def add_user_message(self, content: str) -> None:
-            await super().add_user_message(content)
-            self.state.reset_for_user_turn()
-
-        async def run_loop(self, cancel_event=None) -> str:
-            step = self._steps.pop(0)
-            return await step(self, cancel_event)
 
     async def lead_first(sess, _cancel_event):
         lead_started.set()
@@ -47,8 +48,8 @@ def test_targeted_cancel_event_stops_only_addressed_agent_and_scheduler_reuses_i
         sess.state.append_message({"role": "assistant", "content": "retry answer"})
         return "retry answer"
 
-    lead = CancelAwareSession("lead", [lead_first])
-    child = CancelAwareSession("coder", [child_cancelled, child_retry])
+    lead = _CancelAwareSession("lead", [lead_first])
+    child = _CancelAwareSession("coder", [child_cancelled, child_retry])
     child.state.aid = 1
     scheduler, _ = build_scheduler(lead, [])
     scheduler.table.add(
@@ -117,15 +118,6 @@ def test_targeted_cancel_event_settles_suspended_descendants_before_they_finish(
     child_started = asyncio.Event()
     release_child = asyncio.Event()
 
-    class CancelAwareSession(ScriptedSession):
-        async def add_user_message(self, content: str) -> None:
-            await super().add_user_message(content)
-            self.state.reset_for_user_turn()
-
-        async def run_loop(self, cancel_event=None) -> str:
-            step = self._steps.pop(0)
-            return await step(self, cancel_event)
-
     async def suspend_on_child(sess, _cancel_event):
         child_aid = await sess.scheduler.spawn(
             sess.state.aid,
@@ -165,7 +157,7 @@ def test_targeted_cancel_event_settles_suspended_descendants_before_they_finish(
         sess.state.mark_done()
         return "late child result"
 
-    lead = CancelAwareSession(
+    lead = _CancelAwareSession(
         "lead",
         [suspend_on_child, resume_or_retry, retry_done],
     )
@@ -209,15 +201,6 @@ def test_cancel_settlement_reconciles_queued_inbox_and_notifies_unanswered_sende
     child_started = asyncio.Event()
     release_child = asyncio.Event()
 
-    class CancelAwareSession(ScriptedSession):
-        async def add_user_message(self, content: str) -> None:
-            await super().add_user_message(content)
-            self.state.reset_for_user_turn()
-
-        async def run_loop(self, cancel_event=None) -> str:
-            step = self._steps.pop(0)
-            return await step(self, cancel_event)
-
     async def suspend_on_child(sess, _cancel_event):
         child_aid = await sess.scheduler.spawn(
             sess.state.aid, "coder", "blocked child", tool_call_id="blocked-child"
@@ -248,9 +231,9 @@ def test_cancel_settlement_reconciles_queued_inbox_and_notifies_unanswered_sende
         sess.state.append_message({"role": "assistant", "content": "received stop notice"})
         return "received stop notice"
 
-    lead = CancelAwareSession("lead", [suspend_on_child, retry, next_turn])
+    lead = _CancelAwareSession("lead", [suspend_on_child, retry, next_turn])
     child = ScriptedSession("coder", [blocked_child])
-    sibling = CancelAwareSession("reviewer", [sibling_done])
+    sibling = _CancelAwareSession("reviewer", [sibling_done])
     scheduler, _ = build_scheduler(lead, [child])
     sibling.state.aid = 2
     sibling.scheduler = scheduler
@@ -288,15 +271,6 @@ def test_cancelled_descendant_keeps_inbox_until_its_next_public_turn():
     child_started = asyncio.Event()
     release_child = asyncio.Event()
 
-    class CancelAwareSession(ScriptedSession):
-        async def add_user_message(self, content: str) -> None:
-            await super().add_user_message(content)
-            self.state.reset_for_user_turn()
-
-        async def run_loop(self, cancel_event=None) -> str:
-            step = self._steps.pop(0)
-            return await step(self, cancel_event)
-
     async def suspend_on_child(sess, _cancel_event):
         child_aid = await sess.scheduler.spawn(
             sess.state.aid, "coder", "blocked child", tool_call_id="blocked-child"
@@ -322,8 +296,8 @@ def test_cancelled_descendant_keeps_inbox_until_its_next_public_turn():
         sess.state.append_message({"role": "assistant", "content": "child answer"})
         return "child answer"
 
-    lead = CancelAwareSession("lead", [suspend_on_child])
-    child = CancelAwareSession(
+    lead = _CancelAwareSession("lead", [suspend_on_child])
+    child = _CancelAwareSession(
         "coder", [blocked_child, answer_queued_message, answer_new_turn]
     )
     sender = ScriptedSession("reviewer", [])
@@ -362,14 +336,6 @@ def test_cancelled_descendant_keeps_inbox_until_its_next_public_turn():
     run(scenario())
 
 def test_restored_cancelled_inbox_survives_unrelated_run_then_delivers_once():
-    class AnsweringSession(ScriptedSession):
-        async def add_user_message(self, content: str) -> None:
-            await super().add_user_message(content)
-            self.state.reset_for_user_turn()
-
-        async def run_loop(self, cancel_event=None) -> str:
-            step = self._steps.pop(0)
-            return await step(self, cancel_event)
 
     async def answer_restored_message(sess, _cancel_event):
         sess.state.mark_done()
@@ -386,7 +352,7 @@ def test_restored_cancelled_inbox_survives_unrelated_run_then_delivers_once():
         sess.state.append_message({"role": "assistant", "content": "unrelated answer"})
         return "unrelated answer"
 
-    lead = AnsweringSession("lead", [answer_restored_message, answer_new_turn])
+    lead = _CancelAwareSession("lead", [answer_restored_message, answer_new_turn])
     lead.state.cancel("interrupted by user")
     lead.state.queue_pending_user_message(
         {
@@ -436,15 +402,6 @@ def test_cancel_event_during_restored_awaiting_preamble_settles_without_appendin
     parent_started = asyncio.Event()
     release_child = asyncio.Event()
 
-    class CancelAwareSession(ScriptedSession):
-        async def add_user_message(self, content: str) -> None:
-            await super().add_user_message(content)
-            self.state.reset_for_user_turn()
-
-        async def run_loop(self, cancel_event=None) -> str:
-            step = self._steps.pop(0)
-            return await step(self, cancel_event)
-
     async def resumed_old_turn(sess, _cancel_event):
         # Recovery stays suspended while its prior child is outstanding.
         assert sess.state.phase is SessionPhase.AWAITING_EVENTS
@@ -457,7 +414,7 @@ def test_cancel_event_during_restored_awaiting_preamble_settles_without_appendin
         await release_child.wait()
         return "late child result"
 
-    lead = CancelAwareSession("lead", [resumed_old_turn])
+    lead = _CancelAwareSession("lead", [resumed_old_turn])
     child = ScriptedSession("coder", [blocked_child])
     scheduler, _ = build_scheduler(lead, [child])
 

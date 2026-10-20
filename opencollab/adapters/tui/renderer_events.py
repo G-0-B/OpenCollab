@@ -183,63 +183,54 @@ class _RendererEventsMixin:
             )
             self._refresh()
 
-        elif etype == "agent_completed":
+        elif etype in ("agent_completed", "agent_failed", "agent_cancelled"):
             state = self._state_for(aid)
             label = f"{agent_label}:spawn"
-            completed_spawn = label in state.active_tools
+            was_spawn = label in state.active_tools
             state.active_tools.clear()
             self._clear_thinking_status(state)
-            self._mark_roster(aid, role, "idle")
-            latency = event.data.get("latency", 0.0)
-            # The lead finishes at the turn boundary, which already has a stats footer.
-            if aid != 0:
-                activity = f"{label} finished" if completed_spawn else f"{agent_label} completed"
-                self._append_activity(
-                    (activity, self._STYLE_SUCCESS),
-                    (f" ({latency:.1f}s)", self._STYLE_MUTED),
-                    marker=self._MARK_DONE,
-                    state=state,
-                )
-                if role:
-                    self._emit_status(
-                        Text(
-                            f"Agent {agent_label} ({role}) completed ({latency:.1f}s)",
-                            style=self._STYLE_SUCCESS,
-                        ),
+            terminal_state = {
+                "agent_completed": "idle",
+                "agent_failed": "failed",
+                "agent_cancelled": "cancelled",
+            }[etype]
+            self._mark_roster(aid, role, terminal_state)
+
+            if etype == "agent_completed":
+                latency = event.data.get("latency", 0.0)
+                # The lead finishes at the turn boundary, which already has a stats footer.
+                if aid != 0:
+                    activity = f"{label} finished" if was_spawn else f"{agent_label} completed"
+                    self._append_activity(
+                        (activity, self._STYLE_SUCCESS),
+                        (f" ({latency:.1f}s)", self._STYLE_MUTED),
+                        marker=self._MARK_DONE,
                         state=state,
                     )
-            self._refresh()
-
-        elif etype == "agent_failed":
-            state = self._state_for(aid)
-            label = f"{agent_label}:spawn"
-            failed_spawn = label in state.active_tools
-            state.active_tools.clear()
-            self._clear_thinking_status(state)
-            self._mark_roster(aid, role, "failed")
-            error = event.data.get("error", "unknown")
-            activity = f"{label} failed" if failed_spawn else f"{agent_label} failed"
-            self._append_activity(
-                (activity, self._STYLE_ERROR),
-                (f": {error}", self._STYLE_MUTED),
-                marker=self._MARK_FAIL,
-                state=state,
-            )
-            self._refresh()
-
-        elif etype == "agent_cancelled":
-            state = self._state_for(aid)
-            label = f"{agent_label}:spawn"
-            cancelled_spawn = label in state.active_tools
-            state.active_tools.clear()
-            self._clear_thinking_status(state)
-            self._mark_roster(aid, role, "cancelled")
-            activity = f"{label} cancelled" if cancelled_spawn else f"{agent_label} cancelled"
-            self._append_activity(
-                (activity, self._STYLE_WARNING),
-                marker=self._MARK_WARN,
-                state=state,
-            )
+                    if role:
+                        self._emit_status(
+                            Text(
+                                f"Agent {agent_label} ({role}) completed ({latency:.1f}s)",
+                                style=self._STYLE_SUCCESS,
+                            ),
+                            state=state,
+                        )
+            elif etype == "agent_failed":
+                error = event.data.get("error", "unknown")
+                activity = f"{label} failed" if was_spawn else f"{agent_label} failed"
+                self._append_activity(
+                    (activity, self._STYLE_ERROR),
+                    (f": {error}", self._STYLE_MUTED),
+                    marker=self._MARK_FAIL,
+                    state=state,
+                )
+            else:
+                activity = f"{label} cancelled" if was_spawn else f"{agent_label} cancelled"
+                self._append_activity(
+                    (activity, self._STYLE_WARNING),
+                    marker=self._MARK_WARN,
+                    state=state,
+                )
             self._refresh()
 
         elif etype == "agent_message_sent":

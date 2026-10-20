@@ -49,26 +49,17 @@ def _restore_queued_external_user_turn(
     content = value.get("content")
     turn_id = value.get("turn_id")
     index = value.get("message_index")
-    if isinstance(content, str) and isinstance(turn_id, str) and turn_id and index is None:
-        return {"turn_id": turn_id, "status": "queued", "content": content}
-    if (
-        not isinstance(content, str)
-        or not isinstance(turn_id, str)
-        or not turn_id
-        or isinstance(index, bool)
-        or not isinstance(index, int)
-        or not 0 <= index < len(messages)
-    ):
+    if not isinstance(content, str) or not isinstance(turn_id, str) or not turn_id:
+        return None
+    turn = {"turn_id": turn_id, "status": "queued", "content": content}
+    if index is None:
+        return turn
+    if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < len(messages):
         return None
     message = messages[index]
     if message.get("role") != "user" or message.get("content") != content:
         return None
-    return {
-        "turn_id": turn_id,
-        "status": "queued",
-        "content": content,
-        "message_index": index,
-    }
+    return {**turn, "message_index": index}
 
 def _restore_active_turn_start(
     value: object, messages: list[dict[str, Any]]

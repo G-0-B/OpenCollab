@@ -45,32 +45,24 @@ def _float_env(name: str, default: float) -> float:
         return default
 
 def pricing_for_model(model: str | None) -> dict[str, float | str]:
-    if model_matches_family(model, "glm-5.2"):
-        input_price = _float_env("GLM_INPUT_USD_PER_MTOK", DEFAULT_GLM52_INPUT_USD_PER_MTOK)
-        return {
-            "mode": "glm-5.2-default",
-            "input_usd_per_mtok": input_price,
-            "cached_input_usd_per_mtok": _float_env(
-                "GLM_CACHED_INPUT_USD_PER_MTOK", DEFAULT_GLM52_CACHED_INPUT_USD_PER_MTOK
-            ),
-            "cache_creation_usd_per_mtok": _float_env(
-                "GLM_CACHE_CREATION_USD_PER_MTOK",
-                input_price,
-            ),
-            "output_usd_per_mtok": _float_env(
-                "GLM_OUTPUT_USD_PER_MTOK", DEFAULT_GLM52_OUTPUT_USD_PER_MTOK
-            ),
-        }
-    input_price = _float_env("OPENCOLLAB_INPUT_USD_PER_MTOK", 0.0)
+    glm_pricing = model_matches_family(model, "glm-5.2")
+    prefix = "GLM" if glm_pricing else "OPENCOLLAB"
+    input_price = _float_env(
+        f"{prefix}_INPUT_USD_PER_MTOK", DEFAULT_GLM52_INPUT_USD_PER_MTOK if glm_pricing else 0.0
+    )
     return {
-        "mode": "unset",
+        "mode": "glm-5.2-default" if glm_pricing else "unset",
         "input_usd_per_mtok": input_price,
-        "cached_input_usd_per_mtok": _float_env("OPENCOLLAB_CACHED_INPUT_USD_PER_MTOK", 0.0),
+        "cached_input_usd_per_mtok": _float_env(
+            f"{prefix}_CACHED_INPUT_USD_PER_MTOK", DEFAULT_GLM52_CACHED_INPUT_USD_PER_MTOK if glm_pricing else 0.0
+        ),
         "cache_creation_usd_per_mtok": _float_env(
-            "OPENCOLLAB_CACHE_CREATION_USD_PER_MTOK",
+            f"{prefix}_CACHE_CREATION_USD_PER_MTOK",
             input_price,
         ),
-        "output_usd_per_mtok": _float_env("OPENCOLLAB_OUTPUT_USD_PER_MTOK", 0.0),
+        "output_usd_per_mtok": _float_env(
+            f"{prefix}_OUTPUT_USD_PER_MTOK", DEFAULT_GLM52_OUTPUT_USD_PER_MTOK if glm_pricing else 0.0
+        ),
     }
 
 def usage_cost_usd(usage: Usage, model: str | None) -> float | None:

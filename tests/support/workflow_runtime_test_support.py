@@ -50,12 +50,11 @@ def _patch_build_session(monkeypatch) -> list[dict[str, Any]]:
     return calls
 
 def _cfg(**overrides) -> dict[str, Any]:
-    base = {
+    return {
         "model": "test-model",
         "provider": "anthropic",
         "api_key": "resolved-key",  # pragma: allowlist secret
         "base_url": "https://example.test",
         "budget": 100_000,
+        **overrides,
     }
-    base.update(overrides)
-    return base

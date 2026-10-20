@@ -155,12 +155,8 @@ class _RendererDisplayMixin:
             key=lambda entry: entry[0],
         ) + [entry for entry in entries if entry[0] is None]
 
-        def is_selected(entry: tuple[int | None, str, str]) -> bool:
-            aid, _role, _state = entry
-            return aid == self._selected_aid
-
         selected_position = next(
-            (position for position, entry in enumerate(entries, 1) if is_selected(entry)),
+            (position for position, entry in enumerate(entries, 1) if entry[0] == self._selected_aid),
             1,
         )
 
@@ -173,7 +169,7 @@ class _RendererDisplayMixin:
             )
             for aid, role, state in entries:
                 style = self._STATE_STYLES.get(state, self._STYLE_MUTED)
-                focused = is_selected((aid, role, state))
+                focused = aid == self._selected_aid
                 line.append("  ", style=self._STYLE_MUTED)
                 if focused:
                     line.append("◆ ", style=self._STYLE_ACCENT)
@@ -181,15 +177,11 @@ class _RendererDisplayMixin:
                     line.append(role, style=self._STYLE_MUTED)
                     if not compact:
                         line.append(f" {state}", style=style)
-                elif aid == 0:
-                    label_style = self._STYLE_HEADING if focused else self._STYLE_SUBTLE
-                    line.append(self._agent_label(aid), style=label_style)
-                    if not compact or focused:
-                        line.append(f" {state}", style=style)
                 else:
                     label_style = self._STYLE_HEADING if focused else self._STYLE_SUBTLE
-                    line.append(f"A{aid}", style=label_style)
-                    if not compact:
+                    label = self._agent_label(aid) if aid == 0 else f"A{aid}"
+                    line.append(label, style=label_style)
+                    if aid != 0 and not compact:
                         line.append(f" {role}", style=self._STYLE_MUTED)
                     if not compact or focused:
                         line.append(f" {state}", style=style)

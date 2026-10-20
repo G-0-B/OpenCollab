@@ -11,10 +11,6 @@ from opencollab.workflows import CandidateRun
 
 from . import _candidate_records as dual
 
-MAX_DIFF_BYTES = 240_000
-
-MAX_JUDGE_INPUT_BYTES = 600_000
-
 MAX_REQUIREMENTS = 64
 
 COVERAGE_VALUES = frozenset({"covered", "not_covered", "unclear"})
@@ -73,12 +69,6 @@ CONTRACT_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
-def _clip_text(value: Any, limit: int) -> tuple[str, bool]:
-    """Preserve complete model-visible evidence, including identity-bearing text."""
-    del limit
-    text = "" if value is None else str(value)
-    return text, False
-
 def _mechanical_choice(
     candidate_a: CandidateRun,
     candidate_b: CandidateRun,
@@ -133,21 +123,20 @@ def _shared_public_records(
         for key in sorted(records_a.keys() & records_b.keys())
     ]
 
-def _candidate_view(candidate: CandidateRun) -> tuple[dict[str, Any], bool]:
-    diff, truncated = _clip_text(candidate.diff, MAX_DIFF_BYTES)
+def _candidate_view(candidate: CandidateRun) -> dict[str, Any]:
     return {
-        "diff": diff,
-        "diff_truncated": truncated,
+        "diff": "" if candidate.diff is None else str(candidate.diff),
+        "diff_truncated": False,
         "changed_paths": patch_paths(candidate.diff),
         "public_command": dual._candidate_command(candidate),
-    }, truncated
+    }
 
 def _judge_input(
     candidate_a: CandidateRun,
     candidate_b: CandidateRun,
 ) -> tuple[str, dict[str, list[str]], bool]:
-    view_a, truncated_a = _candidate_view(candidate_a)
-    view_b, truncated_b = _candidate_view(candidate_b)
+    view_a = _candidate_view(candidate_a)
+    view_b = _candidate_view(candidate_b)
     payload = {
         "A": view_a,
         "B": view_b,
@@ -162,12 +151,11 @@ def _judge_input(
         sort_keys=True,
         separators=(",", ":"),
     )
-    text, payload_truncated = _clip_text(encoded, MAX_JUDGE_INPUT_BYTES)
     paths = {
         "A": list(view_a["changed_paths"]),
         "B": list(view_b["changed_paths"]),
     }
-    return text, paths, truncated_a or truncated_b or payload_truncated
+    return encoded, paths, False
 
 def _evidence_mentions_changed_path(
     evidence: list[Any],

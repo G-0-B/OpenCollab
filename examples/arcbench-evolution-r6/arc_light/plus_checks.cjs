@@ -2,14 +2,8 @@
 // No official test files, generated applications, or output databases are bundled here.
 module.exports = function createChecks(h) {
   const {expect, base, contract, gridCell, dragRange, enterCell, control, dataMenu,
-    chooseScalar, evoSignIn, signInEntry, legacySheet, watchPage, prerequisite} = h;
+    chooseScalar, evoSignIn, signInEntry, legacySheet, watchPage, prerequisite, quoted, match} = h;
   const clean = value => String(value || '').replace(/[“”]/g, '"').replace(/\s+/g, ' ');
-  const quoted = text => [...text.matchAll(/`([^`]+)`/g)].map(m => m[1]);
-  function match(text, pattern, label) {
-    const found = text.match(pattern);
-    if (!found) throw new Error('Missing public scenario input: ' + label);
-    return found[1];
-  }
   const button = (page, name) => page.getByRole('button', {name, exact: true});
   const link = (page, name) => page.getByRole('link', {name, exact: true});
   const label = (page, name) => page.getByLabel(name, {exact: true});

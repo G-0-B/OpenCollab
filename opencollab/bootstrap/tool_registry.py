@@ -135,11 +135,6 @@ def build_tools_for_role(
     """
     validate_unique_tool_names(tool_names)
     limits = validate_tool_limits(tool_limits or {})
-    uncappable = set(limits) & frozenset(SCHEDULER_TOOL_FACTORIES)
-    if uncappable:
-        raise ValueError(
-            f"tool_limits not supported for coordination tools {sorted(uncappable)}."
-        )
     tools: list[Tool] = []
     for name in tool_names:
         if name == "ask_user" and not ask_user_available:
