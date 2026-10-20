@@ -1,22 +1,12 @@
-# The handoff experiment, sequenced by a script
+# Scripted three-agent handoff
 
-This example is the code-sequenced twin of `configs/team.handoff.experiment.yaml`.
-Both run an analyst, a coder, and a tester over one repository. **Exactly one
-thing differs between them, and it is the thing under study.**
+This example sequences an analyst, coder, and tester over one repository.
+Each agent uses a separate Git worktree, and the coder's commit is handed
+to the tester for verification.
 
-| | this example | `team.handoff.experiment.yaml` |
-|---|---|---|
-| roles | analyst / coder / tester | same |
-| tools per role | same bundles, minus the coordination tools | analyst and coder can edit; tester has `git_diff`, not `apply_patch` |
-| workspace | one git worktree per agent | one git worktree per agent |
-| handoff payload | a commit sha | a commit sha |
-| **who sequences the work** | **this script** | **the model** |
-
-The team config states its own purpose as measuring "whether models hand work to
-each other when they are able to and nothing tells them to", and says that
-"scripting the exchange would mean measuring the script". This example scripts
-it deliberately, so that the two arms can be compared without a second
-difference confounding the first.
+The related [handoff study](https://github.com/RISE-X-Lab/OpenCollab-Eval/blob/main/experiment/framework/collaborating-team.md)
+and [model-directed team configuration](https://github.com/RISE-X-Lab/OpenCollab-Eval/blob/main/experiment/framework/configs/team.handoff.experiment.yaml)
+are maintained in OpenCollab-Eval.
 
 ## Why every agent gets a worktree, including the ones that mostly read
 
@@ -29,10 +19,9 @@ not it was ever told about them, so "the tester worked from the coder's output"
 is not a question the run can answer. With separate trees, the tester holds that
 work only if it checked out the sha.
 
-## What the script cannot make happen
+## Reading the handoff record
 
-The script hands the coder's sha to the tester. It cannot make the tester use
-it. So each round records both:
+Each round records the offered commit and the commit the tester reports adopting.
 
 ```
 "offered_commit": "a1b2c3…",     # what the script handed over
@@ -40,13 +29,11 @@ it. So each round records both:
 "handoff_taken": true            # whether those are the same
 ```
 
-In the team arm, the model chooses when to send a message. Here the script
-offers the commit and the tester chooses whether to check it out. The returned
-`handoff_taken` field compares the tester's reported `adopted_commit` with the
-offered string. It therefore records the tester's claim. Actual checkout and
-test execution require evidence from the tester's tool trajectory, such as an
-executed `git rev-parse HEAD` and the repository's native verification command.
-Use those observations when comparing the two arms' completed handoffs.
+The script offers the commit and the tester chooses whether to check it out.
+The returned `handoff_taken` field compares the tester's reported
+`adopted_commit` with the offered string. It records the tester's claim.
+Use the tester's tool trajectory, including `git rev-parse HEAD` and the
+repository's native verification command, to verify checkout and test execution.
 
 ## Running it
 
