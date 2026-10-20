@@ -76,38 +76,29 @@ def _output_items_agree(streamed: dict[str, Any], terminal: dict[str, Any]) -> b
     if _semantic_output_item(streamed) != _semantic_output_item(terminal):
         return False
     if streamed.get("type") == "message":
-        streamed_phase = streamed.get("phase")
-        terminal_phase = terminal.get("phase")
-        if (
-            streamed_phase is not None
-            and terminal_phase is not None
-            and streamed_phase != terminal_phase
-        ):
-            return False
+        field = "phase"
+    elif streamed.get("type") == "reasoning":
+        field = "encrypted_content"
+    else:
         return True
-    if streamed.get("type") != "reasoning":
-        return True
-    streamed_encrypted = streamed.get("encrypted_content")
-    terminal_encrypted = terminal.get("encrypted_content")
-    for value in (streamed_encrypted, terminal_encrypted):
-        if value is not None and not isinstance(value, str):
-            raise ResponsesProtocolError("reasoning output contains invalid encrypted content")
-    return streamed_encrypted is None or terminal_encrypted is None or streamed_encrypted == terminal_encrypted
+    streamed_value = streamed.get(field)
+    terminal_value = terminal.get(field)
+    if field == "encrypted_content":
+        for value in (streamed_value, terminal_value):
+            if value is not None and not isinstance(value, str):
+                raise ResponsesProtocolError("reasoning output contains invalid encrypted content")
+    return streamed_value is None or terminal_value is None or streamed_value == terminal_value
 
 def _merge_terminal_projection(
     streamed: dict[str, Any],
     terminal: dict[str, Any],
 ) -> dict[str, Any]:
-    if (
-        streamed.get("type") == "reasoning"
-        and streamed.get("encrypted_content") is None
-        and terminal.get("encrypted_content") is not None
-    ):
-        streamed = {**streamed, "encrypted_content": terminal["encrypted_content"]}
-    if (
-        streamed.get("type") == "message"
-        and streamed.get("phase") is None
-        and terminal.get("phase") is not None
-    ):
-        streamed = {**streamed, "phase": terminal["phase"]}
+    if streamed.get("type") == "reasoning":
+        field = "encrypted_content"
+    elif streamed.get("type") == "message":
+        field = "phase"
+    else:
+        return streamed
+    if streamed.get(field) is None and terminal.get(field) is not None:
+        return {**streamed, field: terminal[field]}
     return streamed

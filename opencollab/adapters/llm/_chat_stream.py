@@ -44,7 +44,6 @@ class _ChatStreamState:
     reasoning_parts: list[str] = field(default_factory=list)
     reasoning_field: str | None = None
     tool_slots: dict[int, _ToolCallSlot] = field(default_factory=dict)
-    tool_order: list[int] = field(default_factory=list)
     finish_reason: str | None = None
     usage_object: Any = None
     provider_model: str | None = None
@@ -89,7 +88,6 @@ def _absorb_tool_call_delta(call_delta: Any, state: _ChatStreamState) -> None:
     if slot is None:
         slot = _ToolCallSlot()
         state.tool_slots[index] = slot
-        state.tool_order.append(index)
 
     call_id = getattr(call_delta, "id", None)
     if isinstance(call_id, str) and call_id:
@@ -174,8 +172,7 @@ def _finalize_tool_calls(
     # responses before persisting or executing their tool calls.
     validate = state.finish_reason not in {"length", "max_tokens"}
     finalized: list[dict[str, Any]] = []
-    for index in state.tool_order:
-        slot = state.tool_slots[index]
+    for index, slot in state.tool_slots.items():
         name = "".join(slot.name_parts)
         if validate and not name:
             raise TransientProviderError(
