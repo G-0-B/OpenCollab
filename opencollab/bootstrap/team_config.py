@@ -459,26 +459,22 @@ def _resolve_entry_role(explicit: str | None, roles: dict[str, RoleConfig]) -> s
     """
     if explicit is not None:
         explicit = validate_role_identity(explicit)
-        canonical = {
-            role_collision_key(role): role
-            for role in roles
-        }.get(role_collision_key(explicit))
+    canonical_roles = {
+        role_collision_key(role): role
+        for role in roles
+    }
+    if explicit is not None:
+        canonical = canonical_roles.get(role_collision_key(explicit))
         if canonical is None:
             raise ValueError(
                 f"entry role '{explicit}' is not declared in roles "
                 f"({sorted(roles)})."
             )
         return canonical
-    canonical_roles = {
-        role_collision_key(role): role
-        for role in roles
-    }
     lead = canonical_roles.get(role_collision_key("lead"))
     if lead is not None:
         return lead
-    if roles:
-        return next(iter(roles))
-    return "lead"
+    return next(iter(roles), "lead")
 
 def _configured_team_path(
     path: str | os.PathLike[str] | None = None,
