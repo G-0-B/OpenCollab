@@ -196,26 +196,19 @@ class LifecycleMixin:
             self._startup_tasks.pop(aid, None)
             self._startup_envs.pop(aid, None)
             self._startup_origin.pop(aid, None)
-        except asyncio.CancelledError:
+        except BaseException as exc:
             # Driver task was never scheduled, so nothing will release these.
             await self._rollback_failed_spawn(aid, env)
             if not self._shutting_down:
                 self._restore_turn_lease(parent_aid, parent_lease)
                 if parent_lease is not None:
                     self._track_review_parent_lease_release(parent_aid, -1)
-            if tool_call_id is not None:
+            if isinstance(exc, asyncio.CancelledError) and tool_call_id is not None:
                 await self._fail_cancelled_origin(
                     parent_aid,
                     tool_call_id,
                     "agent spawn cancelled before startup completed",
                 )
-            raise
-        except BaseException:
-            await self._rollback_failed_spawn(aid, env)
-            if not self._shutting_down:
-                self._restore_turn_lease(parent_aid, parent_lease)
-                if parent_lease is not None:
-                    self._track_review_parent_lease_release(parent_aid, -1)
             raise
 
         self._write_manifest()
@@ -686,30 +679,7 @@ class LifecycleMixin:
                         error=reason,
                     )
             self._spawn_origin.pop(child_aid, None)
-            in_flight = self._tasks.get(parent_aid)
-            should_resume = (
-                not self._shutting_down
-                and parent_scb.state.phase is SessionPhase.AWAITING_EVENTS
-                and table.is_complete()
-                and (in_flight is None or in_flight.done())
-            )
-            if should_resume:
-                self._reserve_turn_lease(parent_aid)
-                self._start_agent_task(parent_aid, parent_session)
-            elif (
-                not self._shutting_down
-                and parent_scb.state.phase is SessionPhase.AWAITING_EVENTS
-                and table.is_complete()
-                and in_flight is not None
-                and not in_flight.done()
-            ):
-                in_flight.add_done_callback(
-                    lambda finished: self._resume_after_parent_task(
-                        parent_aid,
-                        parent_session,
-                        finished,
-                    )
-                )
+            should_resume = self._resume_completed_parent_locked(parent_aid, parent_scb, parent_session)
 
         if should_resume:
             await self._safe_emit_scheduler_event(
@@ -766,37 +736,34 @@ class LifecycleMixin:
                 if not cleanup_forced:
                     self._delivery_committed.add(child_aid)
             self._autosave_session(parent_aid)
-            in_flight = self._tasks.get(parent_aid)
-            should_resume = (
-                not self._shutting_down
-                and
-                parent_scb.state.phase is SessionPhase.AWAITING_EVENTS
-                and table.is_complete()
-                and (in_flight is None or in_flight.done())
-            )
-            if should_resume:
-                self._reserve_turn_lease(parent_aid)
-                self._start_agent_task(parent_aid, parent_session)
-            elif (
-                not self._shutting_down
-                and
-                parent_scb.state.phase is SessionPhase.AWAITING_EVENTS
-                and table.is_complete()
-                and in_flight is not None
-                and not in_flight.done()
-            ):
-                in_flight.add_done_callback(
-                    lambda finished: self._resume_after_parent_task(
-                        parent_aid,
-                        parent_session,
-                        finished,
-                    )
-                )
+            should_resume = self._resume_completed_parent_locked(parent_aid, parent_scb, parent_session)
 
         if should_resume:
             await self._safe_emit_scheduler_event(
                 self._events.agent_resumed(parent_aid, self._role_of(parent_aid))
             )
+
+    def _resume_completed_parent_locked(
+        self,
+        parent_aid: int,
+        parent_scb: SessionControlBlock,
+        parent_session: Any,
+    ) -> bool:
+        in_flight = self._tasks.get(parent_aid)
+        if (
+            self._shutting_down
+            or parent_scb.state.phase is not SessionPhase.AWAITING_EVENTS
+            or not parent_scb.state.pending_events.is_complete()
+        ):
+            return False
+        if in_flight is None or in_flight.done():
+            self._reserve_turn_lease(parent_aid)
+            self._start_agent_task(parent_aid, parent_session)
+            return True
+        in_flight.add_done_callback(
+            lambda finished: self._resume_after_parent_task(parent_aid, parent_session, finished)
+        )
+        return False
 
     def _resume_after_parent_task(
         self,

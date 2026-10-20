@@ -87,11 +87,10 @@ def match_hooks(
     """
     selected: list[HookSpec] = []
     for spec in specs:
-        if spec.event != event_name:
-            continue
-        if spec.matcher is None:
-            selected.append(spec)
-        elif tool_name is not None and fnmatch(tool_name, spec.matcher):
+        if spec.event == event_name and (
+            spec.matcher is None
+            or tool_name is not None and fnmatch(tool_name, spec.matcher)
+        ):
             selected.append(spec)
     return selected
 

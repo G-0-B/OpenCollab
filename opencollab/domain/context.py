@@ -81,18 +81,7 @@ class ContextPlan:
 
     def startup_system_messages(self) -> list[dict[str, Any]]:
         """System fragments with provenance retained for live-session shaping."""
-        return [
-            {
-                "role": "system",
-                "content": source.content,
-                "_ctx": {
-                    "name": source.name,
-                    "layer": source.layer.value,
-                    "priority": source.effective_priority,
-                },
-            }
-            for source in self._startup(ContextPosition.SYSTEM)
-        ]
+        return self._startup_messages(ContextPosition.SYSTEM, "system")
 
     def startup_user_messages(self) -> list[dict[str, Any]]:
         """Return user seeds tagged with source name, layer, and resolved priority.
@@ -100,17 +89,20 @@ class ContextPlan:
         The internal ``_ctx`` tag lets shaping retain provenance after injection;
         provider projections omit it from the request.
         """
+        return self._startup_messages(ContextPosition.USER_CONTEXT, "user")
+
+    def _startup_messages(self, position: ContextPosition, role: str) -> list[dict[str, Any]]:
         return [
             {
-                "role": "user",
-                "content": s.content,
+                "role": role,
+                "content": source.content,
                 "_ctx": {
-                    "name": s.name,
-                    "layer": s.layer.value,
-                    "priority": s.effective_priority,
+                    "name": source.name,
+                    "layer": source.layer.value,
+                    "priority": source.effective_priority,
                 },
             }
-            for s in self._startup(ContextPosition.USER_CONTEXT)
+            for source in self._startup(position)
         ]
 
 __all__ = [
