@@ -163,12 +163,16 @@ def _build_summarizer(
             thinking_params=getattr(agent, "thinking_params", None)
             or {"thinking": {"type": "adaptive"}},
         )
-    if llm is not None:
-
-        async def _summary_complete(
-            request: list[dict[str, Any]], *, on_response: Callable[[Any], None] | None = None, **kwargs: Any
-        ) -> Any:
-            response = await resolved_llm.complete(
+    async def _summary_complete(
+        request: list[dict[str, Any]], *, on_response: Callable[[Any], None] | None = None, **kwargs: Any
+    ) -> Any:
+        client = (
+            resolved_llm if llm is not None
+            else _resolve_llm(agent, None, llm_timeout, provider_retry_budget)
+        )
+        primary_failure: BaseException | None = None
+        try:
+            response = await client.complete(
                 request,
                 temperature=0.0,
                 **(summary_extra | kwargs),
@@ -176,41 +180,11 @@ def _build_summarizer(
             if on_response is not None:
                 on_response(response)
             return response
-    else:
-
-        async def _summary_complete(
-            request: list[dict[str, Any]], *, on_response: Callable[[Any], None] | None = None, **kwargs: Any
-        ) -> Any:
-            client = LLMClient(
-                model=agent.model,
-                api_key=agent.api_key,
-                base_url=agent.base_url,
-                provider=agent.provider,
-                wire_protocol=getattr(agent, "wire_protocol", "chat_completions"),
-                max_retries=getattr(agent, "llm_max_retries", 3),
-                request_timeout=llm_timeout,
-                connect_timeout=getattr(agent, "llm_connect_timeout", 30.0),
-                first_event_timeout=getattr(agent, "llm_first_event_timeout", 180.0),
-                stream_idle_timeout=getattr(agent, "llm_stream_idle_timeout", 180.0),
-                stream_chat=getattr(agent, "llm_stream_chat", False),
-                context_window=getattr(agent, "context_window", None),
-                provider_error_time_budget=getattr(agent, "provider_error_time_budget", 0.0),
-                provider_retry_budget=provider_retry_budget,
-            )
-            primary_failure: BaseException | None = None
-            try:
-                response = await client.complete(
-                    request,
-                    temperature=0.0,
-                    **(summary_extra | kwargs),
-                )
-                if on_response is not None:
-                    on_response(response)
-                return response
-            except BaseException as exc:
-                primary_failure = exc
-                raise
-            finally:
+        except BaseException as exc:
+            primary_failure = exc
+            raise
+        finally:
+            if llm is None:
                 close = getattr(client, "close", None)
                 if callable(close):
                     try:
@@ -337,26 +311,16 @@ def _trace_history_compaction(
             "model": getattr(agent, "model", None),
             "context_policy": None if shaper_injected else context_policy.name,
         }
-        if not shaper_injected and not context_policy.history_compaction:
-            # The policy runs no history layer, so no threshold is in force.
+        if shaper_injected or not context_policy.history_compaction:
+            # Disabled history has no thresholds; injected shapers own theirs.
             payload.update(
                 {
                     "context_window_tokens": None,
                     "history_trigger_tokens": None,
                     "history_target_tokens": None,
-                    "history_thresholds_from": "disabled_by_context_policy",
-                }
-            )
-        elif shaper_injected:
-            # A caller-supplied shaper carries its own thresholds; this wiring
-            # never derived any. Writing the numbers we would have used would
-            # name a setting no layer is enforcing.
-            payload.update(
-                {
-                    "context_window_tokens": None,
-                    "history_trigger_tokens": None,
-                    "history_target_tokens": None,
-                    "history_thresholds_from": "injected_shaper",
+                    "history_thresholds_from": (
+                        "injected_shaper" if shaper_injected else "disabled_by_context_policy"
+                    ),
                 }
             )
         else:

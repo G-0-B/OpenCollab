@@ -509,6 +509,11 @@ async def _run(
                 "scheduler cleanup also failed: "
                 f"{type(cleanup_failure).__name__}: {cleanup_failure}",
             )
+    elif cleanup_failure is not None:
+        primary_failure = cleanup_failure
+    else:
+        primary_failure = repeated_cancellation
+    if primary_failure is not None:
         if tracer_failure is not None:
             add_exception_note(
                 primary_failure,
@@ -516,22 +521,6 @@ async def _run(
                 f"{type(tracer_failure).__name__}: {tracer_failure}",
             )
         raise primary_failure
-    if cleanup_failure is not None:
-        if tracer_failure is not None:
-            add_exception_note(
-                cleanup_failure,
-                "tracer close also failed: "
-                f"{type(tracer_failure).__name__}: {tracer_failure}",
-            )
-        raise cleanup_failure
-    if repeated_cancellation is not None:
-        if tracer_failure is not None:
-            add_exception_note(
-                repeated_cancellation,
-                "tracer close also failed: "
-                f"{type(tracer_failure).__name__}: {tracer_failure}",
-            )
-        raise repeated_cancellation
     if tracer_failure is not None:
         raise tracer_failure
     console.print("\n[grey46]─[/grey46] [grey58]session ended.[/grey58]")

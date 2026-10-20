@@ -664,3 +664,84 @@ async def test_cli_trajectory_print_failure_does_not_mask_primary_error(
         )
 
     assert any("console failed" in note for note in raised.value.__notes__)
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("primary_kind", ["none", "error", "cancel"])
+@pytest.mark.parametrize("cleanup_kind", ["none", "error", "cancel"])
+@pytest.mark.parametrize("tracer_failed", [False, True])
+async def test_cli_preserves_failure_priority_and_cleanup_order(
+    monkeypatch, tmp_path, primary_kind, cleanup_kind, tracer_failed,
+):
+    events = []
+    primary = {
+        "none": None,
+        "error": RuntimeError("turn failed"),
+        "cancel": asyncio.CancelledError("turn cancelled"),
+    }[primary_kind]
+    cleanup = RuntimeError("cleanup failed") if cleanup_kind == "error" else None
+    cancelled = asyncio.CancelledError("cleanup cancelled") if cleanup_kind == "cancel" else None
+    tracer_failure = OSError("tracer failed") if tracer_failed else None
+
+    class Scheduler:
+        used_tokens = 0
+        lead_session = SimpleNamespace(auto_save_path=None, step_count=0)
+
+        def team_roster(self):
+            return []
+
+        async def run_turn(self, *args, **kwargs):
+            events.append("turn")
+
+        def agent_step_count(self, aid):
+            return 0
+
+        async def cleanup(self):
+            events.append("cleanup")
+            if cleanup is not None:
+                raise cleanup
+
+    class Tracer(FakeTracer):
+        def close(self):
+            events.append("tracer")
+            super().close()
+            if tracer_failure is not None:
+                raise tracer_failure
+
+    async def await_cleanup(scheduler):
+        await scheduler.cleanup()
+        return cancelled
+
+    drive = cli_main._drive
+
+    async def drive_then_fail(*args, **kwargs):
+        await drive(*args, **kwargs)
+        if primary is not None:
+            raise primary
+
+    install_cli_fakes(monkeypatch, Scheduler(), Tracer())
+    monkeypatch.setattr(cli_main, "_await_scheduler_cleanup", await_cleanup)
+    monkeypatch.setattr(cli_main, "_drive", drive_then_fail)
+    monkeypatch.setattr(cli_main.sys.stdin, "isatty", lambda: False)
+    expected = next(
+        (error for error in (primary, cleanup, cancelled, tracer_failure) if error is not None),
+        None,
+    )
+    execution = cli_main._run(
+        str(tmp_path), config(), None, True, True, False,
+        one_shot_prompt="do work",
+    )
+    if expected is None:
+        await execution
+    else:
+        with pytest.raises(type(expected)) as raised:
+            await execution
+        assert raised.value is expected
+        notes = []
+        if primary is not None and cancelled is not None:
+            notes.append("caller cancelled again during scheduler cleanup")
+        if primary is not None and cleanup is not None:
+            notes.append("scheduler cleanup also failed: RuntimeError: cleanup failed")
+        if expected is not tracer_failure and tracer_failure is not None:
+            notes.append("tracer close also failed: OSError: tracer failed")
+        assert getattr(raised.value, "__notes__", []) == notes
+    assert events == ["turn", "cleanup", "tracer"]
