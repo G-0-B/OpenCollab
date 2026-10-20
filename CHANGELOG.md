@@ -7,6 +7,8 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-10-20
+
 ### Added
 
 `reconstruct` is a built-in workflow for black-box program reconstruction. It
@@ -17,6 +19,29 @@ random inputs, a structural coverage gate, memorisation and complexity
 checks, and a numeric domain check. The hidden program is bound through a
 `ReconstructionTask`, directly from the SDK or as a `module:callable` factory
 from the CLI. See [docs/reconstruct.md](docs/reconstruct.md).
+
+The IO2Code example connects reconstruction tasks to the built-in workflow,
+including sandboxed evaluation, local template overrides, and trajectory
+records.
+
+### Fixed
+
+Responses streams accept passive keepalive events during long-running requests.
+The model capability registry includes `gpt-6-luna` with its supported Responses
+protocol, reasoning settings, and sampling restrictions.
+
+### Changed
+
+Shared file-reading, lifecycle, configuration, and protocol implementations
+replace repeated logic while retaining public behavior. Repeated test
+preparation is consolidated with existing inputs and assertions preserved.
+
+### Documentation
+
+Contributor and runtime guides consolidate overlapping explanations, and code
+comments focus on behavior and constraints that names and types cannot express.
+Evaluation and experiment documentation links to OpenCollab-Eval, which owns
+those inputs and workflows.
 
 ## [0.9.4] - 2026-10-17
 
@@ -562,7 +587,8 @@ clean architecture where everything but the model sits behind swappable ports.
 - Trimmed the GLM SWE-bench experiment archive to the final report and prediction files.
 - Moved Chinese working notes into `docs/archive/`.
 
-[Unreleased]: https://github.com/RISE-X-Lab/OpenCollab/compare/v0.9.4...HEAD
+[Unreleased]: https://github.com/RISE-X-Lab/OpenCollab/compare/v0.9.5...HEAD
+[0.9.5]: https://github.com/RISE-X-Lab/OpenCollab/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/RISE-X-Lab/OpenCollab/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/RISE-X-Lab/OpenCollab/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/RISE-X-Lab/OpenCollab/compare/v0.9.1...v0.9.2
