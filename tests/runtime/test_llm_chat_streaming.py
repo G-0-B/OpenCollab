@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import time
 from types import SimpleNamespace
 from typing import Any
@@ -20,6 +19,7 @@ from opencollab.adapters.llm.openai_provider import (
     complete_openai,
 )
 from opencollab.adapters.llm.retry import is_retryable_error
+from tests.support.responses_provider_test_support import FakeStream as _DelayedStream
 
 MODEL = "deepseek-fake"
 USAGE = {
@@ -94,26 +94,9 @@ def text_script(
         chunks.append(usage_chunk())
     return chunks
 
-class FakeStream:
+class FakeStream(_DelayedStream):
     def __init__(self, chunks: list[Any], delays: list[float] | None = None):
-        self._chunks = iter(chunks)
-        self._delays = iter(delays or [0.0] * len(chunks))
-        self.closed = False
-
-    def __aiter__(self):
-        return self
-
-    async def __anext__(self):
-        delay = next(self._delays, 0.0)
-        if delay:
-            await asyncio.sleep(delay)
-        try:
-            return next(self._chunks)
-        except StopIteration as exc:
-            raise StopAsyncIteration from exc
-
-    async def close(self):
-        self.closed = True
+        super().__init__(chunks, delays=delays)
 
 class FakeClient:
     """Stands in for ``AsyncOpenAI``; records every create() kwargs dict."""

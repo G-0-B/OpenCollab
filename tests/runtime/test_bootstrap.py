@@ -13,15 +13,14 @@ from opencollab.domain.identity import role_storage_slug
 
 
 def _cfg(**overrides):
-    base = {
+    return {
         "model": "gpt-4o",
         "provider": "openai",
         "api_key": "test-key",
         "base_url": None,
         "budget": 100_000,
+        **overrides,
     }
-    base.update(overrides)
-    return base
 
 def test_analyst_prompt_references_only_the_tools_it_has():
     # The lead prompt must name its available spawn_agent tool.

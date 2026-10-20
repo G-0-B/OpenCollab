@@ -313,7 +313,7 @@ CLEANUP_WORST_CASE_SECONDS = (
 # The held spawn cannot complete, so allow scheduling jitter before requiring cancellation.
 GATED_TASK_SETTLES_SECONDS = 2.0
 
-async def test_process_timeout_covers_subprocess_spawn(monkeypatch, tmp_path) -> None:
+def _gated_spawn(monkeypatch):
     gate = asyncio.Event()
     terminated = asyncio.Event()
     original_spawn = process_module.asyncio.create_subprocess_exec
@@ -334,6 +334,10 @@ async def test_process_timeout_covers_subprocess_spawn(monkeypatch, tmp_path) ->
         delayed_spawn,
     )
     monkeypatch.setattr(process_module, "terminate_process", tracked_terminate)
+    return gate, terminated
+
+async def test_process_timeout_covers_subprocess_spawn(monkeypatch, tmp_path) -> None:
+    gate, terminated = _gated_spawn(monkeypatch)
     task = asyncio.create_task(
         run_process(
             (sys.executable, "-c", "import time; time.sleep(5)"),
@@ -359,26 +363,7 @@ async def test_process_cancellation_during_spawn_is_bounded(
     monkeypatch,
     tmp_path,
 ) -> None:
-    gate = asyncio.Event()
-    terminated = asyncio.Event()
-    original_spawn = process_module.asyncio.create_subprocess_exec
-    original_terminate = process_module.terminate_process
-
-    async def delayed_spawn(*args, **kwargs):
-        await gate.wait()
-        return await original_spawn(*args, **kwargs)
-
-    async def tracked_terminate(process, **kwargs):
-        result = await original_terminate(process, **kwargs)
-        terminated.set()
-        return result
-
-    monkeypatch.setattr(
-        process_module.asyncio,
-        "create_subprocess_exec",
-        delayed_spawn,
-    )
-    monkeypatch.setattr(process_module, "terminate_process", tracked_terminate)
+    gate, terminated = _gated_spawn(monkeypatch)
     task = asyncio.create_task(
         run_process(
             (sys.executable, "-c", "import time; time.sleep(5)"),

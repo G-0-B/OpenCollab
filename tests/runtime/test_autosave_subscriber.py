@@ -187,6 +187,10 @@ class _SwitchableCheckpointStore(SessionStore):
             raise self.error
         return super().checkpoint_snapshot(*args, **kwargs)
 
+class _CompletingLLM:
+    async def complete(self, **_kwargs):
+        return llm_response(content="done")
+
 @pytest.mark.parametrize("trigger", sorted(SAVE_TRIGGERS))
 def test_autosave_journal_recovers_every_trigger_with_linear_write_growth(
     tmp_path,
@@ -524,15 +528,11 @@ def test_terminal_checkpoint_failure_does_not_mask_cancellation(tmp_path):
 def test_terminal_checkpoint_failure_surfaces_without_primary_error(tmp_path):
     checkpoint_error = OSError("checkpoint failed")
 
-    class CompletingLLM:
-        async def complete(self, **_kwargs):
-            return llm_response(content="done")
-
     async def scenario():
         store = _SwitchableCheckpointStore(checkpoint_error)
         session = Session(
             agent=FakeAgent(),
-            llm=CompletingLLM(),
+            llm=_CompletingLLM(),
             auto_save_path=str(tmp_path / "completed.json"),
             store=store,
         )
@@ -563,16 +563,12 @@ def test_cancelling_terminal_checkpoint_waits_for_owned_write(tmp_path):
                     raise TimeoutError("test checkpoint was not released")
             return super().checkpoint_snapshot(*args, **kwargs)
 
-    class CompletingLLM:
-        async def complete(self, **_kwargs):
-            return llm_response(content="done")
-
     async def scenario():
         store = BlockingCheckpointStore()
         path = tmp_path / "cancel-during-checkpoint.json"
         session = Session(
             agent=FakeAgent(),
-            llm=CompletingLLM(),
+            llm=_CompletingLLM(),
             auto_save_path=str(path),
             store=store,
         )
