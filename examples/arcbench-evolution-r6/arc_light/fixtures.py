@@ -68,20 +68,18 @@ def verify_fixtures(backend, contract):
                     "detail": "Workbook schema is unsupported; GIVEN input is unverified",
                 }
             )
-        if has_workbooks:
-            match = re.search(r"workbook\s+`([^`]+)`", item["given"], re.I)
-            if match:
-                name = match.group(1)
-                checks.append(
-                    {
-                        "kind": "workbook",
-                        "name": name,
-                        "ok": name in workbooks,
-                        "source_ids": item["source_ids"],
-                        "scenario_index": item["scenario_index"],
-                        "detail": "" if name in workbooks else "Required GIVEN workbook is absent",
-                    }
-                )
+        if match and has_workbooks:
+            name = match.group(1)
+            checks.append(
+                {
+                    "kind": "workbook",
+                    "name": name,
+                    "ok": name in workbooks,
+                    "source_ids": item["source_ids"],
+                    "scenario_index": item["scenario_index"],
+                    "detail": "" if name in workbooks else "Required GIVEN workbook is absent",
+                }
+            )
     return {
         "scope": "published_account_identity_and_workbook_presence_only",
         "supported": has_accounts or has_workbooks,

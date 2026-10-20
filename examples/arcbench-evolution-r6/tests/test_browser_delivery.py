@@ -69,7 +69,6 @@ def test_competition_cli_uses_local_http_and_real_browser(tmp_path):
 async def test_native_workflow_runs_actual_browser_and_delivery_checks(tmp_path):
     from dataclasses import asdict
 
-    import yaml
     from arcbench_r6.settings import Settings
     from arcbench_r6.workflow import weave
 
@@ -77,20 +76,7 @@ async def test_native_workflow_runs_actual_browser_and_delivery_checks(tmp_path)
     from opencollab.adapters.llm.types import LLMResponse, Usage
 
     workspace = fixture_app(tmp_path)
-    captured = json.loads((workspace / ".arc/checks/public-prerequisites.json").read_text())
-    requirements = [
-        {
-            "id": row["requirement_id"],
-            "name": row["name"],
-            "description": "Modified Feature Description",
-            "scenarios": [
-                {"steps": [{"keyword": key.upper(), "content": row[key]} for key in ("given", "when", "then")]}
-            ],
-        }
-        for row in captured["evolution_checks"]
-    ]
-    task = workspace / "task.yaml"
-    task.write_text(yaml.safe_dump(requirements))
+    task = _task_file(workspace)
 
     class LocalModel:
         async def complete(self, messages, **kwargs):

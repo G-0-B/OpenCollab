@@ -243,12 +243,6 @@ function requiresAccount(item) {
   if (['Search for and Locate Repositories', 'List and Switch Repository Branches'].includes(item.name)) return false;
   return !(item.visitor && ['Create and View Repository Releases', 'Add and Remove Issue Reactions'].includes(item.name));
 }
-async function openRepository(page, repository) {
-  const search = page.getByRole('searchbox', {name: 'Search', exact: true});
-  await search.fill(repository); await search.press('Enter');
-  await page.getByRole('main').getByRole('link', {name: repository, exact: true}).click();
-  await expect(page.getByRole('heading').filter({hasText: repository}).first()).toBeVisible();
-}
 async function chooseScalar(page, label, value) {
   // Ordinary scalar form choices use native controls; do not rewrite option-role branch pickers.
   await page.getByLabel(label, {exact: true}).selectOption({label: value});
@@ -477,7 +471,8 @@ async function evolutionSheet(page, item) {
   }
 }
 const plus = require('./plus_checks.cjs')({expect, base, contract, gridCell, dragRange, enterCell,
-  control, dataMenu, chooseScalar, evoSignIn, signInEntry, legacySheet: evolutionSheet, watchPage, prerequisite});
+  control, dataMenu, chooseScalar, evoSignIn, signInEntry, legacySheet: evolutionSheet, watchPage, prerequisite,
+  quoted, match: requireMatch});
 
 async function sharedPrerequisites(browser) {
   const inputs = contract.shared_inputs || {};
