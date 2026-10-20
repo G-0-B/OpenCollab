@@ -2,6 +2,7 @@
 
 import copy
 
+from opencollab.application.event_bus import EventBus
 from opencollab.domain.tools import ToolProcessingResult
 
 
@@ -38,3 +39,11 @@ class FakeTracer:
 
     def flush(self):
         self.flush_count += 1
+
+def collect_events():
+    events = []
+
+    async def sink(event):
+        events.append((event.type, copy.deepcopy(event.data)))
+
+    return events, EventBus(sink)

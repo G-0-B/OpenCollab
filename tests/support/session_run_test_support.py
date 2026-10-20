@@ -11,6 +11,7 @@ from opencollab.application.submit_findings import SubmitFindingsTool
 from opencollab.domain.agent import Agent
 from opencollab.domain.tools import ToolProcessingResult
 from tests.support.session_runtime_test_support import FakeToolExecution as FakeToolExecution
+from tests.support.session_runtime_test_support import collect_events as collect_events
 
 
 def run(coro):
@@ -76,14 +77,6 @@ class ReadStub:
 
     def to_openai_schema(self):
         return {"type": "function", "function": {"name": self.name, "parameters": {}}}
-
-def collect_events():
-    events = []
-
-    async def sink(event):
-        events.append((event.type, copy.deepcopy(event.data)))
-
-    return events, EventBus(sink)
 
 def build_runner(*, state, agent, llm, event_bus=None, tool_execution=None, **kwargs):
     return SessionRunUseCase(

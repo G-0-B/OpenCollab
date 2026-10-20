@@ -18,6 +18,7 @@ from opencollab.domain.session import (
 from opencollab.domain.tools import ToolProcessingResult
 from tests.support.session_runtime_test_support import FakeToolExecution as FakeToolExecution
 from tests.support.session_runtime_test_support import FakeTracer as FakeTracer
+from tests.support.session_runtime_test_support import collect_events as collect_events
 from tests.support.session_runtime_test_support import tool_call as tool_call
 
 
@@ -111,14 +112,6 @@ class CompletingBeforeReturnToolExecution(FakeToolExecutionDeferred):
         assert row.status is RowStatus.PENDING
         self.state.pending_events.fill(tc["id"], result="fast child result")
         return self.deferred_outcomes[tc["id"]]
-
-def collect_events():
-    events = []
-
-    async def sink(event):
-        events.append((event.type, copy.deepcopy(event.data)))
-
-    return events, EventBus(sink)
 
 def build_runner(
     *,

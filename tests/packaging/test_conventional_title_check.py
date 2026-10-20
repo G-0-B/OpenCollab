@@ -7,21 +7,12 @@ import sys
 from pathlib import Path
 
 from scripts.check_conventional_title import validate_title
+from tests.packaging.git_support import git as _git
 from tests.support.paths import REPO_ROOT
 
 _REPO_ROOT = REPO_ROOT
 _SCRIPT = _REPO_ROOT / "scripts" / "check_conventional_title.py"
 _CLEAN_SNAPSHOT = "chore: establish a clean release snapshot"
-
-
-def _git(repository: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", *args],
-        cwd=repository,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
 
 
 def _repository(tmp_path: Path, subject: str) -> Path:
