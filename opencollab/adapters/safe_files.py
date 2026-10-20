@@ -17,9 +17,9 @@ from opencollab.adapters._env_base import TextFileRange
 from opencollab.adapters._safe_file_common import (
     _RANGE_TOTAL_COUNT_LIMIT_BYTES,
     _READ_CHUNK_BYTES,
-    _read_text_line,
     _require_limit,
 )
+from opencollab.adapters._safe_file_range import _read_text_range
 from opencollab.adapters.safe_anchored_files import (
     create_regular_bytes_atomic_at,
     open_directory_anchor,
@@ -145,89 +145,12 @@ def read_regular_text_range(
         count_to_eof = opened.st_size <= _RANGE_TOTAL_COUNT_LIMIT_BYTES
         with os.fdopen(fd, "r", encoding=encoding, errors="strict", newline=None) as handle:
             fd = -1
-            line_number = 0
-            while line_number < offset - 1:
-                line, at_eof, _truncated = _read_text_line(
-                    handle,
-                    collect_limit=None,
-                )
-                if line is None:
-                    return TextFileRange([], offset, line_number, False)
-                line_number += 1
-                if at_eof:
-                    return TextFileRange([], offset, line_number, False)
-
-            selected: list[str] = []
-            chars_used = 0
-            while len(selected) < limit:
-                separator_chars = 1 if selected else 0
-                remaining = max_chars - chars_used - separator_chars
-                if remaining < 1:
-                    return TextFileRange(
-                        selected,
-                        offset,
-                        None,
-                        True,
-                        chars_truncated=True,
-                    )
-                line, at_eof, truncated = _read_text_line(
-                    handle,
-                    collect_limit=remaining,
-                )
-                if line is None:
-                    return TextFileRange(
-                        selected,
-                        offset,
-                        line_number,
-                        False,
-                    )
-                selected.append(line)
-                line_number += 1
-                chars_used += separator_chars + len(line)
-                if truncated:
-                    return TextFileRange(
-                        selected,
-                        offset,
-                        None,
-                        True,
-                        chars_truncated=True,
-                    )
-                if at_eof:
-                    return TextFileRange(
-                        selected,
-                        offset,
-                        line_number,
-                        False,
-                    )
-
-            if count_to_eof:
-                shown_end = offset - 1 + len(selected)
-                while True:
-                    line, at_eof, _truncated = _read_text_line(
-                        handle,
-                        collect_limit=None,
-                    )
-                    if line is None:
-                        return TextFileRange(
-                            selected,
-                            offset,
-                            line_number,
-                            line_number > shown_end,
-                        )
-                    line_number += 1
-                    if at_eof:
-                        return TextFileRange(
-                            selected,
-                            offset,
-                            line_number,
-                            line_number > shown_end,
-                        )
-            has_more = handle.read(1) != ""
-            return TextFileRange(
-                selected,
-                offset,
-                None if has_more else line_number,
-                has_more,
+            return _read_text_range(
+                handle,
+                offset=offset,
+                limit=limit,
+                max_chars=max_chars,
+                count_to_eof=count_to_eof,
             )
     finally:
         if fd >= 0:

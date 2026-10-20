@@ -140,7 +140,7 @@ def _apply_line_replace(
 
     # Preserve the file's trailing-newline convention; new_str's own trailing
     # newline is normalised away since we re-split it into lines.
-    new_lines, _ = _split_lines(new_str if new_str.endswith("\n") or new_str == "" else new_str + "\n")
+    new_lines, _ = _split_lines(new_str)
     result = lines[:start_idx] + new_lines + lines[end_idx:]
     updated = _join_lines(result, ended_nl if result else False)
     return prefix + _restore_newlines(updated, newline_style), ""
@@ -149,7 +149,6 @@ def _parse_hunks(patch: str, *, normalize_hunks: bool = False) -> tuple[list[dic
     """Parse and structurally validate ``@@`` hunks from a unified diff."""
     hunks: list[dict] = []
     cur: dict | None = None
-    seen_header = False
     raw_lines = patch.split("\n")
     # Drop the empty element produced by a trailing newline; a genuine blank
     # context line in a unified diff is " " (a lone space), not "".
@@ -163,7 +162,6 @@ def _parse_hunks(patch: str, *, normalize_hunks: bool = False) -> tuple[list[dic
                 err = _validate_hunk_counts(cur, normalize_hunks=normalize_hunks)
                 if err:
                     return None, err
-            seen_header = True
             old_start = int(m.group(1)) if m else None
             old_len = int(m.group(2) or 1) if m else 0
             new_start = int(m.group(3)) if m else None
@@ -201,10 +199,8 @@ def _parse_hunks(patch: str, *, normalize_hunks: bool = False) -> tuple[list[dic
             cur["no_newline_after"].add(previous)
         else:
             return None, f"hunk on patch line {line_number} has an unknown line prefix."
-    if not seen_header:
-        return None, "no @@ hunk headers found in patch."
     if not hunks:
-        return None, "patch contains no applicable hunks."
+        return None, "no @@ hunk headers found in patch."
     assert cur is not None
     err = _validate_hunk_counts(cur, normalize_hunks=normalize_hunks)
     if err:

@@ -293,28 +293,18 @@ class WorktreeEnvironment(Environment):
     async def _setup_directory_copy(self) -> None:
         self._copy_baseline_dir = tempfile.mkdtemp(prefix="opencollab-cp-baseline-")
         self._worktree_dir = tempfile.mkdtemp(prefix="opencollab-cp-")
-        await await_owned_operation(
-            asyncio.to_thread(
-                shutil.copytree,
-                self._source,
-                self._copy_baseline_dir,
-                dirs_exist_ok=True,
-                symlinks=True,
-                ignore=self._ignore_owned_save_dir,
-            ),
-            propagate_cancellation=True,
-        )
-        await await_owned_operation(
-            asyncio.to_thread(
-                shutil.copytree,
-                self._source,
-                self._worktree_dir,
-                dirs_exist_ok=True,
-                symlinks=True,
-                ignore=self._ignore_owned_save_dir,
-            ),
-            propagate_cancellation=True,
-        )
+        for target in (self._copy_baseline_dir, self._worktree_dir):
+            await await_owned_operation(
+                asyncio.to_thread(
+                    shutil.copytree,
+                    self._source,
+                    target,
+                    dirs_exist_ok=True,
+                    symlinks=True,
+                    ignore=self._ignore_owned_save_dir,
+                ),
+                propagate_cancellation=True,
+            )
 
     def _ignore_owned_save_dir(self, directory: str, names: list[str]) -> list[str]:
         return [
@@ -656,20 +646,12 @@ class WorktreeEnvironment(Environment):
             raise RuntimeError("worktree cleanup failed") from failures[0]
 
     async def cleanup(self) -> None:
-        async with self._lifecycle_lock:
-            await self._ensure_directory_copy_changes_exported()
-            if self._git_mode and self._git_diff_delivery_pending:
-                raise RuntimeError(
-                    "refusing to clean undelivered Git worktree changes; "
-                    f"worktree retained at {self.workspace}"
-                )
-            self.revoke()
-            await await_owned_operation(
-                self._cleanup_resources(),
-                propagate_cancellation=True,
-            )
+        await self._cleanup()
 
     async def abort(self) -> None:
+        await self._cleanup()
+
+    async def _cleanup(self) -> None:
         async with self._lifecycle_lock:
             await self._ensure_directory_copy_changes_exported()
             if self._git_mode and self._git_diff_delivery_pending:

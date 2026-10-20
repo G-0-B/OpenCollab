@@ -820,12 +820,10 @@ class DockerEnvironment(Environment):
                 await await_owned_operation(self._cleanup_resources(), propagate_cancellation=True)
                 return
             await self._abort_resources_locked()
-            if self._attached:
-                await await_owned_operation(
-                    self._cleanup_attached_resources(),
-                    propagate_cancellation=True,
-                )
-                return
+            await await_owned_operation(
+                self._cleanup_attached_resources(),
+                propagate_cancellation=True,
+            )
 
     async def abort(self) -> None:
         async with self._lifecycle_lock:
