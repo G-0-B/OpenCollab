@@ -87,20 +87,16 @@ def build_steering_block(
     Suppressing both status and action produces ``message=None``.
     A landed write permits submission; unknown write effects are resolved by the caller.
     """
+    if max_steps is None:
+        step_status = f"{step_count} steps completed"
+    else:
+        step_status = f"~{max(0, max_steps - step_count)} steps left"
     if max_budget_tokens is None:
         token_status = f"~{used_tokens // 1000}k tokens used"
-        if max_steps is None:
-            step_status = f"{step_count} steps completed"
-        else:
-            step_status = f"~{max(0, max_steps - step_count)} steps left"
         status = f"[Progress: {token_status}, {step_status}.]"
     else:
         remaining_k = max(0, max_budget_tokens - used_tokens) // 1000
         total_k = max_budget_tokens // 1000
-        if max_steps is None:
-            step_status = f"{step_count} steps completed"
-        else:
-            step_status = f"~{max(0, max_steps - step_count)} steps left"
         status = (
             f"[Budget: ~{remaining_k}k/{total_k}k tokens left, "
             f"{step_status}.]"

@@ -122,6 +122,7 @@ async def run_spawn_with_review(
             scheduler.events.review_started(iteration, max_iterations)
         )
 
+        stage = "coder_spawn"
         try:
             coder_aid = await scheduler.spawn(
                 parent_aid,
@@ -129,30 +130,20 @@ async def run_spawn_with_review(
                 current_task,
                 context,
             )
-        except Exception as exc:
-            await _emit_review_event(
-                scheduler,
-                scheduler.events.review_completed(iteration, False),
-            )
-            return _format_review_failure(
-                iteration=iteration,
-                stage="coder_spawn",
-                artifact=last_result,
-                feedback=last_feedback,
-                reason=f"{type(exc).__name__}: {exc}",
-            )
-        try:
+            stage = "coder_wait"
             await scheduler.wait_until_terminal(coder_aid)
         except Exception as exc:
-            coder_scb = scheduler.table.get(coder_aid)
-            code_result = (coder_scb.result if coder_scb else "") or last_result
+            code_result = last_result
+            if stage == "coder_wait":
+                coder_scb = scheduler.table.get(coder_aid)
+                code_result = (coder_scb.result if coder_scb else "") or last_result
             await _emit_review_event(
                 scheduler,
                 scheduler.events.review_completed(iteration, False),
             )
             return _format_review_failure(
                 iteration=iteration,
-                stage="coder_wait",
+                stage=stage,
                 artifact=code_result,
                 feedback=last_feedback,
                 reason=f"{type(exc).__name__}: {exc}",
@@ -187,6 +178,7 @@ async def run_spawn_with_review(
             f"VERDICT: FAIL\n\n"
             f"If FAIL, provide detailed fix instructions before the verdict line."
         )
+        stage = "reviewer_spawn"
         try:
             reviewer_aid = await scheduler.spawn(
                 parent_aid,
@@ -194,30 +186,20 @@ async def run_spawn_with_review(
                 review_prompt,
                 context,
             )
-        except Exception as exc:
-            await _emit_review_event(
-                scheduler,
-                scheduler.events.review_completed(iteration, False),
-            )
-            return _format_review_failure(
-                iteration=iteration,
-                stage="reviewer_spawn",
-                artifact=last_result,
-                feedback=last_feedback,
-                reason=f"{type(exc).__name__}: {exc}",
-            )
-        try:
+            stage = "reviewer_wait"
             await scheduler.wait_until_terminal(reviewer_aid)
         except Exception as exc:
-            reviewer_scb = scheduler.table.get(reviewer_aid)
-            review_result = reviewer_scb.result if reviewer_scb else ""
+            review_result = ""
+            if stage == "reviewer_wait":
+                reviewer_scb = scheduler.table.get(reviewer_aid)
+                review_result = reviewer_scb.result if reviewer_scb else ""
             await _emit_review_event(
                 scheduler,
                 scheduler.events.review_completed(iteration, False),
             )
             return _format_review_failure(
                 iteration=iteration,
-                stage="reviewer_wait",
+                stage=stage,
                 artifact=last_result,
                 feedback=review_result or last_feedback,
                 reason=f"{type(exc).__name__}: {exc}",

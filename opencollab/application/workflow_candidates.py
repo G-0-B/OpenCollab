@@ -240,6 +240,39 @@ class WorkflowCandidatesMixin:
         revision = await read_revision() if callable(read_revision) else None
         return revision, await self._candidate_workspace.source_diff()
 
+    async def _finish_candidate_run(
+        self, lease: Any, candidate: CandidateRun | None, failure: BaseException | None,
+        *, label: str, preserve_lease: bool,
+    ) -> CandidateRun:
+        if failure is not None:
+            if (
+                not preserve_lease
+                and not isinstance(failure, (CandidateCaptureError, CandidateWorkspaceTrackingError))
+            ):
+                try:
+                    await lease.cleanup()
+                except Exception as cleanup_exc:
+                    add_exception_note(
+                        failure,
+                        "candidate cleanup after failure also failed: "
+                        f"{type(cleanup_exc).__name__}: {cleanup_exc}"
+                    )
+            raise failure
+        assert candidate is not None
+        if preserve_lease:
+            return candidate
+        try:
+            await lease.cleanup()
+        except Exception as exc:
+            detail = f"{type(exc).__name__}: {exc}"
+            self._record_agent_failure(f"{label}:cleanup", exc)
+            await self.log(f"candidate cleanup failed ({label}): {detail}")
+            candidate = replace(
+                candidate,
+                lifecycle_errors=(*candidate.lifecycle_errors, detail),
+            )
+        return candidate
+
     async def candidate_agent(
         self,
         prompt: str,
@@ -358,32 +391,9 @@ class WorkflowCandidatesMixin:
                         if failure is None:
                             failure = exc
                     self.budget.release(budget_lease)
-            if failure is not None:
-                if (
-                    not preserve_lease
-                    and not isinstance(failure, (CandidateCaptureError, CandidateWorkspaceTrackingError))
-                ):
-                    try:
-                        await lease.cleanup()
-                    except Exception as cleanup_exc:
-                        add_exception_note(
-                            failure,
-                            "candidate cleanup after failure also failed: "
-                            f"{type(cleanup_exc).__name__}: {cleanup_exc}"
-                        )
-                raise failure
-            assert candidate is not None
-            try:
-                await lease.cleanup()
-            except Exception as exc:
-                detail = f"{type(exc).__name__}: {exc}"
-                self._record_agent_failure(f"{label}:cleanup", exc)
-                await self.log(f"candidate cleanup failed ({label}): {detail}")
-                candidate = replace(
-                    candidate,
-                    lifecycle_errors=(*candidate.lifecycle_errors, detail),
-                )
-            return candidate
+            return await self._finish_candidate_run(
+                lease, candidate, failure, label=label, preserve_lease=preserve_lease,
+            )
 
         return await self._run_owned_candidate_call(lambda: self._run_with_concurrency_permit(run))
 
@@ -529,34 +539,9 @@ class WorkflowCandidatesMixin:
                 finally:
                     if budget_lease is not None:
                         self.budget.release(budget_lease)
-            if failure is not None:
-                if (
-                    not isinstance(failure, (CandidateCaptureError, CandidateWorkspaceTrackingError))
-                    and not preserve_lease
-                ):
-                    try:
-                        await lease.cleanup()
-                    except Exception as cleanup_exc:
-                        add_exception_note(
-                            failure,
-                            "candidate cleanup after failure also failed: "
-                            f"{type(cleanup_exc).__name__}: {cleanup_exc}"
-                        )
-                raise failure
-            assert candidate is not None
-            if preserve_lease:
-                return candidate
-            try:
-                await lease.cleanup()
-            except Exception as exc:
-                detail = f"{type(exc).__name__}: {exc}"
-                self._record_agent_failure(f"{label}:cleanup", exc)
-                await self.log(f"candidate cleanup failed ({label}): {detail}")
-                candidate = replace(
-                    candidate,
-                    lifecycle_errors=(*candidate.lifecycle_errors, detail),
-                )
-            return candidate
+            return await self._finish_candidate_run(
+                lease, candidate, failure, label=label, preserve_lease=preserve_lease,
+            )
 
         return await self._run_owned_candidate_call(run)
 

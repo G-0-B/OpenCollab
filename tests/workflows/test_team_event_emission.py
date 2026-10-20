@@ -667,3 +667,65 @@ def test_spawn_does_not_emit_session_tool_events(monkeypatch):
     types = [getattr(e, "type", None) for e in events]
     assert "tool_start" not in types
     assert "tool_end" not in types
+
+@pytest.mark.parametrize("stage", ["coder_spawn", "coder_wait", "reviewer_spawn", "reviewer_wait"])
+@pytest.mark.parametrize("partial", ["", "partial recovery evidence"])
+def test_second_review_iteration_preserves_failure_stage_and_available_evidence(
+    monkeypatch, stage, partial,
+):
+    scheduler, events = _build_scheduler(
+        monkeypatch,
+        {
+            "coder": ["first implementation", "second implementation"],
+            "reviewer": ["first feedback\nVERDICT: FAIL", "VERDICT: PASS"],
+        },
+    )
+    real_spawn = scheduler.spawn
+    real_wait = scheduler.wait_until_terminal
+    calls = {"coder": 0, "reviewer": 0}
+    failed_role, failed_operation = stage.split("_")
+
+    async def spawn(parent_aid, role, task, context="", **kwargs):
+        calls[role] += 1
+        if role == failed_role and calls[role] == 2 and failed_operation == "spawn":
+            raise RuntimeError("role unavailable")
+        return await real_spawn(parent_aid, role, task, context, **kwargs)
+
+    async def wait(aid):
+        await real_wait(aid)
+        scb = scheduler.table.get(aid)
+        role = scb.agent.name
+        if role == failed_role and calls[role] == 2 and failed_operation == "wait":
+            scb.result = partial
+            raise RuntimeError("role unavailable")
+
+    monkeypatch.setattr(scheduler, "spawn", spawn)
+    monkeypatch.setattr(scheduler, "wait_until_terminal", wait)
+
+    result = run(scheduler.spawn_with_review(0, "write fn", max_iterations=2))
+
+    artifact = "second implementation" if failed_role == "reviewer" else "first implementation"
+    feedback = "first feedback\nVERDICT: FAIL"
+    if failed_operation == "wait" and partial:
+        if failed_role == "coder":
+            artifact = partial
+        else:
+            feedback = partial
+    assert result == (
+        "[Self-Collaboration: FAILED after 2 iteration(s)]\n\n"
+        f"Failure stage: {stage}\n\n"
+        "Failure reason: RuntimeError: role unavailable\n\n"
+        f"Last implementation:\n{artifact}\n\n"
+        f"Last reviewer feedback:\n{feedback}"
+    )
+    review_events = [
+        (event.type, event.data)
+        for event in _scheduler_events(events)
+        if event.type.startswith("review_")
+    ]
+    assert review_events == [
+        ("review_started", {"tool": "review_loop", "iteration": 1, "max": 2}),
+        ("review_completed", {"tool": "review_loop", "iteration": 1, "verdict": "FAIL"}),
+        ("review_started", {"tool": "review_loop", "iteration": 2, "max": 2}),
+        ("review_completed", {"tool": "review_loop", "iteration": 2, "verdict": "FAIL"}),
+    ]
