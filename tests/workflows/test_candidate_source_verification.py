@@ -24,9 +24,7 @@ def _repository(tmp_path: Path) -> Path:
     subprocess.run(["git", "-C", str(repo), "commit", "-qm", "initial"], check=True)
     return repo
 
-@pytest.mark.parametrize("mode", ["agent", "workflow"])
-@pytest.mark.asyncio
-async def test_post_capture_source_read_error_preserves_candidate_lease(tmp_path, monkeypatch, mode):
+def _context_failing_second_source_read(tmp_path, monkeypatch, failure):
     repo = _repository(tmp_path)
     base = LocalEnvironment(str(repo))
     workspace = EnvCandidateWorkspace(base)
@@ -44,15 +42,22 @@ async def test_post_capture_source_read_error_preserves_candidate_lease(tmp_path
         nonlocal reads
         reads += 1
         if reads == 2:
-            raise OSError("source read unavailable")
+            raise failure
         return await source_diff(exclude_paths)
 
     monkeypatch.setattr(workspace, "acquire", recorded_acquire)
     monkeypatch.setattr(workspace, "source_diff", fail_post_capture)
-    ctx = WorkflowContext(
+    return WorkflowContext(
         FakeFactory([FakeSession()]),
         budget_total=None,
         candidate_workspace=workspace,
+    ), leases
+
+@pytest.mark.parametrize("mode", ["agent", "workflow"])
+@pytest.mark.asyncio
+async def test_post_capture_source_read_error_preserves_candidate_lease(tmp_path, monkeypatch, mode):
+    ctx, leases = _context_failing_second_source_read(
+        tmp_path, monkeypatch, OSError("source read unavailable"),
     )
 
     async def nested(child, _args):
@@ -74,33 +79,7 @@ async def test_post_capture_source_read_error_preserves_candidate_lease(tmp_path
 @pytest.mark.parametrize("mode", ["agent", "workflow"])
 @pytest.mark.asyncio
 async def test_cancelled_source_verification_preserves_candidate_lease(tmp_path, monkeypatch, mode):
-    repo = _repository(tmp_path)
-    base = LocalEnvironment(str(repo))
-    workspace = EnvCandidateWorkspace(base)
-    leases = []
-    acquire = workspace.acquire
-    source_diff = workspace.source_diff
-    reads = 0
-
-    async def recorded_acquire(label):
-        lease = await acquire(label)
-        leases.append(lease)
-        return lease
-
-    async def cancel_post_capture(exclude_paths=()):
-        nonlocal reads
-        reads += 1
-        if reads == 2:
-            raise asyncio.CancelledError
-        return await source_diff(exclude_paths)
-
-    monkeypatch.setattr(workspace, "acquire", recorded_acquire)
-    monkeypatch.setattr(workspace, "source_diff", cancel_post_capture)
-    ctx = WorkflowContext(
-        FakeFactory([FakeSession()]),
-        budget_total=None,
-        candidate_workspace=workspace,
-    )
+    ctx, leases = _context_failing_second_source_read(tmp_path, monkeypatch, asyncio.CancelledError())
 
     async def nested(child, _args):
         return await child.agent("candidate work")

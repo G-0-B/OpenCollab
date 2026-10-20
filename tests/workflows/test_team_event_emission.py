@@ -33,6 +33,22 @@ from tests.support.team_event_test_support import (
 )
 
 
+class _LeadWithAutosave(_FakeLeadSession):
+    def __init__(self, path, subscriber):
+        super().__init__()
+        self.auto_save_path = path
+        self.event_bus = EventBus(subscriber)
+        self._subscriber = subscriber
+
+    @property
+    def pending_cleanup_tasks(self):
+        return self.event_bus.pending_tasks
+
+    @property
+    def persistence_errors(self):
+        return (self._subscriber.last_error,) if self._subscriber.last_error else ()
+
+
 def test_cleanup_closes_session_resources_once():
     class ClosableLead(_FakeLeadSession):
         def __init__(self):
@@ -77,26 +93,12 @@ def test_cleanup_drains_queued_autosaves_before_final_snapshot(tmp_path):
 
     subscriber = AutoSaveSubscriber(stale_autosave)
 
-    class LeadWithOwnedAutosave(_FakeLeadSession):
-        def __init__(self):
-            super().__init__()
-            self.auto_save_path = save_path
-            self.event_bus = EventBus(subscriber)
-
-        @property
-        def pending_cleanup_tasks(self):
-            return self.event_bus.pending_tasks
-
-        @property
-        def persistence_errors(self):
-            return (subscriber.last_error,) if subscriber.last_error else ()
-
     scheduler = Scheduler(
         session_factory=_FakeSessionFactory({}),
         worktree_pool=WorktreePool(".", use_worktrees=False),
         event_sink=EventBus(),
     )
-    lead = LeadWithOwnedAutosave()
+    lead = _LeadWithAutosave(save_path, subscriber)
     scheduler.register_lead(lead)
     lead.state.append_message({"role": "assistant", "content": "latest state"})
 
@@ -165,26 +167,12 @@ def test_cleanup_reports_nonquiescent_autosave_before_late_release(tmp_path):
 
     subscriber = AutoSaveSubscriber(late_autosave)
 
-    class LeadWithLateAutosave(_FakeLeadSession):
-        def __init__(self):
-            super().__init__()
-            self.auto_save_path = save_path
-            self.event_bus = EventBus(subscriber)
-
-        @property
-        def pending_cleanup_tasks(self):
-            return self.event_bus.pending_tasks
-
-        @property
-        def persistence_errors(self):
-            return (subscriber.last_error,) if subscriber.last_error else ()
-
     scheduler = Scheduler(
         session_factory=_FakeSessionFactory({}),
         worktree_pool=WorktreePool(".", use_worktrees=False),
         event_sink=EventBus(),
     )
-    lead = LeadWithLateAutosave()
+    lead = _LeadWithAutosave(save_path, subscriber)
     scheduler.register_lead(lead)
     lead.state.append_message({"role": "assistant", "content": "latest"})
 
@@ -220,26 +208,12 @@ def test_cleanup_surfaces_sticky_subscriber_persistence_error(tmp_path):
 
     subscriber = AutoSaveSubscriber(failed_autosave)
 
-    class LeadWithFailedAutosave(_FakeLeadSession):
-        def __init__(self):
-            super().__init__()
-            self.auto_save_path = str(tmp_path / "agent_0_lead.json")
-            self.event_bus = EventBus(subscriber)
-
-        @property
-        def pending_cleanup_tasks(self):
-            return self.event_bus.pending_tasks
-
-        @property
-        def persistence_errors(self):
-            return (subscriber.last_error,) if subscriber.last_error else ()
-
     scheduler = Scheduler(
         session_factory=_FakeSessionFactory({}),
         worktree_pool=WorktreePool(".", use_worktrees=False),
         event_sink=EventBus(),
     )
-    lead = LeadWithFailedAutosave()
+    lead = _LeadWithAutosave(str(tmp_path / "agent_0_lead.json"), subscriber)
     scheduler.register_lead(lead)
 
     async def scenario():
