@@ -38,6 +38,16 @@ def reply(tokens=10, content="finished"):
 def client(tmp_path, **config):
     return OpenCollab(tmp_path, model="unit-model", provider="openai", config=config)
 
+def _seed_history(monkeypatch):
+    original = agent_runtime.build_session
+
+    def seeded_session(**kwargs):
+        session = original(**kwargs)
+        session.messages = history()
+        return session
+
+    monkeypatch.setattr(agent_runtime, "build_session", seeded_session)
+
 def consumption(events):
     return [event for event in events if event.type == "usage"]
 
@@ -175,15 +185,9 @@ async def test_summary_spend_reaches_soft_cap_and_next_request_uses_host_extensi
 
 @pytest.mark.parametrize("failure", ["invalid_decision", "callback_error"])
 async def test_summary_budget_policy_failure_stops_before_fallback_answer(tmp_path, monkeypatch, failure):
-    original = agent_runtime.build_session
     events, snapshots = [], []
 
-    def seeded_session(**kwargs):
-        session = original(**kwargs)
-        session.messages = history()
-        return session
-
-    monkeypatch.setattr(agent_runtime, "build_session", seeded_session)
+    _seed_history(monkeypatch)
 
     def decide(snapshot):
         snapshots.append(snapshot)
@@ -221,14 +225,8 @@ async def test_usage_on_provider_exception_is_accounted_and_emitted_once(tmp_pat
             return await super().complete(messages, tools, **kwargs)
 
     if summary_error:
-        original = agent_runtime.build_session
 
-        def seeded_session(**kwargs):
-            session = original(**kwargs)
-            session.messages = history()
-            return session
-
-        monkeypatch.setattr(agent_runtime, "build_session", seeded_session)
+        _seed_history(monkeypatch)
     model = FailingModel()
     result = await client(tmp_path).agent(
         "finish", system_prompt="sys", tools=(), llm=model, trace=False,
@@ -430,14 +428,8 @@ async def test_run_control_obeys_single2_unbounded_configuration_priority(tmp_pa
 async def test_late_summary_accounting_retains_original_receiver(tmp_path, monkeypatch, late_error):
     events = []
     started, cancelled, release = asyncio.Event(), asyncio.Event(), asyncio.Event()
-    original = agent_runtime.build_session
 
-    def seeded_session(**kwargs):
-        session = original(**kwargs)
-        session.messages = history()
-        return session
-
-    monkeypatch.setattr(agent_runtime, "build_session", seeded_session)
+    _seed_history(monkeypatch)
 
     class ChargedError(RuntimeError):
         usage = Usage(input_tokens=13, output_tokens=24)

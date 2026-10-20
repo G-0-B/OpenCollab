@@ -14,30 +14,11 @@ from opencollab.application.submit_findings import (
     harvest_findings,
 )
 from opencollab.domain.session import SessionState
-from tests.support.tool_execution_test_support import build_sensor_use_case as _use_case
-from tests.tools.scout_test_support import _FakeState, _ReadStub
+from tests.tools.scout_test_support import ScriptedTool, _FakeState, _ReadStub, _run_one
 
 
 def run(coro):
     return asyncio.run(coro)
-
-class ScriptedTool:
-    def __init__(self, name, outputs):
-        self.name = name
-        self._outputs = list(outputs)
-        self.calls = []
-
-    async def execute_with_runtime(self, args, runtime):
-        self.calls.append(args)
-        return self._outputs.pop(0) if self._outputs else ""
-
-def _call(name, args, cid="c1"):
-    return {"id": cid, "function": {"name": name, "arguments": args}}
-
-def _run_one(state, tool, name, args):
-    result = run(_use_case(state, tool).process([_call(name, args)]))
-    result.apply_to(state)
-    return result
 
 def test_t1_ledger_accumulates_correct_cards_across_tool_calls():
     state = SessionState(messages=[])
