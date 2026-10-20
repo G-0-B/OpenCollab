@@ -4,22 +4,8 @@
 # Everything a role is told lives inline here: no sibling prompt files, no paths
 # to fix up, so the file can be copied anywhere and named on a command line.
 #
-# WHY THIS FILE EXISTS
-#
-# A declared topology is not a used one. Given the same three seats, the same
-# six edges and a card that describes the channel and leaves the choice open,
-# this model sends zero messages and does the whole task in seat 0 -- measured
-# over 84 runs, seven phrasings, 80 of them with `message_agent` never called
-# once. Delegation appears when the card *commands* it and blocks the
-# alternative in one sentence: "Do not apply the change yourself." Deleting only
-# that sentence drops handoff from 3/3 runs to 1/3, everything else held.
-#
-# So the Analyst below is commanded, not persuaded, and it keeps every working
-# tool while being commanded -- it could do the task alone, and does not.
-# Compliance is high, not total: expect the Analyst to still make an edit or two
-# of its own. If you want the version that leaves the choice to the model, use
-# `team.handoff.experiment.yaml`; if you want to know which sentence buys what,
-# the four rungs in `team.handoff.cmd-*.yaml` isolate them one at a time.
+# Design rationale and handoff studies are maintained in OpenCollab-Eval.
+# https://github.com/RISE-X-Lab/OpenCollab-Eval/blob/main/experiment/framework/collaborating-team.md
 #
 # HOW TO RUN IT
 #
@@ -27,9 +13,9 @@
 #                  or: client.team(prompt, config="configs/team.collab.yaml",
 #                                  prebuild_team=True, use_worktrees=True)
 #
-#   evaluation     gen_prediction_batch --arm team \
-#                      --team-config <path to this file>
-#                  (that path already passes prebuild_team=True.)
+#   evaluation     python -m opencollab_eval.generation.gen_prediction_batch \
+#                      --arm team --team-config <path to this file> ...
+#                  (OpenCollab-Eval already passes prebuild_team=True.)
 #
 # REQUIRES A PREBUILT ROSTER. `prebuild_team=True` seats all three roles before
 # the first model call; no role here holds `spawn_agent`, because on a prebuilt
